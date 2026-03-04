@@ -64,7 +64,6 @@ const tenantSchema = new Schema<ITenant>(
   { timestamps: true }
 );
 
-tenantSchema.index({ slug: 1 }, { unique: true });
 tenantSchema.index({ isActive: 1 });
 tenantSchema.index({ ownerEmail: 1 });
 

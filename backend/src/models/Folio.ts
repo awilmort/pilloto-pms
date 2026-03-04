@@ -16,7 +16,6 @@ const folioSchema = new Schema<IFolio>({
     ref: 'Reservation',
     required: true,
     unique: true,
-    index: true,
   },
   status: {
     type: String,

@@ -249,6 +249,21 @@ const connectDB = async () => {
   }
 };
 
+// Graceful shutdown — closes MongoDB connection before the process exits.
+// Triggered by: SIGTERM (Render/Docker stop), SIGINT (Ctrl+C in dev).
+const gracefulShutdown = (signal: string, server: ReturnType<typeof app.listen>) => {
+  console.log(`\n${signal} received — shutting down gracefully…`);
+  server.close(async () => {
+    try {
+      await mongoose.connection.close();
+      console.log('MongoDB connection closed.');
+    } catch (e) {
+      console.error('Error closing MongoDB connection:', e);
+    }
+    process.exit(0);
+  });
+};
+
 // Start server
 const startServer = async () => {
   await connectDB();
@@ -263,11 +278,14 @@ const startServer = async () => {
     console.warn('Media sync skipped:', e);
   }
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`📚 API Documentation: http://localhost:${PORT}/api/health`);
   });
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM', server));
+  process.on('SIGINT',  () => gracefulShutdown('SIGINT',  server));
 };
 
 startServer().catch(console.error);
