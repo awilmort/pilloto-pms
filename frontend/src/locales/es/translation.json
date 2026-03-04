@@ -1,0 +1,1467 @@
+{
+  "common": {
+    "language": "Idioma",
+    "english": "English",
+    "spanish": "Español",
+    "yes": "Sí",
+    "no": "No",
+    "guestDistribution": "Distribución de invitados",
+    "saving": "Guardando...",
+    "back": "Atrás",
+    "continue": "Continuar"
+  },
+  "nav": {
+    "home": "Inicio",
+    "rooms": "Hospedaje",
+    "daypass": "DayPass",
+    "events": "Eventos"
+  },
+  "auth": {
+    "welcome": "¡Bienvenido, {{name}}!",
+    "profile": "Perfil",
+    "myReservations": "Mis reservas",
+    "adminDashboard": "Panel de administración",
+    "logout": "Cerrar sesión",
+    "login": "Ingresar",
+    "signup": "Registrarse"
+  },
+  "daypass": {
+    "heroTitle": "Experiencia Day Pass",
+    "heroSubtitle": "Disfruta todas nuestras instalaciones por el día",
+    "bookTitle": "Reserva tu Day Pass",
+    "bookTitlePasaTarde": "Reserva tu PasaTarde",
+    "visitDate": "Fecha de visita",
+    "adults": "Adultos",
+    "children": "Niños (4-9 años)",
+    "infants": "Infantes (0-3 años)",
+    "contactInfo": "Información de contacto",
+    "firstName": "Nombre",
+    "lastName": "Apellido",
+    "email": "Correo electrónico",
+    "phone": "Número de teléfono",
+    "country": "País",
+    "specialRequests": "Solicitudes especiales",
+    "specialRequestsPlaceholder": "Requerimientos especiales, restricciones alimentarias, necesidades de accesibilidad, etc.",
+    "bookButton": "Reservar Day Pass - {{price}}",
+    "bookButtonPasaTarde": "Reservar PasaTarde - {{price}}",
+    "successDaypassTitle": "¡Day Pass reservado con éxito!",
+    "successPasaTardeTitle": "¡PasaTarde reservado con éxito!",
+    "successBody": "Tu {{product}} para {{date}} ha sido confirmado. ¡Esperamos darte la bienvenida en nuestro paraíso tropical!",
+    "productDayPass": "pase de día",
+    "productPasaTarde": "PasaTarde",
+    "viewReservations": "Ver mis reservas",
+    "bookAnotherDayPass": "Reservar otro Day Pass",
+    "bookAnotherPasaTarde": "Reservar otro PasaTarde",
+    "includedTitle": "Qué incluye",
+    "includedPool": "🏊 Acceso a la piscina",
+    "includedParking": "🅿️ Estacionamiento gratuito",
+    "includedWifi": "📶 WiFi gratuito",
+    "includedChangingRooms": "🚿 Vestidores",
+    "includedLounge": "🛏️ Áreas de descanso",
+    "includedAquaPark": "🏄 Acceso al Aqua Park",
+    "validityDayPass": "El DayPass es válido de 9:00 AM a 5:00 PM en la fecha seleccionada.",
+    "validityPasaTarde": "El PasaTarde es válido de 1:30 PM a 5:00 PM en la fecha seleccionada.",
+    "foodNotIncluded": "Comida no incluida",
+    "currentRate": "Tarifa actual: {{adult}} por adulto • {{child}} por niño",
+    "errors": {
+      "selectDate": "Por favor, selecciona una fecha de visita",
+      "nameRequired": "Por favor, ingresa tu nombre y apellido",
+      "emailRequired": "Por favor, ingresa tu correo electrónico",
+      "emailInvalid": "Por favor, ingresa un correo electrónico válido",
+      "phoneRequired": "Por favor, ingresa tu número de teléfono",
+      "adultsRequired": "Se requiere al menos un adulto",
+      "bookingFailed": "Error al reservar el day pass"
+    }
+  },
+  "switcher": {
+    "daypass": "DayPass",
+    "pasatarde": "PasaTarde"
+  },
+  "footer": {
+    "description": "Vive el paraíso en nuestro hotel y aqua park ecológico. Ubicados en la naturaleza, ofrecemos alojamientos de lujo y emocionantes actividades acuáticas para la escapada tropical perfecta.",
+    "quickLinks": "Accesos rápidos",
+    "roomsAndSuites": "Habitaciones y suites",
+    "contactUs": "Contáctanos",
+    "ourServices": "Nuestros servicios",
+    "services": {
+      "luxuryAccommodations": "Alojamientos de lujo",
+      "aquaPark": "Aqua Park y deportes acuáticos",
+      "spaWellness": "Spa y bienestar",
+      "fineDining": "Gastronomía",
+      "conferenceFacilities": "Salas de conferencia",
+      "eventPlanning": "Planificación de eventos"
+    },
+    "contactInformation": "Información de contacto",
+    "address": "Matachalupe, Higüey, República Dominicana, 23000",
+    "phone": "+1 (829) 599-9540",
+    "email": "info@pilloto.com",
+    "privacyPolicy": "Política de privacidad",
+    "termsOfService": "Términos del servicio",
+    "copyright": "© {{year}} Pilloto. Todos los derechos reservados."
+  }
+  ,
+  "admin": {
+    "title": "Administración",
+    "panelTitle": "Panel de administración",
+    "nav": {
+      "dashboard": "Panel",
+      "revenue": "Ingresos",
+      "schedule": "Agenda",
+      "accommodations": "Alojamientos",
+      "rooms": "Habitaciones",
+      "amenities": "Amenidades",
+      "eventTypes": "Tipos de eventos",
+      "wristbands": "Brazaletes",
+      "pricing": "Precios",
+      "reservations": "Reservas",
+      "users": "Usuarios",
+      "roles": "Roles",
+      "commissions": "Comisiones",
+      "media": "Medios",
+      "analytics": "Analítica",
+      "settings": "Configuración",
+      "companies": "Empresas",
+      "guests": "Huéspedes",
+      "creditAccounts": "Cuentas de crédito",
+      "cashierClosures": "Cierres de caja"
+    },
+    "revenue": {
+      "title": "Ingresos",
+      "filters": {
+        "from": "Desde",
+        "to": "Hasta",
+        "apply": "Aplicar"
+      },
+      "cards": {
+        "daypass": "DayPass",
+        "room": "Reservas de habitación",
+        "events": "Eventos (Total de huéspedes)",
+        "pasatarde": "PasaTarde (Total de huéspedes)"
+      },
+      "summary": {
+        "totalIncome": "Ingresos totales",
+        "totalIncomeCash": "Ingresos en efectivo",
+        "totalIncomeTransfers": "Ingresos por transferencias",
+        "totalIncomeCard": "Ingresos con tarjeta"
+      },
+      "pending": {
+        "title": "Pagos pendientes",
+        "table": {
+          "guest": "Huésped",
+          "type": "Tipo",
+          "endedOn": "Finalizado el",
+          "balanceDue": "Saldo pendiente"
+        }
+      },
+      "accountReceivable": {
+        "title": "Cuentas por cobrar",
+        "processPayment": "Procesar pago",
+        "reservationNumber": "Número de reserva",
+        "guestCompany": "Huésped + Empresa",
+        "balance": "Saldo",
+        "creditPaymentMethod": "Método de pago del crédito",
+        "creditPaymentDate": "Fecha de pago del crédito"
+      },
+      "typeLabels": {
+        "room": "Habitación",
+        "daypass": "DayPass",
+        "pasatarde": "PasaTarde",
+        "event": "Evento"
+      },
+      "breakdown": {
+        "guest": "Huésped",
+        "adults": "Adultos",
+        "adultPrice": "Precio adulto",
+        "children": "Niños",
+        "childPrice": "Precio niño",
+        "total": "Total",
+        "noRecords": "Sin registros"
+      }
+    },
+    "common": {
+      "accessDenied": "Acceso denegado. Debes ser administrador para ver esta página."
+    },
+    "rooms": {
+      "title": "Gestión de habitaciones",
+      "subtitle": "Administra las habitaciones y sus detalles",
+      "searchRooms": "Buscar habitaciones",
+      "roomType": "Tipo de habitación",
+      "allTypes": "Todos los tipos",
+      "types": {
+        "standard": "Estándar",
+        "deluxe": "Deluxe",
+        "suite": "Suite",
+        "villa": "Villa"
+      },
+      "view": {
+        "cards": "Tarjetas",
+        "table": "Tabla"
+      },
+      "roomsFound": "{{count}} habitaciones encontradas",
+      "table": {
+        "name": "Nombre",
+        "type": "Tipo",
+        "capacity": "Capacidad",
+        "price": "Precio",
+        "status": "Estado",
+        "actions": "Acciones"
+      },
+      "statusLabels": {
+        "active": "Activa",
+        "inactive": "Inactiva"
+      },
+      "empty": {
+        "title": "No se encontraron habitaciones",
+        "adjustFilters": "Intenta ajustar tu búsqueda o filtros",
+        "getStarted": "Comienza creando tu primera habitación"
+      },
+      "sections": {
+        "basicInfo": "Información básica",
+        "statusCondition": "Estado y condición",
+        "pricing": "Precios",
+        "features": "Características",
+        "amenities": "Amenidades",
+        "images": "Imágenes"
+      },
+      "form": {
+        "roomName": "Nombre de la habitación",
+        "description": "Descripción",
+        "status": "Estado",
+        "condition": "Condición",
+        "comment": "Comentario",
+        "commentPlaceholder": "Nota opcional (máx. 500 caracteres)",
+        "bedConfiguration": "Configuración de camas",
+        "bedPlaceholder": "Ej.: 1 cama King, 2 camas Twin",
+        "roomPrice": "Precio por noche ($/noche)",
+        "roomPriceHelper": "Opcional. Déjalo vacío para usar el precio estándar. Tiene prioridad sobre las reglas de precios para esta habitación.",
+        "adultCapacity": "Máx. adultos",
+        "adultCapacityHelper": "Número máximo de adultos que puede alojar esta habitación.",
+        "childrenCapacity": "Máx. niños",
+        "childrenCapacityHelper": "Número máximo de niños que puede alojar esta habitación.",
+        "addAmenity": "Agregar amenidad"
+      },
+      "condition": {
+        "clean": "Limpia",
+        "pending_cleanup": "Pendiente de limpieza"
+      },
+      "features": {
+        "wifi": "WiFi",
+        "airConditioning": "Aire acondicionado",
+        "miniBar": "Mini bar",
+        "balcony": "Balcón",
+        "oceanView": "Vista al mar",
+        "kitchenette": "Cocineta",
+        "jacuzzi": "Jacuzzi"
+      },
+      "images": {
+        "noneSelected": "No hay imágenes seleccionadas.",
+        "useSelectFromMedia": "Usa \"Seleccionar desde Medios\" para agregar."
+      },
+      "actions": {
+        "addNewRoom": "Añadir habitación",
+        "edit": "Editar",
+        "delete": "Eliminar",
+        "add": "Agregar",
+        "remove": "Eliminar",
+        "selectFromMedia": "Seleccionar desde Medios",
+        "cancel": "Cancelar",
+        "createRoom": "Crear habitación",
+        "updateRoom": "Actualizar habitación"
+      },
+      "dialog": {
+        "createTitle": "Crear nueva habitación",
+        "editTitle": "Editar habitación",
+        "deleteTitle": "Eliminar habitación",
+        "deletePrompt": "¿Seguro que quieres eliminar \"{{name}}\"? Esta acción no se puede deshacer."
+      },
+      "messages": {
+        "roomCreated": "Habitación creada exitosamente",
+        "roomUpdated": "Habitación actualizada exitosamente",
+        "saveFailed": "No se pudo guardar la habitación",
+        "roomDeleted": "Habitación eliminada exitosamente",
+        "deleteFailed": "No se pudo eliminar la habitación",
+        "loadFailed": "No se pudieron cargar las habitaciones"
+      }
+    }
+    ,
+    "roles": {
+      "title": "Gestión de roles",
+      "subtitle": "Crea, edita, elimina roles y asigna permisos",
+      "loading": "Cargando roles...",
+      "actions": {
+        "createRole": "Crear rol",
+        "edit": "Editar",
+        "delete": "Eliminar",
+        "cancel": "Cancelar",
+        "save": "Guardar",
+        "create": "Crear"
+      },
+      "table": {
+        "name": "Nombre",
+        "description": "Descripción",
+        "permissions": "Permisos",
+        "actions": "Acciones"
+      },
+      "empty": "No se encontraron roles.",
+      "dialog": {
+        "editTitle": "Editar rol",
+        "createTitle": "Crear rol"
+      },
+      "form": {
+        "name": "Nombre",
+        "description": "Descripción"
+      },
+      "messages": {
+        "loadFailed": "No se pudieron cargar los roles",
+        "deleteFailed": "No se pudo eliminar el rol",
+        "updateFailed": "No se pudo actualizar el rol",
+        "createFailed": "No se pudo crear el rol"
+      },
+      "permissionLabels": {
+        "adminAccess": "Acceso de administración (general)",
+        "reservationsAssignRoom": "Reservas: Asignar habitación",
+        "reservationsManagePayments": "Reservas: Gestionar pagos",
+        "reservationsPriceUpdate": "Reservas: Actualización de precios",
+        "reservationsAmountUpdate": "Reservas: Actualización de precio total",
+        "reservationsCheckIn": "Reservas: Check-in",
+        "reservationsCancel": "Reservas: Cancelar",
+        "wristbandsView": "Pulseras: Ver",
+        "wristbandsManage": "Pulseras: Gestionar",
+        "creditAccountsCreate": "Cuentas de crédito: Crear",
+        "creditAccountsEdit": "Cuentas de crédito: Editar",
+        "cashier": "Cajero",
+        "salesman": "Vendedor"
+      }
+    },
+    
+    "commissions": {
+      "title": "Comisiones",
+      "filters": {
+        "from": "Desde",
+        "to": "Hasta",
+        "name": "Nombre",
+        "email": "Correo",
+        "apply": "Aplicar"
+      },
+      "table": {
+        "name": "Nombre",
+        "email": "Correo",
+        "totalGuests": "Total de huéspedes",
+        "bookings": "Reservas"
+      }
+    }
+    ,
+    "eventTypes": {
+      "title": "Tipos de eventos",
+      "actions": {
+        "newEventType": "Nuevo tipo de evento",
+        "cancel": "Cancelar",
+        "save": "Guardar",
+        "create": "Crear"
+      },
+      "table": {
+        "identifier": "Identificador",
+        "title": "Título",
+        "priceFrom": "Precio desde",
+        "maxGuests": "Máx. huéspedes",
+        "features": "Características",
+        "active": "Activo",
+        "actions": "Acciones"
+      },
+      "empty": "No se encontraron tipos de eventos",
+      "dialog": {
+        "createTitle": "Crear tipo de evento",
+        "editTitle": "Editar tipo de evento",
+        "deletePrompt": "¿Eliminar este tipo de evento?"
+      },
+      "form": {
+        "identifier": "Identificador",
+        "title": "Título",
+        "description": "Descripción",
+        "features": "Características (separadas por coma)",
+        "priceFrom": "Precio desde",
+        "maxGuests": "Máx. huéspedes",
+        "maxChildren": "Máx. niños",
+        "maxAdults": "Máx. adultos (opcional)",
+        "maxAdultsHelper": "Deja en blanco para no limitar el número de adultos",
+        "active": "Activo"
+      },
+      "messages": {
+        "loadFailed": "No se pudieron cargar los tipos de eventos",
+        "saveFailed": "No se pudo guardar el tipo de evento",
+        "deleteFailed": "No se pudo eliminar el tipo de evento"
+      }
+    }
+    ,
+    "wristbands": {
+      "title": "Control de brazaletes",
+      "deliveryDate": "Fecha de entrega",
+      "recipient": "Recibido por",
+      "categoriesTitle": "Categorías",
+      "categories": {
+        "daypassAdults": "DayPass Adultos",
+        "daypassChildren": "DayPass Niños",
+        "accommodations": "Hospedaje",
+        "pasatarde": "PasaTarde"
+      },
+      "summary": {
+        "available": "Disponibles",
+        "used": "Usadas",
+        "total": "Total"
+      },
+      "notes": "Notas",
+      "actions": {
+        "registerDelivery": "Registrar entrega",
+        "addDelivery": "Añadir entrega"
+      },
+      "messages": {
+        "createSuccess": "Entrega de brazaletes registrada exitosamente",
+        "createFailed": "No se pudo registrar la entrega de brazaletes",
+        "updateSuccess": "Entrega de brazaletes actualizada exitosamente",
+        "updateFailed": "No se pudo actualizar la entrega de brazaletes",
+        "deleteSuccess": "Entrega de brazaletes eliminada",
+        "deleteFailed": "No se pudo eliminar la entrega de brazaletes",
+        "confirmDelete": "¿Eliminar esta entrega de brazaletes?"
+      }
+    }
+    ,
+    "amenities": {
+      "title": "Gestión de amenidades",
+      "subtitle": "Administra las amenidades y características del resort",
+      "loading": "Cargando amenidades...",
+      "inactive": "Inactiva",
+      "order": "Orden",
+      "actions": {
+        "addNewAmenity": "Añadir amenidad",
+        "addFirstAmenity": "Añadir primera amenidad",
+        "edit": "Editar",
+        "delete": "Eliminar",
+        "cancel": "Cancelar",
+        "createAmenity": "Crear amenidad",
+        "updateAmenity": "Actualizar amenidad",
+        "selectFromMediaLibrary": "Seleccionar desde la biblioteca de medios"
+      },
+      "form": {
+        "name": "Nombre de la amenidad",
+        "description": "Descripción",
+        "image": "Imagen de la amenidad",
+        "category": "Categoría",
+        "displayOrder": "Orden de visualización",
+        "active": "Activa"
+      },
+      "categories": {
+        "accommodation": "Alojamiento",
+        "dining": "Gastronomía",
+        "recreation": "Recreación",
+        "wellness": "Bienestar",
+        "business": "Negocios",
+        "general": "General"
+      },
+      "empty": {
+        "title": "No se encontraron amenidades",
+        "getStarted": "Comienza creando tu primera amenidad"
+      },
+      "dialog": {
+        "createTitle": "Crear nueva amenidad",
+        "editTitle": "Editar amenidad",
+        "deleteTitle": "Eliminar amenidad",
+        "deletePrompt": "¿Seguro que quieres eliminar \"{{name}}\"? Esta acción no se puede deshacer."
+      },
+      "messages": {
+        "created": "Amenidad creada exitosamente",
+        "updated": "Amenidad actualizada exitosamente",
+        "deleted": "Amenidad eliminada exitosamente",
+        "loadFailed": "No se pudieron cargar las amenidades",
+        "saveFailed": "No se pudo guardar la amenidad",
+        "deleteFailed": "No se pudo eliminar la amenidad"
+      },
+      "errors": {
+        "nameDescriptionRequired": "El nombre y la descripción son obligatorios",
+        "imageRequired": "La imagen es obligatoria para nuevas amenidades"
+      }
+    }
+    ,
+    "accommodations": {
+      "title": "Gestión de alojamientos",
+      "subtitle": "Gestiona el inventario y las asignaciones de alojamientos",
+      "loading": "Cargando alojamientos...",
+      "filters": {
+        "statusLabel": "Filtrar por estado",
+        "search": "Buscar nombre/estado",
+        "clear": "Limpiar"
+      },
+      "table": {
+        "name": "Nombre",
+        "type": "Tipo",
+        "status": "Estado",
+        "availability": "Disponibilidad",
+        "assigned": "Asignado",
+        "actions": "Acciones"
+      },
+      "statusLabels": {
+        "active": "Activo",
+        "inactive": "Inactivo"
+      },
+      "availabilityLabels": {
+        "available": "Disponible",
+        "booked": "Reservado",
+        "occupied": "Ocupado",
+        "not_available": "No disponible"
+      },
+      "reservationStatusLabels": {
+        "arriving": "Llegadas",
+        "departing": "Salidas",
+        "in_progress": "En curso"
+      },
+      "empty": {
+        "title": "No se encontraron alojamientos",
+        "adjustFilters": "Intenta ajustar tu búsqueda o filtros",
+        "getStarted": "Comienza creando tu primer alojamiento"
+      },
+      "actions": {
+        "assign": "Asignar",
+        "unassign": "Desasignar",
+        "edit": "Editar",
+        "delete": "Eliminar"
+      },
+      "messages": {
+        "loadFailed": "No se pudieron cargar los alojamientos",
+        "saveFailed": "No se pudo guardar el alojamiento",
+        "updateSuccess": "Alojamiento actualizado exitosamente",
+        "deleteSuccess": "Alojamiento eliminado exitosamente",
+        "operationFailed": "La operación falló"
+      }
+    }
+    ,
+    "users": {
+      "title": "Gestión de usuarios",
+      "subtitle": "Ver y administrar usuarios registrados",
+      "loading": "Cargando usuarios...",
+      "table": {
+        "name": "Nombre",
+        "email": "Correo",
+        "phone": "Teléfono",
+        "role": "Rol",
+        "actions": "Acciones"
+      },
+      "actions": {
+        "createUser": "Crear usuario",
+        "edit": "Editar",
+        "delete": "Eliminar",
+        "save": "Guardar",
+        "cancel": "Cancelar"
+      },
+      "form": {
+        "firstName": "Nombre",
+        "lastName": "Apellido",
+        "email": "Correo",
+        "phone": "Teléfono",
+        "role": "Rol",
+        "password": "Contraseña"
+      },
+      "dialog": {
+        "editTitle": "Editar usuario",
+        "createTitle": "Crear usuario",
+        "deleteConfirmTitle": "Confirmar eliminación",
+        "deleteConfirmPrompt": "¿Seguro que quieres eliminar a {{name}}? Esta acción no se puede deshacer."
+      },
+      "messages": {
+        "loadFailed": "No se pudieron cargar los usuarios",
+        "deleteFailed": "No se pudo eliminar el usuario",
+        "updateFailed": "No se pudo actualizar el usuario",
+        "createFailed": "No se pudo crear el usuario",
+        "noUsers": "No se encontraron usuarios."
+      }
+    }
+    ,
+    "media": {
+      "title": "Biblioteca de medios",
+      "loading": "Cargando medios...",
+      "buttons": {
+        "upload": "Subir",
+        "syncUploads": "Sincronizar subidas",
+        "cancel": "Cancelar",
+        "save": "Guardar"
+      },
+      "labels": {
+        "featured": "Destacado",
+        "public": "Público",
+        "private": "Privado",
+        "category": "Categoría",
+        "tags": "Etiquetas (separadas por coma)",
+        "title": "Título",
+        "description": "Descripción",
+        "filename": "Nombre de archivo (único, sin extensión)",
+        "filenameHelper": "Solo letras, números, - y _; la extensión se mantendrá"
+      },
+      "categories": {
+        "general": "General",
+        "rooms": "Habitaciones",
+        "aquapark": "Aqua Park",
+        "facilities": "Instalaciones",
+        "dining": "Gastronomía",
+        "activities": "Actividades"
+      },
+      "empty": {
+        "title": "Aún no hay medios subidos",
+        "subtitle": "Sube tu primera imagen o video",
+        "ctaUpload": "Subir"
+      },
+      "dialog": {
+        "uploadTitle": "Subir medios",
+        "editTitle": "Editar medios"
+      },
+      "messages": {
+        "loadFailed": "No se pudieron cargar los medios",
+        "uploadFailed": "No se pudo subir",
+        "updateFailed": "No se pudo actualizar",
+        "deleteFailed": "No se pudo eliminar",
+        "uploaded": "Subido exitosamente",
+        "updated": "Actualizado exitosamente",
+        "deleted": "Eliminado exitosamente",
+        "syncComplete": "Sincronización completa",
+        "syncFailed": "La sincronización falló"
+      },
+      "confirm": {
+        "deleteItem": "¿Eliminar este elemento de medios?"
+      }
+    }
+    ,
+    "reservations": {
+      "title": "Gestión de reservas",
+      "subtitle": "Administra las reservas y asignaciones de habitaciones",
+      "loading": "Cargando reservas...",
+      "na": "N/D",
+      "nights": "noches",
+      "statusLabels": {
+        "pending": "Pendiente",
+        "confirmed": "Confirmada",
+        "completed": "Completada",
+        "cancelled": "Cancelada",
+        "checked_in": "Check-In",
+        "checked_out": "Check-Out"
+      },
+      "paymentStatus": {
+        "pending": "Pendiente",
+        "paid": "Pagado",
+        "refunded": "Reembolsado",
+        "failed": "Fallido"
+      },
+      "typeLabels": {
+        "room": "Habitación",
+        "daypass": "DayPass",
+        "pasatarde": "PasaTarde",
+        "event": "Evento"
+      },
+      "filters": {
+        "statusLabel": "Filtrar por estado",
+        "typeLabel": "Filtrar por tipo",
+        "status": {
+          "all": "Todas las reservas"
+        },
+        "types": {
+          "all": "Todos los tipos"
+        },
+        "search": "Buscar nombre/correo/tipo/código",
+        "from": "Desde",
+        "to": "Hasta",
+        "today": "Hoy",
+        "clear": "Limpiar"
+      },
+      "table": {
+        "guest": "Huésped",
+        "type": "Tipo",
+        "dates": "Fechas",
+        "guests": "Huéspedes",
+        "status": "Estado",
+        "assignedRoom": "Habitación asignada",
+        "total": "Total",
+        "payment": "Pago",
+        "actions": "Acciones"
+      },
+      "actions": {
+        "viewDetails": "Ver detalles",
+        "editReservation": "Editar reserva",
+        "removeReservation": "Eliminar reserva",
+        "checkin": "Check-In",
+        "checkout": "Check-Out",
+        "cancel": "Cancelar",
+        "saveChanges": "Guardar cambios",
+        "newReservation": "Nueva reserva"
+      },
+      "dialog": {
+        "editTitle": "Editar reserva",
+        "deletePrompt": "Esto eliminará permanentemente la reserva. ¿Continuar?"
+      },
+      "form": {
+        "guest": "Huésped",
+        "checkinDate": "Fecha de check-in",
+        "checkoutDate": "Fecha de check-out",
+        "actualCheckin": "Check-In real",
+        "actualCheckout": "Check-Out real",
+        "assignedRoom": "Habitación asignada",
+        "status": "Estado",
+        "adults": "Adultos",
+        "children": "Niños",
+        "infants": "Infantes",
+        "adultPrice": "Precio adulto (por persona)",
+        "childrenPrice": "Precio niños (por persona)",
+        "totalPrice": "Precio total",
+        "calculatedTotal": "Calculado automáticamente",
+        "manualOverride": "sobreescrito manualmente",
+        "noPricingRule": "No hay tarifa configurada para esta fecha",
+        "email": "Correo",
+        "phone": "Teléfono",
+        "specialRequests": "Peticiones especiales",
+        "firstName": "Nombre",
+        "lastName": "Apellido",
+        "checkIn": "Fecha de check-in",
+        "checkOut": "Fecha de check-out"
+      },
+      "create": {
+        "step1Title": "Fechas y huéspedes",
+        "step2Title": "Datos del huésped",
+        "stepDates": "Fechas y huéspedes",
+        "stepGuest": "Datos del huésped",
+        "pickServicePrompt": "Selecciona el tipo de reserva que deseas crear.",
+        "selectDateRange": "Selecciona las fechas",
+        "guestCount": "Huéspedes",
+        "checkAvailability": "Verificar disponibilidad",
+        "roomsAvailable": "{{count}} habitación(es) disponible(s) para tu selección.",
+        "noRoomsAvailable": "No hay habitaciones disponibles para las fechas y cantidad de huéspedes seleccionados. Intenta otras fechas o menos huéspedes.",
+        "roomDesc": "Estadía de varias noches",
+        "daypassDesc": "Día completo en piscina e instalaciones",
+        "pasatardeDesc": "Experiencia de la tarde",
+        "eventDesc": "Evento o celebración privada",
+        "corporateBooking": "Reserva corporativa",
+        "company": "Empresa",
+        "companyRequired": "Por favor selecciona una empresa para la reserva corporativa.",
+        "corporatePriceApplied": "Se ha aplicado una tarifa corporativa para {{company}}.",
+        "guestPriceApplied": "Se ha aplicado una tarifa especial para {{email}}.",
+        "summaryTitle": "Resumen de reserva"
+      },
+      "none": "Ninguna",
+      "tooltips": {
+        "checkin": "Registrar check-in de esta reserva",
+        "assignBeforeCheckin": "Asigna una habitación antes del check-in",
+        "checkinDateGuard": "El check-in solo está permitido en/tras la fecha de check-in y antes del check-out"
+      },
+      "messages": {
+        "loadFailed": "No se pudieron cargar las reservas. Inténtalo nuevamente.",
+        "removed": "Reserva eliminada",
+        "removeFailed": "No se pudo eliminar la reserva",
+        "assignBeforeCheckin": "Asigna una habitación antes del check-in",
+        "checkinDateGuard": "El check-in no está disponible para la fecha actual",
+        "checkinSuccess": "Check-In realizado exitosamente",
+        "checkoutSuccess": "Check-Out realizado exitosamente",
+        "operationFailed": "La operación falló"
+      },
+      "empty": {
+        "title": "No se encontraron reservas",
+        "initial": "Aún no se han realizado reservas.",
+        "filtered": "No se encontraron reservas {{status}}."
+      },
+      "checkin": {
+        "title": "Check-In",
+        "provideId": "Proporciona el documento de identificación del huésped para confirmar el check-in.",
+        "idDocument": "Documento de identificación",
+        "idRequired": "Se requiere el documento de identificación",
+        "confirm": "Confirmar Check-In"
+      },
+      "checkout": {
+        "title": "Check-Out",
+        "confirm": "Confirma que el huésped está realizando el check-out.",
+        "confirmButton": "Confirmar Check-Out"
+      },
+      "loadMore": "Cargar más",
+      "loadingMore": "Cargando...",
+      "details": {
+        "title": "Detalles de la reserva",
+        "deleteConfirm": "Esto eliminará permanentemente la reserva. ¿Continuar?",
+        "delete": "Eliminar reserva",
+        "back": "Volver a reservas",
+        "section": {
+          "reservation": "Reserva",
+          "payment": "Pago",
+          "operational": "Operativo",
+          "event": "Evento",
+          "room": "Habitación",
+          "specialRequests": "Peticiones especiales",
+          "payments": "Pagos"
+        },
+        "labels": {
+          "type": "Tipo",
+          "dates": "Fechas",
+          "guests": "Huéspedes",
+          "reservationCode": "Código de reserva",
+          "status": "Estado",
+          "total": "Total",
+          "totalPayments": "Pagos totales",
+          "pendingBalance": "Saldo pendiente",
+          "actualCheckIn": "Check-In real",
+          "actualCheckOut": "Check-Out real",
+          "eventType": "Tipo de evento",
+          "description": "Descripción",
+          "assignedRoom": "Habitación asignada"
+        },
+        "table": {
+          "date": "Fecha",
+          "method": "Método",
+          "amount": "Monto",
+          "note": "Nota",
+          "actions": "Acciones",
+          "noPayments": "No hay pagos registrados"
+        },
+        "actions": {
+          "addPayment": "Agregar pago",
+          "edit": "Editar",
+          "delete": "Eliminar",
+          "cancel": "Cancelar",
+          "saveChanges": "Guardar cambios"
+        },
+        "paymentDialog": {
+          "titleAdd": "Agregar pago",
+          "titleEdit": "Editar pago",
+          "amount": "Monto",
+          "method": "Método",
+          "methodSelect": "Seleccionar método",
+          "methodCash": "Efectivo",
+          "methodCard": "Tarjeta",
+          "methodTransfer": "Transferencia",
+          "noteOptional": "Nota (opcional)",
+          "pendingBalance": "Saldo pendiente: {{amount}}",
+          "afterPayment": "Después del pago: {{amount}}",
+          "recorded": "Pago registrado",
+          "failed": "No se pudo registrar el pago",
+          "blockedForCancelled": "Los pagos están bloqueados para reservas canceladas"
+        },
+        "errors": {
+          "deletePaymentConfirm": "¿Eliminar este pago?",
+          "deletePaymentFailed": "No se pudo eliminar el pago",
+          "deleteReservationFailed": "No se pudo eliminar la reserva"
+        },
+        "status": {
+          "pending": "Pendiente",
+          "confirmed": "Confirmada",
+          "cancelled": "Cancelada",
+          "completed": "Completada",
+          "checked-in": "Check-In",
+          "checked-out": "Check-Out"
+        }
+      }
+    },
+    "schedule": {
+      "title": "Resumen de agenda",
+      "today": "Hoy",
+      "tomorrow": "Mañana",
+      "cards": {
+        "totalPeople": "Total de personas",
+        "adults": "Adultos",
+        "children": "Niños",
+        "infants": "Infantes"
+      },
+      "sections": {
+        "daypass": "DayPass ({{count}})",
+        "accommodations": "Alojamientos ({{count}})",
+        "events": "Eventos ({{count}})"
+      },
+      "table": {
+        "guest": "Huésped",
+        "room": "Habitación",
+        "totalGuests": "Total de huéspedes"
+      },
+      "empty": {
+        "daypass": "No hay reservas de daypass",
+        "rooms": "No hay reservas de habitaciones",
+        "events": "No hay reservas de eventos"
+      },
+      "notAssigned": "Sin asignar"
+    },
+    "settings": {
+      "title": "Configuración",
+      "subtitle": "Administra la configuración de la aplicación y los servicios activos",
+      "tabs": {
+        "services": "Servicios",
+        "sections": "Secciones",
+        "cashier": "Cajero"
+      },
+      "services": {
+        "heading": "Servicios disponibles",
+        "description": "Activa o desactiva los servicios que los huéspedes pueden reservar.",
+        "daypass": "DayPass",
+        "accommodation": "Hospedaje",
+        "pasatarde": "PasaTarde",
+        "event": "Evento",
+        "pricingModelLabel": "Modelo de precios",
+        "pricingModel": {
+          "perGuest": "Precio por huésped",
+          "perRoom": "Precio por habitación"
+        }
+      },
+      "sections": {
+        "heading": "Secciones del menú",
+        "description": "Elige qué secciones aparecen en el menú lateral del panel de administración."
+      },
+      "cashier": {
+        "heading": "Turno de caja",
+        "description": "Configura la hora de apertura y cierre del turno de caja para los cierres.",
+        "openTime": "Hora de apertura de caja",
+        "closeTime": "Hora de cierre de caja"
+      }
+    },
+    "cashierClosures": {
+      "title": "Cierres de caja",
+      "generate": "Generar cierre",
+      "periodStart": "Inicio de período",
+      "periodEnd": "Fin de período",
+      "actions": "Acciones",
+      "print": "Imprimir cierre",
+      "paymentsByMethod": "Pagos por método",
+      "cashDistribution": "Distribución de efectivo",
+      "cashCounted": "Efectivo contado",
+      "noData": "No se encontraron cierres"
+    },
+    "dashboard": {
+      "title": "Panel de administración",
+      "welcome": "¡Bienvenido de nuevo, {{name}}! Esto es lo que está sucediendo en Pilloto.",
+      "stats": {
+        "totalRooms": "Total de habitaciones",
+        "reservations": "Reservas",
+        "totalUsers": "Total de usuarios",
+        "monthlyRevenue": "Ingresos mensuales",
+        "occupancyRate": "Tasa de ocupación"
+      },
+      "quickActions": {
+        "title": "Acciones rápidas",
+        "manageRooms": "Gestionar habitaciones",
+        "manageReservations": "Gestionar reservas",
+        "manageAmenities": "Gestionar amenidades",
+        "manageUsers": "Gestionar usuarios",
+        "viewReports": "Ver reportes"
+      },
+      "roomsOverview": {
+        "title": "Resumen de habitaciones",
+        "table": {
+          "roomName": "Nombre de la habitación",
+          "type": "Tipo",
+          "status": "Estado"
+        }
+      },
+      "recentReservations": {
+        "title": "Reservas recientes",
+        "guestFallback": "Huésped",
+        "table": {
+          "guest": "Huésped",
+          "checkin": "Check-in",
+          "status": "Estado",
+          "total": "Total"
+        }
+      }
+    }
+    },
+    "schedule": {
+      "title": "Resumen de agenda",
+      "today": "Hoy",
+      "tomorrow": "Mañana",
+      "cards": {
+        "totalPeople": "Total de personas",
+        "adults": "Adultos",
+        "children": "Niños",
+        "infants": "Infantes"
+      },
+      "sections": {
+        "daypass": "DayPass ({{count}})",
+        "accommodations": "Alojamientos ({{count}})",
+        "events": "Eventos ({{count}})"
+      },
+      "table": {
+        "guest": "Huésped",
+        "room": "Habitación",
+        "totalGuests": "Total de huéspedes"
+      },
+      "empty": {
+        "daypass": "No hay reservas de daypass",
+        "rooms": "No hay reservas de habitaciones",
+        "events": "No hay reservas de eventos"
+      },
+      "notAssigned": "Sin asignar"
+    },
+    "pricing": {
+    "title": "Gestión de precios",
+    "actions": {
+      "newRule": "Nueva regla",
+      "edit": "Editar",
+      "delete": "Eliminar",
+      "cancel": "Cancelar",
+      "save": "Guardar"
+    },
+    "table": {
+      "service": "Servicio",
+      "category": "Categoría",
+      "validity": "Validez",
+      "dateRange": "Rango de fechas",
+      "adult": "Adulto",
+      "children": "Niños",
+      "roomPrice": "Precio por habitación",
+      "active": "Activo",
+      "actions": "Acciones"
+    },
+    "serviceLabels": {
+      "daypass": "DayPass",
+      "pasatarde": "PasaTarde",
+      "hospedaje": "Hospedaje"
+    },
+    "categoryLabels": {
+      "standard": "Estándar",
+      "special": "Especial"
+    },
+    "validityLabels": {
+      "everyday": "Todos los días",
+      "weekdays": "Días de semana",
+      "weekend": "Fin de semana",
+      "custom": "Personalizado"
+    },
+    "form": {
+      "service": "Servicio",
+      "category": "Categoría",
+      "validity": "Validez",
+      "startDate": "Fecha de inicio",
+      "endDate": "Fecha de fin",
+      "adultPrice": "Precio adulto",
+      "childrenPrice": "Precio niños",
+      "roomPrice": "Precio por habitación",
+      "active": "Activo"
+    },
+    "messages": {
+      "loadFailed": "No se pudieron cargar los precios",
+      "saveFailed": "No se pudo guardar el precio"
+    },
+    "errors": {
+      "specialRequiresCustom": "La categoría especial requiere validez Personalizada",
+      "specialRequiresRange": "El precio especial requiere un rango de fechas"
+    },
+    "dialog": {
+      "deletePrompt": "¿Eliminar esta regla de precios?",
+      "newTitle": "Nueva regla de precios",
+      "editTitle": "Editar regla de precios"
+    },
+    "empty": "Aún no hay reglas de precios"
+    }
+  ,
+  "pages": {
+    "rooms": {
+      "loadingAmenities": "Cargando amenidades...",
+      "headerTitle": "Nuestros alojamientos",
+      "headerSubtitle": "Descubre nuestra oferta ecológica: desde habitaciones acogedoras hasta lujosas villas",
+      "headerBookNow": "Reserva tu estadía ahora",
+      "availableTitle": "Habitaciones disponibles",
+      "availableSubtitle": "Elige entre alojamientos cómodos y eco-amigables",
+      "bookThisRoom": "Reservar esta habitación",
+      "includedTitle": "Qué incluye",
+      "includedSubtitle": "Disfruta estas increíbles amenidades y servicios durante tu estadía en Pilloto",
+      "moreAmenities": "¡Y {{count}} amenidades increíbles más!"
+    },
+    "reservations": {
+      "fetchError": "Error al obtener las reservas",
+      "cancelError": "Error al cancelar la reserva",
+      "loginPrompt": "Inicia sesión para ver tus reservas",
+      "loading": "Cargando tus reservas...",
+      "title": "Mis reservas",
+      "subtitle": "Administra tus reservas y consulta los detalles",
+      "tabs": {
+        "all": "Todas",
+        "pending": "Pendientes",
+        "confirmed": "Confirmadas",
+        "completed": "Completadas",
+        "cancelled": "Canceladas"
+      },
+      "cancelTitle": "Cancelar reserva",
+      "cancelPrompt": "¿Seguro que quieres cancelar esta reserva?",
+      "cancelReason": "Motivo de cancelación (opcional)",
+      "keepReservation": "Mantener reserva",
+      "cancelButton": "Cancelar reserva",
+      "empty": "No se encontraron reservas",
+      "browseRooms": "Ver habitaciones"
+    },
+    "events": {
+      "heroTitle": "Eventos inolvidables",
+      "heroSubtitle": "Crea recuerdos mágicos en Pilloto",
+      "bookEvent": "Reservar evento",
+      "eventType": "Tipo de evento",
+      "whyChooseTitle": "¿Por qué elegir nuestro lugar?",
+      "cateringTitle": "Catering premium",
+      "cateringBody": "Experiencias culinarias exquisitas con chefs galardonados y menús personalizables",
+      "servicesTitle": "Servicios profesionales",
+      "servicesBody": "Fotografía, decoración, música y todos los servicios para un evento perfecto",
+      "paradiseTitle": "Paraíso tropical",
+      "paradiseBody": "Ubicación frente al mar con jardines exuberantes y amenidades de clase mundial"
+    },
+    "profile": {
+      "title": "Mi perfil",
+      "personalInfo": "Información personal",
+      "firstName": "Nombre",
+      "lastName": "Apellido",
+      "email": "Correo",
+      "phone": "Teléfono",
+      "saveChanges": "Guardar cambios",
+      "changePassword": "Cambiar contraseña",
+      "currentPassword": "Contraseña actual",
+      "newPassword": "Nueva contraseña",
+      "updatePassword": "Actualizar contraseña",
+      "updateSuccess": "Perfil actualizado exitosamente",
+      "updateError": "Error al actualizar el perfil",
+      "passwordSuccess": "Contraseña cambiada exitosamente",
+      "passwordError": "Error al cambiar la contraseña"
+    },
+    "login": {
+      "title": "Bienvenido de nuevo",
+      "subtitle": "Inicia sesión en tu cuenta de Pilloto",
+      "error": "Error de inicio de sesión. Inténtalo nuevamente.",
+      "emailLabel": "Correo electrónico",
+      "passwordLabel": "Contraseña",
+      "validation": {
+        "emailRequired": "El correo es obligatorio",
+        "emailInvalid": "Por favor ingresa un correo válido",
+        "passwordRequired": "La contraseña es obligatoria",
+        "passwordMin": "La contraseña debe tener al menos 6 caracteres"
+      },
+      "signingIn": "Iniciando sesión...",
+      "signIn": "Iniciar sesión",
+      "noAccount": "¿No tienes cuenta?",
+      "signUpHere": "Regístrate aquí",
+      "forgotPassword": "¿Olvidaste tu contraseña?"
+    },
+    "register": {
+      "title": "Únete a Pilloto",
+      "subtitle": "Crea tu cuenta para empezar a reservar estadías increíbles",
+      "firstName": "Nombre",
+      "lastName": "Apellido",
+      "email": "Correo electrónico",
+      "phoneOptional": "Teléfono (opcional)",
+      "password": "Contraseña",
+      "confirmPassword": "Confirmar contraseña",
+      "creatingAccount": "Creando cuenta...",
+      "createAccount": "Crear cuenta",
+      "alreadyHaveAccount": "¿Ya tienes cuenta?",
+      "signInHere": "Inicia sesión aquí",
+      "termsIntro": "Al crear una cuenta aceptas nuestros",
+      "and": "y",
+      "errors": {
+        "passwordsMismatch": "Las contraseñas no coinciden",
+        "registrationFailed": "Error de registro. Inténtalo nuevamente."
+      },
+      "validation": {
+        "firstNameRequired": "El nombre es obligatorio",
+        "firstNameMin": "El nombre debe tener al menos 2 caracteres",
+        "lastNameRequired": "El apellido es obligatorio",
+        "lastNameMin": "El apellido debe tener al menos 2 caracteres",
+        "emailRequired": "El correo es obligatorio",
+        "emailInvalid": "Por favor ingresa un correo válido",
+        "phoneInvalid": "Por favor ingresa un teléfono válido",
+        "passwordRequired": "La contraseña es obligatoria",
+        "passwordMin": "La contraseña debe tener al menos 8 caracteres",
+        "passwordPattern": "La contraseña debe tener al menos una mayúscula, una minúscula y un número",
+        "confirmRequired": "Confirma tu contraseña",
+        "passwordsMustMatch": "Las contraseñas deben coincidir"
+      }
+    }
+    ,
+    "emailVerification": {
+      "verifyingTitle": "Verificando tu correo...",
+      "verifyingBody": "Por favor espera mientras verificamos tu dirección de correo.",
+      "successTitle": "¡Correo verificado con éxito!",
+      "successWelcome": "Bienvenido a Pilloto",
+      "successInfo": "🎉 ¡Tu cuenta ya está activa! Puedes comenzar a realizar reservas de nuestras habitaciones y pases de día para el aqua park.",
+      "redirectInfo": "Te redirigiremos a la página de habitaciones en unos segundos...",
+      "exploreRooms": "Explorar habitaciones",
+      "errorTitle": "La verificación falló",
+      "errorHints": "Esto puede ocurrir si:\n• El enlace de verificación ha expirado (los enlaces expiran después de 24 horas)\n• El enlace ya fue utilizado\n• El enlace es inválido o está dañado",
+      "errorNext": "Intenta registrarte nuevamente o contacta al soporte si el problema persiste.",
+      "backToLogin": "Volver al inicio de sesión"
+    }
+    ,
+    "forgotPassword": {
+      "title": "¿Olvidaste tu contraseña?",
+      "subtitle": "Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.",
+      "emailLabel": "Correo electrónico",
+      "emailPlaceholder": "Ingresa tu correo electrónico",
+      "sendButton": "Enviar enlace de restablecimiento",
+      "backToLogin": "Volver al inicio de sesión",
+      "rememberPrompt": "¿Recordaste tu contraseña?",
+      "signInHere": "Ingresa aquí",
+      "successTitle": "Revisa tu correo",
+      "successSubtitle": "¡Se enviaron las instrucciones para restablecer la contraseña!",
+      "sentInfo": "Si existe una cuenta con el correo {{email}}, recibirás un enlace para restablecer tu contraseña en breve.",
+      "importantInfo": "Importante: Por seguridad, el enlace de restablecimiento de contraseña expirará en 1 hora. Si no ves el correo, revisa tu bandeja de spam.",
+      "errors": {
+        "emailRequired": "El correo es obligatorio",
+        "emailInvalid": "Por favor ingresa un correo electrónico válido",
+        "sendFailed": "No se pudo enviar el correo de restablecimiento",
+        "sendError": "Ocurrió un error al enviar el correo de restablecimiento de contraseña"
+      }
+    }
+    ,
+    "passwordReset": {
+      "title": "Restablece tu contraseña",
+      "subtitle": "Ingresa tu nueva contraseña",
+      "successTitle": "¡Contraseña restablecida con éxito!",
+      "successBody": "Tu contraseña se ha actualizado correctamente. Ahora puedes iniciar sesión con tu nueva contraseña.",
+      "redirectInfo": "Te redirigiremos a la página de inicio de sesión en unos segundos...",
+      "goToLogin": "Ir al inicio de sesión",
+      "newPassword": "Nueva contraseña",
+      "confirmNewPassword": "Confirmar nueva contraseña",
+      "helperPassword": "Debe tener al menos 6 caracteres con mayúsculas, minúsculas y números",
+      "helperConfirmMismatch": "Las contraseñas no coinciden",
+      "resetButton": "Restablecer contraseña",
+      "backToLogin": "Volver al inicio de sesión",
+      "errors": {
+        "invalidLink": "Enlace de restablecimiento inválido. Solicita un nuevo restablecimiento de contraseña.",
+        "passwordMin": "La contraseña debe tener al menos 6 caracteres",
+        "passwordPattern": "La contraseña debe contener al menos una minúscula, una mayúscula y un número",
+        "passwordsMismatch": "Las contraseñas no coinciden",
+        "resetFailed": "No se pudo restablecer la contraseña",
+        "resetError": "Ocurrió un error al restablecer tu contraseña"
+      }
+    }
+    ,
+    "reservationSummary": {
+      "loading": "Cargando reserva...",
+      "notFound": "Reserva no encontrada",
+      "goHome": "Ir al inicio",
+      "cancelSuccess": "Tu reserva ha sido cancelada con éxito.",
+      "headerTitle": "Confirmación de reserva",
+      "labels": {
+        "guest": "Huésped"
+      },
+      "typeLabels": {
+        "room": "Reserva de habitación",
+        "daypass": "DayPass",
+        "event": "Reserva de evento",
+        "default": "Reserva"
+      },
+      "guestInfo": "Información del huésped",
+      "nameLabel": "Nombre",
+      "guestsLabel": "Huéspedes",
+      "dates": "Fechas",
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "nights": "Noches",
+      "visitDate": "Fecha de visita",
+      "eventDate": "Fecha del evento",
+      "endDate": "Fecha de fin",
+      "eventType": "Tipo de evento",
+      "expectedAttendees": "Asistentes esperados",
+      "roomDetails": "Detalles de la habitación",
+      "roomType": "Tipo de habitación",
+      "additionalServices": "Servicios adicionales",
+      "specialRequests": "Peticiones especiales",
+      "paymentInfo": "Información de pago",
+      "total": "Total",
+      "reservationCode": "Código de reserva",
+      "actions": {
+        "cancelReservation": "Cancelar reserva",
+        "backToHome": "Volver al inicio"
+      },
+      "dialog": {
+        "cancelTitle": "Cancelar reserva",
+        "cancelPrompt": "¿Seguro que quieres cancelar esta reserva? Esta acción no se puede deshacer.",
+        "cancelPolicy": "Las cancelaciones deben realizarse con al menos 24 horas de anticipación.",
+        "cancelReason": "Motivo de cancelación (opcional)",
+        "keepReservation": "Mantener reserva",
+        "cancelButton": "Cancelar reserva",
+        "cancelling": "Cancelando..."
+      }
+    },
+    "registrationSuccess": {
+      "title": "¡Registro exitoso!",
+      "checkEmail": "Por favor revisa tu correo para verificar tu cuenta",
+      "sentTo": "Hemos enviado un correo de verificación a:",
+      "importantInfo": "Importante: Debes verificar tu correo antes de poder iniciar sesión y hacer reservas. El enlace de verificación expira en 24 horas.",
+      "resendHint": "¿No encuentras el correo? Revisa tu carpeta de spam o haz clic abajo para reenviarlo.",
+      "resendButton": "Reenviar correo de verificación",
+      "resendSuccess": "¡Correo de verificación reenviado con éxito!",
+      "resendFailed": "No se pudo reenviar el correo de verificación",
+      "resendError": "Ocurrió un error al reenviar el correo de verificación",
+      "backToLogin": "Volver al inicio de sesión",
+      "nextStepsTitle": "Próximos pasos:",
+      "nextStepsList": "1. Revisa tu bandeja de entrada (y spam)\n2. Haz clic en el enlace de verificación del correo\n3. Se iniciará sesión automáticamente y podrás comenzar a reservar"
+    }
+    ,
+    "roomBooking": {
+      "modalTitle": "Reservar habitación",
+      "modalTitleWithRoom": "Reservar {{name}}",
+      "steps": {
+        "selectDates": "Seleccionar fechas",
+        "guestDetails": "Datos del huésped",
+        "confirmation": "Confirmación"
+      },
+      "selectStayDates": "Selecciona las fechas de tu estadía",
+      "bookingFor": "Reservando: {{roomName}} (habitación {{roomType}})",
+      "currentRatePerNight": "Tarifa por noche: {{adult}} por adulto, {{child}} por niño",
+      "checkInDate": "Fecha de check-in",
+      "checkOutDate": "Fecha de check-out",
+      "checkingAvailability": "Verificando disponibilidad...",
+      "loadingDates": "Cargando fechas disponibles...",
+      "selectCheckInFirst": "Por favor selecciona la fecha de check-in primero",
+      "available": "¡La habitación está disponible para las fechas seleccionadas!",
+      "notAvailable": "La habitación no está disponible para las fechas seleccionadas. Por favor elige fechas diferentes.",
+      "guestInfo": "Información del huésped",
+      "adults": "Adultos",
+      "children": "Niños (4-9 años)",
+      "infants": "Infantes (0-3 años)",
+      "contactInfo": "Información de contacto",
+      "firstName": "Nombre",
+      "lastName": "Apellido",
+      "phone": "Número de teléfono",
+      "email": "Correo electrónico",
+      "country": "País",
+      "emergencyContact": "Contacto de emergencia (opcional)",
+      "specialRequests": "Peticiones especiales (opcional)",
+      "specialRequestsPlaceholder": "Cualquier requerimiento especial o restricciones alimentarias...",
+      "confirmationTitle": "Confirmación de la reserva",
+      "roomLabel": "Habitación",
+      "labels": {
+        "checkin": "Check-in:",
+        "checkout": "Check-out:",
+        "duration": "Duración:",
+        "night": "noche",
+        "nightsPlural": "noches",
+        "guests": "Huéspedes:",
+        "guest": "huésped",
+        "guestsPlural": "huéspedes",
+        "nights": "Noches"
+      },
+      "priceBreakdown": "Desglose de precios:",
+      "perNight": "Por noche (adultos/niños)",
+      "total": "Total:",
+      "specialRequestsLabel": "Peticiones especiales:",
+      "actions": {
+        "cancel": "Cancelar",
+        "back": "Atrás",
+        "next": "Siguiente",
+        "processing": "Procesando...",
+        "confirmBooking": "Confirmar reserva"
+      },
+      "errors": {
+        "selectBothDates": "Por favor selecciona tanto la fecha de check-in como la de check-out",
+        "checkoutAfterCheckin": "La fecha de check-out debe ser posterior a la de check-in",
+        "checkinInPast": "La fecha de check-in no puede estar en el pasado",
+        "notAvailable": "La habitación no está disponible para las fechas seleccionadas",
+        "adultRequired": "Se requiere al menos un adulto",
+        "contactRequired": "Por favor proporciona la información de contacto",
+        "emailInvalid": "Por favor ingresa un correo electrónico válido",
+        "createFailed": "No se pudo crear la reserva"
+      }
+    }
+    ,
+    "eventBooking": {
+      "successTitle": "¡Evento reservado con éxito!",
+      "successBody": "Tu reserva de evento ha sido enviada y está pendiente de aprobación. Nos comunicaremos contigo dentro de 24 horas para confirmar los detalles.",
+      "viewReservations": "Ver mis reservas",
+      "bookAnother": "Reservar otro evento",
+      "eventDetails": "Detalles del evento",
+      "eventDate": "Fecha del evento",
+      "addEndDate": "Agregar fecha de fin",
+      "endDate": "Fecha de fin",
+      "endDateHelper": "Fecha de fin para eventos de varios días",
+      "removeEndDate": "Eliminar fecha de fin",
+      "guestDistribution": "Distribución de invitados",
+      "adults": "Adultos",
+      "children": "Niños (4-9 años)",
+      "infants": "Infantes (0-3 años)",
+      "eventDescription": "Descripción del evento",
+      "eventDescriptionPlaceholder": "Describe tu evento, requerimientos especiales, cronograma, etc.",
+      "contactInfo": "Información de contacto",
+      "firstName": "Nombre",
+      "lastName": "Apellido",
+      "phone": "Número de teléfono",
+      "email": "Correo electrónico",
+      "emergencyContact": "Contacto de emergencia",
+      "country": "País",
+      "additionalServices": "Servicios adicionales",
+      "additionalServicesBody": "Selecciona servicios adicionales para mejorar tu experiencia de evento",
+      "eventServices": "Servicios del evento",
+      "resortAmenities": "Amenidades del resort",
+      "services": {
+        "catering": "Catering premium",
+        "cateringPrice": "$50 por persona",
+        "decoration": "Decoración de eventos",
+        "decorationPrice": "$300 tarifa fija",
+        "photography": "Fotografía profesional",
+        "photographyPrice": "$500 paquete",
+        "musicSystem": "Sistema de sonido",
+        "musicSystemPrice": "$200 tarifa fija",
+        "breakfast": "Servicio de desayuno",
+        "breakfastPrice": "$25 por persona",
+        "spa": "Acceso al spa",
+        "spaPrice": "$100 por adulto",
+        "aquaPark": "Acceso al Aqua Park",
+        "aquaParkPrice": "$30 por persona (adultos y niños)"
+      },
+      "specialRequests": "Peticiones especiales",
+      "specialRequestsPlaceholder": "Cualquier requerimiento especial, restricciones alimentarias, necesidades de accesibilidad, etc.",
+      "bookingSummary": "Resumen de la reserva",
+      "eventTitle": "Evento de {{title}}",
+      "labels": {
+        "date": "Fecha:",
+        "notSelected": "No seleccionada",
+        "attendees": "Asistentes:",
+        "guests": "huéspedes",
+        "description": "Descripción:",
+        "noneProvided": "No proporcionada",
+        "contact": "Contacto:",
+        "catering": "Catering"
+      },
+      "selectedServices": "Servicios seleccionados:",
+      "serviceLabels": {
+        "catering": "Catering",
+        "decoration": "Decoración",
+        "photography": "Fotografía",
+        "musicSystem": "Sistema de sonido",
+        "breakfast": "Desayuno",
+        "spa": "Spa",
+        "aquaPark": "Aqua Park"
+      },
+      "priceSummary": "Resumen de precios",
+      "basePrice": "Precio base:",
+      "total": "Total:",
+      "finalPriceNote": "* El precio final puede ajustarse después de la consulta",
+      "bookYourEvent": "Reserva tu evento de {{title}}",
+      "steps": {
+        "eventDetails": "Detalles del evento",
+        "contactInfo": "Información de contacto",
+        "servicesExtras": "Servicios y extras",
+        "confirmation": "Confirmación"
+      },
+      "actions": {
+        "back": "Atrás",
+        "cancel": "Cancelar",
+        "next": "Siguiente",
+        "booking": "Reservando...",
+        "confirmBooking": "Confirmar reserva"
+      },
+      "errors": {
+        "requiredFields": "Por favor completa todos los campos obligatorios",
+        "createFailed": "No se pudo crear la reserva de evento"
+      }
+    }
+  },
+  "companies": {
+    "name": "Nombre",
+    "contactName": "Nombre de contacto",
+    "address": "Dirección",
+    "addCompany": "Agregar empresa",
+    "editCompany": "Editar empresa",
+    "deleteConfirm": "¿Estás seguro de que deseas eliminar esta empresa?",
+    "reservationHistory": "Historial de reservas",
+    "total": "empresas"
+  },
+  "guests": {
+    "name": "Nombre",
+    "memberSince": "Miembro desde",
+    "reservationHistory": "Historial de reservas",
+    "editGuest": "Editar huésped",
+    "deleteConfirm": "¿Estás seguro de que deseas eliminar este registro de huésped?",
+    "total": "huéspedes"
+  }
+}

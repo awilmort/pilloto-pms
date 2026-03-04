@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Pilloto — Logo</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Space+Mono:wght@400&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #D4D4D4; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 56px; padding: 56px 24px; }
+  h2 { font-family: 'Space Mono', monospace; font-size: 9px; letter-spacing: 4px; color: #888; text-transform: uppercase; margin-bottom: 20px; text-align: center; }
+  .variant { display: flex; flex-direction: column; align-items: center; }
+  .logo-dark  { background: #111; border-radius: 20px; padding: 30px 44px; display: flex; align-items: center; gap: 20px; box-shadow: 0 24px 64px rgba(0,0,0,0.5); }
+  .logo-light { background: #FFF; border-radius: 20px; padding: 30px 44px; display: flex; align-items: center; gap: 20px; box-shadow: 0 24px 64px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.07); }
+  .wordmark .name { font-family: 'Cormorant Garamond', Georgia, serif; font-size: 52px; font-weight: 700; letter-spacing: -1.5px; line-height: 1; display: block; }
+  .logo-dark  .wordmark .name { color: #F0F0F0; }
+  .logo-light .wordmark .name { color: #111111; }
+  .icon-only-wrap { display: flex; gap: 20px; align-items: center; }
+  .icon-only { width: 68px; height: 68px; border-radius: 16px; display: flex; align-items: center; justify-content: center; }
+  .icon-only.dark-bg  { background: #111; box-shadow: 0 8px 28px rgba(0,0,0,0.55); }
+  .icon-only.light-bg { background: #fff; box-shadow: 0 8px 28px rgba(0,0,0,0.12), 0 0 0 1px rgba(0,0,0,0.06); }
+  .icon-only.mid-bg   { background: #555; box-shadow: 0 8px 28px rgba(0,0,0,0.3); }
+</style>
+</head>
+<body>
+<!-- Window layout = P: Row1: L+R, Row2: L(dim)+R, Row3: L only -->
+
+<div class="variant">
+  <h2>Dark — Primary</h2>
+  <div class="logo-dark">
+    <svg width="52" height="70" viewBox="0 0 52 70" fill="none">
+      <rect x="4" y="2" width="44" height="66" rx="3" fill="rgba(255,255,255,0.04)" stroke="#606060" stroke-width="1.5"/>
+      <rect x="10" y="11" width="12" height="10" rx="1.5" fill="#CCCCCC"/>
+      <rect x="30" y="11" width="12" height="10" rx="1.5" fill="#CCCCCC"/>
+      <rect x="10" y="27" width="12" height="10" rx="1.5" fill="#787878"/><!-- dim -->
+      <rect x="30" y="27" width="12" height="10" rx="1.5" fill="#CCCCCC"/>
+      <rect x="10" y="43" width="12" height="10" rx="1.5" fill="#CCCCCC"/>
+    </svg>
+    <div class="wordmark"><span class="name">Pilloto</span></div>
+  </div>
+</div>
+
+<div class="variant">
+  <h2>Light — Secondary</h2>
+  <div class="logo-light">
+    <svg width="52" height="70" viewBox="0 0 52 70" fill="none">
+      <rect x="4" y="2" width="44" height="66" rx="3" fill="rgba(0,0,0,0.02)" stroke="#AAAAAA" stroke-width="1.5"/>
+      <rect x="10" y="11" width="12" height="10" rx="1.5" fill="#222"/>
+      <rect x="30" y="11" width="12" height="10" rx="1.5" fill="#222"/>
+      <rect x="10" y="27" width="12" height="10" rx="1.5" fill="#AAAAAA"/><!-- dim -->
+      <rect x="30" y="27" width="12" height="10" rx="1.5" fill="#222"/>
+      <rect x="10" y="43" width="12" height="10" rx="1.5" fill="#222"/>
+    </svg>
+    <div class="wordmark"><span class="name">Pilloto</span></div>
+  </div>
+</div>
+
+<div class="variant">
+  <h2>Icon Mark</h2>
+  <div class="icon-only-wrap">
+    <div class="icon-only dark-bg">
+      <svg width="36" height="48" viewBox="0 0 52 70" fill="none">
+        <rect x="4" y="2" width="44" height="66" rx="3" fill="rgba(255,255,255,0.04)" stroke="#606060" stroke-width="1.5"/>
+        <rect x="10" y="11" width="12" height="10" rx="1.5" fill="#CCC"/>
+        <rect x="30" y="11" width="12" height="10" rx="1.5" fill="#CCC"/>
+        <rect x="10" y="27" width="12" height="10" rx="1.5" fill="#787878"/>
+        <rect x="30" y="27" width="12" height="10" rx="1.5" fill="#CCC"/>
+        <rect x="10" y="43" width="12" height="10" rx="1.5" fill="#CCC"/>
+      </svg>
+    </div>
+    <div class="icon-only mid-bg">
+      <svg width="36" height="48" viewBox="0 0 52 70" fill="none">
+        <rect x="4" y="2" width="44" height="66" rx="3" fill="rgba(255,255,255,0.05)" stroke="#888" stroke-width="1.5"/>
+        <rect x="10" y="11" width="12" height="10" rx="1.5" fill="#EEE"/>
+        <rect x="30" y="11" width="12" height="10" rx="1.5" fill="#EEE"/>
+        <rect x="10" y="27" width="12" height="10" rx="1.5" fill="#999"/>
+        <rect x="30" y="27" width="12" height="10" rx="1.5" fill="#EEE"/>
+        <rect x="10" y="43" width="12" height="10" rx="1.5" fill="#EEE"/>
+      </svg>
+    </div>
+    <div class="icon-only light-bg">
+      <svg width="36" height="48" viewBox="0 0 52 70" fill="none">
+        <rect x="4" y="2" width="44" height="66" rx="3" fill="rgba(0,0,0,0.02)" stroke="#AAAAAA" stroke-width="1.5"/>
+        <rect x="10" y="11" width="12" height="10" rx="1.5" fill="#222"/>
+        <rect x="30" y="11" width="12" height="10" rx="1.5" fill="#222"/>
+        <rect x="10" y="27" width="12" height="10" rx="1.5" fill="#AAAAAA"/>
+        <rect x="30" y="27" width="12" height="10" rx="1.5" fill="#222"/>
+        <rect x="10" y="43" width="12" height="10" rx="1.5" fill="#222"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

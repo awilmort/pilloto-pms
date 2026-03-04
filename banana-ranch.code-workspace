@@ -1,0 +1,43 @@
+{
+  "folders": [
+    {
+      "name": "Pilloto",
+      "path": "."
+    },
+    {
+      "name": "🖥️ Frontend",
+      "path": "./frontend"
+    },
+    {
+      "name": "⚙️ Backend",
+      "path": "./backend"
+    }
+  ],
+  "settings": {
+    "typescript.preferences.importModuleSpecifier": "relative",
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": true
+    },
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/.git": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/dist": true
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "ms-vscode.vscode-typescript-next",
+      "esbenp.prettier-vscode",
+      "bradlc.vscode-tailwindcss",
+      "ms-vscode.vscode-json",
+      "formulahendry.auto-rename-tag",
+      "christian-kohler.path-intellisense",
+      "rangav.vscode-thunder-client"
+    ]
+  }
+}
