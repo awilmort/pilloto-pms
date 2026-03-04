@@ -1,3 +1,22 @@
+export interface Tenant {
+  _id: string;
+  name: string;
+  slug: string;
+  plan: 'basic' | 'pro' | 'enterprise';
+  isActive: boolean;
+  ownerEmail: string;
+  settings: {
+    language?: string;
+    currency?: string;
+    timezone?: string;
+    logoUrl?: string;
+    primaryColor?: string;
+    [key: string]: any;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface User {
   _id: string;
   firstName: string;
@@ -119,6 +138,7 @@ export interface Reservation {
   actualCheckInAt?: string;
   actualCheckOutAt?: string;
   identificationDocument?: string;
+  identificationType?: string;
 
   // Guest information
   guests: number;

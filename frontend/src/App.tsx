@@ -1,14 +1,19 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
-import { CssBaseline, GlobalStyles } from '@mui/material';
+import { CssBaseline, GlobalStyles, CircularProgress, Box } from '@mui/material';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
 import theme from './theme';
 import { AuthProvider } from './contexts/AuthContext';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { TenantProvider, useTenant } from './contexts/TenantContext';
 import Layout from './components/layout/Layout';
+
+// Platform portal pages (admin.pilloto.com)
+import TenantsPage from './pages/platform/TenantsPage';
+import TenantNotFoundPage from './pages/TenantNotFoundPage';
 
 // Pages
 import LoginPage from './pages/customer/LoginPage';
@@ -74,14 +79,52 @@ const globalStyles = (
   />
 );
 
-function App() {
+const toastConfig = (
+  <ToastContainer
+    position="top-right"
+    autoClose={5000}
+    hideProgressBar={false}
+    newestOnTop={false}
+    closeOnClick
+    rtl={false}
+    pauseOnFocusLoss
+    draggable
+    pauseOnHover
+    theme="light"
+  />
+);
+
+// ─── Platform portal (admin.pilloto.com) ───────────────────────────────────────
+function PlatformApp() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      {globalStyles}
-      <AuthProvider>
-        <Router>
-          <SettingsProvider>
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/" element={<Navigate to="/platform/tenants" replace />} />
+          <Route path="/login" element={
+            <ProtectedRoute requireAuth={false}>
+              <LoginPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/platform/tenants" element={
+            <ProtectedRoute>
+              <TenantsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="*" element={<Navigate to="/platform/tenants" replace />} />
+        </Routes>
+        {toastConfig}
+      </Router>
+    </AuthProvider>
+  );
+}
+
+// ─── Regular tenant app ────────────────────────────────────────────────────────
+function TenantApp() {
+  return (
+    <AuthProvider>
+      <Router>
+        <SettingsProvider>
           <Routes>
             {/* Admin routes without main layout (they use AdminLayout internally) */}
             <Route path="/admin" element={
@@ -230,21 +273,38 @@ function App() {
               </Layout>
             } />
           </Routes>
-          <ToastContainer
-            position="top-right"
-            autoClose={5000}
-            hideProgressBar={false}
-            newestOnTop={false}
-            closeOnClick
-            rtl={false}
-            pauseOnFocusLoss
-            draggable
-            pauseOnHover
-            theme="light"
-          />
-          </SettingsProvider>
-        </Router>
-      </AuthProvider>
+          {toastConfig}
+        </SettingsProvider>
+      </Router>
+    </AuthProvider>
+  );
+}
+
+// ─── Root: picks platform vs tenant app ───────────────────────────────────────
+function AppContent() {
+  const { isPlatform, loading, tenantNotFound } = useTenant();
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" height="100vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (tenantNotFound) return <TenantNotFoundPage />;
+
+  return isPlatform ? <PlatformApp /> : <TenantApp />;
+}
+
+function App() {
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      {globalStyles}
+      <TenantProvider>
+        <AppContent />
+      </TenantProvider>
     </ThemeProvider>
   );
 }

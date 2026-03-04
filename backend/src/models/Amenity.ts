@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export interface IAmenity extends Document {
   name: string;
@@ -44,8 +45,8 @@ const amenitySchema = new Schema<IAmenity>({
 }, {
   timestamps: true
 });
-
-// Index for efficient queries
+// ── Multi-tenancy ────────────────────────────────────────────
+amenitySchema.plugin(tenantPlugin);
 amenitySchema.index({ isActive: 1, order: 1 });
 amenitySchema.index({ category: 1, isActive: 1 });
 

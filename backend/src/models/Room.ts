@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export interface IRoom extends Document {
   name: string;
@@ -97,8 +98,7 @@ const roomSchema = new Schema<IRoom>({
 roomSchema.index({ status: 1 });
 roomSchema.index({ condition: 1 });
 
-// Normalize legacy condition values before saving
-// Legacy normalization removed: only 'pending_cleanup' or 'clean' are valid
-// No automatic mapping from deprecated values.
+// ── Multi-tenancy ────────────────────────────────────────────
+roomSchema.plugin(tenantPlugin);
 
 export default mongoose.model<IRoom>('Room', roomSchema);

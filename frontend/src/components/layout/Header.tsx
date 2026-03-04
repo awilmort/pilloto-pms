@@ -15,7 +15,6 @@ import {
   AccountCircle,
   Dashboard,
   ExitToApp,
-  BookOnline,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -107,10 +106,6 @@ const Header: React.FC = () => {
                     <AccountCircle sx={{ mr: 1 }} />
                     {t('auth.profile')}
                   </MenuItem>
-                  <MenuItem onClick={() => navigateTo('/reservations')}>
-                    <BookOnline sx={{ mr: 1 }} />
-                    {t('auth.myReservations')}
-                  </MenuItem>
                   {(user && (user.role === 'admin' || Array.isArray(permissions))) && (
                     <MenuItem onClick={() => {
                       const perms = permissions || [];
@@ -128,7 +123,6 @@ const Header: React.FC = () => {
                         { key: 'admin.roles', path: '/admin/roles' },
                         { key: 'admin.eventTypes', path: '/admin/event-types' },
                         { key: 'admin.pricing', path: '/admin/pricing' },
-                        { key: 'admin.analytics', path: '/admin/analytics' },
                         { key: 'admin.settings', path: '/admin/settings' },
                       ];
                       const first = permToPath.find(p => perms.includes(p.key));

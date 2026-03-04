@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export type PricingService = 'daypass' | 'pasatarde' | 'hospedaje';
 export type PricingCategory = 'standard' | 'special' | 'guest' | 'company';
@@ -102,5 +103,8 @@ pricingSchema.pre('findOneAndUpdate', function(next) {
 });
 
 pricingSchema.index({ service: 1, category: 1, validity: 1, startDate: 1, endDate: 1 });
+
+// ── Multi-tenancy ────────────────────────────────────────────
+pricingSchema.plugin(tenantPlugin);
 
 export default mongoose.model<IPricing>('Pricing', pricingSchema);

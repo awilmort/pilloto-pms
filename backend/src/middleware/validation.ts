@@ -193,6 +193,7 @@ export const validateReservation = [
     .withMessage('Number of infants must be between 0 and 5'),
 
   body('contactInfo.phone')
+    .optional({ checkFalsy: true })
     .matches(/^[\+]?[1-9][\d]{0,15}$/)
     .withMessage('Please provide a valid phone number'),
 

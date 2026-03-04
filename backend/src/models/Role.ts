@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export interface IRole extends Document {
   name: string; // e.g., 'admin', 'customer', 'maintenance', 'staff'
@@ -12,7 +13,7 @@ const roleSchema = new Schema<IRole>({
   name: {
     type: String,
     required: true,
-    unique: true,
+    // Uniqueness enforced by compound index { name, tenantId } below
     trim: true,
     lowercase: true,
     maxlength: 50,
@@ -26,7 +27,9 @@ const roleSchema = new Schema<IRole>({
   permissions: [{ type: String, trim: true }]
 }, { timestamps: true });
 
-// 'name' already has a unique index via `unique: true` on the field.
-// Removing redundant index to avoid duplicate schema index warnings.
+// ── Multi-tenancy ────────────────────────────────────────────
+roleSchema.plugin(tenantPlugin);
+// Per-tenant unique role name
+roleSchema.index({ name: 1, tenantId: 1 }, { unique: true });
 
 export default mongoose.model<IRole>('Role', roleSchema);

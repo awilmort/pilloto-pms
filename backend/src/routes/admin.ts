@@ -65,7 +65,6 @@ router.get('/permissions', authenticate, authorizePermission('admin.access'), as
       // Core admin
       'admin.access',
       'admin.dashboard',
-      'admin.analytics',
       'admin.backup',
       // Users and roles
       'admin.users',

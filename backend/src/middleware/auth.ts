@@ -2,9 +2,13 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyToken, JWTPayload } from '../utils/jwt';
 import User from '../models/User';
 import Role from '../models/Role';
+import Tenant from '../models/Tenant';
 
 export interface AuthRequest extends Request {
   user?: any;
+  tenantId?: string;
+  tenant?: any;
+  isPlatformRequest?: boolean;
 }
 
 export const authenticate = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -29,6 +33,36 @@ export const authenticate = async (req: AuthRequest, res: Response, next: NextFu
 
     // Verify token
     const decoded: JWTPayload = verifyToken(token);
+
+    // ── Tenant validation ──────────────────────────────────────
+    const reqTenantId = (req as any).tenantId as string | undefined;
+    const isPlatform   = (req as any).isPlatformRequest as boolean | undefined;
+
+    if (decoded.tenantId) {
+      // Regular tenant user: JWT tenantId must match the resolved request tenantId
+      if (!reqTenantId || decoded.tenantId !== reqTenantId) {
+        return res.status(401).json({
+          success: false,
+          message: 'Token tenant mismatch.'
+        });
+      }
+      // Verify the tenant is still active
+      const tenant = await Tenant.findById(decoded.tenantId).select('isActive').lean();
+      if (!tenant || !(tenant as any).isActive) {
+        return res.status(401).json({
+          success: false,
+          message: 'Tenant is inactive or not found.'
+        });
+      }
+    } else {
+      // Superadmin user: must be a platform request
+      if (!isPlatform) {
+        return res.status(401).json({
+          success: false,
+          message: 'Superadmin token used outside the platform portal.'
+        });
+      }
+    }
 
     // Get user from database
     const user = await User.findById(decoded.userId).select('-password');
@@ -100,12 +134,13 @@ export const authorizePermission = (...permissions: string[]) => {
       }
 
       // Admin bypass: full access
-      if (req.user.role === 'admin') {
+      if (req.user.role === 'admin' || req.user.role === 'superadmin') {
         return next();
       }
 
-      // Load role definition and check permissions
-      const role = await Role.findOne({ name: req.user.role.toLowerCase() });
+      // Load role definition scoped to the current tenant and check permissions
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : {};
+      const role = await Role.findOne({ name: req.user.role.toLowerCase(), ...tenantFilter });
       const rolePerms = role?.permissions || [];
       const hasAny = permissions.length === 0 || permissions.some(p => rolePerms.includes(p));
       if (!hasAny) {

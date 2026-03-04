@@ -25,13 +25,31 @@ const apiClient: AxiosInstance = axios.create({
   withCredentials: true, // Include cookies for authentication
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and tenant slug
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Inject X-Tenant-Slug so the backend can resolve the tenant
+    // regardless of whether the request comes from a subdomain or localhost.
+    const subdomain = (() => {
+      const parts = window.location.hostname.split('.');
+      if (parts.length >= 3) return parts[0].toLowerCase();
+      // local: slug.localhost
+      if (parts.length === 2 && parts[1] === 'localhost') return parts[0].toLowerCase();
+      return undefined;
+    })();
+
+    if (subdomain === 'admin') {
+      config.headers['X-Tenant-Slug'] = '__superadmin__';
+    } else {
+      const slug = subdomain || process.env.REACT_APP_TENANT_SLUG;
+      if (slug) config.headers['X-Tenant-Slug'] = slug;
+    }
+
     return config;
   },
   (error) => {
@@ -572,6 +590,7 @@ export interface CashierClosure {
   periodEnd: string;
   paymentTotals: { cash: number; card: number; transfer: number; check: number; total: number };
   cashDistribution: Array<{ denomination: number; count: number; subtotal: number }>;
+  note?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -594,7 +613,7 @@ export const cashierClosuresService = {
     apiClient.get('/cashier-closures/preview'),
   getClosures: (params?: { from?: string; to?: string }): Promise<AxiosResponse<ApiResponse<CashierClosure[]>>> =>
     apiClient.get('/cashier-closures', { params }),
-  createClosure: (data: { cashDistribution: Record<string, number> }): Promise<AxiosResponse<ApiResponse<CashierClosure>>> =>
+  createClosure: (data: { cashDistribution: Record<string, number>; note?: string }): Promise<AxiosResponse<ApiResponse<CashierClosure>>> =>
     apiClient.post('/cashier-closures', data),
 };
 
@@ -649,3 +668,48 @@ export const creditAccountsService = {
   deleteCreditAccount: (id: string): Promise<AxiosResponse<ApiResponse>> =>
     apiClient.delete(`/credit-accounts/${id}`),
 };
+
+// ── Platform Service (superadmin only – admin.pilloto.com) ────────────────────
+export interface TenantRecord {
+  _id: string;
+  name: string;
+  slug: string;
+  plan: string;
+  isActive: boolean;
+  ownerEmail: string;
+  settings: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProvisionTenantPayload {
+  name: string;
+  slug: string;
+  plan?: 'basic' | 'pro' | 'enterprise';
+  ownerEmail: string;
+  adminFirstName: string;
+  adminLastName: string;
+  adminPassword: string;
+  settings?: Record<string, any>;
+}
+
+export const platformService = {
+  listTenants: (): Promise<AxiosResponse<ApiResponse<TenantRecord[]>>> =>
+    apiClient.get('/platform/tenants'),
+
+  getTenant: (id: string): Promise<AxiosResponse<ApiResponse<TenantRecord>>> =>
+    apiClient.get(`/platform/tenants/${id}`),
+
+  createTenant: (data: ProvisionTenantPayload): Promise<AxiosResponse<ApiResponse<{ tenant: TenantRecord; adminUser: any; loginUrl: string }>>> =>
+    apiClient.post('/platform/tenants', data),
+
+  updateTenant: (id: string, data: Partial<{ name: string; plan: string; isActive: boolean; ownerEmail: string; settings: any }>): Promise<AxiosResponse<ApiResponse<TenantRecord>>> =>
+    apiClient.patch(`/platform/tenants/${id}`, data),
+
+  deactivateTenant: (id: string): Promise<AxiosResponse<ApiResponse<TenantRecord>>> =>
+    apiClient.delete(`/platform/tenants/${id}`),
+
+  getTenantStats: (id: string): Promise<AxiosResponse<ApiResponse<{ tenant: TenantRecord; stats: { users: number; reservations: number; rooms: number } }>>> =>
+    apiClient.get(`/platform/tenants/${id}/stats`),
+};
+

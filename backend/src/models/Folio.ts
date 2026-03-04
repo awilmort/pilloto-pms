@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export type FolioStatus = 'open' | 'in_ar' | 'closed';
 
@@ -24,5 +25,8 @@ const folioSchema = new Schema<IFolio>({
     index: true,
   },
 }, { timestamps: true });
+
+// ── Multi-tenancy ────────────────────────────────────────────
+folioSchema.plugin(tenantPlugin);
 
 export default mongoose.model<IFolio>('Folio', folioSchema);

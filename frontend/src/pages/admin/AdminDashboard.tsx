@@ -20,10 +20,8 @@ import {
   Hotel,
   People,
   BookOnline,
-  AttachMoney,
-  TrendingUp,
+  CheckCircle,
   Add,
-  Visibility,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -35,9 +33,8 @@ import { formatMoney } from '../../utils/currency';
 interface DashboardStats {
   totalRooms: number;
   totalReservations: number;
-  totalUsers: number;
-  monthlyRevenue: number;
-  occupancyRate: number;
+  pendingReservations: number;
+  confirmedReservations: number;
 }
 
 const AdminDashboard: React.FC = () => {
@@ -47,9 +44,8 @@ const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<DashboardStats>({
     totalRooms: 0,
     totalReservations: 0,
-    totalUsers: 0,
-    monthlyRevenue: 0,
-    occupancyRate: 0,
+    pendingReservations: 0,
+    confirmedReservations: 0,
   });
   const [rooms, setRooms] = useState<any[]>([]);
   const [reservations, setReservations] = useState<any[]>([]);
@@ -75,7 +71,6 @@ const AdminDashboard: React.FC = () => {
       { key: 'admin.roles', path: '/admin/roles' },
       { key: 'admin.eventTypes', path: '/admin/event-types' },
       { key: 'admin.pricing', path: '/admin/pricing' },
-      { key: 'admin.analytics', path: '/admin/analytics' },
       { key: 'admin.settings', path: '/admin/settings' },
     ];
     const first = permToPath.find(p => perms.includes(p.key));
@@ -89,25 +84,21 @@ const AdminDashboard: React.FC = () => {
 
   const loadDashboardData = async () => {
     try {
-      // Load rooms
-      const roomsResponse = await roomsService.getRooms({ limit: 10 });
-      if (roomsResponse.data.success) {
-        setRooms(roomsResponse.data.data?.rooms || []);
-      }
+      const [roomsRes, allRes, pendingRes, confirmedRes] = await Promise.all([
+        roomsService.getRooms({ limit: 5 }),
+        reservationsService.getReservations({ limit: 5, sort: '-createdAt' }),
+        reservationsService.getReservations({ status: 'pending', limit: 1 }),
+        reservationsService.getReservations({ status: 'confirmed', limit: 1 }),
+      ]);
 
-      // Load reservations
-      const reservationsResponse = await reservationsService.getUserReservations();
-      if (reservationsResponse.data.success) {
-        setReservations(reservationsResponse.data.data || []);
-      }
+      setRooms(roomsRes.data.data?.rooms || []);
+      setReservations(allRes.data.data || []);
 
-      // Calculate mock stats (in real app, this would come from backend)
       setStats({
-        totalRooms: roomsResponse.data.data?.rooms?.length || 0,
-        totalReservations: reservationsResponse.data.data?.length || 0,
-        totalUsers: 2, // Mock data
-        monthlyRevenue: 15420,
-        occupancyRate: 78,
+        totalRooms: roomsRes.data.data?.rooms?.length || 0,
+        totalReservations: allRes.data.count || 0,
+        pendingReservations: pendingRes.data.count || 0,
+        confirmedReservations: confirmedRes.data.count || 0,
       });
     } catch (error) {
       console.error('Error loading dashboard data:', error);
@@ -146,7 +137,7 @@ const AdminDashboard: React.FC = () => {
 
       {/* Dashboard Stats */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title={t('admin.dashboard.stats.totalRooms')}
             value={stats.totalRooms}
@@ -154,36 +145,28 @@ const AdminDashboard: React.FC = () => {
             color="primary.main"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title={t('admin.dashboard.stats.reservations')}
+            title={t('admin.dashboard.stats.totalReservations')}
             value={stats.totalReservations}
             icon={<BookOnline fontSize="large" />}
             color="secondary.main"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
-            title={t('admin.dashboard.stats.totalUsers')}
-            value={stats.totalUsers}
+            title={t('admin.dashboard.stats.pendingReservations')}
+            value={stats.pendingReservations}
             icon={<People fontSize="large" />}
-            color="info.main"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard
-            title={t('admin.dashboard.stats.monthlyRevenue')}
-            value={formatMoney(stats.monthlyRevenue)}
-            icon={<AttachMoney fontSize="large" />}
-            color="success.main"
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={2.4}>
-          <StatCard
-            title={t('admin.dashboard.stats.occupancyRate')}
-            value={`${stats.occupancyRate}%`}
-            icon={<TrendingUp fontSize="large" />}
             color="warning.main"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard
+            title={t('admin.dashboard.stats.confirmedReservations')}
+            value={stats.confirmedReservations}
+            icon={<CheckCircle fontSize="large" />}
+            color="success.main"
           />
         </Grid>
       </Grid>
@@ -210,24 +193,10 @@ const AdminDashboard: React.FC = () => {
           </Button>
           <Button
             variant="outlined"
-            startIcon={<Hotel />}
-            onClick={() => navigate('/admin/amenities')}
-          >
-            {t('admin.dashboard.quickActions.manageAmenities')}
-          </Button>
-          <Button
-            variant="outlined"
             startIcon={<People />}
             onClick={() => navigate('/admin/users')}
           >
             {t('admin.dashboard.quickActions.manageUsers')}
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<Visibility />}
-            onClick={() => navigate('/admin/reports')}
-          >
-            {t('admin.dashboard.quickActions.viewReports')}
           </Button>
         </Box>
       </Paper>

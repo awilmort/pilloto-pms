@@ -12,260 +12,131 @@ A comprehensive web application for Pilloto, an eco-friendly hotel and aqua park
 - **User Authentication** with registration and login
 - **Media Gallery** showcasing facilities and activities
 - **Contact Form** for inquiries and support
-- **Responsive Design** for all devices
+  """
 
-### Admin Features
+# Pilloto - PMS (Property Management System)
 
-- **Dashboard** with analytics and statistics
-- **Comprehensive Room Management** (Full CRUD operations)
-  - Create, edit, and delete rooms
-  - Image upload and management
-  - Room availability control
-  - Amenities and features configuration
-  - Advanced filtering and search
-  - Cards and table view modes
-- **Reservation Management** with status tracking
-- **User Management** with role-based access
-- **Media Management** for gallery content
-- **Contact Management** with response system
-- **Analytics & Reporting**
+This repository contains the Pilloto PMS: a TypeScript-based backend API and a React + TypeScript frontend used for reservations, media management, admin dashboards, and other hotel/aquapark operations.
 
-## 🛠️ Tech Stack
+## Quick Overview
 
-### Frontend
+- Backend: Node.js + Express + TypeScript (API, auth, data models, scripts)
+- Frontend: React + TypeScript (admin and customer UI)
+- Database: MongoDB (via Mongoose)
+- Uploads: local `backend/uploads/` used for media in development
 
-- **React.js** with TypeScript
-- **Material-UI** or **Tailwind CSS** for styling
-- **React Router** for navigation
-- **Axios** for API communication
-- **React Hook Form** for form handling
-- **React Query** for state management
-
-### Backend
-
-- **Node.js** with Express.js
-- **TypeScript** for type safety
-- **MongoDB** with Mongoose ODM
-- **JWT** for authentication
-- **Multer** for file uploads
-- **Helmet** for security headers
-- **Rate Limiting** for API protection
-
-### Security
-
-- **bcryptjs** for password hashing
-- **CORS** configuration
-- **Input validation** with express-validator
-- **Role-based access control**
-- **File upload security**
-
-## 📁 Project Structure
+## Repository Layout
 
 ```
 pilloto-pms/
-├── frontend/                # React.js frontend application
-│   ├── public/             # Static assets
-│   ├── src/
-│   │   ├── components/     # Reusable components
-│   │   ├── pages/          # Page components
-│   │   ├── hooks/          # Custom React hooks
-│   │   ├── services/       # API services
-│   │   ├── utils/          # Utility functions
-│   │   └── types/          # TypeScript types
+├── backend/                 # Node/Express API (TypeScript)
 │   ├── package.json
-│   └── tsconfig.json
-├── backend/                # Node.js backend API
+│   ├── tsconfig.json
 │   ├── src/
-│   │   ├── models/         # Mongoose models
-│   │   ├── routes/         # Express routes
-│   │   ├── middleware/     # Custom middleware
-│   │   ├── utils/          # Utility functions
-│   │   ├── scripts/        # Database scripts
-│   │   └── types/          # TypeScript types
-│   ├── uploads/            # File upload directory
+│   │   ├── index.ts
+│   │   ├── routes/          # API route definitions
+│   │   ├── models/          # Mongoose models
+│   │   ├── middleware/      # Auth & validation middleware
+│   │   ├── utils/           # Helpers (email, jwt, pricing, media sync)
+│   │   └── scripts/         # Seed scripts and utilities
+│   └── uploads/             # Local file upload directory (dev)
+├── frontend/                # React frontend (TypeScript)
 │   ├── package.json
-│   └── tsconfig.json
-└── README.md              # This file
+│   ├── tsconfig.json
+│   ├── public/
+│   └── src/
+│       ├── components/      # Reusable UI components
+│       ├── pages/           # Page-level components
+│       ├── services/        # API client (`services/api.ts`)
+│       ├── contexts/        # Auth & settings contexts
+│       └── utils/           # Client utilities (pricing, i18n)
+└── README.md                # This file
 ```
 
-## 🚀 Getting Started
+## Getting Started (Development)
 
-### Prerequisites
+Prereqs: `node` (v16+), `npm` or `pnpm`, and a running MongoDB (local or Atlas).
 
-- **Node.js** (v16 or higher)
-- **MongoDB** (local installation or MongoDB Atlas)
-- **Git**
+1. Clone and enter repo:
 
-### Installation
-
-1. **Clone the repository:**
-
-   ```bash
-   git clone <repository-url>
-   cd pilloto-pms
-   ```
-
-2. **Backend Setup:**
-
-   ```bash
-   cd backend
-   npm install
-
-   # Copy environment file and configure
-   cp .env.example .env
-   # Edit .env with your configuration
-
-   # Seed the database with sample data
-   npm run seed
-
-   # Start development server
-   npm run dev
-   ```
-
-3. **Frontend Setup:**
-
-   ```bash
-   cd ../frontend
-   npm install
-
-   # Start development server
-   npm start
-   ```
-
-### Environment Configuration
-
-#### Backend (.env)
-
-```env
-NODE_ENV=development
-PORT=5000
-FRONTEND_URL=http://localhost:3000
-MONGODB_URI=mongodb://localhost:27017/pilloto_pms
-JWT_SECRET=your-super-secret-jwt-key
-JWT_EXPIRES_IN=7d
+```bash
+git clone <repo-url>
+cd pilloto-pms
 ```
 
-#### Frontend (.env)
+2. Backend (API)
 
-```env
-REACT_APP_API_URL=http://localhost:5000/api
-REACT_APP_ENVIRONMENT=development
+```bash
+cd backend
+npm install
+
+# copy or create .env (use .env.example if present)
+# configure MONGODB_URI, JWT_SECRET, PORT, FRONTEND_URL, etc.
+
+# seed DB with sample data (optional)
+npm run seed
+
+# start dev server (watch)
+npm run dev
 ```
 
-## 📋 Development Scripts
+Default backend entry: `src/index.ts`.
 
-### Backend
+3. Frontend (client)
 
-- `npm run dev` - Start development server with hot reload
-- `npm run build` - Build for production
-- `npm start` - Start production server
-- `npm run seed` - Seed database with sample data
+```bash
+cd frontend
+npm install
+npm start
+```
 
-### Frontend
+Frontend dev server runs at `http://localhost:3000` by default and expects the API under the `REACT_APP_API_URL` env var (e.g. `http://localhost:5000/api`).
 
-- `npm start` - Start development server
-- `npm run build` - Build for production
-- `npm test` - Run tests
-- `npm run eject` - Eject from Create React App
+## Useful Scripts
 
-## 🔗 API Endpoints
+- Backend (from `backend/`):
+  - `npm run dev` — start dev server with hot reload
+  - `npm run build` — build production server bundle
+  - `npm start` — run production server
+  - `npm run seed` — run seed scripts in `src/scripts/`
 
-### Authentication
+- Frontend (from `frontend/`):
+  - `npm start` — start dev server
+  - `npm run build` — build static production assets
+  - `npm test` — run tests
 
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-- `GET /api/auth/me` - Get current user
-- `PUT /api/auth/profile` - Update profile
+## Seeds & Uploads
 
-### Rooms
+- Seed scripts are located in `backend/src/scripts/` and can populate default accounts and demo data.
+- Uploaded media (development) are stored in `backend/uploads/`. In production, use cloud storage and update media sync utilities accordingly.
 
-- `GET /api/rooms` - Get all rooms
-- `GET /api/rooms/:id` - Get single room
-- `POST /api/rooms` - Create room (Admin)
-- `PUT /api/rooms/:id` - Update room (Admin)
+## Environment Variables
 
-### Reservations
+- Backend example variables (set in `backend/.env`):
+  - `PORT` — backend port (e.g. `5000`)
+  - `MONGODB_URI` — MongoDB connection string
+  - `JWT_SECRET` — authentication secret
+  - `FRONTEND_URL` — allowed CORS/origin
 
-- `GET /api/reservations` - Get user reservations
-- `POST /api/reservations` - Create reservation
-- `PUT /api/reservations/:id/cancel` - Cancel reservation
+- Frontend example variables (set in `frontend/.env`):
+  - `REACT_APP_API_URL` — API base URL (e.g. `http://localhost:5000/api`)
 
-### Media
+## Deployment Notes
 
-- `GET /api/media` - Get media gallery
-- `GET /api/media/featured` - Get featured media
-- `POST /api/media/upload` - Upload media (Admin)
+- Build both apps (`npm run build`) and deploy the backend to your host (Heroku, AWS, DigitalOcean, etc.) and frontend to static hosting (Vercel, Netlify, S3).
+- Replace local uploads with cloud storage and update configuration for production.
 
-### Contact
+## Contributing
 
-- `POST /api/contact` - Submit contact form
-- `GET /api/contact` - Get contacts (Admin)
+Follow the normal Git flow: create a branch, open a PR, and include a clear description and tests where applicable.
 
-### Admin
+## Support
 
-- `GET /api/admin/dashboard` - Dashboard statistics
-- `GET /api/admin/users` - User management
-- `GET /api/admin/analytics` - Analytics data
-
-## 🔐 Default Accounts
-
-After running the seed script:
-
-**Admin Account:**
-
-- Email: `admin@pilloto.com`
-- Password: `admin123`
-
-**Customer Account:**
-
-- Email: `john.doe@example.com`
-- Password: `customer123`
-
-## 🌐 Deployment
-
-### Backend Deployment
-
-1. Build the application: `npm run build`
-2. Set production environment variables
-3. Deploy to your preferred hosting service (Heroku, AWS, DigitalOcean)
-
-### Frontend Deployment
-
-1. Build the application: `npm run build`
-2. Deploy the `build` folder to a static hosting service (Netlify, Vercel, AWS S3)
-
-### Database
-
-- For production, use MongoDB Atlas or a dedicated MongoDB server
-- Update the `MONGODB_URI` environment variable accordingly
-
-## 🔧 VS Code Configuration
-
-Recommended extensions:
-
-- TypeScript and JavaScript Language Features
-- ES7+ React/Redux/React-Native snippets
-- Auto Rename Tag
-- Bracket Pair Colorizer
-- GitLens
-- Thunder Client (for API testing)
-
-## 📝 Contributing
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/new-feature`
-3. Commit your changes: `git commit -am 'Add new feature'`
-4. Push to the branch: `git push origin feature/new-feature`
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the ISC License.
-
-## 🆘 Support
-
-For support, email support@pilloto.com or create an issue in the repository.
+Create an issue in the repository for bugs or questions.
 
 ---
 
-**Pilloto** - _Your Eco-Friendly Paradise_ 🌺
+Pilloto — concise PMS for bookings and media management
+
+"""
+PORT=5000

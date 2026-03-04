@@ -20,6 +20,7 @@ import {
   Typography,
 } from '@mui/material';
 import dayjs from 'dayjs';
+import { useTranslation } from 'react-i18next';
 import AdminLayout from '../../components/admin/AdminLayout';
 import SectionTitle from '../../components/admin/SectionTitle';
 import { cashierClosuresService, CashierClosure } from '../../services/api';
@@ -30,6 +31,7 @@ const formatMoney = (value: number) =>
   new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value || 0));
 
 const CashierClosuresPage: React.FC = () => {
+  const { t } = useTranslation();
   const [closures, setClosures] = useState<CashierClosure[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,13 +41,14 @@ const CashierClosuresPage: React.FC = () => {
 
   const [generateOpen, setGenerateOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [note, setNote] = useState<string>('');
   const [preview, setPreview] = useState<{
     periodStart: string;
     periodEnd: string;
     paymentTotals: { cash: number; card: number; transfer: number; check: number; total: number };
     denominations: number[];
   } | null>(null);
-  const [cashDistribution, setCashDistribution] = useState<Record<string, number>>({});
+  const [cashDistribution, setCashDistribution] = useState<Record<string, string>>({});
 
   const denominations = useMemo(() => preview?.denominations || DEFAULT_DENOMINATIONS, [preview]);
 
@@ -74,9 +77,10 @@ const CashierClosuresPage: React.FC = () => {
       const data = res.data.data;
       if (!data) return;
       setPreview(data);
-      const initial: Record<string, number> = {};
-      (data.denominations || DEFAULT_DENOMINATIONS).forEach((d) => { initial[String(d)] = 0; });
+      const initial: Record<string, string> = {};
+      (data.denominations || DEFAULT_DENOMINATIONS).forEach((d) => { initial[String(d)] = ''; });
       setCashDistribution(initial);
+      setNote('');
       setGenerateOpen(true);
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Failed to build closure preview');
@@ -86,9 +90,14 @@ const CashierClosuresPage: React.FC = () => {
   const createClosure = async () => {
     try {
       setGenerating(true);
-      await cashierClosuresService.createClosure({ cashDistribution });
+      const numericDistribution: Record<string, number> = {};
+      Object.entries(cashDistribution).forEach(([k, v]) => {
+        numericDistribution[k] = Math.max(0, Number(v) || 0);
+      });
+      await cashierClosuresService.createClosure({ cashDistribution: numericDistribution, note: note.trim() || undefined });
       setGenerateOpen(false);
       setPreview(null);
+      setNote('');
       await loadClosures();
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Failed to create cashier closure');
@@ -99,7 +108,7 @@ const CashierClosuresPage: React.FC = () => {
 
   const getCashDeclared = () =>
     denominations.reduce((sum, denomination) => {
-      const count = Number(cashDistribution[String(denomination)] || 0);
+      const count = Math.max(0, Number(cashDistribution[String(denomination)] || 0));
       return sum + (denomination * count);
     }, 0);
 
@@ -107,15 +116,19 @@ const CashierClosuresPage: React.FC = () => {
     const popup = window.open('', '_blank', 'width=900,height=700');
     if (!popup) return;
 
-    const cashierName = `${closure.user?.firstName || ''} ${closure.user?.lastName || ''}`.trim() || 'Cashier';
+    const cashierName = `${closure.user?.firstName || ''} ${closure.user?.lastName || ''}`.trim() || t('admin.cashierClosures.cashier');
     const distributionRows = (closure.cashDistribution || [])
+      .filter(item => item.count > 0)
       .map(item => `<tr><td>${item.denomination}</td><td>${item.count}</td><td>${formatMoney(item.subtotal)}</td></tr>`)
       .join('');
+    const noteRow = closure.note
+      ? `<div class="section"><strong>${t('admin.cashierClosures.note')}:</strong> ${closure.note}</div>`
+      : '';
 
     popup.document.write(`
       <html>
         <head>
-          <title>Cashier Closure</title>
+          <title>${t('admin.cashierClosures.title')}</title>
           <style>
             body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
             h1, h2 { margin: 0 0 8px 0; }
@@ -128,16 +141,23 @@ const CashierClosuresPage: React.FC = () => {
           </style>
         </head>
         <body>
-          <h1>Cashier Closure</h1>
+          <h1>${t('admin.cashierClosures.title')}</h1>
           <div class="meta">
-            <div><strong>Period:</strong> ${dayjs(closure.periodStart).format('YYYY-MM-DD HH:mm')} - ${dayjs(closure.periodEnd).format('YYYY-MM-DD HH:mm')}</div>
-            <div><strong>Created:</strong> ${dayjs(closure.createdAt).format('YYYY-MM-DD HH:mm')}</div>
+            <div><strong>${t('admin.cashierClosures.period')}:</strong> ${dayjs(closure.periodStart).format('YYYY-MM-DD HH:mm')} - ${dayjs(closure.periodEnd).format('YYYY-MM-DD HH:mm')}</div>
+            <div><strong>${t('admin.cashierClosures.created')}:</strong> ${dayjs(closure.createdAt).format('YYYY-MM-DD HH:mm')}</div>
+            <div><strong>${t('admin.cashierClosures.cashier')}:</strong> ${cashierName}</div>
           </div>
 
           <div class="section">
-            <h2>Payments Summary</h2>
+            <h2>${t('admin.cashierClosures.paymentsSummary')}</h2>
             <table>
-              <tr><th>Cash</th><th>Card</th><th>Transfer</th><th>Check</th><th>Total</th></tr>
+              <tr>
+                <th>${t('admin.cashierClosures.cash')}</th>
+                <th>${t('admin.cashierClosures.card')}</th>
+                <th>${t('admin.cashierClosures.transfer')}</th>
+                <th>${t('admin.cashierClosures.check')}</th>
+                <th>${t('admin.cashierClosures.total')}</th>
+              </tr>
               <tr>
                 <td>${formatMoney(closure.paymentTotals.cash)}</td>
                 <td>${formatMoney(closure.paymentTotals.card)}</td>
@@ -149,17 +169,18 @@ const CashierClosuresPage: React.FC = () => {
           </div>
 
           <div class="section">
-            <h2>Cash Distribution</h2>
+            <h2>${t('admin.cashierClosures.cashDistribution')}</h2>
             <table>
-              <tr><th>Denomination</th><th>Count</th><th>Subtotal</th></tr>
+              <tr>
+                <th>${t('admin.cashierClosures.denomination')}</th>
+                <th>${t('admin.cashierClosures.count')}</th>
+                <th>${t('admin.cashierClosures.subtotal')}</th>
+              </tr>
               ${distributionRows}
             </table>
           </div>
 
-          <div class="footer">
-            <div><strong>Cashier:</strong> ${cashierName}</div>
-            <div><strong>Period End:</strong> ${dayjs(closure.periodEnd).format('YYYY-MM-DD HH:mm')}</div>
-          </div>
+          ${noteRow}
         </body>
       </html>
     `);
@@ -172,20 +193,20 @@ const CashierClosuresPage: React.FC = () => {
     <AdminLayout>
       <Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-          <SectionTitle title="Cashier Closures" />
-          <Button variant="contained" onClick={openGenerate}>Generate Closure</Button>
+          <SectionTitle title={t('admin.cashierClosures.title')} />
+          <Button variant="contained" onClick={openGenerate}>{t('admin.cashierClosures.generate')}</Button>
         </Box>
 
         <Paper sx={{ p: 2, mb: 2 }}>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={4}>
-              <TextField label="From" type="date" value={from} onChange={(e) => setFrom(e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
+              <TextField label={t('admin.cashierClosures.from')} type="date" value={from} onChange={(e) => setFrom(e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
             </Grid>
             <Grid item xs={12} sm={4}>
-              <TextField label="To" type="date" value={to} onChange={(e) => setTo(e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
+              <TextField label={t('admin.cashierClosures.to')} type="date" value={to} onChange={(e) => setTo(e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
             </Grid>
             <Grid item xs={12} sm={4}>
-              <Button variant="outlined" onClick={loadClosures}>Apply Filters</Button>
+              <Button variant="outlined" onClick={loadClosures}>{t('admin.cashierClosures.applyFilters')}</Button>
             </Grid>
           </Grid>
         </Paper>
@@ -196,21 +217,21 @@ const CashierClosuresPage: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Period Start</TableCell>
-                <TableCell>Period End</TableCell>
-                <TableCell align="right">Cash</TableCell>
-                <TableCell align="right">Card</TableCell>
-                <TableCell align="right">Transfer</TableCell>
-                <TableCell align="right">Check</TableCell>
-                <TableCell align="right">Total</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell>{t('admin.cashierClosures.periodStart')}</TableCell>
+                <TableCell>{t('admin.cashierClosures.periodEnd')}</TableCell>
+                <TableCell align="right">{t('admin.cashierClosures.cash')}</TableCell>
+                <TableCell align="right">{t('admin.cashierClosures.card')}</TableCell>
+                <TableCell align="right">{t('admin.cashierClosures.transfer')}</TableCell>
+                <TableCell align="right">{t('admin.cashierClosures.check')}</TableCell>
+                <TableCell align="right">{t('admin.cashierClosures.total')}</TableCell>
+                <TableCell align="right">{t('admin.cashierClosures.actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow><TableCell colSpan={8} align="center"><CircularProgress size={24} /></TableCell></TableRow>
               ) : closures.length === 0 ? (
-                <TableRow><TableCell colSpan={8} align="center">No closures found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={8} align="center">{t('admin.cashierClosures.noData')}</TableCell></TableRow>
               ) : closures.map((closure) => (
                 <TableRow key={closure._id}>
                   <TableCell>{dayjs(closure.periodStart).format('YYYY-MM-DD HH:mm')}</TableCell>
@@ -221,7 +242,7 @@ const CashierClosuresPage: React.FC = () => {
                   <TableCell align="right">{formatMoney(closure.paymentTotals.check)}</TableCell>
                   <TableCell align="right">{formatMoney(closure.paymentTotals.total)}</TableCell>
                   <TableCell align="right">
-                    <Button size="small" onClick={() => printClosure(closure)}>Print</Button>
+                    <Button size="small" onClick={() => printClosure(closure)}>{t('admin.cashierClosures.print')}</Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -229,43 +250,51 @@ const CashierClosuresPage: React.FC = () => {
           </Table>
         </TableContainer>
 
-        <Dialog open={generateOpen} onClose={() => setGenerateOpen(false)} maxWidth="md" fullWidth>
-          <DialogTitle>Generate Closure</DialogTitle>
+        <Dialog open={generateOpen} onClose={() => { setGenerateOpen(false); setNote(''); }} maxWidth="md" fullWidth>
+          <DialogTitle>{t('admin.cashierClosures.generate')}</DialogTitle>
           <DialogContent>
             {preview && (
               <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
-                <Typography variant="body2">Period: {dayjs(preview.periodStart).format('YYYY-MM-DD HH:mm')} - {dayjs(preview.periodEnd).format('YYYY-MM-DD HH:mm')}</Typography>
+                <Typography variant="body2">{t('admin.cashierClosures.period')}: {dayjs(preview.periodStart).format('YYYY-MM-DD HH:mm')} - {dayjs(preview.periodEnd).format('YYYY-MM-DD HH:mm')}</Typography>
                 <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="subtitle2">Payments by Method</Typography>
-                  <Typography>Cash: {formatMoney(preview.paymentTotals.cash)}</Typography>
-                  <Typography>Card: {formatMoney(preview.paymentTotals.card)}</Typography>
-                  <Typography>Transfer: {formatMoney(preview.paymentTotals.transfer)}</Typography>
-                  <Typography>Check: {formatMoney(preview.paymentTotals.check)}</Typography>
-                  <Typography fontWeight={700}>Total: {formatMoney(preview.paymentTotals.total)}</Typography>
+                  <Typography variant="subtitle2">{t('admin.cashierClosures.paymentsByMethod')}</Typography>
+                  <Typography>{t('admin.cashierClosures.cash')}: {formatMoney(preview.paymentTotals.cash)}</Typography>
+                  <Typography>{t('admin.cashierClosures.card')}: {formatMoney(preview.paymentTotals.card)}</Typography>
+                  <Typography>{t('admin.cashierClosures.transfer')}: {formatMoney(preview.paymentTotals.transfer)}</Typography>
+                  <Typography>{t('admin.cashierClosures.check')}: {formatMoney(preview.paymentTotals.check)}</Typography>
+                  <Typography fontWeight={700}>{t('admin.cashierClosures.total')}: {formatMoney(preview.paymentTotals.total)}</Typography>
                 </Paper>
 
-                <Typography variant="subtitle2">Cash Distribution</Typography>
+                <Typography variant="subtitle2">{t('admin.cashierClosures.cashDistribution')}</Typography>
                 <Grid container spacing={2}>
                   {denominations.map((denomination) => (
                     <Grid item xs={12} sm={6} md={4} key={denomination}>
                       <TextField
                         label={`$${denomination}`}
                         type="number"
-                        inputProps={{ min: 0 }}
-                        value={cashDistribution[String(denomination)] || 0}
-                        onChange={(e) => setCashDistribution(prev => ({ ...prev, [String(denomination)]: Math.max(0, Number(e.target.value || 0)) }))}
+                        inputProps={{ min: 0, step: 1 }}
+                        value={cashDistribution[String(denomination)] ?? ''}
+                        onChange={(e) => setCashDistribution(prev => ({ ...prev, [String(denomination)]: e.target.value }))}
                         fullWidth
                       />
                     </Grid>
                   ))}
                 </Grid>
-                <Typography variant="body2">Cash Counted: {formatMoney(getCashDeclared())}</Typography>
+                <Typography variant="body2">{t('admin.cashierClosures.cashCounted')}: {formatMoney(getCashDeclared())}</Typography>
+                <TextField
+                  label={t('admin.cashierClosures.note')}
+                  multiline
+                  minRows={2}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  fullWidth
+                />
               </Box>
             )}
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setGenerateOpen(false)}>Cancel</Button>
-            <Button variant="contained" onClick={createClosure} disabled={generating || !preview}>Confirm</Button>
+            <Button onClick={() => setGenerateOpen(false)}>{t('admin.cashierClosures.cancel')}</Button>
+            <Button variant="contained" onClick={createClosure} disabled={generating || !preview}>{t('admin.cashierClosures.confirm')}</Button>
           </DialogActions>
         </Dialog>
       </Box>

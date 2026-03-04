@@ -101,7 +101,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       { text: t('admin.nav.users'), icon: <People />, path: '/admin/users', key: 'users', perm: 'admin.users' },
       { text: t('admin.nav.roles'), icon: <Settings />, path: '/admin/roles', key: 'roles', perm: 'admin.roles' },
       { text: t('admin.nav.media'), icon: <Photo />, path: '/admin/media', key: 'media', perm: 'admin.media' },
-      { text: t('admin.nav.analytics'), icon: <Analytics />, path: '/admin/analytics', key: 'analytics', perm: 'admin.analytics' },
       { text: t('admin.nav.companies'), icon: <Business />, path: '/admin/companies', key: 'companies', perm: 'admin.companies' },
       { text: t('admin.nav.guests'), icon: <PersonPin />, path: '/admin/guests', key: 'guests', perm: 'admin.guests' },
       { text: t('admin.nav.creditAccounts'), icon: <AccountBalanceWallet />, path: '/admin/credit-accounts', key: 'credit-accounts', perm: 'admin.creditAccounts' },

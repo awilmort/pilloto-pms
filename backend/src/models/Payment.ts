@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'credit' | 'check';
 export type PaymentStatus = 'completed' | 'pending' | 'reversed';
@@ -74,5 +75,8 @@ paymentSchema.pre('validate', function (next) {
   }
   next();
 });
+
+// ── Multi-tenancy ────────────────────────────────────────────
+paymentSchema.plugin(tenantPlugin);
 
 export default mongoose.model<IPayment>('Payment', paymentSchema);

@@ -55,7 +55,6 @@ const SECTION_KEYS: { key: string; labelKey: string }[] = [
   { key: 'users',         labelKey: 'admin.nav.users' },
   { key: 'roles',         labelKey: 'admin.nav.roles' },
   { key: 'media',         labelKey: 'admin.nav.media' },
-  { key: 'analytics',     labelKey: 'admin.nav.analytics' },
   { key: 'companies',     labelKey: 'admin.nav.companies' },
   { key: 'guests',        labelKey: 'admin.nav.guests' },
   { key: 'credit-accounts', labelKey: 'admin.nav.creditAccounts' },
@@ -255,6 +254,7 @@ const Settings: React.FC = () => {
                     value={settings.cashierShift?.openTime || '08:00'}
                     onChange={handleCashierShiftChange('openTime')}
                     InputLabelProps={{ shrink: true }}
+                    sx={{ minWidth: 240 }}
                   />
                   <TextField
                     label={t('admin.settings.cashier.closeTime', 'Cashier Shift Close Time')}
@@ -262,6 +262,7 @@ const Settings: React.FC = () => {
                     value={settings.cashierShift?.closeTime || '17:00'}
                     onChange={handleCashierShiftChange('closeTime')}
                     InputLabelProps={{ shrink: true }}
+                    sx={{ minWidth: 240 }}
                   />
                 </Box>
               </Box>

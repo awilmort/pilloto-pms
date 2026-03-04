@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export type CreditScope = 'guest' | 'company';
 export type CreditAccountStatus = 'active' | 'suspended';
@@ -45,6 +46,9 @@ const creditAccountSchema = new Schema<ICreditAccount>({
   },
 }, { timestamps: true });
 
-creditAccountSchema.index({ scope: 1, referenceId: 1 }, { unique: true });
+// ── Multi-tenancy ────────────────────────────────────────────
+creditAccountSchema.plugin(tenantPlugin);
+// Per-tenant unique credit account per scope+referenceId
+creditAccountSchema.index({ scope: 1, referenceId: 1, tenantId: 1 }, { unique: true });
 
 export default mongoose.model<ICreditAccount>('CreditAccount', creditAccountSchema);

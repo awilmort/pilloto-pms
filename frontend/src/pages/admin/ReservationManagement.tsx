@@ -171,6 +171,7 @@ const ReservationManagement: React.FC = () => {
   // Check-in / Check-out modal state
   const [opsDialog, setOpsDialog] = useState<{ open: boolean; mode: 'checkin' | 'checkout'; reservation: Reservation | null }>({ open: false, mode: 'checkin', reservation: null });
   const [idDocument, setIdDocument] = useState<string>('');
+  const [idType, setIdType] = useState<string>('cedula');
   const [checkoutFinancial, setCheckoutFinancial] = useState<{ totalCharges: number; totalPayments: number; balance: number; creditAvailability: number } | null>(null);
   const [checkoutFinancialLoading, setCheckoutFinancialLoading] = useState(false);
 
@@ -652,7 +653,8 @@ const ReservationManagement: React.FC = () => {
       setCreateDialog(false);
       setCreateForm(defaultCreateForm);
     } catch (error: any) {
-      setSnackbar({ open: true, message: error.response?.data?.message || 'Failed to create reservation', severity: 'error' });
+      const detail = error.response?.data?.errors?.join(', ') || error.response?.data?.message || 'Failed to create reservation';
+      setSnackbar({ open: true, message: detail, severity: 'error' });
     } finally {
       setCreateLoading(false);
     }
@@ -1035,6 +1037,7 @@ const ReservationManagement: React.FC = () => {
                                     }
                                     setOpsDialog({ open: true, mode: 'checkin', reservation });
                                     setIdDocument('');
+                                    setIdType('cedula');
                                   }}
                                 >
                                   {t('admin.reservations.actions.checkin')}
@@ -1056,6 +1059,7 @@ const ReservationManagement: React.FC = () => {
                               onClick={() => {
                                 setOpsDialog({ open: true, mode: 'checkin', reservation });
                                 setIdDocument('');
+                                setIdType('cedula');
                               }}
                             >
                               {t('admin.reservations.actions.checkin')}
@@ -1302,12 +1306,28 @@ const ReservationManagement: React.FC = () => {
             {opsDialog.mode === 'checkin' ? (
               <Box sx={{ display: 'grid', gap: 2 }}>
                 <Alert severity="info">{t('admin.reservations.checkin.provideId')}</Alert>
-                <TextField
-                  label={t('admin.reservations.checkin.idDocument')}
-                  value={idDocument}
-                  onChange={(e) => setIdDocument(e.target.value)}
-                  required
-                />
+                {opsDialog.reservation?.type === 'room' && (
+                  <>
+                    <FormControl fullWidth>
+                      <InputLabel>{t('admin.reservations.checkin.idType')}</InputLabel>
+                      <Select
+                        value={idType}
+                        label={t('admin.reservations.checkin.idType')}
+                        onChange={(e) => setIdType(e.target.value)}
+                      >
+                        <MenuItem value="cedula">{t('admin.reservations.checkin.idTypeOptions.cedula')}</MenuItem>
+                        <MenuItem value="pasaporte">{t('admin.reservations.checkin.idTypeOptions.pasaporte')}</MenuItem>
+                        <MenuItem value="rnc">{t('admin.reservations.checkin.idTypeOptions.rnc')}</MenuItem>
+                      </Select>
+                    </FormControl>
+                    <TextField
+                      label={t('admin.reservations.checkin.idDocument')}
+                      value={idDocument}
+                      onChange={(e) => setIdDocument(e.target.value)}
+                      required
+                    />
+                  </>
+                )}
               </Box>
             ) : (
               <Box sx={{ display: 'grid', gap: 1.5 }}>
@@ -1378,7 +1398,9 @@ const ReservationManagement: React.FC = () => {
                     if (isRoom && !idDocument.trim()) {
                       setSnackbar({ open: true, message: t('admin.reservations.checkin.idRequired'), severity: 'error' });
                     } else {
-                      const payload = isRoom ? { identificationDocument: idDocument.trim() } : { identificationDocument: '' };
+                      const payload = isRoom
+                        ? { identificationDocument: idDocument.trim(), identificationType: idType }
+                        : { identificationDocument: '' };
                       const res = await reservationsService.checkInReservation(opsDialog.reservation._id, payload as any);
                       const updated = res.data.data as Reservation;
                       setReservations(prev => prev.map(r => r._id === updated._id ? updated : r));

@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export interface IEventType extends Document {
   type: string; // identifier e.g., 'wedding'
@@ -20,7 +21,7 @@ const eventTypeSchema = new Schema<IEventType>({
     required: true,
     trim: true,
     lowercase: true,
-    unique: true,
+    // Uniqueness enforced by compound index { type, tenantId } below
     maxlength: 50
   },
   title: {
@@ -68,5 +69,10 @@ const eventTypeSchema = new Schema<IEventType>({
 });
 
 eventTypeSchema.index({ isActive: 1, priceFrom: 1 });
+
+// ── Multi-tenancy ────────────────────────────────────────────
+eventTypeSchema.plugin(tenantPlugin);
+// Per-tenant unique event type identifier
+eventTypeSchema.index({ type: 1, tenantId: 1 }, { unique: true });
 
 export default mongoose.model<IEventType>('EventType', eventTypeSchema);

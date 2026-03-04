@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { tenantPlugin } from '../plugins/tenantPlugin';
 
 interface ICashDistributionItem {
   denomination: number;
@@ -20,6 +21,7 @@ export interface ICashierClosure extends Document {
   periodEnd: Date;
   paymentTotals: IPaymentTotals;
   cashDistribution: ICashDistributionItem[];
+  note?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -58,8 +60,16 @@ const cashierClosureSchema = new Schema<ICashierClosure>({
     ],
     default: [],
   },
+  note: {
+    type: String,
+    trim: true,
+    maxlength: 1000,
+  },
 }, { timestamps: true });
 
-cashierClosureSchema.index({ user: 1, periodStart: 1, periodEnd: 1 }, { unique: true });
+// ── Multi-tenancy ────────────────────────────────────────────
+cashierClosureSchema.plugin(tenantPlugin);
+// Per-tenant unique closure per user+period
+cashierClosureSchema.index({ user: 1, periodStart: 1, periodEnd: 1, tenantId: 1 }, { unique: true });
 
 export default mongoose.model<ICashierClosure>('CashierClosure', cashierClosureSchema);

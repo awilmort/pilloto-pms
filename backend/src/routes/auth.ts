@@ -6,6 +6,7 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 import { validateRegister, validateLogin, validateEmail, validatePasswordReset } from '../middleware/validation';
 import { sendTokenResponse } from '../utils/jwt';
 import { sendVerificationEmail, sendPasswordResetEmail } from '../utils/email';
+import { TenantRequest } from '../middleware/tenantContext';
 
 const router = express.Router();
 
@@ -109,9 +110,20 @@ router.post('/register', authRateLimit, validateRegister, async (req: Request, r
 router.post('/login', authRateLimit, validateLogin, async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
+    const tenantId = (req as TenantRequest).tenantId;
+    const isPlatform = (req as TenantRequest).isPlatformRequest;
+
+    // Build the user query — scope by tenant for regular users; unscoped for platform
+    const userQuery: Record<string, any> = { email };
+    if (!isPlatform && tenantId) {
+      userQuery.tenantId = tenantId;
+    } else if (isPlatform) {
+      // Platform login: only superadmin users (no tenantId on the document)
+      userQuery.role = 'superadmin';
+    }
 
     // Check if user exists
-    const user = await User.findOne({ email }).select('+password');
+    const user = await User.findOne(userQuery).select('+password');
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -163,7 +175,7 @@ router.post('/login', authRateLimit, validateLogin, async (req: Request, res: Re
     user.lastLogin = new Date();
     await user.save();
 
-    sendTokenResponse(res, 200, user, 'Login successful');
+    sendTokenResponse(res, 200, user, 'Login successful', tenantId);
   } catch (error: any) {
     console.error('Login error:', error);
     res.status(500).json({
@@ -229,7 +241,7 @@ router.post('/verify-email', async (req: Request, res: Response) => {
     await user.save();
 
     // Send login token
-    sendTokenResponse(res, 200, user, 'Email verified successfully! You are now logged in.');
+    sendTokenResponse(res, 200, user, 'Email verified successfully! You are now logged in.', user.tenantId?.toString());
   } catch (error: any) {
     console.error('Email verification error:', error);
     res.status(500).json({

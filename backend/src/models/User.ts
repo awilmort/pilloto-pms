@@ -1,8 +1,10 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export interface IUser extends Document {
+  tenantId?: mongoose.Types.ObjectId;
   firstName: string;
   lastName: string;
   email: string;
@@ -45,7 +47,7 @@ const userSchema = new Schema<IUser>({
   email: {
     type: String,
     required: true,
-    unique: true,
+    // Uniqueness is enforced by the compound index { email, tenantId } below
     lowercase: true,
     trim: true,
     match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
@@ -176,5 +178,10 @@ userSchema.methods.toJSON = function () {
   delete userObject.password;
   return userObject;
 };
+
+// ── Multi-tenancy ────────────────────────────────────────────
+userSchema.plugin(tenantPlugin);
+// Per-tenant unique email (tenantId is added by the plugin)
+userSchema.index({ email: 1, tenantId: 1 }, { unique: true });
 
 export default mongoose.model<IUser>('User', userSchema);

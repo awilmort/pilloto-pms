@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export interface IReservation extends Document {
   user?: mongoose.Types.ObjectId; // Optional for guest bookings
@@ -38,6 +39,7 @@ export interface IReservation extends Document {
 
   // Identification document provided at check-in (e.g., ID number or file reference)
   identificationDocument?: string;
+  identificationType?: 'cedula' | 'pasaporte' | 'rnc';
 
   // Guest information
   guests: number;
@@ -57,7 +59,7 @@ export interface IReservation extends Document {
 
   // Contact and requests
   contactInfo: {
-    phone: string;
+    phone?: string;
     email: string;
     emergencyContact?: string;
   };
@@ -185,6 +187,11 @@ const reservationSchema = new Schema<IReservation>({
     maxlength: 200,
     required: false
   },
+  identificationType: {
+    type: String,
+    enum: ['cedula', 'pasaporte', 'rnc'],
+    required: false
+  },
 
   // Guest information
   guests: {
@@ -248,8 +255,8 @@ const reservationSchema = new Schema<IReservation>({
   contactInfo: {
     phone: {
       type: String,
-      required: true,
-      // No strict format validation; required but flexible
+      required: false,
+      // No strict format validation
     },
     email: {
       type: String,
@@ -365,5 +372,8 @@ reservationSchema.virtual('totalPrice')
   .set(function (this: IReservation, value: number) {
     this.estimatedTotal = value;
   });
+
+// ── Multi-tenancy ────────────────────────────────────────────
+reservationSchema.plugin(tenantPlugin);
 
 export default mongoose.model<IReservation>('Reservation', reservationSchema);

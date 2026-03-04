@@ -8,6 +8,7 @@
     "dev": "nodemon --exec ts-node src/index.ts",
     "build": "tsc",
     "seed": "ts-node src/scripts/seed.ts",
+    "create-superadmin": "ts-node src/scripts/create-superadmin.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

@@ -120,7 +120,6 @@
       "roles": "Roles",
       "commissions": "Commissions",
       "media": "Media",
-      "analytics": "Analytics",
       "settings": "Settings",
       "companies": "Companies",
       "guests": "Guests",
@@ -765,7 +764,13 @@
       "checkin": {
         "title": "Check-In",
         "provideId": "Provide the guest identification document to confirm check-in.",
-        "idDocument": "Identification Document",
+        "idType": "Identification Type",
+        "idTypeOptions": {
+          "cedula": "Cédula",
+          "pasaporte": "Pasaporte",
+          "rnc": "RNC"
+        },
+        "idDocument": "Identification Number",
         "idRequired": "Identification document is required",
         "confirm": "Confirm Check-In"
       },
@@ -915,31 +920,45 @@
       "generate": "Generate Closure",
       "periodStart": "Period Start",
       "periodEnd": "Period End",
+      "period": "Period",
       "actions": "Actions",
       "print": "Print Closure",
       "paymentsByMethod": "Payments by Method",
+      "paymentsSummary": "Payments Summary",
       "cashDistribution": "Cash Distribution",
       "cashCounted": "Cash Counted",
-      "noData": "No closures found"
-    }
+      "note": "Note (optional)",
+      "noData": "No closures found",
+      "from": "From",
+      "to": "To",
+      "applyFilters": "Apply Filters",
+      "cash": "Cash",
+      "card": "Card",
+      "transfer": "Transfer",
+      "check": "Check",
+      "total": "Total",
+      "cancel": "Cancel",
+      "confirm": "Confirm",
+      "cashier": "Cashier",
+      "created": "Created",
+      "denomination": "Denomination",
+      "count": "Count",
+      "subtotal": "Subtotal"
     },
     "dashboard": {
       "title": "Admin Dashboard",
-      "welcome": "Welcome back, {{name}}! Here's what's happening at Pilloto.",
+      "welcome": "Welcome back, {{name}}! Here's an overview of today's activity.",
       "stats": {
         "totalRooms": "Total Rooms",
-        "reservations": "Reservations",
-        "totalUsers": "Total Users",
-        "monthlyRevenue": "Monthly Revenue",
-        "occupancyRate": "Occupancy Rate"
+        "totalReservations": "Total Reservations",
+        "pendingReservations": "Pending Reservations",
+        "confirmedReservations": "Confirmed Reservations"
       },
       "quickActions": {
         "title": "Quick Actions",
         "manageRooms": "Manage Rooms",
         "manageReservations": "Manage Reservations",
-        "manageAmenities": "Manage Amenities",
-        "manageUsers": "Manage Users",
-        "viewReports": "View Reports"
+        "manageUsers": "Manage Users"
       },
       "roomsOverview": {
         "title": "Rooms Overview",
@@ -1021,7 +1040,7 @@
     },
     "empty": "No pricing rules yet"
     }
-  ,
+  },
   "pages": {
     "rooms": {
       "loadingAmenities": "Loading amenities...",

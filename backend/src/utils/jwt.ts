@@ -5,6 +5,7 @@ export interface JWTPayload {
   userId: string;
   email: string;
   role: string;
+  tenantId?: string;  // undefined for superadmin users
 }
 
 export const generateToken = (payload: JWTPayload): string => {
@@ -27,11 +28,12 @@ export const verifyToken = (token: string): JWTPayload => {
   return jwt.verify(token, secret) as JWTPayload;
 };
 
-export const sendTokenResponse = (res: Response, statusCode: number, user: any, message: string) => {
+export const sendTokenResponse = (res: Response, statusCode: number, user: any, message: string, tenantId?: string) => {
   const token = generateToken({
     userId: user._id.toString(),
     email: user.email,
-    role: user.role
+    role: user.role,
+    tenantId,
   });
 
   const cookieOptions = {

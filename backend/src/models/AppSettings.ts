@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export interface IAppSettings extends Document {
   key: string;        // singleton key, always 'global'
@@ -19,7 +20,7 @@ export interface IAppSettings extends Document {
 
 const appSettingsSchema = new Schema<IAppSettings>(
   {
-    key: { type: String, default: 'global', unique: true },
+    key: { type: String, default: 'global' },  // kept for backward compat; uniqueness is per-tenant
     services: {
       daypass:       { type: Boolean, default: true },
       accommodation: { type: Boolean, default: true },
@@ -49,5 +50,10 @@ const appSettingsSchema = new Schema<IAppSettings>(
   },
   { timestamps: true }
 );
+
+// ── Multi-tenancy ────────────────────────────────────────────
+appSettingsSchema.plugin(tenantPlugin);
+// Each tenant has exactly one settings document
+appSettingsSchema.index({ tenantId: 1 }, { unique: true });
 
 export default mongoose.model<IAppSettings>('AppSettings', appSettingsSchema);

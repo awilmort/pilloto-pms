@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export interface IGuest extends Document {
   firstName: string;
@@ -14,14 +15,17 @@ const guestSchema = new Schema<IGuest>(
   {
     firstName: { type: String, required: true, trim: true },
     lastName: { type: String, required: true, trim: true },
-    email: { type: String, required: true, trim: true, lowercase: true, unique: true },
+    // Uniqueness enforced by compound index { email, tenantId } below
+    email: { type: String, required: true, trim: true, lowercase: true },
     phone: { type: String, trim: true },
     notes: { type: String, maxlength: 1000 },
   },
   { timestamps: true }
 );
 
-guestSchema.index({ email: 1 }, { unique: true });
+// ── Multi-tenancy ────────────────────────────────────────────
+guestSchema.plugin(tenantPlugin);
+guestSchema.index({ email: 1, tenantId: 1 }, { unique: true });
 guestSchema.index({ firstName: 'text', lastName: 'text', email: 'text' });
 
 export default mongoose.model<IGuest>('Guest', guestSchema);

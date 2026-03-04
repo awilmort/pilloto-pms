@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export interface ICompany extends Document {
   name: string;
@@ -26,5 +27,8 @@ const companySchema = new Schema<ICompany>(
 );
 
 companySchema.index({ name: 'text', email: 'text', contactName: 'text' });
+
+// ── Multi-tenancy ────────────────────────────────────────────
+companySchema.plugin(tenantPlugin);
 
 export default mongoose.model<ICompany>('Company', companySchema);

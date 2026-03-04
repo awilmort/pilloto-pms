@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export interface IWristbandDelivery extends Document {
   date: Date;
@@ -31,5 +32,8 @@ const wristbandDeliverySchema = new Schema<IWristbandDelivery>({
 }, { timestamps: true });
 
 wristbandDeliverySchema.index({ date: 1 });
+
+// ── Multi-tenancy ────────────────────────────────────────────
+wristbandDeliverySchema.plugin(tenantPlugin);
 
 export default mongoose.model<IWristbandDelivery>('WristbandDelivery', wristbandDeliverySchema);

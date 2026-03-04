@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export interface ICharge extends Document {
   folioId: mongoose.Types.ObjectId;
@@ -27,5 +28,8 @@ const chargeSchema = new Schema<ICharge>({
     min: 0,
   },
 }, { timestamps: true });
+
+// ── Multi-tenancy ────────────────────────────────────────────
+chargeSchema.plugin(tenantPlugin);
 
 export default mongoose.model<ICharge>('Charge', chargeSchema);

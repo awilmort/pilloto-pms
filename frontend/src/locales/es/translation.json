@@ -118,7 +118,6 @@
       "roles": "Roles",
       "commissions": "Comisiones",
       "media": "Medios",
-      "analytics": "Analítica",
       "settings": "Configuración",
       "companies": "Empresas",
       "guests": "Huéspedes",
@@ -764,7 +763,13 @@
       "checkin": {
         "title": "Check-In",
         "provideId": "Proporciona el documento de identificación del huésped para confirmar el check-in.",
-        "idDocument": "Documento de identificación",
+        "idType": "Tipo de identificación",
+        "idTypeOptions": {
+          "cedula": "Cédula",
+          "pasaporte": "Pasaporte",
+          "rnc": "RNC"
+        },
+        "idDocument": "Número de identificación",
         "idRequired": "Se requiere el documento de identificación",
         "confirm": "Confirmar Check-In"
       },
@@ -914,30 +919,45 @@
       "generate": "Generar cierre",
       "periodStart": "Inicio de período",
       "periodEnd": "Fin de período",
+      "period": "Período",
       "actions": "Acciones",
       "print": "Imprimir cierre",
       "paymentsByMethod": "Pagos por método",
+      "paymentsSummary": "Resumen de pagos",
       "cashDistribution": "Distribución de efectivo",
       "cashCounted": "Efectivo contado",
-      "noData": "No se encontraron cierres"
+      "note": "Nota (opcional)",
+      "noData": "No se encontraron cierres",
+      "from": "Desde",
+      "to": "Hasta",
+      "applyFilters": "Aplicar filtros",
+      "cash": "Efectivo",
+      "card": "Tarjeta",
+      "transfer": "Transferencia",
+      "check": "Cheque",
+      "total": "Total",
+      "cancel": "Cancelar",
+      "confirm": "Confirmar",
+      "cashier": "Cajero",
+      "created": "Creado",
+      "denomination": "Denominación",
+      "count": "Cantidad",
+      "subtotal": "Subtotal"
     },
     "dashboard": {
       "title": "Panel de administración",
-      "welcome": "¡Bienvenido de nuevo, {{name}}! Esto es lo que está sucediendo en Pilloto.",
+      "welcome": "¡Bienvenido de nuevo, {{name}}! Aquí tienes el resumen de la actividad de hoy.",
       "stats": {
         "totalRooms": "Total de habitaciones",
-        "reservations": "Reservas",
-        "totalUsers": "Total de usuarios",
-        "monthlyRevenue": "Ingresos mensuales",
-        "occupancyRate": "Tasa de ocupación"
+        "totalReservations": "Total de reservas",
+        "pendingReservations": "Reservas pendientes",
+        "confirmedReservations": "Reservas confirmadas"
       },
       "quickActions": {
         "title": "Acciones rápidas",
         "manageRooms": "Gestionar habitaciones",
         "manageReservations": "Gestionar reservas",
-        "manageAmenities": "Gestionar amenidades",
-        "manageUsers": "Gestionar usuarios",
-        "viewReports": "Ver reportes"
+        "manageUsers": "Gestionar usuarios"
       },
       "roomsOverview": {
         "title": "Resumen de habitaciones",

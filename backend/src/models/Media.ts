@@ -1,4 +1,5 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export interface IMedia extends Document {
   filename: string; // stored filename with extension, unique
@@ -81,9 +82,11 @@ const mediaSchema = new Schema<IMedia>({
   timestamps: true
 });
 
-// Index for efficient queries
-mediaSchema.index({ filename: 1 }, { unique: true });
-mediaSchema.index({ url: 1 }, { unique: true });
+// ── Multi-tenancy ────────────────────────────────────────────
+mediaSchema.plugin(tenantPlugin);
+// Per-tenant unique filename and url
+mediaSchema.index({ filename: 1, tenantId: 1 }, { unique: true });
+mediaSchema.index({ url: 1, tenantId: 1 }, { unique: true });
 mediaSchema.index({ category: 1, isPublic: 1 });
 mediaSchema.index({ isFeatured: 1, isPublic: 1 });
 mediaSchema.index({ tags: 1 });

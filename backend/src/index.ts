@@ -25,8 +25,10 @@ import companyRoutes from './routes/companies';
 import guestRoutes from './routes/guests';
 import creditAccountRoutes from './routes/creditAccounts';
 import cashierClosureRoutes from './routes/cashierClosures';
+import platformRoutes from './routes/platform';
 import { syncUploadsToMedia } from './utils/mediaSync';
-import Role from './models/Role';
+import { resolveTenant } from './middleware/tenantContext';
+import Tenant from './models/Tenant';
 
 // Load environment variables
 dotenv.config();
@@ -57,22 +59,46 @@ app.use(helmet({
   },
 }));
 
-// CORS: support multiple origins via CORS_ORIGINS or single FRONTEND_URL
-const allowedOrigins = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || 'http://localhost:3000')
+// CORS: support multiple origins via CORS_ORIGINS or single FRONTEND_URL.
+// In production also allow any *.pilloto.com subdomain and admin.pilloto.com.
+const allowedOriginsEnv = (process.env.CORS_ORIGINS || process.env.FRONTEND_URL || 'http://localhost:3000')
   .split(',')
   .map(s => s.trim())
   .filter(Boolean);
+
+const isPillotoSubdomain = (origin: string): boolean => {
+  try {
+    const url = new URL(origin);
+    return url.hostname === 'pilloto.com' || url.hostname.endsWith('.pilloto.com');
+  } catch {
+    return false;
+  }
+};
+
+// Allow any *.localhost origin in development (e.g. hotel.localhost:3000)
+const isLocalhostSubdomain = (origin: string): boolean => {
+  try {
+    const url = new URL(origin);
+    return url.hostname.endsWith('.localhost');
+  } catch {
+    return false;
+  }
+};
+
+const allowedOrigins = allowedOriginsEnv;
 
 app.use(cors({
   origin: (origin, callback) => {
     // Allow non-browser requests (no origin) like curl or server-to-server
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) return callback(null, true);
+    if (isProd && isPillotoSubdomain(origin)) return callback(null, true);
+    if (!isProd && isLocalhostSubdomain(origin)) return callback(null, true);
     return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'X-Tenant-Slug'],
 }));
 
 // Session configuration
@@ -104,13 +130,26 @@ app.use(morgan('combined'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static files for media uploads (persistent disk when available)
+// Static files for media uploads — serve per-tenant directory when tenantId prefix is present
+// e.g. GET /uploads/6612abc.../image.jpg => uploads/<tenantId>/image.jpg
 const UPLOADS_DIR = process.env.UPLOADS_DIR || path.join(__dirname, '../uploads');
-app.use('/uploads', express.static(UPLOADS_DIR));
+app.use('/uploads', (req, res, next) => {
+  // Validate that the requested path stays within the uploads dir (path traversal guard)
+  const requestedPath = path.join(UPLOADS_DIR, req.path);
+  if (!requestedPath.startsWith(UPLOADS_DIR)) {
+    return res.status(403).json({ success: false, message: 'Forbidden' });
+  }
+  express.static(UPLOADS_DIR)(req, res, next);
+});
 // Static files for seed data images (serve from frontend public directory)
 app.use('/images', express.static(path.join(__dirname, '../../frontend/public/images')));
 
+// ── Tenant resolution middleware (runs before all API routes) ─────────────────
+// Must come after cookie-parser and body-parser but before routes
+app.use('/api', resolveTenant);
+
 // Routes
+app.use('/api/platform', platformRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', roomRoutes);
 app.use('/api/reservations', reservationRoutes);
@@ -125,6 +164,37 @@ app.use('/api/companies', companyRoutes);
 app.use('/api/guests', guestRoutes);
 app.use('/api/credit-accounts', creditAccountRoutes);
 app.use('/api/cashier-closures', cashierClosureRoutes);
+
+// Public endpoint: returns tenant info from the Host/X-Tenant-Slug header (no auth required)
+app.get('/api/tenant/info', async (req, res) => {
+  const host   = req.headers.host || '';
+  const xSlug  = (req.headers['x-tenant-slug'] as string | undefined)?.trim().toLowerCase();
+
+  // Resolve slug
+  let slug: string | undefined = xSlug;
+  if (!slug) {
+    const hostname = host.split(':')[0];
+    const parts = hostname.split('.');
+    if (parts.length >= 3) slug = parts[0].toLowerCase();
+    // local: slug.localhost
+    else if (parts.length === 2 && parts[1] === 'localhost') slug = parts[0].toLowerCase();
+  }
+  if (!slug) slug = process.env.TENANT_SLUG;
+
+  if (!slug || slug === 'admin') {
+    return res.status(200).json({ success: true, data: null, isPlatform: true });
+  }
+
+  const tenant = await Tenant.findOne({ slug, isActive: true })
+    .select('name slug plan settings isActive')
+    .lean();
+
+  if (!tenant) {
+    return res.status(404).json({ success: false, message: 'Tenant not found.' });
+  }
+
+  res.status(200).json({ success: true, data: tenant });
+});
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -191,25 +261,6 @@ const startServer = async () => {
     }
   } catch (e) {
     console.warn('Media sync skipped:', e);
-  }
-
-  // Ensure core roles exist with default permissions
-  try {
-    const coreRoles = [
-      { name: 'admin', description: 'All Access', permissions: ['admin.access'] },
-      { name: 'customer', description: 'No admin access', permissions: [] },
-      { name: 'maintenance', description: 'Access only to Accommodations page', permissions: ['accommodations.manage'] },
-      { name: 'staff', description: 'Access only to Schedule page', permissions: ['schedule.view'] },
-    ];
-    for (const r of coreRoles) {
-      const existing = await Role.findOne({ name: r.name });
-      if (!existing) {
-        await Role.create(r as any);
-        console.log(`👤 Seeded role: ${r.name}`);
-      }
-    }
-  } catch (e) {
-    console.warn('Role seed skipped:', e);
   }
 
   app.listen(PORT, () => {

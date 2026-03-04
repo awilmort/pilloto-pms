@@ -240,7 +240,6 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       .populate('user', 'firstName lastName email')
       .populate('room', 'name status amenities')
       .populate('rooms', 'name status amenities')
-      .populate('payments.createdBy', 'firstName lastName')
       .populate('company', 'name email phone')
       .populate('guestRecord', 'firstName lastName email phone');
 
@@ -341,10 +340,10 @@ router.post('/', async (req: Request, res: Response) => {
           message: 'First name and last name are required for guest bookings'
         });
       }
-      if (!contactInfo || !contactInfo.email || !contactInfo.phone) {
+      if (!contactInfo || !contactInfo.email) {
         return res.status(400).json({
           success: false,
-          message: 'Email and phone number are required for all reservations'
+          message: 'Email is required for all reservations'
         });
       }
     }
@@ -630,8 +629,8 @@ router.post('/', async (req: Request, res: Response) => {
     // Populate the reservation before sending response and email
     const populatedReservation = await Reservation.findById(reservation._id)
       .populate('user', 'firstName lastName email')
-      .populate('room', 'name status price') // room may be null
-      .populate('rooms', 'name status price')
+      .populate('room', 'name status roomPrice') // room may be null
+      .populate('rooms', 'name status roomPrice')
       .populate('company', 'name')
       .populate('guestRecord', 'firstName lastName email');
 
@@ -988,8 +987,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       .populate('user', 'firstName lastName email')
       .populate('room', 'name status')
       .populate('rooms', 'name status')
-      .populate('guestRecord', 'firstName lastName email phone')
-      .populate('payments.createdBy', 'firstName lastName');
+      .populate('guestRecord', 'firstName lastName email phone');
 
     res.status(200).json({
       success: true,
@@ -1072,9 +1070,8 @@ router.patch('/:id/status', authenticate, async (req: AuthRequest, res: Response
     // Populate the reservation before sending response
     const populatedReservation = await Reservation.findById(reservation._id)
       .populate('user', 'firstName lastName email')
-      .populate('room', 'name status price')
-      .populate('rooms', 'name status price')
-      .populate('payments.createdBy', 'firstName lastName');
+      .populate('room', 'name status roomPrice')
+      .populate('rooms', 'name status roomPrice');
 
     res.status(200).json({
       success: true,
@@ -1130,7 +1127,7 @@ router.put('/:id/assign-room', authenticate, authorizePermission('admin.reservat
 
       const populatedReservation = await Reservation.findById(reservation._id)
         .populate('user', 'firstName lastName email')
-        .populate('room', 'name type status')
+        .populate('room', 'name status')
         .populate('assignedBy', 'firstName lastName email');
 
       return res.status(200).json({
@@ -1328,7 +1325,7 @@ router.get('/public/:confirmationToken', async (req: Request, res: Response) => 
 
     const reservation = await Reservation.findOne({ confirmationToken })
       .populate('user', 'firstName lastName email')
-      .populate('room', 'name type status amenities');
+      .populate('room', 'name status amenities');
 
     if (!reservation) {
       return res.status(404).json({
@@ -1359,7 +1356,7 @@ router.get('/public/code/:reservationCode', async (req: Request, res: Response) 
 
     const reservation = await Reservation.findOne({ reservationCode })
       .populate('user', 'firstName lastName email')
-      .populate('room', 'name type status amenities');
+      .populate('room', 'name status amenities');
 
     if (!reservation) {
       return res.status(404).json({
@@ -1425,7 +1422,7 @@ router.put('/public/:confirmationToken/cancel', async (req: Request, res: Respon
 
     const populatedReservation = await Reservation.findById(reservation._id)
       .populate('user', 'firstName lastName email')
-      .populate('room', 'name type price');
+      .populate('room', 'name roomPrice');
 
     res.status(200).json({
       success: true,
@@ -1485,7 +1482,7 @@ router.put('/public/code/:reservationCode/cancel', async (req: Request, res: Res
 
     const populatedReservation = await Reservation.findById(reservation._id)
       .populate('user', 'firstName lastName email')
-      .populate('room', 'name type price');
+      .populate('room', 'name roomPrice');
 
     res.status(200).json({
       success: true,
@@ -1520,7 +1517,7 @@ const generateReservationCode = (): string => {
 // @access  Private (Permission-based)
 router.patch('/:id/check-in', authenticate, authorizePermission('admin.reservations.checkin'), async (req: AuthRequest, res: Response) => {
   try {
-    const { identificationDocument, checkInAt } = req.body as { identificationDocument?: string; checkInAt?: string | Date };
+    const { identificationDocument, identificationType, checkInAt } = req.body as { identificationDocument?: string; identificationType?: string; checkInAt?: string | Date };
 
     const reservation = await Reservation.findById(req.params.id);
     if (!reservation) {
@@ -1542,6 +1539,9 @@ router.patch('/:id/check-in', authenticate, authorizePermission('admin.reservati
       const room = primaryRoomId ? await Room.findById(primaryRoomId) : null;
       if (!room) return res.status(404).json({ success: false, message: 'Assigned room not found' });
       reservation.identificationDocument = String(identificationDocument).trim();
+      if (identificationType) {
+        reservation.identificationType = identificationType as 'cedula' | 'pasaporte' | 'rnc';
+      }
     }
 
     const now = new Date();
@@ -1768,7 +1768,7 @@ router.post('/:id/payments', authenticate, authorizePermission('admin.reservatio
 
     const populated = await Reservation.findById(reservation._id)
       .populate('user', 'firstName lastName email')
-      .populate('room', 'name type status')
+      .populate('room', 'name status')
       .populate('guestRecord', 'firstName lastName email phone');
 
     res.status(200).json({ success: true, message: 'Payment recorded successfully', data: populated });
@@ -1819,7 +1819,7 @@ router.patch('/:id/payments/:paymentId', authenticate, authorizePermission('admi
 
     const populated = await Reservation.findById(reservation._id)
       .populate('user', 'firstName lastName email')
-      .populate('room', 'name type status')
+      .populate('room', 'name status')
       .populate('guestRecord', 'firstName lastName email phone');
     res.status(200).json({ success: true, message: 'Payment updated successfully', data: populated });
   } catch (error: any) {
@@ -1849,7 +1849,7 @@ router.delete('/:id/payments/:paymentId', authenticate, authorizePermission('adm
 
     const populated = await Reservation.findById(reservation._id)
       .populate('user', 'firstName lastName email')
-      .populate('room', 'name type status')
+      .populate('room', 'name status')
       .populate('guestRecord', 'firstName lastName email phone');
     res.status(200).json({ success: true, message: 'Payment deleted successfully', data: populated });
   } catch (error: any) {
@@ -1906,8 +1906,8 @@ router.post('/:id/use-credit', authenticate, authorizePermission('admin.reservat
 
     const populated = await Reservation.findById(reservation._id)
       .populate('user', 'firstName lastName email')
-      .populate('room', 'name type status condition')
-      .populate('rooms', 'name type status condition')
+      .populate('room', 'name status condition')
+      .populate('rooms', 'name status condition')
       .populate('guestRecord', 'firstName lastName email phone')
       .populate('company', 'name email phone');
 

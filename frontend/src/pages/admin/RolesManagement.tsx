@@ -48,7 +48,6 @@ const buildAvailablePermissions = (t: (key: string) => string) => ([
   { key: 'admin.media', label: t('admin.nav.media') },
   { key: 'admin.wristbands.view', label: t('admin.roles.permissionLabels.wristbandsView') },
   { key: 'admin.wristbands.manage', label: t('admin.roles.permissionLabels.wristbandsManage') },
-  { key: 'admin.analytics', label: t('admin.nav.analytics') },
   { key: 'admin.settings', label: t('admin.nav.settings') },
   { key: 'admin.revenue', label: t('admin.nav.revenue') },
   { key: 'admin.commissions', label: t('admin.nav.commissions') },

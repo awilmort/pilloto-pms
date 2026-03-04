@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import express, { Response } from 'express';
 import { authenticate, authorizePermission, AuthRequest } from '../middleware/auth';
 import AppSettings from '../models/AppSettings';
@@ -45,11 +46,12 @@ const resolveShiftPeriod = async () => {
 };
 
 const getPaymentTotalsForUser = async (userId: string, periodStart: Date, periodEnd: Date) => {
+  const userObjectId = new mongoose.Types.ObjectId(userId);
   const rows = await Payment.aggregate([
     {
       $match: {
         status: 'completed',
-        createdBy: userId as any,
+        createdBy: userObjectId,
       }
     },
     {
@@ -153,6 +155,7 @@ router.post('/', authenticate, authorizePermission('cashier', 'admin.access'), a
     if (!userId) return res.status(401).json({ success: false, message: 'Authentication required' });
 
     const inputDistribution = (req.body?.cashDistribution || {}) as Record<string, number>;
+    const note: string | undefined = req.body?.note ? String(req.body.note).trim() : undefined;
     const { periodStart, periodEnd } = await resolveShiftPeriod();
 
     const exists = await CashierClosure.findOne({ user: userId, periodStart, periodEnd });
@@ -176,6 +179,7 @@ router.post('/', authenticate, authorizePermission('cashier', 'admin.access'), a
       periodEnd,
       paymentTotals,
       cashDistribution,
+      ...(note ? { note } : {}),
     });
 
     const populated = await CashierClosure.findById(closure._id)
