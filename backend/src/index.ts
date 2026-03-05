@@ -144,6 +144,17 @@ app.use('/uploads', (req, res, next) => {
 // Static files for seed data images (serve from frontend public directory)
 app.use('/images', express.static(path.join(__dirname, '../../frontend/public/images')));
 
+// ── Health check endpoints ───────────────────────────────────────────────────
+// MUST be registered BEFORE resolveTenant to avoid a spurious tenant lookup:
+// Render hits this URL with host "pilloto-pms.onrender.com", which has 3 parts
+// and would be extracted as subdomain "pilloto-pms" — a non-existent tenant.
+app.get('/health', (_req, res) => {
+  res.status(200).json({ status: 'OK', message: 'Pilloto API is running', timestamp: new Date().toISOString() });
+});
+app.get('/api/health', (_req, res) => {
+  res.status(200).json({ status: 'OK', message: 'Pilloto API is running', timestamp: new Date().toISOString() });
+});
+
 // ── Tenant resolution middleware (runs before all API routes) ─────────────────
 // Must come after cookie-parser and body-parser but before routes
 app.use('/api', resolveTenant);
@@ -196,29 +207,8 @@ app.get('/api/tenant/info', async (req, res) => {
   res.status(200).json({ success: true, data: tenant });
 });
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    message: 'Pilloto API is running',
-    timestamp: new Date().toISOString()
-  });
-});
-
-app.use((req, res, next) => {
-  if (req.path === '/health') return next();
-  limiter(req, res, next);
-})
-//app.use(limiter);
-
-// Render health check compatibility (alias)
-app.get('/health', (req, res) => {
-  res.status(200).json({
-    status: 'OK',
-    message: 'Pilloto API is running',
-    timestamp: new Date().toISOString()
-  });
-});
+// Rate limiting — health check routes are already handled above, so apply to everything else
+app.use(limiter);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
