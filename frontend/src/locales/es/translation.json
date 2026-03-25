@@ -12,6 +12,7 @@
   },
   "nav": {
     "home": "Inicio",
+    "checkinCancelledGuard": "No se puede hacer check-in a una reserva cancelada",
     "rooms": "Hospedaje",
     "daypass": "DayPass",
     "events": "Eventos"
@@ -30,6 +31,7 @@
     "heroSubtitle": "Disfruta todas nuestras instalaciones por el día",
     "bookTitle": "Reserva tu Day Pass",
     "bookTitlePasaTarde": "Reserva tu PasaTarde",
+    "guestDistribution": "Distribución de invitados",
     "visitDate": "Fecha de visita",
     "adults": "Adultos",
     "children": "Niños (4-9 años)",
@@ -1351,6 +1353,13 @@
           "error": "Error"
         }
       }
+    },
+    "bookingCalendar": {
+      "title": "Calendario de reservas",
+      "today": "Hoy",
+      "room": "Habitación",
+      "unassigned": "Sin asignar",
+      "noRooms": "No se encontraron habitaciones activas."
     }
   },
   "pages": {
@@ -1760,13 +1769,6 @@
     "deleteConfirm": "¿Estás seguro de que deseas eliminar esta empresa?",
     "reservationHistory": "Historial de reservas",
     "total": "empresas"
-  },
-  "bookingCalendar": {
-    "title": "Calendario de reservas",
-    "today": "Hoy",
-    "room": "Habitación",
-    "unassigned": "Sin asignar",
-    "noRooms": "No se encontraron habitaciones activas."
   },
   "guests": {
     "name": "Nombre",
