@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7
+    container_name: pilloto_mongodb
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    volumes:
+      - pilloto_mongo_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: pilloto_pms
+
+volumes:
+  pilloto_mongo_data:

@@ -6,7 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import AdminLayout from '../../components/admin/AdminLayout';
 import SectionTitle from '../../components/admin/SectionTitle';
 import NumberField from '../../components/common/NumberField';
-import { wristbandsService, settingsService, AppSettings } from '../../services/api';
+import { wristbandsService, servicesService } from '../../services/api';
 import { Edit, Delete } from '@mui/icons-material';
 import { WristbandDelivery } from '../../types';
 
@@ -220,11 +220,20 @@ const WristbandControl: React.FC = () => {
     }, 0),
   };
   const [used, setUsed] = useState({ daypassAdults: 0, daypassChildren: 0, accommodations: 0, pasatarde: 0 });
-  const [services, setServices] = useState<AppSettings['services']>({ daypass: true, accommodation: true, pasatarde: true, event: true });
+  const [services, setServices] = useState({ daypass: false, accommodation: true, pasatarde: false, event: false });
 
   useEffect(() => {
-    settingsService.getSettings()
-      .then(res => { if (res.data.data?.services) setServices(res.data.data.services); })
+    servicesService.getServices({ active: true })
+      .then(res => {
+        const list: any[] = res.data.data ?? [];
+        const hasKind = (k: string) => list.some(svc => svc.kind === k);
+        setServices(s => ({
+          ...s,
+          daypass:   hasKind('daypass'),
+          pasatarde: hasKind('pasatarde'),
+          event:     hasKind('event'),
+        }));
+      })
       .catch(() => {});
   }, []);
 

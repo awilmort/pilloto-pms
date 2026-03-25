@@ -5,16 +5,13 @@ import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { formatMoney } from '../../utils/currency';
 import AdminLayout from '../../components/admin/AdminLayout';
-import { adminService, settingsService } from '../../services/api';
-import { AppSettings } from '../../services/api';
+import { adminService, servicesService } from '../../services/api';
 
 type ReservationEntry = {
   id: string;
   guest: string;
   adults: number;
   children: number;
-  adultPrice: number;
-  childrenPrice: number;
   totalPrice: number;
 };
 
@@ -100,16 +97,14 @@ const ReservationBreakdownSection = ({ title, rows }: { title: string; rows: Res
               <TableRow>
                 <TableCell>{t('admin.revenue.breakdown.guest')}</TableCell>
                 <TableCell align="center">{t('admin.revenue.breakdown.adults')}</TableCell>
-                <TableCell align="right">{t('admin.revenue.breakdown.adultPrice')}</TableCell>
                 <TableCell align="center">{t('admin.revenue.breakdown.children')}</TableCell>
-                <TableCell align="right">{t('admin.revenue.breakdown.childPrice')}</TableCell>
                 <TableCell align="right">{t('admin.revenue.breakdown.total')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center">
+                  <TableCell colSpan={4} align="center">
                     <Typography variant="body2" color="text.secondary">{t('admin.revenue.breakdown.noRecords')}</Typography>
                   </TableCell>
                 </TableRow>
@@ -117,9 +112,7 @@ const ReservationBreakdownSection = ({ title, rows }: { title: string; rows: Res
                 <TableRow key={r.id}>
                   <TableCell>{r.guest}</TableCell>
                   <TableCell align="center">{r.adults}</TableCell>
-                  <TableCell align="right">{r.adultPrice > 0 ? formatMoney(r.adultPrice) : '—'}</TableCell>
                   <TableCell align="center">{r.children}</TableCell>
-                  <TableCell align="right">{r.childrenPrice > 0 ? formatMoney(r.childrenPrice) : '—'}</TableCell>
                   <TableCell align="right">{formatMoney(r.totalPrice)}</TableCell>
                 </TableRow>
               ))}
@@ -136,7 +129,7 @@ const Revenue: React.FC = () => {
   const [from, setFrom] = useState<string>(dayjs().format('YYYY-MM-DD'));
   const [to, setTo] = useState<string>(dayjs().format('YYYY-MM-DD'));
   const [data, setData] = useState<RevenueData | null>(null);
-  const [services, setServices] = useState<AppSettings['services']>({ daypass: true, accommodation: true, pasatarde: true, event: true });
+  const [services, setServices] = useState({ daypass: false, accommodation: true, pasatarde: false, event: false });
   const [processOpen, setProcessOpen] = useState(false);
   const [selectedAr, setSelectedAr] = useState<RevenueData['pending'][number] | null>(null);
   const [creditPaymentMethod, setCreditPaymentMethod] = useState<CreditPaymentMethod>('cash');
@@ -156,8 +149,17 @@ const Revenue: React.FC = () => {
 
   useEffect(() => {
     loadData();
-    settingsService.getSettings()
-      .then(res => { if (res.data.data?.services) setServices(res.data.data.services); })
+    servicesService.getServices({ active: true })
+      .then(res => {
+        const list: any[] = res.data.data ?? [];
+        const hasKind = (k: string) => list.some(svc => svc.kind === k);
+        setServices(s => ({
+          ...s,
+          daypass:   hasKind('daypass'),
+          pasatarde: hasKind('pasatarde'),
+          event:     hasKind('event'),
+        }));
+      })
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

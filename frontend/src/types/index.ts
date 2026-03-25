@@ -49,6 +49,15 @@ export interface Company {
   updatedAt: string;
 }
 
+export interface RoomType {
+  _id: string;
+  name: string;
+  capacity: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Guest {
   _id: string;
   firstName: string;
@@ -98,9 +107,7 @@ export interface Room {
     kitchenette: boolean;
     jacuzzi: boolean;
   };
-  adultCapacity?: number; // Max adults the room can accommodate
-  childrenCapacity?: number; // Max children the room can accommodate
-  roomPrice?: number; // Optional per-room nightly price override
+  roomTypeId?: string | RoomType; // Optional link to a RoomType
   createdAt: string;
   updatedAt: string;
 }
@@ -147,9 +154,6 @@ export interface Reservation {
     children: number;
     infants: number;
   };
-  adultPrice?: number;
-  childrenPrice?: number;
-
   // Pricing and payment
   estimatedTotal: number;
   totalPrice?: number; // compatibility alias
@@ -201,8 +205,83 @@ export interface Charge {
   folioId: string;
   description: string;
   amount: number;
+  type?: 'base' | 'manual' | 'auto_rule';
+  category?: 'room' | 'late_fee' | 'service' | 'damage' | 'adjustment';
+  chargeTemplateId?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export type CalculationMethod = 'fixed' | 'extra_night' | 'percent_of_nightly_rate';
+export type ChargeCategory = 'room' | 'late_fee' | 'service' | 'damage' | 'adjustment';
+export type ChargeTrigger = 'checkout_overdue' | 'no_show' | 'early_departure';
+export type ExecutionStatus = 'success' | 'skipped' | 'error';
+
+export interface ChargeTemplate {
+  _id?: string;
+  name: string;
+  descriptionTemplate: string;
+  calculationMethod: CalculationMethod;
+  amount: number;
+  category: ChargeCategory;
+  taxApplicable: boolean;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ChargeRule {
+  _id?: string;
+  name: string;
+  trigger: ChargeTrigger;
+  priority: number;
+  conditions: {
+    timeThresholdHours?: number;
+    reservationTypes?: Array<'room' | 'daypass' | 'PasaTarde' | 'event'>;
+    roomTypeId?: string;
+    dateStart?: string;
+    dateEnd?: string;
+  };
+  chargeTemplateId: string | ChargeTemplate;
+  multiplierOverride?: number;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface ChargeRuleExecution {
+  _id?: string;
+  chargeRuleId: string | ChargeRule;
+  reservationId: string | Record<string, any>;
+  businessDate: string;
+  status: ExecutionStatus;
+  chargeId?: string | Charge;
+  errorMessage?: string;
+  executedAt: string;
+  createdAt?: string;
+}
+
+export type AuditRunStatus = 'running' | 'completed' | 'failed' | 'skipped';
+
+export interface AuditRunSummary {
+  rulesEvaluated: number;
+  reservationsScanned: number;
+  chargesPosted: number;
+  skipped: number;
+  errors: number;
+}
+
+export interface AuditRun {
+  _id?: string;
+  tenantId: string;
+  businessDate: string;
+  status: AuditRunStatus;
+  triggeredBy: 'cron' | 'manual';
+  dryRun: boolean;
+  startedAt: string;
+  completedAt?: string;
+  summary?: AuditRunSummary;
+  error?: string;
 }
 
 export interface MediaItem {

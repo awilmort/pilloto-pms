@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Container,
   Typography,
   Box,
   Paper,
@@ -22,7 +21,6 @@ import {
   FormControlLabel,
   Checkbox,
 } from '@mui/material';
-import AdminLayout from '../../components/admin/AdminLayout';
 import SectionTitle from '../../components/admin/SectionTitle';
 import { rolesService } from '../../services/api';
 import { useTranslation } from 'react-i18next';
@@ -71,7 +69,7 @@ interface RoleItem {
   permissions: string[];
 }
 
-const RolesManagement: React.FC = () => {
+export const RolesContent: React.FC = () => {
   const { t } = useTranslation();
   const [roles, setRoles] = useState<RoleItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -122,18 +120,15 @@ const RolesManagement: React.FC = () => {
 
   if (loading) {
     return (
-      <AdminLayout>
-        <Container maxWidth="lg" sx={{ py: 8, textAlign: 'center' }}>
-          <CircularProgress size={60} />
-          <Typography variant="h6" sx={{ mt: 2 }}>{t('admin.roles.loading')}</Typography>
-        </Container>
-      </AdminLayout>
+      <Box sx={{ py: 8, textAlign: 'center' }}>
+        <CircularProgress size={60} />
+        <Typography variant="h6" sx={{ mt: 2 }}>{t('admin.roles.loading')}</Typography>
+      </Box>
     );
   }
 
   return (
-    <AdminLayout>
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+    <>
         <Box sx={{ mb: 3 }}>
           <SectionTitle
             title={t('admin.roles.title')}
@@ -257,9 +252,7 @@ const RolesManagement: React.FC = () => {
             }}>{t('admin.roles.actions.create')}</Button>
           </DialogActions>
         </Dialog>
-      </Container>
-    </AdminLayout>
+    </>
   );
 };
 
-export default RolesManagement;

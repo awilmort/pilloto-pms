@@ -26,15 +26,12 @@ import ProfilePage from './pages/customer/ProfilePage';
 import ReservationSummaryPage from './pages/customer/ReservationSummaryPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import RoomsManagement from './pages/admin/RoomsManagement';
-import AmenitiesManagement from './pages/admin/AmenitiesManagement';
 import ReservationManagement from './pages/admin/ReservationManagement';
 import UsersManagement from './pages/admin/UsersManagement';
-import EventTypesManagement from './pages/admin/EventTypesManagement';
 import PriceManagement from './pages/admin/PriceManagement';
 import ScheduleSummary from './pages/admin/ScheduleSummary';
+import BookingCalendar from './pages/admin/BookingCalendar';
 import Accommodations from './pages/admin/Accommodations';
-import MediaManagement from './pages/admin/MediaManagement';
-import RolesManagement from './pages/admin/RolesManagement';
 import Revenue from './pages/admin/Revenue';
 import Commissions from './pages/admin/Commissions';
 import WristbandControl from './pages/admin/WristbandControl';
@@ -137,11 +134,6 @@ function TenantApp() {
                 <RoomsManagement />
               </ProtectedRoute>
             } />
-            <Route path="/admin/amenities" element={
-              <ProtectedRoute requiredPermission="admin.amenities" requiredSection="amenities">
-                <AmenitiesManagement />
-              </ProtectedRoute>
-            } />
             <Route path="/admin/reservations" element={
               <ProtectedRoute requiredPermission="admin.reservations" requiredSection="reservations">
                 <ReservationManagement />
@@ -152,14 +144,14 @@ function TenantApp() {
                 <PriceManagement />
               </ProtectedRoute>
             } />
-            <Route path="/admin/media" element={
-              <ProtectedRoute requiredPermission="admin.media" requiredSection="media">
-                <MediaManagement />
-              </ProtectedRoute>
-            } />
             <Route path="/admin/schedule" element={
               <ProtectedRoute requiredPermission="admin.schedule" requiredSection="schedule">
                 <ScheduleSummary />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/booking-calendar" element={
+              <ProtectedRoute requiredPermission="admin.schedule" requiredSection="booking-calendar">
+                <BookingCalendar />
               </ProtectedRoute>
             } />
             <Route path="/admin/revenue" element={
@@ -182,19 +174,9 @@ function TenantApp() {
                 <Accommodations />
               </ProtectedRoute>
             } />
-            <Route path="/admin/roles" element={
-              <ProtectedRoute requiredPermission="admin.roles" requiredSection="roles">
-                <RolesManagement />
-              </ProtectedRoute>
-            } />
             <Route path="/admin/users" element={
               <ProtectedRoute requiredPermission="admin.users" requiredSection="users">
                 <UsersManagement />
-              </ProtectedRoute>
-            } />
-            <Route path="/admin/event-types" element={
-              <ProtectedRoute requiredPermission="admin.eventTypes" requiredSection="event-types">
-                <EventTypesManagement />
               </ProtectedRoute>
             } />
             <Route path="/admin/settings" element={

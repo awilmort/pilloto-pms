@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  Container,
   Typography,
   Box,
   Grid,
@@ -25,14 +24,13 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { Add, Edit, Delete } from '@mui/icons-material';
-import AdminLayout from '../../components/admin/AdminLayout';
 import SectionTitle from '../../components/admin/SectionTitle';
 import { mediaService, resolveMediaUrl } from '../../services/api';
 import { MediaItem } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 
-const MediaManagement: React.FC = () => {
+export const MediaContent: React.FC = () => {
   const { user } = useAuth();
   const { t } = useTranslation();
   const [items, setItems] = useState<MediaItem[]>([]);
@@ -146,18 +144,11 @@ const MediaManagement: React.FC = () => {
   const getUrl = (url: string) => resolveMediaUrl(url);
 
   if (!user || user.role !== 'admin') {
-    return (
-      <AdminLayout>
-        <Container maxWidth="lg" sx={{ py: 4 }}>
-          <Alert severity="error">{t('admin.common.accessDenied')}</Alert>
-        </Container>
-      </AdminLayout>
-    );
+    return <Alert severity="error">{t('admin.common.accessDenied')}</Alert>;
   }
 
   return (
-    <AdminLayout>
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+    <>
         <SectionTitle
           title={t('admin.media.title')}
           right={
@@ -292,9 +283,6 @@ const MediaManagement: React.FC = () => {
         <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
           <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>{snackbar.message}</Alert>
         </Snackbar>
-      </Container>
-    </AdminLayout>
+    </>
   );
 };
-
-export default MediaManagement;

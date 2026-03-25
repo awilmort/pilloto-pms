@@ -1,15 +1,14 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Box, Button, Container, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography, Checkbox, Chip } from '@mui/material';
+import { Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Grid, IconButton, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography, Checkbox, Chip } from '@mui/material';
 import NumberField from '../../components/common/NumberField';
 import { Edit, Delete, Add } from '@mui/icons-material';
-import AdminLayout from '../../components/admin/AdminLayout';
 import SectionTitle from '../../components/admin/SectionTitle';
 import { eventTypesService } from '../../services/api';
 import { EventType } from '../../types';
 import { useTranslation } from 'react-i18next';
 import { formatMoney } from '../../utils/currency';
 
-const EventTypesManagement: React.FC = () => {
+export const EventTypesContent: React.FC = () => {
   const { t } = useTranslation();
   const [eventTypes, setEventTypes] = useState<EventType[]>([]);
   const [loading, setLoading] = useState(false);
@@ -102,8 +101,7 @@ const EventTypesManagement: React.FC = () => {
   };
 
   return (
-    <AdminLayout>
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+    <>
         <SectionTitle
           title={t('admin.eventTypes.title')}
           right={<Button variant="contained" startIcon={<Add />} onClick={openCreate}>{t('admin.eventTypes.actions.newEventType')}</Button>}
@@ -200,9 +198,7 @@ const EventTypesManagement: React.FC = () => {
             <Button variant="contained" onClick={submitForm}>{editing ? t('admin.eventTypes.actions.save') : t('admin.eventTypes.actions.create')}</Button>
           </DialogActions>
         </Dialog>
-      </Container>
-    </AdminLayout>
+    </>
   );
 };
 
-export default EventTypesManagement;

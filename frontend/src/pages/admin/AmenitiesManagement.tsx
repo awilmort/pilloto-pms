@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Container,
   Typography,
   Box,
   Card,
@@ -40,7 +39,6 @@ import {
 import { Amenity } from '../../types';
 import NumberField from '../../components/common/NumberField';
 import { amenitiesService } from '../../services/api';
-import AdminLayout from '../../components/admin/AdminLayout';
 import SectionTitle from '../../components/admin/SectionTitle';
 import MediaPicker from '../../components/admin/MediaPicker';
 import { resolveMediaUrl } from '../../services/api';
@@ -55,7 +53,7 @@ interface AmenityFormData {
   isActive: boolean;
 }
 
-const AmenitiesManagement: React.FC = () => {
+export const AmenitiesContent: React.FC = () => {
   const { t } = useTranslation();
   const [amenities, setAmenities] = useState<Amenity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -217,9 +215,8 @@ const AmenitiesManagement: React.FC = () => {
   };
 
   return (
-    <AdminLayout>
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        {loading ? (
+    <>
+      {loading ? (
           <Box sx={{ py: 8, textAlign: 'center' }}>
             <CircularProgress size={60} />
             <Typography variant="h6" sx={{ mt: 2 }}>
@@ -489,9 +486,7 @@ const AmenitiesManagement: React.FC = () => {
             </Snackbar>
           </>
         )}
-      </Container>
-    </AdminLayout>
+      </> 
   );
 };
 
-export default AmenitiesManagement;

@@ -41,7 +41,10 @@ const CashierClosuresPage: React.FC = () => {
 
   const [generateOpen, setGenerateOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [note, setNote] = useState<string>('');
+  const [shiftStart, setShiftStart] = useState<string>('');
+  const [shiftEnd, setShiftEnd] = useState<string>('');
   const [preview, setPreview] = useState<{
     periodStart: string;
     periodEnd: string;
@@ -70,23 +73,34 @@ const CashierClosuresPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const openGenerate = async () => {
+  const openGenerate = () => {
+    const today = dayjs().format('YYYY-MM-DD');
+    setShiftStart(`${today}T08:00`);
+    setShiftEnd(`${today}T17:00`);
+    setPreview(null);
+    setCashDistribution({});
+    setNote('');
+    setError(null);
+    setGenerateOpen(true);
+  };
+
+  const loadPreview = async () => {
     try {
+      setPreviewLoading(true);
       setError(null);
-      const res = await cashierClosuresService.getPreview();
+      const res = await cashierClosuresService.getPreview({ shiftStart, shiftEnd });
       const data = res.data.data;
       if (!data) return;
       setPreview(data);
       const initial: Record<string, string> = {};
       (data.denominations || DEFAULT_DENOMINATIONS).forEach((d) => { initial[String(d)] = ''; });
       setCashDistribution(initial);
-      setNote('');
-      setGenerateOpen(true);
     } catch (e: any) {
       setError(e?.response?.data?.message || 'Failed to build closure preview');
+    } finally {
+      setPreviewLoading(false);
     }
   };
-
   const createClosure = async () => {
     try {
       setGenerating(true);
@@ -94,7 +108,7 @@ const CashierClosuresPage: React.FC = () => {
       Object.entries(cashDistribution).forEach(([k, v]) => {
         numericDistribution[k] = Math.max(0, Number(v) || 0);
       });
-      await cashierClosuresService.createClosure({ cashDistribution: numericDistribution, note: note.trim() || undefined });
+      await cashierClosuresService.createClosure({ shiftStart, shiftEnd, cashDistribution: numericDistribution, note: note.trim() || undefined });
       setGenerateOpen(false);
       setPreview(null);
       setNote('');
@@ -253,44 +267,78 @@ const CashierClosuresPage: React.FC = () => {
         <Dialog open={generateOpen} onClose={() => { setGenerateOpen(false); setNote(''); }} maxWidth="md" fullWidth>
           <DialogTitle>{t('admin.cashierClosures.generate')}</DialogTitle>
           <DialogContent>
-            {preview && (
-              <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
-                <Typography variant="body2">{t('admin.cashierClosures.period')}: {dayjs(preview.periodStart).format('YYYY-MM-DD HH:mm')} - {dayjs(preview.periodEnd).format('YYYY-MM-DD HH:mm')}</Typography>
-                <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Typography variant="subtitle2">{t('admin.cashierClosures.paymentsByMethod')}</Typography>
-                  <Typography>{t('admin.cashierClosures.cash')}: {formatMoney(preview.paymentTotals.cash)}</Typography>
-                  <Typography>{t('admin.cashierClosures.card')}: {formatMoney(preview.paymentTotals.card)}</Typography>
-                  <Typography>{t('admin.cashierClosures.transfer')}: {formatMoney(preview.paymentTotals.transfer)}</Typography>
-                  <Typography>{t('admin.cashierClosures.check')}: {formatMoney(preview.paymentTotals.check)}</Typography>
-                  <Typography fontWeight={700}>{t('admin.cashierClosures.total')}: {formatMoney(preview.paymentTotals.total)}</Typography>
-                </Paper>
-
-                <Typography variant="subtitle2">{t('admin.cashierClosures.cashDistribution')}</Typography>
-                <Grid container spacing={2}>
-                  {denominations.map((denomination) => (
-                    <Grid item xs={12} sm={6} md={4} key={denomination}>
-                      <TextField
-                        label={`$${denomination}`}
-                        type="number"
-                        inputProps={{ min: 0, step: 1 }}
-                        value={cashDistribution[String(denomination)] ?? ''}
-                        onChange={(e) => setCashDistribution(prev => ({ ...prev, [String(denomination)]: e.target.value }))}
-                        fullWidth
-                      />
-                    </Grid>
-                  ))}
+            <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label={t('admin.cashierClosures.shiftStart', 'Shift Start')}
+                    type="datetime-local"
+                    value={shiftStart}
+                    onChange={(e) => { setShiftStart(e.target.value); setPreview(null); }}
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                  />
                 </Grid>
-                <Typography variant="body2">{t('admin.cashierClosures.cashCounted')}: {formatMoney(getCashDeclared())}</Typography>
-                <TextField
-                  label={t('admin.cashierClosures.note')}
-                  multiline
-                  minRows={2}
-                  value={note}
-                  onChange={(e) => setNote(e.target.value)}
-                  fullWidth
-                />
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    label={t('admin.cashierClosures.shiftEnd', 'Shift End')}
+                    type="datetime-local"
+                    value={shiftEnd}
+                    onChange={(e) => { setShiftEnd(e.target.value); setPreview(null); }}
+                    InputLabelProps={{ shrink: true }}
+                    fullWidth
+                  />
+                </Grid>
+              </Grid>
+              <Box>
+                <Button
+                  variant="outlined"
+                  onClick={loadPreview}
+                  disabled={previewLoading || !shiftStart || !shiftEnd}
+                >
+                  {previewLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+                  {t('admin.cashierClosures.loadPreview', 'Load Preview')}
+                </Button>
               </Box>
-            )}
+
+              {preview && (
+                <>
+                  <Paper variant="outlined" sx={{ p: 2 }}>
+                    <Typography variant="subtitle2">{t('admin.cashierClosures.paymentsByMethod')}</Typography>
+                    <Typography>{t('admin.cashierClosures.cash')}: {formatMoney(preview.paymentTotals.cash)}</Typography>
+                    <Typography>{t('admin.cashierClosures.card')}: {formatMoney(preview.paymentTotals.card)}</Typography>
+                    <Typography>{t('admin.cashierClosures.transfer')}: {formatMoney(preview.paymentTotals.transfer)}</Typography>
+                    <Typography>{t('admin.cashierClosures.check')}: {formatMoney(preview.paymentTotals.check)}</Typography>
+                    <Typography fontWeight={700}>{t('admin.cashierClosures.total')}: {formatMoney(preview.paymentTotals.total)}</Typography>
+                  </Paper>
+
+                  <Typography variant="subtitle2">{t('admin.cashierClosures.cashDistribution')}</Typography>
+                  <Grid container spacing={2}>
+                    {denominations.map((denomination) => (
+                      <Grid item xs={12} sm={6} md={4} key={denomination}>
+                        <TextField
+                          label={`$${denomination}`}
+                          type="number"
+                          inputProps={{ min: 0, step: 1 }}
+                          value={cashDistribution[String(denomination)] ?? ''}
+                          onChange={(e) => setCashDistribution(prev => ({ ...prev, [String(denomination)]: e.target.value }))}
+                          fullWidth
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+                  <Typography variant="body2">{t('admin.cashierClosures.cashCounted')}: {formatMoney(getCashDeclared())}</Typography>
+                  <TextField
+                    label={t('admin.cashierClosures.note')}
+                    multiline
+                    minRows={2}
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    fullWidth
+                  />
+                </>
+              )}
+            </Box>
           </DialogContent>
           <DialogActions>
             <Button onClick={() => setGenerateOpen(false)}>{t('admin.cashierClosures.cancel')}</Button>

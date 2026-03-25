@@ -1,74 +1,171 @@
-export type PricingRule = {
+// ─────────────────────────────────────────────────────────────
+// Tiered pricing types
+// ─────────────────────────────────────────────────────────────
+
+export interface OccupancyTier {
+  guestType: 'adult' | 'child';
+  guestNumber: number;
+  price: number;
+}
+
+export interface RatePlan {
   _id?: string;
-  service: 'daypass' | 'pasatarde' | 'hospedaje';
-  category: 'standard' | 'special' | 'guest';
-  validity: 'everyday' | 'weekdays' | 'weekend' | 'custom';
-  startDate?: string;
-  endDate?: string;
-  guestEmail?: string; // Set when category === 'guest'
-  adultPrice: number;
-  childrenPrice: number;
-  roomPrice?: number; // Flat per-room nightly rate (used when accommodationPricingModel === 'perRoom')
+  name: string;
+  roomTypeId: string | { _id: string; name: string; capacity: number };
+  basePrice: number;
+  pricingMode: 'tiered';
+  occupancyTiers: OccupancyTier[];
   isActive?: boolean;
-};
-
-function isWeekend(date: Date): boolean {
-  const day = date.getDay();
-  return day === 0 || day === 6; // Sunday:0, Saturday:6
 }
 
-function inRange(date: Date, start?: string, end?: string): boolean {
-  if (!start || !end) return false;
-  const d = new Date(date.toDateString());
-  const s = new Date(new Date(start).toDateString());
-  const e = new Date(new Date(end).toDateString());
-  return d >= s && d <= e;
+export type AdjustmentType = 'replace' | 'percent' | 'fixed';
+export type AdjustmentScope = 'base' | 'occupancy' | 'subtotal';
+
+export interface PricingRuleAdjustment {
+  _id?: string;
+  name: string;
+  priority: number;
+  dateStart?: string;
+  dateEnd?: string;
+  roomTypeId?: string | { _id: string; name: string };
+  ratePlanId?: string | { _id: string; name: string; roomTypeId: string | { _id: string; name: string } };
+  companyId?: string | { _id: string; name: string };
+  guestEmail?: string;
+  adjustmentType: AdjustmentType;
+  adjustmentValue: number;
+  adjustmentScope: AdjustmentScope;
+  isActive?: boolean;
 }
 
-export function findApplicablePricing(rules: PricingRule[], date: Date, email?: string): PricingRule | null {
-  const active = rules.filter(r => r.isActive !== false);
-  // 0) Guest pricing (highest priority when email matches and date is in range)
-  if (email) {
-    const guestRule = active
-      .filter(r => r.category === 'guest' && r.guestEmail === email)
-      .find(r => inRange(date, r.startDate, r.endDate));
-    if (guestRule) return guestRule;
-  }
-  // 1) Special pricing within date range takes precedence
-  const specials = active.filter(r => r.category === 'special');
-  const specialForDate = specials.find(r => inRange(date, r.startDate, r.endDate));
-  if (specialForDate) return specialForDate;
+export interface TaxConfig {
+  _id?: string;
+  name: string;
+  type: 'percentage' | 'fixed';
+  value: number;
+  appliesTo: 'room' | 'guest' | 'total';
+  isInclusive: boolean;
+  priority: number;
+  isActive?: boolean;
+}
 
-  // 2) Standard pricing fallback
-  const standards = active.filter(r => r.category === 'standard');
-  // everyday
-  const everyday = standards.find(r => r.validity === 'everyday');
-  if (everyday) return everyday;
-  // weekday/weekend
-  const weekend = standards.find(r => r.validity === 'weekend');
-  const weekdays = standards.find(r => r.validity === 'weekdays');
-  if (isWeekend(date) && weekend) return weekend;
-  if (!isWeekend(date) && weekdays) return weekdays;
-  // custom window
-  const customs = standards.filter(r => r.validity === 'custom');
-  const customForDate = customs.find(r => inRange(date, r.startDate, r.endDate));
-  if (customForDate) return customForDate;
-
-  return null;
+export interface TieredPriceBreakdown {
+  basePrice: number;
+  occupancyCost: number;
+  subtotal: number;
+  adjustedSubtotal: number;
+  taxes: Array<{ name: string; type: string; amount: number; isInclusive: boolean }>;
+  totalTaxes: number;
+  finalTotal: number;
+  nights: number;
 }
 
 /**
- * Returns the best standard (date-independent) pricing rule for a service.
- * Priority: everyday > weekdays > weekend > custom > any active standard.
- * Used when no check-in date is available or when special pricing does not apply.
+ * Client-side tiered price calculation (mirrors backend logic).
+ * Used for real-time preview in the UI before calling the backend.
  */
-export function findStandardPricing(rules: PricingRule[]): PricingRule | null {
-  const active = rules.filter(r => r.isActive !== false && r.category === 'standard');
-  return (
-    active.find(r => r.validity === 'everyday') ??
-    active.find(r => r.validity === 'weekdays') ??
-    active.find(r => r.validity === 'weekend') ??
-    active[0] ??
-    null
-  );
+export function calculateTieredPriceLocal(
+  ratePlan: RatePlan,
+  adults: number,
+  children: number,
+  nights = 1,
+  rules: PricingRuleAdjustment[] = [],
+  taxes: TaxConfig[] = [],
+  date?: Date,
+  companyId?: string,
+  guestEmail?: string
+): TieredPriceBreakdown {
+  // Step 1: Occupancy cost
+  let occupancyCost = 0;
+  for (let i = 1; i <= adults; i++) {
+    const tier = ratePlan.occupancyTiers.find(t => t.guestType === 'adult' && t.guestNumber === i);
+    if (tier) occupancyCost += tier.price;
+  }
+  for (let i = 1; i <= children; i++) {
+    const tier = ratePlan.occupancyTiers.find(t => t.guestType === 'child' && t.guestNumber === i);
+    if (tier) occupancyCost += tier.price;
+  }
+
+  const subtotalPerNight = ratePlan.basePrice + occupancyCost;
+
+  // Step 2: Filter applicable rules
+  const checkDate = date ?? new Date();
+  const activeRules = rules.filter(r => {
+    if (r.isActive === false) return false;
+    // room type condition
+    const ratePlanRoomTypeId = typeof ratePlan.roomTypeId === 'object' ? ratePlan.roomTypeId?._id : ratePlan.roomTypeId;
+    const ruleRoomTypeId = typeof r.roomTypeId === 'object' ? r.roomTypeId?._id : r.roomTypeId;
+    if (ruleRoomTypeId && ruleRoomTypeId !== ratePlanRoomTypeId) return false;
+    // date range condition
+    if (r.dateStart && r.dateEnd) {
+      const ds = new Date(r.dateStart);
+      const de = new Date(r.dateEnd);
+      if (checkDate < ds || checkDate > de) return false;
+    }
+    // company condition
+    const ruleCompanyId = typeof r.companyId === 'object' ? r.companyId?._id : r.companyId;
+    if (ruleCompanyId && ruleCompanyId !== companyId) return false;
+    // guest condition
+    if (r.guestEmail && r.guestEmail !== guestEmail) return false;
+    return true;
+  });
+
+  // Step 3: Apply rules
+  let adjustedBase = ratePlan.basePrice;
+  let adjustedOccupancy = occupancyCost;
+
+  const applyOrder: AdjustmentType[] = ['replace', 'percent', 'fixed'];
+  for (const type of applyOrder) {
+    const rulesOfType = activeRules
+      .filter(r => r.adjustmentType === type)
+      .sort((a, b) => b.priority - a.priority);
+    for (const rule of rulesOfType) {
+      const { adjustmentScope, adjustmentValue } = rule;
+      if (type === 'replace') {
+        if (adjustmentScope === 'base') adjustedBase = adjustmentValue;
+        else if (adjustmentScope === 'occupancy') adjustedOccupancy = adjustmentValue;
+        else { adjustedBase = adjustmentValue; adjustedOccupancy = 0; }
+      } else if (type === 'percent') {
+        const factor = adjustmentValue / 100;
+        if (adjustmentScope === 'base') adjustedBase += adjustedBase * factor;
+        else if (adjustmentScope === 'occupancy') adjustedOccupancy += adjustedOccupancy * factor;
+        else adjustedBase += (adjustedBase + adjustedOccupancy) * factor;
+      } else {
+        if (adjustmentScope === 'base') adjustedBase += adjustmentValue;
+        else if (adjustmentScope === 'occupancy') adjustedOccupancy += adjustmentValue;
+        else adjustedBase += adjustmentValue;
+      }
+    }
+  }
+
+  const adjustedSubtotal = Math.max(0, adjustedBase + adjustedOccupancy) * nights;
+
+  // Step 4: Taxes
+  const activeTaxes = taxes.filter(t => t.isActive !== false);
+  const taxBreakdowns = activeTaxes.map(tax => {
+    let amount = 0;
+    if (tax.type === 'percentage') {
+      amount = adjustedSubtotal * (tax.value / 100);
+    } else if (tax.appliesTo === 'guest') {
+      amount = (adults + children) * tax.value * nights;
+    } else if (tax.appliesTo === 'room') {
+      amount = tax.value * nights;
+    } else {
+      amount = tax.value;
+    }
+    return { name: tax.name, type: tax.type, amount, isInclusive: tax.isInclusive };
+  });
+
+  const totalTaxes = taxBreakdowns.filter(t => !t.isInclusive).reduce((s, t) => s + t.amount, 0);
+
+  return {
+    basePrice: ratePlan.basePrice * nights,
+    occupancyCost: occupancyCost * nights,
+    subtotal: subtotalPerNight * nights,
+    adjustedSubtotal,
+    taxes: taxBreakdowns,
+    totalTaxes,
+    finalTotal: adjustedSubtotal + totalTaxes,
+    nights,
+  };
 }
+

@@ -111,7 +111,7 @@
       "rooms": "Habitaciones",
       "amenities": "Amenidades",
       "eventTypes": "Tipos de eventos",
-      "wristbands": "Brazaletes",
+      "wristbands": "Pulseras",
       "pricing": "Precios",
       "reservations": "Reservas",
       "users": "Usuarios",
@@ -122,7 +122,8 @@
       "companies": "Empresas",
       "guests": "Huéspedes",
       "creditAccounts": "Cuentas de crédito",
-      "cashierClosures": "Cierres de caja"
+      "cashierClosures": "Cierres de caja",
+      "bookingCalendar": "Calendario"
     },
     "revenue": {
       "title": "Ingresos",
@@ -200,8 +201,7 @@
       "table": {
         "name": "Nombre",
         "type": "Tipo",
-        "capacity": "Capacidad",
-        "price": "Precio",
+        "condition": "Condición",
         "status": "Estado",
         "actions": "Acciones"
       },
@@ -232,6 +232,7 @@
         "bedConfiguration": "Configuración de camas",
         "bedPlaceholder": "Ej.: 1 cama King, 2 camas Twin",
         "roomPrice": "Precio por noche ($/noche)",
+        "roomType": "Tipo de habitación",
         "roomPriceHelper": "Opcional. Déjalo vacío para usar el precio estándar. Tiene prioridad sobre las reglas de precios para esta habitación.",
         "adultCapacity": "Máx. adultos",
         "adultCapacityHelper": "Número máximo de adultos que puede alojar esta habitación.",
@@ -281,8 +282,7 @@
         "deleteFailed": "No se pudo eliminar la habitación",
         "loadFailed": "No se pudieron cargar las habitaciones"
       }
-    }
-    ,
+    },
     "roles": {
       "title": "Gestión de roles",
       "subtitle": "Crea, edita, elimina roles y asigna permisos",
@@ -348,8 +348,7 @@
         "totalGuests": "Total de huéspedes",
         "bookings": "Reservas"
       }
-    }
-    ,
+    },
     "eventTypes": {
       "title": "Tipos de eventos",
       "actions": {
@@ -390,10 +389,9 @@
         "saveFailed": "No se pudo guardar el tipo de evento",
         "deleteFailed": "No se pudo eliminar el tipo de evento"
       }
-    }
-    ,
+    },
     "wristbands": {
-      "title": "Control de brazaletes",
+      "title": "Control de pulseras",
       "deliveryDate": "Fecha de entrega",
       "recipient": "Recibido por",
       "categoriesTitle": "Categorías",
@@ -414,16 +412,15 @@
         "addDelivery": "Añadir entrega"
       },
       "messages": {
-        "createSuccess": "Entrega de brazaletes registrada exitosamente",
-        "createFailed": "No se pudo registrar la entrega de brazaletes",
-        "updateSuccess": "Entrega de brazaletes actualizada exitosamente",
-        "updateFailed": "No se pudo actualizar la entrega de brazaletes",
-        "deleteSuccess": "Entrega de brazaletes eliminada",
-        "deleteFailed": "No se pudo eliminar la entrega de brazaletes",
-        "confirmDelete": "¿Eliminar esta entrega de brazaletes?"
+        "createSuccess": "Entrega de pulseras registrada exitosamente",
+        "createFailed": "No se pudo registrar la entrega de pulseras",
+        "updateSuccess": "Entrega de pulseras actualizada exitosamente",
+        "updateFailed": "No se pudo actualizar la entrega de pulseras",
+        "deleteSuccess": "Entrega de pulseras eliminada",
+        "deleteFailed": "No se pudo eliminar la entrega de pulseras",
+        "confirmDelete": "¿Eliminar esta entrega de pulseras?"
       }
-    }
-    ,
+    },
     "amenities": {
       "title": "Gestión de amenidades",
       "subtitle": "Administra las amenidades y características del resort",
@@ -686,7 +683,8 @@
         "checkout": "Check-Out",
         "cancel": "Cancelar",
         "saveChanges": "Guardar cambios",
-        "newReservation": "Nueva reserva"
+        "newReservation": "Nueva reserva",
+        "viewFullDetails": "Ver detalles"
       },
       "dialog": {
         "editTitle": "Editar reserva",
@@ -743,14 +741,16 @@
       "tooltips": {
         "checkin": "Registrar check-in de esta reserva",
         "assignBeforeCheckin": "Asigna una habitación antes del check-in",
-        "checkinDateGuard": "El check-in solo está permitido en/tras la fecha de check-in y antes del check-out"
+        "checkinEarly": "La fecha de check-in aún no ha llegado — confirma para continuar",
+        "checkinLate": "La fecha de checkout ya pasó — confirma para continuar"
       },
       "messages": {
         "loadFailed": "No se pudieron cargar las reservas. Inténtalo nuevamente.",
         "removed": "Reserva eliminada",
         "removeFailed": "No se pudo eliminar la reserva",
         "assignBeforeCheckin": "Asigna una habitación antes del check-in",
-        "checkinDateGuard": "El check-in no está disponible para la fecha actual",
+        "checkinEarlyConfirm": "La fecha de check-in aún no ha llegado. ¿Registrar check-in de todas formas?",
+        "checkinLateConfirm": "La fecha de checkout de esta reserva ya pasó. ¿Registrar check-in de todas formas?",
         "checkinSuccess": "Check-In realizado exitosamente",
         "checkoutSuccess": "Check-Out realizado exitosamente",
         "operationFailed": "La operación falló"
@@ -777,6 +777,18 @@
         "title": "Check-Out",
         "confirm": "Confirma que el huésped está realizando el check-out.",
         "confirmButton": "Confirmar Check-Out"
+      },
+      "financial": {
+        "estimatedTotal": "Total Estimado",
+        "depositReceived": "Depósito Recibido",
+        "balanceOnArrival": "Saldo al Llegar",
+        "deposit": "depósito",
+        "recordDeposit": "Registrar Depósito",
+        "depositInfo": "Este depósito será aplicado al saldo cuando el huésped haga check-in.",
+        "depositRecorded": "Depósito registrado exitosamente",
+        "depositOnFile": "Depósito registrado",
+        "depositWillApply": "será aplicado automáticamente al hacer check-in.",
+        "balanceAfterCheckin": "Saldo restante"
       },
       "loadMore": "Cargar más",
       "loadingMore": "Cargando...",
@@ -855,68 +867,28 @@
         }
       }
     },
-    "schedule": {
-      "title": "Resumen de agenda",
-      "today": "Hoy",
-      "tomorrow": "Mañana",
-      "cards": {
-        "totalPeople": "Total de personas",
-        "adults": "Adultos",
-        "children": "Niños",
-        "infants": "Infantes"
-      },
-      "sections": {
-        "daypass": "DayPass ({{count}})",
-        "accommodations": "Alojamientos ({{count}})",
-        "events": "Eventos ({{count}})"
-      },
-      "table": {
-        "guest": "Huésped",
-        "room": "Habitación",
-        "totalGuests": "Total de huéspedes"
-      },
-      "empty": {
-        "daypass": "No hay reservas de daypass",
-        "rooms": "No hay reservas de habitaciones",
-        "events": "No hay reservas de eventos"
-      },
-      "notAssigned": "Sin asignar"
-    },
     "settings": {
       "title": "Configuración",
       "subtitle": "Administra la configuración de la aplicación y los servicios activos",
       "tabs": {
-        "services": "Servicios",
         "sections": "Secciones",
-        "cashier": "Cajero"
-      },
-      "services": {
-        "heading": "Servicios disponibles",
-        "description": "Activa o desactiva los servicios que los huéspedes pueden reservar.",
-        "daypass": "DayPass",
-        "accommodation": "Hospedaje",
-        "pasatarde": "PasaTarde",
-        "event": "Evento",
-        "pricingModelLabel": "Modelo de precios",
-        "pricingModel": {
-          "perGuest": "Precio por huésped",
-          "perRoom": "Precio por habitación"
-        }
+        "roomTypes": "Tipos de habitación",
+        "amenities": "Comodidades",
+        "eventTypes": "Tipos de evento",
+        "roles": "Roles",
+        "media": "Medios"
       },
       "sections": {
         "heading": "Secciones del menú",
         "description": "Elige qué secciones aparecen en el menú lateral del panel de administración."
-      },
-      "cashier": {
-        "heading": "Turno de caja",
-        "description": "Configura la hora de apertura y cierre del turno de caja para los cierres.",
-        "openTime": "Hora de apertura de caja",
-        "closeTime": "Hora de cierre de caja"
       }
     },
     "cashierClosures": {
       "title": "Cierres de caja",
       "generate": "Generar cierre",
+      "shiftStart": "Inicio de turno",
+      "shiftEnd": "Fin de turno",
+      "loadPreview": "Cargar vista previa",
       "periodStart": "Inicio de período",
       "periodEnd": "Fin de período",
       "period": "Período",
@@ -977,7 +949,6 @@
           "total": "Total"
         }
       }
-    }
     },
     "schedule": {
       "title": "Resumen de agenda",
@@ -1006,68 +977,382 @@
       },
       "notAssigned": "Sin asignar"
     },
+    "printing": {
+      "printConfirmation": "Imprimir Confirmación",
+      "printFolio": "Imprimir Factura",
+      "printPaymentSummary": "Imprimir Resumen de Pagos",
+      "printReceipt": "Imprimir Recibo",
+      "docs": {
+        "popupBlocked": "Las ventanas emergentes están bloqueadas. Permite las ventanas emergentes en este sitio para habilitar la impresión.",
+        "printedOn": "Impreso el",
+        "confirmation": {
+          "title": "Confirmación de Reserva",
+          "issued": "Emitido",
+          "reservationSection": "Reserva",
+          "guestSection": "Información del Huésped",
+          "staySection": "Detalles de la Estancia",
+          "estimatedTotal": "Total Estimado",
+          "specialRequests": "Solicitudes Especiales",
+          "confirmationToken": "Token de Confirmación"
+        },
+        "folio": {
+          "title": "Factura / Estado de Cuenta",
+          "chargesSection": "Cargos",
+          "paymentsSection": "Pagos",
+          "noCharges": "Sin cargos registrados",
+          "noPayments": "Sin pagos registrados",
+          "totalCharges": "Total de Cargos",
+          "totalPayments": "Total de Pagos",
+          "estimatedTotal": "Total Estimado",
+          "balanceOnArrival": "Saldo al Llegar",
+          "balanceDue": "Saldo Pendiente"
+        },
+        "receipt": {
+          "title": "Recibo de Pago",
+          "receiptNo": "N° de Recibo",
+          "depositReceived": "Depósito Recibido",
+          "amountReceived": "Monto Recibido",
+          "ref": "Ref",
+          "note": "Nota",
+          "preArrivalDeposit": "Depósito Pre-Llegada",
+          "balanceAfter": "Saldo Después del Pago"
+        },
+        "paymentSummary": {
+          "title": "Resumen de Pagos",
+          "generated": "Generado",
+          "printedBy": "Impreso por",
+          "paymentHistorySection": "Historial de Pagos",
+          "noPayments": "Sin pagos registrados",
+          "estimatedTotal": "Total Estimado",
+          "totalCharges": "Total de Cargos",
+          "totalPayments": "Total de Pagos",
+          "ofWhichDeposits": "de los cuales, Depósitos",
+          "balanceOnArrival": "Saldo al Llegar",
+          "balanceDue": "Saldo Pendiente"
+        },
+        "fields": {
+          "code": "Código",
+          "status": "Estado",
+          "type": "Tipo",
+          "company": "Empresa",
+          "name": "Nombre",
+          "email": "Correo",
+          "phone": "Teléfono",
+          "country": "País",
+          "checkIn": "Entrada",
+          "checkOut": "Salida",
+          "nights": "Noches",
+          "rooms": "Habitación(es)",
+          "adults": "Adultos",
+          "children": "Niños",
+          "infants": "Bebés",
+          "guest": "Huésped",
+          "reservation": "Reserva",
+          "date": "Fecha",
+          "cashier": "Cajero",
+          "method": "Método",
+          "reference": "Referencia",
+          "referenceNote": "Referencia / Nota",
+          "amount": "Monto",
+          "description": "Descripción",
+          "category": "Categoría",
+          "dateTime": "Fecha / Hora",
+          "num": "#"
+        },
+        "methods": {
+          "cash": "Efectivo",
+          "card": "Tarjeta",
+          "transfer": "Transferencia Bancaria",
+          "check": "Cheque",
+          "credit": "Crédito de Casa"
+        },
+        "stages": {
+          "deposit": "Depósito",
+          "payment": "Pago"
+        }
+      }
+    },
     "pricing": {
-    "title": "Gestión de precios",
-    "actions": {
-      "newRule": "Nueva regla",
-      "edit": "Editar",
-      "delete": "Eliminar",
-      "cancel": "Cancelar",
-      "save": "Guardar"
-    },
-    "table": {
-      "service": "Servicio",
-      "category": "Categoría",
-      "validity": "Validez",
-      "dateRange": "Rango de fechas",
-      "adult": "Adulto",
-      "children": "Niños",
-      "roomPrice": "Precio por habitación",
-      "active": "Activo",
-      "actions": "Acciones"
-    },
-    "serviceLabels": {
-      "daypass": "DayPass",
-      "pasatarde": "PasaTarde",
-      "hospedaje": "Hospedaje"
-    },
-    "categoryLabels": {
-      "standard": "Estándar",
-      "special": "Especial"
-    },
-    "validityLabels": {
-      "everyday": "Todos los días",
-      "weekdays": "Días de semana",
-      "weekend": "Fin de semana",
-      "custom": "Personalizado"
-    },
-    "form": {
-      "service": "Servicio",
-      "category": "Categoría",
-      "validity": "Validez",
-      "startDate": "Fecha de inicio",
-      "endDate": "Fecha de fin",
-      "adultPrice": "Precio adulto",
-      "childrenPrice": "Precio niños",
-      "roomPrice": "Precio por habitación",
-      "active": "Activo"
-    },
-    "messages": {
-      "loadFailed": "No se pudieron cargar los precios",
-      "saveFailed": "No se pudo guardar el precio"
-    },
-    "errors": {
-      "specialRequiresCustom": "La categoría especial requiere validez Personalizada",
-      "specialRequiresRange": "El precio especial requiere un rango de fechas"
-    },
-    "dialog": {
-      "deletePrompt": "¿Eliminar esta regla de precios?",
-      "newTitle": "Nueva regla de precios",
-      "editTitle": "Editar regla de precios"
-    },
-    "empty": "Aún no hay reglas de precios"
+      "title": "Gestión de precios",
+      "inactive": "Inactivo",
+      "tabs": {
+        "roomTypes": "Tipos de habitación",
+        "ratePlans": "Planes de tarifa",
+        "rules": "Reglas de precio",
+        "taxes": "Impuestos",
+        "services": "Servicios",
+        "servicePrices": "Precios de servicio",
+        "chargePolicies": "Políticas de cargo automático",
+        "auditLog": "Registro de auditoría"
+      },
+      "form": {
+        "active": "Activo"
+      },
+      "actions": {
+        "cancel": "Cancelar",
+        "save": "Guardar"
+      },
+      "dialog": {
+        "deletePrompt": "¿Seguro que deseas eliminar este elemento?"
+      },
+      "messages": {
+        "loadFailed": "No se pudieron cargar los datos de precios",
+        "saveFailed": "No se pudo guardar"
+      },
+      "roomTypes": {
+        "title": "Tipos de habitación",
+        "empty": "No hay tipos de habitación aún. Agrega uno para comenzar.",
+        "actions": { "new": "Agregar tipo de habitación" },
+        "dialog": {
+          "newTitle": "Nuevo tipo de habitación",
+          "editTitle": "Editar tipo de habitación"
+        },
+        "errors": {
+          "nameRequired": "El nombre es requerido",
+          "capacityRequired": "La capacidad debe ser al menos 1"
+        },
+        "form": {
+          "name": "Nombre del tipo",
+          "capacity": "Máximo de huéspedes (Capacidad)"
+        },
+        "table": {
+          "name": "Nombre",
+          "capacity": "Capacidad",
+          "active": "Activo",
+          "actions": "Acciones"
+        }
+      },
+      "ratePlans": {
+        "empty": "Aún no hay planes de tarifa. Agrega uno para definir los precios por habitación.",
+        "basePrice": "Precio base",
+        "occupancyTiers": "Niveles de ocupación",
+        "tiersHint": "El precio total por noche es la suma de los niveles aplicables. Un precio de 0 significa que el huésped está incluido sin costo adicional.",
+        "included": "Incluido",
+        "adult": "Adulto",
+        "child": "Niño",
+        "noTiers": "No hay niveles de ocupación definidos.",
+        "actions": {
+          "new": "Agregar plan de tarifa",
+          "addTier": "Agregar nivel",
+          "removeTier": "Eliminar nivel"
+        },
+        "form": {
+          "name": "Nombre del plan",
+          "roomType": "Tipo de habitación",
+          "roomTypeHelper": "Debe coincidir exactamente con la categoría (ej. \"Suite\")",
+          "basePrice": "Precio base (por noche)"
+        },
+        "dialog": {
+          "newTitle": "Nuevo plan de tarifa",
+          "editTitle": "Editar plan de tarifa"
+        },
+        "errors": {
+          "nameRequired": "El nombre es requerido",
+          "roomTypeRequired": "El tipo de habitación es requerido"
+        },
+        "tiersTable": {
+          "guestType": "Tipo de huésped",
+          "guestNumber": "Huésped #",
+          "price": "Precio"
+        }
+      },
+      "rules": {
+        "description": "Las reglas ajustan el precio según condiciones como fechas, tipo de habitación, empresa o huésped. Se aplican en orden: reemplazar → porcentaje → monto fijo.",
+        "empty": "Aún no hay reglas de precio.",
+        "anyCondition": "Cualquiera (regla global)",
+        "on": "sobre",
+        "conditionsSection": "Condiciones (opcional — dejar en blanco para aplicar globalmente)",
+        "actionSection": "Ajuste",
+        "adjustmentTypes": {
+          "replace": "Reemplazar",
+          "percent": "Porcentaje",
+          "fixed": "Monto fijo"
+        },
+        "adjustmentScopes": {
+          "base": "Precio base",
+          "occupancy": "Ocupación",
+          "subtotal": "Subtotal"
+        },
+        "actions": {
+          "new": "Agregar regla"
+        },
+        "form": {
+          "name": "Nombre de la regla",
+          "dateStart": "Fecha de inicio",
+          "dateEnd": "Fecha de fin",
+          "roomType": "Tipo de habitación (opcional)",
+          "roomTypeHelper": "Dejar vacío para todos los tipos",
+          "company": "Empresa (opcional)",
+          "guestEmail": "Email del huésped (opcional)",
+          "adjustmentType": "Tipo de ajuste",
+          "adjustmentValue": "Valor del ajuste",
+          "adjustmentValuePercent": "Descuento / Recargo (%)",
+          "adjustmentScope": "Aplica sobre",
+          "priority": "Prioridad (mayor número se aplica primero)"
+        },
+        "dialog": {
+          "newTitle": "Nueva regla de precio",
+          "editTitle": "Editar regla de precio"
+        },
+        "errors": {
+          "nameRequired": "El nombre es requerido",
+          "endDateRequired": "La fecha de fin es requerida cuando se define una fecha de inicio"
+        },
+        "table": {
+          "name": "Nombre",
+          "conditions": "Condiciones",
+          "adjustment": "Ajuste",
+          "priority": "Prioridad",
+          "active": "Activo",
+          "actions": "Acciones"
+        }
+      },
+      "taxes": {
+        "description": "Los impuestos se aplican sobre el subtotal. Los impuestos inclusivos ya están incluidos en el precio mostrado.",
+        "empty": "Aún no hay impuestos configurados.",
+        "inclusive": "Inclusivo",
+        "exclusive": "Exclusivo",
+        "appliesToLabels": {
+          "room": "Por habitación",
+          "guest": "Por huésped",
+          "total": "Total"
+        },
+        "typeLabels": {
+          "percentage": "Porcentaje (%)",
+          "fixed": "Monto fijo"
+        },
+        "actions": {
+          "new": "Agregar impuesto"
+        },
+        "form": {
+          "name": "Nombre del impuesto",
+          "type": "Tipo",
+          "value": "Monto",
+          "valuePercent": "Tasa (%)",
+          "appliesTo": "Aplica sobre",
+          "inclusive": "Inclusivo (ya incluido en el precio)",
+          "priority": "Prioridad"
+        },
+        "dialog": {
+          "newTitle": "Nuevo impuesto",
+          "editTitle": "Editar impuesto"
+        },
+        "errors": {
+          "nameRequired": "El nombre es requerido"
+        },
+        "table": {
+          "name": "Nombre",
+          "type": "Tipo",
+          "value": "Valor",
+          "appliesTo": "Aplica sobre",
+          "inclusive": "Inclusivo",
+          "priority": "Prioridad",
+          "active": "Activo",
+          "actions": "Acciones"
+        }
+      },
+      "services": {
+        "empty": "No hay servicios configurados.",
+        "actions": { "new": "Nuevo servicio" },
+        "dialog": {
+          "newTitle": "Nuevo servicio",
+          "editTitle": "Editar servicio"
+        },
+        "form": {
+          "code": "Código",
+          "name": "Nombre",
+          "kind": "Tipo",
+          "chargeBasis": "Base de cobro",
+          "onlineBookable": "Reservable en línea",
+          "visibleInPOS": "Visible en POS"
+        },
+        "table": {
+          "code": "Código",
+          "name": "Nombre",
+          "kind": "Tipo",
+          "chargeBasis": "Base de cobro",
+          "pos": "POS",
+          "active": "Activo",
+          "actions": "Acciones"
+        }
+      },
+      "servicePrices": {
+        "empty": "No hay precios de servicio configurados.",
+        "actions": { "new": "Nuevo precio" },
+        "dialog": {
+          "newTitle": "Nuevo precio de servicio",
+          "editTitle": "Editar precio de servicio"
+        },
+        "form": {
+          "service": "Servicio"
+        },
+        "table": {
+          "service": "Servicio",
+          "category": "Categoría",
+          "validity": "Vigencia",
+          "dates": "Fechas",
+          "adultPrice": "Precio adulto",
+          "childrenPrice": "Precio niño",
+          "active": "Activo",
+          "actions": "Acciones"
+        }
+      },
+      "chargePolicies": {
+        "description": "Define cargos automáticos que aplican cuando ocurren eventos específicos, como salidas tardías o no-shows.",
+        "empty": "No hay políticas de cargo automático configuradas.",
+        "emptyHint": "Las políticas cargan automáticamente a los huéspedes por salidas tardías, no-shows y salidas anticipadas.",
+        "actions": { "new": "Nueva política" },
+        "dialog": { "new": "Nueva política de cargo", "edit": "Editar política de cargo" },
+        "errors": { "nameRequired": "El nombre de la política es requerido" },
+        "triggers": {
+          "checkout_overdue": "el huésped sale tarde",
+          "no_show": "el huésped no se presenta",
+          "early_departure": "el huésped sale antes de la fecha de salida"
+        },
+        "triggerOptions": {
+          "checkout_overdue": "El huésped sale tarde",
+          "no_show": "El huésped no se presenta",
+          "early_departure": "El huésped sale antes de la fecha de salida"
+        },
+        "chargeDesc": {
+          "extra_night": "una noche adicional a tarifa por noche",
+          "percent": "de la tarifa por noche"
+        },
+        "summary": "Cobra {{chargeDesc}} cuando {{triggerSentence}}",
+        "graceHours": "{{hours}}h de gracia",
+        "taxApplicable": "Aplica impuesto",
+        "form": {
+          "whenTitle": "¿Cuándo debe aplicarse este cargo?",
+          "trigger": "Situación",
+          "graceHours": "¿Cobrar después de cuántas horas del checkout?",
+          "graceHoursHint": "Déjalo en blanco para cobrar inmediatamente al momento del checkout",
+          "whatTitle": "¿Qué debemos cobrar?",
+          "chargeType": "Tipo de cargo",
+          "chargeTypeFixed": "Monto fijo",
+          "chargeTypeExtraNight": "Una noche adicional a tarifa por noche",
+          "chargeTypePercent": "Porcentaje de la tarifa por noche",
+          "amountFixed": "Monto ($)",
+          "amountPercent": "Porcentaje (%)",
+          "taxApplicable": "Aplicar impuestos a este cargo",
+          "identifierTitle": "Nombre y estado",
+          "name": "Nombre de la política",
+          "nameHint": "Un nombre corto para identificar esta política"
+        }
+      },
+      "auditLog": {
+        "actions": { "run": "Ejecutar auditoría ahora", "refresh": "Actualizar" },
+        "summary": "Tenant {{id}}: {{chargesPosted}} cobrados, {{errors}} errores",
+        "columns": {
+          "reservation": "Reservación",
+          "rule": "Regla",
+          "businessDate": "Fecha de negocio",
+          "status": "Estado",
+          "executedAt": "Ejecutado el",
+          "error": "Error"
+        }
+      }
     }
-  ,
+  },
   "pages": {
     "rooms": {
       "loadingAmenities": "Cargando amenidades...",
@@ -1475,6 +1760,13 @@
     "deleteConfirm": "¿Estás seguro de que deseas eliminar esta empresa?",
     "reservationHistory": "Historial de reservas",
     "total": "empresas"
+  },
+  "bookingCalendar": {
+    "title": "Calendario de reservas",
+    "today": "Hoy",
+    "room": "Habitación",
+    "unassigned": "Sin asignar",
+    "noRooms": "No se encontraron habitaciones activas."
   },
   "guests": {
     "name": "Nombre",

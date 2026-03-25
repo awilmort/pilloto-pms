@@ -45,13 +45,14 @@ import {
   Hotel,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
-import { roomsService, adminService } from '../../services/api';
-import { Room } from '../../types';
+import { roomsService, adminService, roomTypeService } from '../../services/api';
+import { Room, RoomType } from '../../types';
 import AdminLayout from '../../components/admin/AdminLayout';
 import SectionTitle from '../../components/admin/SectionTitle';
 import MediaPicker from '../../components/admin/MediaPicker';
 import { resolveMediaUrl } from '../../services/api';
 import { useTranslation } from 'react-i18next';
+import Autocomplete from '@mui/material/Autocomplete';
 
 interface RoomFormData {
   name: string;
@@ -62,9 +63,7 @@ interface RoomFormData {
   bedConfiguration: string;
   amenities: string[];
   images: string[];
-  adultCapacity?: number;
-  childrenCapacity?: number;
-  roomPrice?: number;
+  roomTypeId?: string;
   features: {
     wifi: boolean;
     airConditioning: boolean;
@@ -85,9 +84,7 @@ const initialFormData: RoomFormData = {
   bedConfiguration: '',
   amenities: [],
   images: [],
-  adultCapacity: undefined,
-  childrenCapacity: undefined,
-  roomPrice: undefined,
+  roomTypeId: undefined,
   features: {
     wifi: true,
     airConditioning: true,
@@ -115,6 +112,8 @@ const RoomsManagement: React.FC = () => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [newAmenity, setNewAmenity] = useState('');
   const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
+  const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
+  const [selectedRoomType, setSelectedRoomType] = useState<RoomType | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -126,6 +125,12 @@ const RoomsManagement: React.FC = () => {
       }
     }
   }, [user, permissions]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    roomTypeService.getRoomTypes()
+      .then(res => setRoomTypes(res.data.data || []))
+      .catch(() => {});
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadRooms = async () => {
     try {
@@ -156,10 +161,16 @@ const RoomsManagement: React.FC = () => {
 
   const handleCreateRoom = () => {
     setFormData(initialFormData);
+    setSelectedRoomType(null);
     setFormDialog({ open: true, mode: 'create', room: null });
   };
 
   const handleEditRoom = (room: Room) => {
+    const rtId = typeof room.roomTypeId === 'object' ? (room.roomTypeId as any)?._id : room.roomTypeId;
+    const rtObj = typeof room.roomTypeId === 'object'
+      ? room.roomTypeId as any
+      : roomTypes.find(rt => rt._id === room.roomTypeId) || null;
+    setSelectedRoomType(rtObj ? { _id: rtObj._id || '', name: rtObj.name || '', capacity: rtObj.capacity || 0, isActive: true, createdAt: '', updatedAt: '' } : null);
     setFormData({
       name: room.name,
       description: room.description,
@@ -169,9 +180,7 @@ const RoomsManagement: React.FC = () => {
       bedConfiguration: room.bedConfiguration,
       amenities: room.amenities || [],
       images: room.images || [],
-      adultCapacity: room.adultCapacity,
-      childrenCapacity: room.childrenCapacity,
-      roomPrice: room.roomPrice,
+      roomTypeId: rtId,
       features: room.features || {
         wifi: true,
         airConditioning: true,
@@ -203,9 +212,7 @@ const RoomsManagement: React.FC = () => {
         amenities: formData.amenities,
         images: formData.images.length > 0 ? formData.images : ['/api/placeholder/400/300'],
         features: formData.features,
-        ...(formData.adultCapacity !== undefined && formData.adultCapacity !== null && { adultCapacity: formData.adultCapacity }),
-        ...(formData.childrenCapacity !== undefined && formData.childrenCapacity !== null && { childrenCapacity: formData.childrenCapacity }),
-        ...(formData.roomPrice !== undefined && formData.roomPrice !== null && { roomPrice: formData.roomPrice }),
+        ...(formData.roomTypeId ? { roomTypeId: formData.roomTypeId } : {}),
       };
 
       if (formDialog.mode === 'create') {
@@ -398,18 +405,6 @@ const RoomsManagement: React.FC = () => {
                             />
                           )}
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            {(room.adultCapacity !== undefined || room.childrenCapacity !== undefined) && (
-                              <Typography variant="caption" color="text.secondary">
-                                {room.adultCapacity !== undefined && `${room.adultCapacity}A`}
-                                {room.adultCapacity !== undefined && room.childrenCapacity !== undefined && ' / '}
-                                {room.childrenCapacity !== undefined && `${room.childrenCapacity}C`}
-                              </Typography>
-                            )}
-                            {room.roomPrice !== undefined && (
-                              <Typography variant="body2" color="text.secondary">
-                                ${room.roomPrice}/night
-                              </Typography>
-                            )}
                           </Box>
                         </Box>
                       </CardContent>
@@ -448,8 +443,8 @@ const RoomsManagement: React.FC = () => {
                     <TableHead>
                       <TableRow>
                         <TableCell>{t('admin.rooms.table.name')}</TableCell>
-                        <TableCell>{t('admin.rooms.table.capacity', 'Capacity')}</TableCell>
-                        <TableCell>{t('admin.rooms.table.price')}</TableCell>
+                        <TableCell>{t('admin.rooms.table.type')}</TableCell>
+                        <TableCell>{t('admin.rooms.table.condition')}</TableCell>
                         <TableCell>{t('admin.rooms.table.status')}</TableCell>
                         <TableCell>{t('admin.rooms.table.actions')}</TableCell>
                       </TableRow>
@@ -472,19 +467,18 @@ const RoomsManagement: React.FC = () => {
                               </Box>
                             </Box>
                           </TableCell>
-                          {/* Room type cell removed */}
                           <TableCell>
-                            {(room.adultCapacity !== undefined || room.childrenCapacity !== undefined)
-                              ? [
-                                  room.adultCapacity !== undefined ? `${room.adultCapacity}A` : null,
-                                  room.childrenCapacity !== undefined ? `${room.childrenCapacity}C` : null,
-                                ].filter(Boolean).join(' / ')
-                              : '—'}
+                            <Typography variant="body2">
+                              {typeof room.roomTypeId === 'object' ? (room.roomTypeId as any).name : room.type}
+                            </Typography>
                           </TableCell>
                           <TableCell>
-                            {room.roomPrice !== undefined ? `$${room.roomPrice}/night` : '—'}
+                            <Chip
+                              label={t(`admin.rooms.condition.${room.condition}`, room.condition)}
+                              color={room.condition === 'clean' ? 'success' : 'warning'}
+                              size="small"
+                            />
                           </TableCell>
-                          {/* Capacity/Price/Size cells removed */}
                           <TableCell>
                             {room.status && (
                               <Chip
@@ -577,7 +571,21 @@ const RoomsManagement: React.FC = () => {
                       />
                     </Grid>
 
-                    {/* Room type selection removed */}
+                    {/* Room Type selector */}
+                    <Grid item xs={12} md={6}>
+                      <Autocomplete
+                        options={roomTypes}
+                        getOptionLabel={(o) => o.name}
+                        value={selectedRoomType}
+                        onChange={(_, val) => {
+                          setSelectedRoomType(val);
+                          setFormData(fd => ({ ...fd, roomTypeId: val?._id || undefined }));
+                        }}
+                        renderInput={(params) => (
+                          <TextField {...params} label={t('admin.rooms.form.roomType', 'Room Type')} fullWidth />
+                        )}
+                      />
+                    </Grid>
 
                     <Grid item xs={12}>
                       <TextField
@@ -649,55 +657,6 @@ const RoomsManagement: React.FC = () => {
                     required
                   />
                 </Grid>
-
-                {canFullEdit && (
-                  <>
-                    {/* Pricing */}
-                    <Grid item xs={12}>
-                      <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>{t('admin.rooms.sections.pricing')}</Typography>
-                      <Divider sx={{ mb: 2 }} />
-                    </Grid>
-
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        type="number"
-                        label={t('admin.rooms.form.adultCapacity', 'Max Adults')}
-                        value={formData.adultCapacity ?? ''}
-                        onChange={(e) => setFormData({ ...formData, adultCapacity: e.target.value === '' ? undefined : Number(e.target.value) })}
-                        inputProps={{ min: 0, step: 1 }}
-                        helperText={t('admin.rooms.form.adultCapacityHelper', 'Maximum number of adults')}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Grid>
-
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        type="number"
-                        label={t('admin.rooms.form.childrenCapacity', 'Max Children')}
-                        value={formData.childrenCapacity ?? ''}
-                        onChange={(e) => setFormData({ ...formData, childrenCapacity: e.target.value === '' ? undefined : Number(e.target.value) })}
-                        inputProps={{ min: 0, step: 1 }}
-                        helperText={t('admin.rooms.form.childrenCapacityHelper', 'Maximum number of children')}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Grid>
-
-                    <Grid item xs={12} md={4}>
-                      <TextField
-                        fullWidth
-                        type="number"
-                        label={t('admin.rooms.form.roomPrice')}
-                        value={formData.roomPrice ?? ''}
-                        onChange={(e) => setFormData({ ...formData, roomPrice: e.target.value === '' ? undefined : Number(e.target.value) })}
-                        inputProps={{ min: 0, step: 0.01 }}
-                        helperText={t('admin.rooms.form.roomPriceHelper')}
-                        InputLabelProps={{ shrink: true }}
-                      />
-                    </Grid>
-                  </>
-                )}
 
                 {canFullEdit && (
                   <>

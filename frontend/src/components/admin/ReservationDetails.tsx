@@ -1,8 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Box, Button, Chip, Container, Divider, Grid, Paper, Typography, TextField, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Tooltip, Tabs, Tab, Alert } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Edit as EditIcon, Delete as DeleteIcon, Print as PrintIcon } from '@mui/icons-material';
 import { Reservation, Payment, Charge } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTenant } from '../../contexts/TenantContext';
+import { printConfirmation, printFolio, printPaymentReceipt, printPaymentSummary } from '../../utils/print';
 import { reservationsService } from '../../services/api';
 import { useTranslation } from 'react-i18next';
 import NumberField from '../../components/common/NumberField';
@@ -18,7 +20,7 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
   const [charges, setCharges] = useState<Charge[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [folioStatus, setFolioStatus] = useState<'open' | 'in_ar' | 'closed'>('open');
-  const [summary, setSummary] = useState<{ totalCharges: number; totalPayments: number; balance: number; creditAvailability: number }>({ totalCharges: 0, totalPayments: 0, balance: 0, creditAvailability: 0 });
+  const [summary, setSummary] = useState<{ stage: 'pre_arrival' | 'in_house' | 'checked_out'; estimatedTotal: number; totalCharges: number; totalPayments: number; depositTotal: number; balance: number; balanceOnArrival: number; creditAvailability: number }>({ stage: 'pre_arrival', estimatedTotal: 0, totalCharges: 0, totalPayments: 0, depositTotal: 0, balance: 0, balanceOnArrival: 0, creditAvailability: 0 });
   const [activeTab, setActiveTab] = useState(0);
 
   // Fetch the fully-populated reservation (payments.createdBy, etc.) on mount and whenever the ID changes.
@@ -34,7 +36,7 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
       if (!cancelled && res.data?.data) {
         setCharges(res.data.data.charges || []);
         setPayments(res.data.data.payments || []);
-        setSummary(res.data.data.summary || { totalCharges: 0, totalPayments: 0, balance: 0, creditAvailability: 0 });
+        setSummary(res.data.data.summary || { stage: 'pre_arrival' as const, estimatedTotal: 0, totalCharges: 0, totalPayments: 0, depositTotal: 0, balance: 0, balanceOnArrival: 0, creditAvailability: 0 });
         setFolioStatus(res.data.data.folio?.status || 'open');
       }
     }).catch(() => {
@@ -46,6 +48,9 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
   // Keep in sync with external updates from the parent (e.g. after a status change)
   useEffect(() => { setCurrent(reservation); }, [reservation]);
   const { user, permissions } = useAuth();
+  const { tenant } = useTenant();
+  const hotelInfo = { name: tenant?.name ?? 'Hotel', logoUrl: tenant?.settings?.logoUrl };
+  const cashierName = [(user as any)?.firstName, (user as any)?.lastName].filter(Boolean).join(' ') || 'Front Desk';
   const isAdmin = String(user?.role).toLowerCase() === 'admin';
   const canManagePayments = isAdmin || (permissions || []).includes('admin.reservations.managePayments');
   const { t } = useTranslation();
@@ -97,17 +102,30 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
   const guestEmail = linkedGuest?.email || current.contactInfo?.email || '-';
   const guestPhone = linkedGuest?.phone || current.contactInfo?.phone || '-';
 
-  const pendingBalance = useMemo(() => Math.max(0, summary.balance ?? ((current.estimatedTotal || current.totalPrice || 0) - (current.totalPayments || 0))), [summary, current]);
+  const isPreArrival = summary.stage === 'pre_arrival';
+  const pendingBalance = useMemo(() => {
+    if (isPreArrival) return summary.balanceOnArrival;
+    return Math.max(0, summary.balance ?? ((current.estimatedTotal || current.totalPrice || 0) - (current.totalPayments || 0)));
+  }, [summary, current, isPreArrival]);
 
   // Payment form state
   const [amount, setAmount] = useState<number>(0);
   const [method, setMethod] = useState<'cash' | 'card' | 'transfer' | 'credit' | 'check' | ''>('');
   const [note, setNote] = useState<string>('');
+  const [paymentIsDeposit, setPaymentIsDeposit] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitSuccess, setSubmitSuccess] = useState<string | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [editingPayment, setEditingPayment] = useState<{ _id?: string; amount: number; method: 'cash' | 'card' | 'transfer' | 'credit' | 'check'; note?: string; reference?: string; status?: 'completed' | 'pending' | 'reversed' } | null>(null);
+
+  // Charge form state
+  const [chargeDialogOpen, setChargeDialogOpen] = useState(false);
+  const [chargeDescription, setChargeDescription] = useState('');
+  const [chargeAmount, setChargeAmount] = useState<number | null>(null);
+  const [chargeCategory, setChargeCategory] = useState<string>('');
+  const [chargeSubmitting, setChargeSubmitting] = useState(false);
+  const [chargeError, setChargeError] = useState<string | null>(null);
 
   return (
     <>
@@ -115,6 +133,13 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
         <Typography variant="h5">{t('admin.reservations.details.title')}</Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            variant="outlined"
+            startIcon={<PrintIcon />}
+            onClick={() => printConfirmation(current, hotelInfo)}
+          >
+            {t('admin.printing.printConfirmation', 'Print Confirmation')}
+          </Button>
           {isAdmin && (
             <Button
               variant="contained"
@@ -165,10 +190,21 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
           <Grid item xs={12} md={6}>
             <Typography variant="subtitle2" gutterBottom>{t('admin.reservations.details.section.payment')}</Typography>
             <Box sx={{ pl: 1 }}>
-              <Typography variant="body2"><strong>{t('admin.reservations.details.labels.total')}:</strong> {formatCurrency(current.estimatedTotal ?? current.totalPrice)}</Typography>
-              <Typography variant="body2"><strong>{t('admin.reservations.details.labels.totalPayments')}:</strong> {formatCurrency(summary.totalPayments ?? current.totalPayments ?? 0)}</Typography>
-              <Typography variant="body2"><strong>{t('admin.reservations.details.labels.totalCharges', 'Total Charges')}:</strong> {formatCurrency(summary.totalCharges)}</Typography>
-              <Typography variant="body2"><strong>{t('admin.reservations.details.labels.pendingBalance')}:</strong> {formatCurrency(pendingBalance)}</Typography>
+              {isPreArrival ? (
+                <>
+                  <Typography variant="body2"><strong>{t('admin.reservations.financial.estimatedTotal', 'Estimated Total')}:</strong> {formatCurrency(summary.estimatedTotal)}</Typography>
+                  {summary.depositTotal > 0 && (
+                    <Typography variant="body2"><strong>{t('admin.reservations.financial.depositReceived', 'Deposit Received')}:</strong> {formatCurrency(summary.depositTotal)}</Typography>
+                  )}
+                  <Typography variant="body2"><strong>{t('admin.reservations.financial.balanceOnArrival', 'Balance on Arrival')}:</strong> {formatCurrency(summary.balanceOnArrival)}</Typography>
+                </>
+              ) : (
+                <>
+                  <Typography variant="body2"><strong>{t('admin.reservations.details.labels.totalCharges', 'Total Charges')}:</strong> {formatCurrency(summary.totalCharges)}</Typography>
+                  <Typography variant="body2"><strong>{t('admin.reservations.details.labels.totalPayments')}:</strong> {formatCurrency(summary.totalPayments)}</Typography>
+                  <Typography variant="body2"><strong>{t('admin.reservations.details.labels.pendingBalance')}:</strong> {formatCurrency(pendingBalance)}</Typography>
+                </>
+              )}
               <Typography variant="body2"><strong>{t('admin.reservations.details.labels.creditAvailability', 'Credit Availability')}:</strong> {formatCurrency(summary.creditAvailability)}</Typography>
               <Typography variant="body2"><strong>{t('admin.reservations.details.labels.folioStatus', 'Folio Status')}:</strong> {folioStatus}</Typography>
               {paymentsDisabled && (
@@ -227,8 +263,39 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
               <Typography variant="subtitle2">{t('admin.reservations.details.section.financial', 'Financial')}</Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Typography variant="body2">{t('admin.reservations.details.paymentDialog.pendingBalance', { amount: formatCurrency(pendingBalance) })}</Typography>
-                {canManagePayments && !paymentsDisabled && (
-                  <Button variant="contained" onClick={() => { setSubmitError(null); setSubmitSuccess(null); setAmount(0); setMethod(''); setNote(''); setPaymentDialogOpen(true); }}>{t('admin.reservations.details.actions.addPayment')}</Button>
+                {activeTab === 0 && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<PrintIcon />}
+                    onClick={() => printFolio(current, charges, payments, summary, hotelInfo)}
+                  >
+                    {t('admin.printing.printFolio', 'Print Folio')}
+                  </Button>
+                )}
+                {activeTab === 1 && (
+                  <Button
+                    variant="outlined"
+                    startIcon={<PrintIcon />}
+                    onClick={() => printPaymentSummary(payments, current, charges, summary, cashierName, hotelInfo)}
+                  >
+                    {t('admin.printing.printPaymentSummary', 'Print Payment Summary')}
+                  </Button>
+                )}
+                {canManagePayments && !paymentsDisabled && activeTab === 0 && folioStatus === 'open' && (
+                  <Button variant="outlined" onClick={() => { setChargeDescription(''); setChargeAmount(null); setChargeCategory(''); setChargeError(null); setChargeDialogOpen(true); }}>
+                    {t('admin.reservations.details.actions.addCharge', 'Add Charge')}
+                  </Button>
+                )}
+                {canManagePayments && !paymentsDisabled && activeTab === 1 && (
+                  <Button variant="contained" onClick={() => {
+                    setSubmitError(null); setSubmitSuccess(null); setAmount(0); setMethod(''); setNote('');
+                    setPaymentIsDeposit(isPreArrival);
+                    setPaymentDialogOpen(true);
+                  }}>
+                    {isPreArrival
+                      ? t('admin.reservations.financial.recordDeposit', 'Record Deposit')
+                      : t('admin.reservations.details.actions.addPayment')}
+                  </Button>
                 )}
               </Box>
             </Box>
@@ -252,7 +319,9 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
                   <TableRow>
                     <TableCell>{t('admin.reservations.details.table.date')}</TableCell>
                     <TableCell>{t('admin.reservations.details.table.description', 'Description')}</TableCell>
+                    <TableCell>{t('admin.reservations.details.table.type', 'Type')}</TableCell>
                     <TableCell align="right">{t('admin.reservations.details.table.amount')}</TableCell>
+                    {canManagePayments && <TableCell />}
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -260,11 +329,36 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
                     <TableRow key={c._id}>
                       <TableCell>{new Date(c.createdAt).toLocaleString()}</TableCell>
                       <TableCell>{c.description}</TableCell>
+                      <TableCell>
+                        <Chip size="small" label={c.type ?? 'base'} color={c.type === 'auto_rule' ? 'warning' : c.type === 'manual' ? 'info' : 'default'} />
+                      </TableCell>
                       <TableCell align="right">{formatCurrency(c.amount)}</TableCell>
+                      {canManagePayments && (
+                        <TableCell align="right">
+                          {c.type !== 'base' && !paymentsDisabled && folioStatus === 'open' ? (
+                            <Tooltip title={t('admin.reservations.details.actions.delete')}>
+                              <IconButton size="small" color="error" onClick={async () => {
+                                const ok = window.confirm(t('admin.reservations.details.errors.deleteChargeConfirm', 'Delete this charge?'));
+                                if (!ok) return;
+                                try {
+                                  await reservationsService.deleteReservationCharge(current._id, c._id);
+                                  const f = await reservationsService.getReservationFinancial(current._id);
+                                  setCharges(f.data.data?.charges || []);
+                                  setSummary(f.data.data?.summary || summary);
+                                } catch (err: any) {
+                                  alert(err?.response?.data?.message || t('admin.reservations.details.errors.deleteChargeFailed', 'Delete failed'));
+                                }
+                              }}>
+                                <DeleteIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          ) : <span />}
+                        </TableCell>
+                      )}
                     </TableRow>
                   )) : (
                     <TableRow>
-                      <TableCell colSpan={3} align="center">{t('admin.reservations.details.table.noCharges', 'No charges')}</TableCell>
+                      <TableCell colSpan={canManagePayments ? 5 : 4} align="center">{t('admin.reservations.details.table.noCharges', 'No charges')}</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
@@ -306,7 +400,15 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
                         <TableCell>{p.note || '-'}</TableCell>
                         {canManagePayments && (
                           <TableCell align="right">
-                                {paymentsDisabled ? (
+                                <Tooltip title={t('admin.printing.printReceipt', 'Print Receipt')}>
+                          <IconButton
+                            size="small"
+                            onClick={() => printPaymentReceipt(p, current, pendingBalance, cashierName, hotelInfo)}
+                          >
+                            <PrintIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        {paymentsDisabled ? (
                                   <Tooltip title={t('admin.reservations.details.paymentDialog.blockedForCancelled')}>
                                     <span>
                                       <IconButton size="small" disabled>
@@ -369,8 +471,19 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
 
     {/* Add Payment Dialog */}
     <Dialog open={paymentDialogOpen} onClose={() => setPaymentDialogOpen(false)} maxWidth="sm" fullWidth>
-      <DialogTitle>{editingPayment ? t('admin.reservations.details.paymentDialog.titleEdit') : t('admin.reservations.details.paymentDialog.titleAdd')}</DialogTitle>
+      <DialogTitle>
+        {editingPayment
+          ? t('admin.reservations.details.paymentDialog.titleEdit')
+          : paymentIsDeposit
+            ? t('admin.reservations.financial.recordDeposit', 'Record Deposit')
+            : t('admin.reservations.details.paymentDialog.titleAdd')}
+      </DialogTitle>
       <DialogContent>
+        {paymentIsDeposit && !editingPayment && (
+          <Alert severity="info" sx={{ mb: 2, mt: 1 }}>
+            {t('admin.reservations.financial.depositInfo', 'This deposit will be applied against the balance when the guest checks in.')}
+          </Alert>
+        )}
         <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(2, 1fr)', mt: 1 }}>
           <NumberField
             label={t('admin.reservations.details.paymentDialog.amount')}
@@ -390,7 +503,9 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
             <MenuItem value="card">{t('admin.reservations.details.paymentDialog.methodCard')}</MenuItem>
             <MenuItem value="transfer">{t('admin.reservations.details.paymentDialog.methodTransfer')}</MenuItem>
             <MenuItem value="check">{t('admin.reservations.details.paymentDialog.methodCheck', 'Check')}</MenuItem>
-            <MenuItem value="credit">{t('admin.reservations.details.paymentDialog.methodCredit', 'Credit')}</MenuItem>
+            {!paymentIsDeposit && (
+              <MenuItem value="credit">{t('admin.reservations.details.paymentDialog.methodCredit', 'Credit')}</MenuItem>
+            )}
           </TextField>
         </Box>
         <TextField
@@ -444,7 +559,7 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
               if (editingPayment && editingPayment._id) {
                 res = await reservationsService.updateReservationPayment(current._id, editingPayment._id, { amount, method: method || undefined, note: note || undefined });
               } else {
-                res = await reservationsService.addReservationPayment(current._id, { amount, method: method || undefined, note: note || undefined });
+                res = await reservationsService.addReservationPayment(current._id, { amount, method: method || undefined, note: note || undefined, paymentStage: paymentIsDeposit ? 'deposit' : 'in_house' });
               }
               const updated = res.data.data as Reservation;
               setCurrent(updated);
@@ -467,6 +582,71 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
           }}
         >
           {editingPayment ? t('admin.reservations.details.actions.saveChanges') : t('admin.reservations.details.actions.addPayment')}
+        </Button>
+      </DialogActions>
+    </Dialog>
+
+    {/* Add Charge Dialog */}
+    <Dialog open={chargeDialogOpen} onClose={() => setChargeDialogOpen(false)} maxWidth="sm" fullWidth>
+      <DialogTitle>{t('admin.reservations.details.chargeDialog.title', 'Add Charge')}</DialogTitle>
+      <DialogContent>
+        <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
+          <TextField
+            fullWidth
+            label={t('admin.reservations.details.chargeDialog.description', 'Description')}
+            value={chargeDescription}
+            onChange={(e) => setChargeDescription(e.target.value)}
+            inputProps={{ maxLength: 300 }}
+          />
+          <NumberField
+            label={t('admin.reservations.details.chargeDialog.amount', 'Amount')}
+            value={chargeAmount ?? undefined}
+            onChange={(val) => setChargeAmount(val == null ? null : val)}
+            min={0.01}
+            inputProps={{ step: 0.01 }}
+          />
+          <TextField
+            select
+            label={t('admin.reservations.details.chargeDialog.category', 'Category')}
+            value={chargeCategory}
+            onChange={(e) => setChargeCategory(e.target.value)}
+          >
+            <MenuItem value="">{t('admin.reservations.details.chargeDialog.categoryNone', '— None —')}</MenuItem>
+            <MenuItem value="room">{t('admin.reservations.details.chargeDialog.categoryRoom', 'Room')}</MenuItem>
+            <MenuItem value="late_fee">{t('admin.reservations.details.chargeDialog.categoryLateFee', 'Late Fee')}</MenuItem>
+            <MenuItem value="service">{t('admin.reservations.details.chargeDialog.categoryService', 'Service')}</MenuItem>
+            <MenuItem value="damage">{t('admin.reservations.details.chargeDialog.categoryDamage', 'Damage')}</MenuItem>
+            <MenuItem value="adjustment">{t('admin.reservations.details.chargeDialog.categoryAdjustment', 'Adjustment')}</MenuItem>
+          </TextField>
+          {chargeError && <Typography variant="body2" color="error">{chargeError}</Typography>}
+        </Box>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={() => setChargeDialogOpen(false)} disabled={chargeSubmitting}>{t('admin.reservations.details.actions.cancel')}</Button>
+        <Button
+          variant="contained"
+          disabled={chargeSubmitting || !chargeDescription.trim() || !chargeAmount || chargeAmount <= 0}
+          onClick={async () => {
+            try {
+              setChargeSubmitting(true);
+              setChargeError(null);
+              await reservationsService.addReservationCharge(current._id, {
+                description: chargeDescription.trim(),
+                amount: chargeAmount!,
+                category: chargeCategory || undefined,
+              });
+              const f = await reservationsService.getReservationFinancial(current._id);
+              setCharges(f.data.data?.charges || []);
+              setSummary(f.data.data?.summary || summary);
+              setChargeDialogOpen(false);
+            } catch (err: any) {
+              setChargeError(err?.response?.data?.message || t('admin.reservations.details.chargeDialog.failed', 'Failed to add charge'));
+            } finally {
+              setChargeSubmitting(false);
+            }
+          }}
+        >
+          {t('admin.reservations.details.chargeDialog.submit', 'Add Charge')}
         </Button>
       </DialogActions>
     </Dialog>

@@ -18,8 +18,7 @@ import {
 } from '@mui/material';
 import AdminLayout from '../../components/admin/AdminLayout';
 import SectionTitle from '../../components/admin/SectionTitle';
-import { reservationsService, settingsService } from '../../services/api';
-import { AppSettings } from '../../services/api';
+import { reservationsService, servicesService } from '../../services/api';
 import { Reservation } from '../../types';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
@@ -30,11 +29,20 @@ const ScheduleSummary: React.FC = () => {
   const [period, setPeriod] = useState<'today' | 'tomorrow'>('today');
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
-  const [services, setServices] = useState<AppSettings['services']>({ daypass: true, accommodation: true, pasatarde: true, event: true });
+  const [services, setServices] = useState({ daypass: false, accommodation: true, pasatarde: false, event: false });
 
   useEffect(() => {
-    settingsService.getSettings()
-      .then(res => { if (res.data.data?.services) setServices(res.data.data.services); })
+    servicesService.getServices({ active: true })
+      .then(res => {
+        const list: any[] = res.data.data ?? [];
+        const hasKind = (k: string) => list.some(svc => svc.kind === k);
+        setServices(s => ({
+          ...s,
+          daypass:   hasKind('daypass'),
+          pasatarde: hasKind('pasatarde'),
+          event:     hasKind('event'),
+        }));
+      })
       .catch(() => {});
   }, []);
 

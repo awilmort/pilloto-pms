@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { User, Room, Reservation, MediaItem, Amenity, EventType, Company, Guest, CreditAccount } from '../types';
+import type { ChargeTemplate, ChargeRule, ChargeRuleExecution, AuditRun } from '../types';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 // Derive the API origin to resolve file URLs like /uploads/xxx
@@ -239,8 +240,17 @@ export const reservationsService = {
   getReservationFinancial: (id: string): Promise<AxiosResponse<ApiResponse<{
     folio: { _id: string; reservationId: string; status: 'open' | 'in_ar' | 'closed' };
     charges: Array<{ _id: string; folioId: string; description: string; amount: number; createdAt: string; updatedAt: string }>;
-    payments: Array<{ _id: string; folioId: string; amount: number; method: 'cash' | 'card' | 'transfer' | 'credit' | 'check'; status: 'completed' | 'pending' | 'reversed'; reference?: string; note?: string; createdAt: string; createdBy?: any }>;
-    summary: { totalCharges: number; totalPayments: number; balance: number; creditAvailability: number };
+    payments: Array<{ _id: string; folioId: string; amount: number; method: 'cash' | 'card' | 'transfer' | 'credit' | 'check'; status: 'completed' | 'pending' | 'reversed'; paymentStage: 'deposit' | 'in_house'; reference?: string; note?: string; createdAt: string; createdBy?: any }>;
+    summary: {
+      stage: 'pre_arrival' | 'in_house' | 'checked_out';
+      estimatedTotal: number;
+      totalCharges: number;
+      totalPayments: number;
+      depositTotal: number;
+      balance: number;
+      balanceOnArrival: number;
+      creditAvailability: number;
+    };
   }>>> =>
     apiClient.get(`/reservations/${id}/financial`),
 
@@ -301,7 +311,7 @@ export const reservationsService = {
     apiClient.post(`/reservations/${id}/use-credit`),
 
   // Payments
-  addReservationPayment: (id: string, data: { amount: number; method?: 'cash' | 'card' | 'transfer' | 'credit' | 'check'; status?: 'completed' | 'pending' | 'reversed'; reference?: string; note?: string }): Promise<AxiosResponse<ApiResponse<Reservation>>> =>
+  addReservationPayment: (id: string, data: { amount: number; method?: 'cash' | 'card' | 'transfer' | 'credit' | 'check'; status?: 'completed' | 'pending' | 'reversed'; reference?: string; note?: string; paymentStage?: 'deposit' | 'in_house' }): Promise<AxiosResponse<ApiResponse<Reservation>>> =>
     apiClient.post(`/reservations/${id}/payments`, data),
 
   updateReservationPayment: (id: string, paymentId: string, data: { amount?: number; method?: 'cash' | 'card' | 'transfer' | 'credit' | 'check'; status?: 'completed' | 'pending' | 'reversed'; reference?: string; note?: string }): Promise<AxiosResponse<ApiResponse<Reservation>>> =>
@@ -309,6 +319,13 @@ export const reservationsService = {
 
   deleteReservationPayment: (id: string, paymentId: string): Promise<AxiosResponse<ApiResponse<Reservation>>> =>
     apiClient.delete(`/reservations/${id}/payments/${paymentId}`),
+
+  // Charges
+  addReservationCharge: (id: string, data: { description: string; amount: number; category?: string }): Promise<AxiosResponse<ApiResponse<any>>> =>
+    apiClient.post(`/reservations/${id}/charges`, data),
+
+  deleteReservationCharge: (id: string, chargeId: string): Promise<AxiosResponse<ApiResponse<any>>> =>
+    apiClient.delete(`/reservations/${id}/charges/${chargeId}`),
 };
 
 // Amenities Service
@@ -540,47 +557,228 @@ export const rolesService = {
 
 export default apiClient;
 
+// Room Type Service
+export const roomTypeService = {
+  getRoomTypes: (params?: { active?: boolean }): Promise<AxiosResponse<ApiResponse<any[]>>> =>
+    apiClient.get('/pricing/room-types', { params }),
+
+  createRoomType: (data: { name: string; capacity: number; isActive?: boolean }): Promise<AxiosResponse<ApiResponse<any>>> =>
+    apiClient.post('/pricing/room-types', data),
+
+  updateRoomType: (id: string, data: Partial<{ name: string; capacity: number; isActive: boolean }>): Promise<AxiosResponse<ApiResponse<any>>> =>
+    apiClient.put(`/pricing/room-types/${id}`, data),
+
+  deleteRoomType: (id: string): Promise<AxiosResponse<ApiResponse>> =>
+    apiClient.delete(`/pricing/room-types/${id}`),
+};
+
 // Pricing Service
 export const pricingService = {
-  getPricing: (params?: { service?: 'daypass' | 'pasatarde' | 'hospedaje'; category?: 'standard' | 'special' | 'guest' | 'company'; }): Promise<AxiosResponse<ApiResponse<any[]>>> =>
-    apiClient.get('/pricing', { params }),
+  // ── Rate Plans ────────────────────────────────────────────
+  getRatePlans: (params?: { roomTypeId?: string; active?: boolean }): Promise<AxiosResponse<ApiResponse<any[]>>> =>
+    apiClient.get('/pricing/rate-plans', { params }),
 
-  createPricing: (data: {
-    service: 'daypass' | 'pasatarde' | 'hospedaje';
-    category: 'standard' | 'special' | 'guest' | 'company';
-    validity: 'everyday' | 'weekdays' | 'weekend' | 'custom';
-    startDate?: string | Date;
-    endDate?: string | Date;
-    guestEmail?: string;
-    companyId?: string;
-    adultPrice: number;
-    childrenPrice: number;
-    roomPrice?: number;
+  createRatePlan: (data: {
+    name: string;
+    roomTypeId: string;
+    basePrice: number;
+    pricingMode?: 'tiered';
+    occupancyTiers: Array<{ guestType: 'adult' | 'child'; guestNumber: number; price: number }>;
     isActive?: boolean;
-  }): Promise<AxiosResponse<ApiResponse<any>>> => apiClient.post('/pricing', data),
+  }): Promise<AxiosResponse<ApiResponse<any>>> => apiClient.post('/pricing/rate-plans', data),
 
-  updatePricing: (id: string, data: Partial<{
-    service: 'daypass' | 'pasatarde' | 'hospedaje';
-    category: 'standard' | 'special' | 'guest' | 'company';
-    validity: 'everyday' | 'weekdays' | 'weekend' | 'custom';
-    startDate?: string | Date;
-    endDate?: string | Date;
-    guestEmail?: string;
-    companyId?: string;
-    adultPrice: number;
-    childrenPrice: number;
-    roomPrice: number;
+  updateRatePlan: (id: string, data: Partial<{
+    name: string;
+    roomTypeId: string;
+    basePrice: number;
+    occupancyTiers: Array<{ guestType: 'adult' | 'child'; guestNumber: number; price: number }>;
     isActive: boolean;
-  }>): Promise<AxiosResponse<ApiResponse<any>>> => apiClient.put(`/pricing/${id}`, data),
+  }>): Promise<AxiosResponse<ApiResponse<any>>> => apiClient.put(`/pricing/rate-plans/${id}`, data),
 
-  deletePricing: (id: string): Promise<AxiosResponse<ApiResponse>> => apiClient.delete(`/pricing/${id}`)
+  deleteRatePlan: (id: string): Promise<AxiosResponse<ApiResponse>> =>
+    apiClient.delete(`/pricing/rate-plans/${id}`),
+
+  // ── Pricing Rules ─────────────────────────────────────────
+  getPricingRules: (): Promise<AxiosResponse<ApiResponse<any[]>>> =>
+    apiClient.get('/pricing/rules'),
+
+  createPricingRule: (data: {
+    name: string;
+    priority?: number;
+    dateStart?: string;
+    dateEnd?: string;
+    roomTypeId?: string;
+    ratePlanId?: string;
+    companyId?: string;
+    guestEmail?: string;
+    adjustmentType: 'replace' | 'percent' | 'fixed';
+    adjustmentValue: number;
+    adjustmentScope: 'base' | 'occupancy' | 'subtotal';
+    isActive?: boolean;
+  }): Promise<AxiosResponse<ApiResponse<any>>> => apiClient.post('/pricing/rules', data),
+
+  updatePricingRule: (id: string, data: Partial<{
+    name: string;
+    priority: number;
+    dateStart?: string;
+    dateEnd?: string;
+    roomTypeId?: string;
+    ratePlanId?: string;
+    companyId?: string;
+    guestEmail?: string;
+    adjustmentType: 'replace' | 'percent' | 'fixed';
+    adjustmentValue: number;
+    adjustmentScope: 'base' | 'occupancy' | 'subtotal';
+    isActive: boolean;
+  }>): Promise<AxiosResponse<ApiResponse<any>>> => apiClient.put(`/pricing/rules/${id}`, data),
+
+  deletePricingRule: (id: string): Promise<AxiosResponse<ApiResponse>> =>
+    apiClient.delete(`/pricing/rules/${id}`),
+
+  // ── Taxes ─────────────────────────────────────────────────
+  getTaxes: (): Promise<AxiosResponse<ApiResponse<any[]>>> =>
+    apiClient.get('/pricing/taxes'),
+
+  createTax: (data: {
+    name: string;
+    type: 'percentage' | 'fixed';
+    value: number;
+    appliesTo: 'room' | 'guest' | 'total';
+    isInclusive?: boolean;
+    priority?: number;
+    isActive?: boolean;
+  }): Promise<AxiosResponse<ApiResponse<any>>> => apiClient.post('/pricing/taxes', data),
+
+  updateTax: (id: string, data: Partial<{
+    name: string;
+    type: 'percentage' | 'fixed';
+    value: number;
+    appliesTo: 'room' | 'guest' | 'total';
+    isInclusive: boolean;
+    priority: number;
+    isActive: boolean;
+  }>): Promise<AxiosResponse<ApiResponse<any>>> => apiClient.put(`/pricing/taxes/${id}`, data),
+
+  deleteTax: (id: string): Promise<AxiosResponse<ApiResponse>> =>
+    apiClient.delete(`/pricing/taxes/${id}`),
+
+  // ── Calculate ─────────────────────────────────────────────
+  calculatePrice: (data: {
+    ratePlanId?: string;
+    roomTypeId?: string;
+    adults: number;
+    children: number;
+    date?: string;
+    nights?: number;
+    rooms?: number;
+    companyId?: string;
+    guestEmail?: string;
+  }): Promise<AxiosResponse<ApiResponse<{
+    ratePlan: { _id: string; name: string; roomTypeId: string; roomTypeName: string } | null;
+    basePrice: number;
+    occupancyCost: number;
+    subtotal: number;
+    adjustedSubtotal: number;
+    taxes: Array<{ name: string; type: string; amount: number; isInclusive: boolean }>;
+    totalTaxes: number;
+    finalTotal: number;
+    nights: number;
+  }>>> => apiClient.post('/pricing/calculate', data),
+
+  // ── Service Price Calculation ──────────────────────────────
+  calculateServicePrice: (data: {
+    serviceId: string;
+    date?: string;
+    adults: number;
+    children: number;
+    rooms?: number;
+    companyId?: string;
+    guestEmail?: string;
+  }): Promise<AxiosResponse<ApiResponse<{
+    service: { _id: string; name: string; kind: string; chargeBasis: string } | null;
+    servicePrice: { _id: string; category: string; adultPrice: number; childrenPrice: number } | null;
+    quantity: number;
+    unitPrice: number;
+    baseSubtotal: number;
+    taxes: Array<{ name: string; type: string; amount: number; isInclusive: boolean }>;
+    totalTaxes: number;
+    finalTotal: number;
+  }>>> => apiClient.post('/pricing/calculate-service', data),
+};
+
+// ── Service types ─────────────────────────────────────────────
+export type ServiceKind = 'daypass' | 'pasatarde' | 'event' | 'roomAddon' | 'generic';
+export type ChargeBasis = 'perPerson' | 'perRoom' | 'perStay' | 'perEvent';
+
+export interface ServiceRecord {
+  _id: string;
+  code: string;
+  name: string;
+  kind: ServiceKind;
+  chargeBasis: ChargeBasis;
+  isActive: boolean;
+  isOnlineBookable: boolean;
+  isVisibleInPOS: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ServicePriceCategory = 'standard' | 'special' | 'guest' | 'company';
+export type ServicePriceValidity = 'everyday' | 'weekdays' | 'weekend' | 'custom';
+
+export interface ServicePriceRecord {
+  _id: string;
+  serviceId: string | ServiceRecord;
+  category: ServicePriceCategory;
+  validity: ServicePriceValidity;
+  startDate?: string;
+  endDate?: string;
+  guestEmail?: string;
+  companyId?: string | { _id: string; name: string };
+  adultPrice: number;
+  childrenPrice: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ── Services API ──────────────────────────────────────────────
+export const servicesService = {
+  getServices: (params?: { active?: boolean; kind?: ServiceKind }): Promise<AxiosResponse<ApiResponse<ServiceRecord[]>>> =>
+    apiClient.get('/services', { params }),
+
+  getService: (id: string): Promise<AxiosResponse<ApiResponse<ServiceRecord>>> =>
+    apiClient.get(`/services/${id}`),
+
+  createService: (data: Partial<ServiceRecord>): Promise<AxiosResponse<ApiResponse<ServiceRecord>>> =>
+    apiClient.post('/services', data),
+
+  updateService: (id: string, data: Partial<ServiceRecord>): Promise<AxiosResponse<ApiResponse<ServiceRecord>>> =>
+    apiClient.put(`/services/${id}`, data),
+
+  deleteService: (id: string): Promise<AxiosResponse<ApiResponse>> =>
+    apiClient.delete(`/services/${id}`),
+};
+
+// ── Service Prices API ────────────────────────────────────────
+export const servicePricesService = {
+  getServicePrices: (params?: { serviceId?: string; active?: boolean; category?: ServicePriceCategory }): Promise<AxiosResponse<ApiResponse<ServicePriceRecord[]>>> =>
+    apiClient.get('/service-prices', { params }),
+
+  createServicePrice: (data: Partial<ServicePriceRecord>): Promise<AxiosResponse<ApiResponse<ServicePriceRecord>>> =>
+    apiClient.post('/service-prices', data),
+
+  updateServicePrice: (id: string, data: Partial<ServicePriceRecord>): Promise<AxiosResponse<ApiResponse<ServicePriceRecord>>> =>
+    apiClient.put(`/service-prices/${id}`, data),
+
+  deleteServicePrice: (id: string): Promise<AxiosResponse<ApiResponse>> =>
+    apiClient.delete(`/service-prices/${id}`),
 };
 
 export interface AppSettings {
-  services: { daypass: boolean; accommodation: boolean; pasatarde: boolean; event: boolean; };
-  accommodationPricingModel: 'perGuest' | 'perRoom';
   sections: Record<string, boolean>;
-  cashierShift: { openTime: string; closeTime: string };
+  nightAuditEnabled?: boolean;
+  nightAuditTime?: string;
 }
 
 export interface CashierClosure {
@@ -604,16 +802,16 @@ export const settingsService = {
 };
 
 export const cashierClosuresService = {
-  getPreview: (): Promise<AxiosResponse<ApiResponse<{
+  getPreview: (params: { shiftStart: string; shiftEnd: string }): Promise<AxiosResponse<ApiResponse<{
     periodStart: string;
     periodEnd: string;
     paymentTotals: { cash: number; card: number; transfer: number; check: number; total: number };
     denominations: number[];
   }>>> =>
-    apiClient.get('/cashier-closures/preview'),
+    apiClient.get('/cashier-closures/preview', { params }),
   getClosures: (params?: { from?: string; to?: string }): Promise<AxiosResponse<ApiResponse<CashierClosure[]>>> =>
     apiClient.get('/cashier-closures', { params }),
-  createClosure: (data: { cashDistribution: Record<string, number>; note?: string }): Promise<AxiosResponse<ApiResponse<CashierClosure>>> =>
+  createClosure: (data: { shiftStart: string; shiftEnd: string; cashDistribution: Record<string, number>; note?: string }): Promise<AxiosResponse<ApiResponse<CashierClosure>>> =>
     apiClient.post('/cashier-closures', data),
 };
 
@@ -711,5 +909,77 @@ export const platformService = {
 
   getTenantStats: (id: string): Promise<AxiosResponse<ApiResponse<{ tenant: TenantRecord; stats: { users: number; reservations: number; rooms: number } }>>> =>
     apiClient.get(`/platform/tenants/${id}/stats`),
+};
+
+// ─────────────────────────────────────────────────────────────
+// Charge Templates Service
+// ─────────────────────────────────────────────────────────────
+
+export const chargeTemplatesService = {
+  getChargeTemplates: (params?: { active?: boolean }): Promise<AxiosResponse<ApiResponse<ChargeTemplate[]>>> =>
+    apiClient.get('/charge-templates', { params }),
+
+  createChargeTemplate: (data: Omit<ChargeTemplate, '_id' | 'createdAt' | 'updatedAt'>): Promise<AxiosResponse<ApiResponse<ChargeTemplate>>> =>
+    apiClient.post('/charge-templates', data),
+
+  updateChargeTemplate: (id: string, data: Partial<ChargeTemplate>): Promise<AxiosResponse<ApiResponse<ChargeTemplate>>> =>
+    apiClient.put(`/charge-templates/${id}`, data),
+
+  deleteChargeTemplate: (id: string): Promise<AxiosResponse<ApiResponse>> =>
+    apiClient.delete(`/charge-templates/${id}`),
+};
+
+// ─────────────────────────────────────────────────────────────
+// Charge Rules Service
+// ─────────────────────────────────────────────────────────────
+export const chargeRulesService = {
+  getChargeRules: (params?: { active?: boolean }): Promise<AxiosResponse<ApiResponse<ChargeRule[]>>> =>
+    apiClient.get('/charge-rules', { params }),
+
+  createChargeRule: (data: Omit<ChargeRule, '_id' | 'createdAt' | 'updatedAt'>): Promise<AxiosResponse<ApiResponse<ChargeRule>>> =>
+    apiClient.post('/charge-rules', data),
+
+  updateChargeRule: (id: string, data: Partial<ChargeRule>): Promise<AxiosResponse<ApiResponse<ChargeRule>>> =>
+    apiClient.put(`/charge-rules/${id}`, data),
+
+  deleteChargeRule: (id: string): Promise<AxiosResponse<ApiResponse>> =>
+    apiClient.delete(`/charge-rules/${id}`),
+};
+
+// ─────────────────────────────────────────────────────────────
+// Audit Service
+// ─────────────────────────────────────────────────────────────
+export interface AuditSummary {
+  tenantId: string;
+  businessDate: string;
+  rulesEvaluated: number;
+  reservationsScanned: number;
+  chargesPosted: number;
+  skipped: number;
+  errors: number;
+  dryRun: boolean;
+  auditRunId?: string;
+}
+
+export const auditService = {
+  runAudit: (options?: { dryRun?: boolean }): Promise<AxiosResponse<ApiResponse<AuditSummary[]> & { dryRun: boolean }>> =>
+    apiClient.post('/audit/run', options?.dryRun ? { dryRun: true } : {}),
+
+  getExecutions: (params?: {
+    status?: 'success' | 'skipped' | 'error';
+    reservationId?: string;
+    chargeRuleId?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<AxiosResponse<ApiResponse<ChargeRuleExecution[]> & { pagination: { total: number; page: number; limit: number; pages: number } }>> =>
+    apiClient.get('/audit/executions', { params }),
+
+  getRuns: (params?: {
+    status?: 'running' | 'completed' | 'failed' | 'skipped';
+    dryRun?: boolean;
+    page?: number;
+    limit?: number;
+  }): Promise<AxiosResponse<ApiResponse<AuditRun[]> & { pagination: { total: number; page: number; limit: number; pages: number } }>> =>
+    apiClient.get('/audit/runs', { params }),
 };
 
