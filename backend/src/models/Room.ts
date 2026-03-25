@@ -19,9 +19,7 @@ export interface IRoom extends Document {
     jacuzzi: boolean;
   };
   bedConfiguration: string;
-  adultCapacity?: number; // Max adults the room can accommodate
-  childrenCapacity?: number; // Max children the room can accommodate
-  roomPrice?: number; // Optional per-room nightly price override (takes priority over standard pricing rule)
+  roomTypeId?: mongoose.Types.ObjectId; // Reference to the RoomType this room belongs to
   createdAt: Date;
   updatedAt: Date;
 }
@@ -76,19 +74,10 @@ const roomSchema = new Schema<IRoom>({
     required: true,
     maxlength: 100
   },
-  adultCapacity: {
-    type: Number,
-    min: 0,
-    default: undefined,
-  },
-  childrenCapacity: {
-    type: Number,
-    min: 0,
-    default: undefined,
-  },
-  roomPrice: {
-    type: Number,
-    min: 0,
+  roomTypeId: {
+    type: Schema.Types.ObjectId,
+    ref: 'RoomType',
+    default: null,
   },
 }, {
   timestamps: true

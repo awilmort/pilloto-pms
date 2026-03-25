@@ -65,7 +65,6 @@ export async function provisionTenant(input: ProvisionTenantInput): Promise<Prov
       tenantId,
       key: 'global',
       services: { daypass: true, accommodation: true, pasatarde: true, event: true },
-      accommodationPricingModel: 'perGuest',
       sections: {
         dashboard: true, revenue: true, commissions: true,
         schedule: true, accommodations: true, rooms: true,
@@ -74,7 +73,6 @@ export async function provisionTenant(input: ProvisionTenantInput): Promise<Prov
         roles: true, media: true, analytics: true,
         companies: true, guests: true, 'cashier-closures': true,
       },
-      cashierShift: { openTime: '08:00', closeTime: '17:00' },
     });
 
     // ── 5. Create the initial admin user ───────────────────────────────────────

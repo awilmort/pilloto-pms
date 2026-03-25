@@ -26,7 +26,14 @@ import guestRoutes from './routes/guests';
 import creditAccountRoutes from './routes/creditAccounts';
 import cashierClosureRoutes from './routes/cashierClosures';
 import platformRoutes from './routes/platform';
+import serviceRoutes from './routes/services';
+import servicePriceRoutes from './routes/servicePrices';
+import chargeTemplateRoutes from './routes/chargeTemplates';
+import chargeRuleRoutes from './routes/chargeRules';
+import auditRoutes from './routes/audit';
 import { syncUploadsToMedia } from './utils/mediaSync';
+import { runAudit } from './utils/chargeWorker';
+import cron from 'node-cron';
 import { resolveTenant } from './middleware/tenantContext';
 import Tenant from './models/Tenant';
 
@@ -175,6 +182,11 @@ app.use('/api/companies', companyRoutes);
 app.use('/api/guests', guestRoutes);
 app.use('/api/credit-accounts', creditAccountRoutes);
 app.use('/api/cashier-closures', cashierClosureRoutes);
+app.use('/api/services', serviceRoutes);
+app.use('/api/service-prices', servicePriceRoutes);
+app.use('/api/charge-templates', chargeTemplateRoutes);
+app.use('/api/charge-rules', chargeRuleRoutes);
+app.use('/api/audit', auditRoutes);
 
 // Public endpoint: returns tenant info from the Host/X-Tenant-Slug header (no auth required)
 app.get('/api/tenant/info', async (req, res) => {
@@ -273,6 +285,30 @@ const startServer = async () => {
     console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`📚 API Documentation: http://localhost:${PORT}/api/health`);
   });
+
+  // Night audit cron — fires every hour.
+  // Each tenant's configured time (Settings → Night Audit) determines which hour it actually runs.
+  // Tenants without a configured time default to 03:00 (or NIGHT_AUDIT_DEFAULT_TIME env var).
+  // Tenants are processed in parallel with a bounded worker pool (NIGHT_AUDIT_CONCURRENCY, default 5).
+  // Disable entirely with NIGHT_AUDIT_DISABLED=true.
+  if (process.env.NIGHT_AUDIT_DISABLED !== 'true') {
+    cron.schedule('0 * * * *', async () => {
+      console.log(`⏰ Night audit hourly tick (${new Date().toISOString()})`);
+      try {
+        const results = await runAudit({ triggeredBy: 'cron' });
+        const posted = results.reduce((acc, r) => acc + r.chargesPosted, 0);
+        const acted = results.filter(r => r.auditRunId).length;
+        if (acted > 0) console.log(`✅ Night audit complete — ${posted} charge(s) posted across ${acted} tenant(s)`);
+      } catch (err) {
+        console.error('❌ Night audit error:', err);
+      }
+    });
+    const defaultTime = process.env.NIGHT_AUDIT_DEFAULT_TIME || '03:00';
+    const concurrency = process.env.NIGHT_AUDIT_CONCURRENCY || '5';
+    console.log(`⏰ Night audit worker running (hourly tick, default time: ${defaultTime}, concurrency: ${concurrency})`);
+  } else {
+    console.log('⚠️  Night audit disabled via NIGHT_AUDIT_DISABLED=true');
+  }
 
   process.on('SIGTERM', () => gracefulShutdown('SIGTERM', server));
   process.on('SIGINT',  () => gracefulShutdown('SIGINT',  server));

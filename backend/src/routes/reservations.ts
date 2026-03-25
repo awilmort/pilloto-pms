@@ -7,7 +7,7 @@ import { validateReservation } from '../middleware/validation';
 import { getSortObject } from '../utils/helpers';
 import { sendReservationConfirmationEmail } from '../utils/email';
 import EventType from '../models/EventType';
-import { findApplicablePricing } from '../utils/pricing';
+import { calculateTieredPrice } from '../utils/pricing';
 import AppSettings from '../models/AppSettings';
 import Company from '../models/Company';
 import Guest from '../models/Guest';
@@ -27,7 +27,7 @@ async function ensureFolio(reservationId: string | any) {
 }
 
 async function getFolioSummary(folioId: string | any) {
-  const [chargeAgg, paymentAgg] = await Promise.all([
+  const [chargeAgg, paymentAgg, depositAgg] = await Promise.all([
     Charge.aggregate([
       { $match: { folioId } },
       { $group: { _id: null, total: { $sum: '$amount' } } },
@@ -36,16 +36,37 @@ async function getFolioSummary(folioId: string | any) {
       { $match: { folioId, status: { $ne: 'reversed' } } },
       { $group: { _id: null, total: { $sum: '$amount' } } },
     ]),
+    Payment.aggregate([
+      { $match: { folioId, status: { $ne: 'reversed' }, paymentStage: 'deposit' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } },
+    ]),
   ]);
   const totalCharges = Number(chargeAgg?.[0]?.total || 0);
   const totalPayments = Number(paymentAgg?.[0]?.total || 0);
+  const depositTotal = Number(depositAgg?.[0]?.total || 0);
   const balance = Math.max(0, totalCharges - totalPayments);
-  return { totalCharges, totalPayments, balance };
+  return { totalCharges, totalPayments, depositTotal, balance };
 }
 
 async function getReservationFinancialSnapshot(reservation: any) {
   const folio = await ensureFolio(reservation._id);
-  const { totalCharges, totalPayments, balance } = await getFolioSummary(folio._id);
+  const { totalCharges, totalPayments, depositTotal, balance } = await getFolioSummary(folio._id);
+
+  // Determine reservation stage
+  let stage: 'pre_arrival' | 'in_house' | 'checked_out';
+  if (reservation.actualCheckOutAt || reservation.status === 'completed') {
+    stage = 'checked_out';
+  } else if (reservation.actualCheckInAt) {
+    stage = 'in_house';
+  } else {
+    stage = 'pre_arrival';
+  }
+
+  const estimatedTotal = Number(reservation.estimatedTotal ?? reservation.totalPrice ?? 0);
+  // Pre-arrival balance: what the guest still owes at arrival after deposits
+  const balanceOnArrival = stage === 'pre_arrival'
+    ? Math.max(0, estimatedTotal - depositTotal)
+    : 0;
 
   let creditAvailability = 0;
   let creditAccount: any = null;
@@ -61,7 +82,9 @@ async function getReservationFinancialSnapshot(reservation: any) {
 
   return {
     folio,
-    totals: { totalCharges, totalPayments, balance },
+    totals: { totalCharges, totalPayments, depositTotal, balance, balanceOnArrival },
+    stage,
+    estimatedTotal,
     credit: {
       account: creditAccount,
       available: creditAvailability,
@@ -299,7 +322,9 @@ router.post('/', async (req: Request, res: Response) => {
       contactInfo,
       specialRequests,
       isCorporate,
-      company
+      company,
+      roomCount,
+      items, // optional: ReservationItem[] from service pricing
     } = req.body;
 
     // Normalize and basic validation
@@ -462,50 +487,43 @@ router.post('/', async (req: Request, res: Response) => {
     let estimatedTotal = 0;
     let nights = 0;
     let days = 1;
-    let appliedAdultPrice: number | undefined;
-    let appliedChildrenPrice: number | undefined;
+    let pricingSnapshotData: any = undefined;
 
     if (normalizedType === 'room') {
-      // Room reservation pricing
+      // Room reservation pricing via tiered rate plan
       nights = Math.ceil((checkOut!.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-      // Try pricing rules for hospedaje
-      const pricing = await findApplicablePricing('hospedaje', checkIn, {
-        companyId: (isCorporate && company) ? company : undefined,
-        email: contactInfo?.email,
-      });
-      const roomSettingsDoc = await AppSettings.findOne({ key: 'global' }).lean();
-      const roomPricingModel = (roomSettingsDoc as any)?.accommodationPricingModel ?? 'perGuest';
-      if (roomPricingModel === 'perRoom') {
-        // Flat per-room nightly rate from pricing rule; room-specific overrides applied at assign-room time
-        const effectiveRoomPrice = (pricing as any)?.roomPrice ?? 150;
-        appliedAdultPrice = effectiveRoomPrice;
-        appliedChildrenPrice = 0;
-        estimatedTotal = nights * effectiveRoomPrice;
-      } else {
-        if (pricing) {
-          appliedAdultPrice = pricing.adultPrice;
-          appliedChildrenPrice = pricing.childrenPrice;
-          const perNight = (guestDetails.adults * pricing.adultPrice) + (guestDetails.children * pricing.childrenPrice);
-          estimatedTotal = nights * perNight;
-        } else {
-          // Fallback to default per-guest pricing (no room types)
-          appliedAdultPrice = 150;
-          appliedChildrenPrice = 100;
-          const perNight = (guestDetails.adults * appliedAdultPrice) + (guestDetails.children * appliedChildrenPrice);
-          estimatedTotal = nights * perNight;
+      const inboundRatePlanId = req.body.ratePlanId;
+      const inboundRoomCount = Math.max(1, Number(roomCount) || 1);
+      if (inboundRatePlanId) {
+        // Snapshot all prices at booking time so future rate plan changes
+        // cannot retroactively affect this reservation.
+        const priceResult = await calculateTieredPrice({
+          ratePlanId: inboundRatePlanId,
+          adults: guestDetails.adults,
+          children: guestDetails.children,
+          date: checkIn,
+          nights,
+          rooms: inboundRoomCount,
+          companyId: (isCorporate && company) ? company : undefined,
+          guestEmail: contactInfo?.email,
+        });
+        if (priceResult.ratePlan) {
+          pricingSnapshotData = {
+            ratePlanId: inboundRatePlanId,
+            ratePlanName: priceResult.ratePlan.name,
+            roomTypeName: priceResult.ratePlan.roomTypeName,
+            basePrice: priceResult.basePrice,
+            occupancyCost: priceResult.occupancyCost,
+            subtotal: priceResult.subtotal,
+            adjustedSubtotal: priceResult.adjustedSubtotal,
+            taxes: priceResult.taxes,
+            totalTaxes: priceResult.totalTaxes,
+            finalTotal: priceResult.finalTotal,
+            nights: priceResult.nights,
+          };
+          estimatedTotal = priceResult.finalTotal;
         }
       }
-    } else if (normalizedType === 'daypass' || normalizedType === 'PasaTarde') {
-      // Day pass pricing via rules
-      const pricing = await findApplicablePricing(type === 'PasaTarde' ? 'pasatarde' : 'daypass', checkIn, {
-        companyId: (isCorporate && company) ? company : undefined,
-        email: contactInfo?.email,
-      });
-      const adultP = pricing?.adultPrice ?? 30;
-      const childP = pricing?.childrenPrice ?? 20;
-      appliedAdultPrice = adultP;
-      appliedChildrenPrice = childP;
-      estimatedTotal = (guestDetails.adults * adultP) + (guestDetails.children * childP);
     } else if (normalizedType === 'event') {
       // Event pricing based on type
       const eventTypePrices = {
@@ -527,7 +545,11 @@ router.post('/', async (req: Request, res: Response) => {
     // Calculate total guests
     const totalGuests = (guestDetails?.adults || 0) + (guestDetails?.children || 0) + (guestDetails?.infants || 0);
 
-    // Do not include addon/service charges in estimatedTotal
+    // If a validated items array was provided (service pricing), use summed total
+    if (Array.isArray(items) && items.length > 0) {
+      const itemsTotal = items.reduce((sum: number, item: any) => sum + (Number(item.total) || 0), 0);
+      if (itemsTotal > 0) estimatedTotal = itemsTotal;
+    }
 
     // Ensure a Guest record exists and link by guestRecord id
     let guestRecordId: any = undefined;
@@ -573,9 +595,14 @@ router.post('/', async (req: Request, res: Response) => {
       status: 'pending'
     };
 
-    if (appliedAdultPrice !== undefined) reservationData.adultPrice = appliedAdultPrice;
-    if (appliedChildrenPrice !== undefined) reservationData.childrenPrice = appliedChildrenPrice;
+    if (pricingSnapshotData) reservationData.pricingSnapshot = pricingSnapshotData;
+    if (normalizedType === 'room' && roomCount && Number(roomCount) > 1) {
+      reservationData.roomCount = Math.max(1, Number(roomCount));
+    }
     if (guestRecordId) reservationData.guestRecord = guestRecordId;
+    if (Array.isArray(items) && items.length > 0) {
+      reservationData.items = items;
+    }
 
     // Link company for corporate bookings
     if (isCorporate && company) {
@@ -629,8 +656,8 @@ router.post('/', async (req: Request, res: Response) => {
     // Populate the reservation before sending response and email
     const populatedReservation = await Reservation.findById(reservation._id)
       .populate('user', 'firstName lastName email')
-      .populate('room', 'name status roomPrice') // room may be null
-      .populate('rooms', 'name status roomPrice')
+      .populate('room', 'name status') // room may be null
+      .populate('rooms', 'name status')
       .populate('company', 'name')
       .populate('guestRecord', 'firstName lastName email');
 
@@ -705,22 +732,8 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Only allow certain fields to be updated (admins may edit pricing and amount fields)
+    // Only allow certain fields to be updated (admins may also edit the total amount)
     const allowedUpdates = ['checkInDate', 'checkOutDate', 'guestDetails', 'specialRequests', 'contactInfo'];
-    // Price updates only for admin or roles with admin.reservations.priceUpdate
-    let canUpdatePrice = false;
-    if (req.user) {
-      if (req.user.role === 'admin') {
-        canUpdatePrice = true;
-      } else {
-        const roleDoc = await Role.findOne({ name: req.user.role.toLowerCase() });
-        const perms = roleDoc?.permissions || [];
-        canUpdatePrice = perms.includes('admin.reservations.priceUpdate');
-      }
-    }
-    if (canUpdatePrice) {
-      allowedUpdates.push('adultPrice', 'childrenPrice');
-    }
 
     // Total price updates only for admin or roles with admin.reservations.amountUpdate
     let canUpdateAmount = false;
@@ -754,7 +767,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const { checkInDate, checkOutDate, guestDetails, specialRequests, contactInfo, adultPrice, childrenPrice, totalPrice: totalPriceUpdate } = req.body;
+    const { checkInDate, checkOutDate, guestDetails, specialRequests, contactInfo, totalPrice: totalPriceUpdate } = req.body;
 
     // If dates are being updated, validate them
     if (checkInDate || checkOutDate) {
@@ -862,22 +875,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       needsRecalc = true;
     }
 
-    // Update price fields if permitted and provided
-    if (canUpdatePrice) {
-      if (adultPrice !== undefined) {
-        reservation.adultPrice = Number(adultPrice);
-        needsRecalc = true;
-      }
-      if (childrenPrice !== undefined) {
-        reservation.childrenPrice = Number(childrenPrice);
-        needsRecalc = true;
-      }
-    } else {
-      // If price fields were attempted without permission, reject
-      if (('adultPrice' in req.body) || ('childrenPrice' in req.body)) {
-        return res.status(403).json({ success: false, message: 'Access denied. Missing price update permission.' });
-      }
-    }
+
 
     // Update totalPrice if permitted and provided
     if (canUpdateAmount) {
@@ -946,28 +944,14 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
           const checkIn = new Date(reservation.checkInDate);
           const checkOut = reservation.checkOutDate ? new Date(reservation.checkOutDate) : new Date(checkIn.getTime() + 24 * 60 * 60 * 1000);
           const nights = Math.max(1, Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)));
-          const updateSettingsDoc = await AppSettings.findOne({ key: 'global' }).lean();
-          const updatePricingModel = (updateSettingsDoc as any)?.accommodationPricingModel ?? 'perGuest';
-          if (updatePricingModel === 'perRoom') {
-            // adultPrice stores the per-room nightly rate in perRoom mode
-            newTotal = nights * (reservation.adultPrice || 0);
-          } else {
-            const perNight = (reservation.guestDetails?.adults || 0) * (reservation.adultPrice || 0)
-              + (reservation.guestDetails?.children || 0) * (reservation.childrenPrice || 0);
-            newTotal = nights * perNight;
+          const snapshot = (reservation as any).pricingSnapshot;
+          if (snapshot?.nights > 0 && snapshot?.adjustedSubtotal != null) {
+            const perNight = snapshot.adjustedSubtotal / snapshot.nights;
+            newTotal = perNight * nights + (snapshot.totalTaxes ?? 0);
           }
-          // No addon/service charges should affect totals
-        } else if (reservation.type === 'daypass') {
-          newTotal = (reservation.guestDetails?.adults || 0) * (reservation.adultPrice || 0)
-            + (reservation.guestDetails?.children || 0) * (reservation.childrenPrice || 0);
-          // No addon/service charges should affect totals
-        } else if (reservation.type === 'PasaTarde') {
-          // Same pricing logic as daypass: per-guest pricing, single day
-          newTotal = (reservation.guestDetails?.adults || 0) * (reservation.adultPrice || 0)
-            + (reservation.guestDetails?.children || 0) * (reservation.childrenPrice || 0);
-          // No addon/service charges should affect totals
+          // else keep existing total
         }
-        // For events, keep existing total unless manually overridden
+        // For daypass/PasaTarde/event: keep existing total
         reservation.estimatedTotal = newTotal;
       } catch (calcErr) {
         console.error('Auto-recalc totalPrice failed:', calcErr);
@@ -1070,8 +1054,8 @@ router.patch('/:id/status', authenticate, async (req: AuthRequest, res: Response
     // Populate the reservation before sending response
     const populatedReservation = await Reservation.findById(reservation._id)
       .populate('user', 'firstName lastName email')
-      .populate('room', 'name status roomPrice')
-      .populate('rooms', 'name status roomPrice');
+      .populate('room', 'name status')
+      .populate('rooms', 'name status');
 
     res.status(200).json({
       success: true,
@@ -1192,25 +1176,13 @@ router.put('/:id/assign-room', authenticate, authorizePermission('admin.reservat
     reservation.assignedBy = req.user!.id as any;
     reservation.assignedAt = new Date();
 
-    // Update total price based on actual room price
-    const nights = reservation.totalNights || 1;
-    const assignSettingsDoc = await AppSettings.findOne({ key: 'global' }).lean();
-    const assignPricingModel = (assignSettingsDoc as any)?.accommodationPricingModel ?? 'perGuest';
-    let newTotalPrice: number;
-    if (assignPricingModel === 'perRoom') {
-      // If the assigned room has its own price, it overrides the stored nightly rate
-      const roomSpecificPrice = (room as any).roomPrice;
-      if (roomSpecificPrice !== undefined && roomSpecificPrice !== null) {
-        reservation.adultPrice = roomSpecificPrice;
-        reservation.childrenPrice = 0;
-      }
-      newTotalPrice = nights * (reservation.adultPrice || 0);
-    } else {
-      const perNight = (reservation.guestDetails?.adults || 0) * (reservation.adultPrice || 0)
-        + (reservation.guestDetails?.children || 0) * (reservation.childrenPrice || 0);
-      newTotalPrice = nights * perNight;
+    // Update total price using pricingSnapshot if available
+    const snapshot = (reservation as any).pricingSnapshot;
+    if (snapshot?.nights > 0 && snapshot?.adjustedSubtotal != null) {
+      const nights = reservation.totalNights || snapshot.nights || 1;
+      const perNight = snapshot.adjustedSubtotal / snapshot.nights;
+      reservation.totalPrice = perNight * nights + (snapshot.totalTaxes ?? 0);
     }
-    reservation.totalPrice = newTotalPrice;
     reservation.status = 'confirmed'; // Automatically confirm when room is assigned
 
     await reservation.save();
@@ -1422,7 +1394,7 @@ router.put('/public/:confirmationToken/cancel', async (req: Request, res: Respon
 
     const populatedReservation = await Reservation.findById(reservation._id)
       .populate('user', 'firstName lastName email')
-      .populate('room', 'name roomPrice');
+      .populate('room', 'name');
 
     res.status(200).json({
       success: true,
@@ -1482,7 +1454,7 @@ router.put('/public/code/:reservationCode/cancel', async (req: Request, res: Res
 
     const populatedReservation = await Reservation.findById(reservation._id)
       .populate('user', 'firstName lastName email')
-      .populate('room', 'name roomPrice');
+      .populate('room', 'name');
 
     res.status(200).json({
       success: true,
@@ -1598,9 +1570,13 @@ router.get('/:id/financial', authenticate, async (req: AuthRequest, res: Respons
         charges,
         payments,
         summary: {
+          stage: financial.stage,
+          estimatedTotal: financial.estimatedTotal,
           totalCharges: financial.totals.totalCharges,
           totalPayments: financial.totals.totalPayments,
+          depositTotal: financial.totals.depositTotal,
           balance: financial.totals.balance,
+          balanceOnArrival: financial.totals.balanceOnArrival,
           creditAvailability: financial.credit.available,
         },
       },
@@ -1691,16 +1667,86 @@ router.patch('/:id/check-out', authenticate, async (req: AuthRequest, res: Respo
   }
 });
 
+// @route   POST /api/reservations/:id/charges
+// @desc    Manually add a charge to a reservation folio
+// @access  Private (roles with managePayments permission)
+router.post('/:id/charges', authenticate, authorizePermission('admin.reservations.managePayments'), async (req: AuthRequest, res: Response) => {
+  try {
+    const { description, amount, category } = req.body as {
+      description?: string;
+      amount?: number;
+      category?: string;
+    };
+
+    const reservation = await Reservation.findById(req.params.id);
+    if (!reservation) return res.status(404).json({ success: false, message: 'Reservation not found' });
+    if (reservation.status === 'cancelled') return res.status(400).json({ success: false, message: 'Cannot add charges to a cancelled reservation' });
+
+    const descStr = String(description || '').trim();
+    if (!descStr) return res.status(400).json({ success: false, message: 'Charge description is required' });
+
+    const amt = Number(amount);
+    if (isNaN(amt) || amt <= 0) return res.status(400).json({ success: false, message: 'Charge amount must be a positive number' });
+
+    const allowedCategories = ['room', 'late_fee', 'service', 'damage', 'adjustment'];
+    if (category && !allowedCategories.includes(String(category))) {
+      return res.status(400).json({ success: false, message: 'Invalid charge category' });
+    }
+
+    const financial = await getReservationFinancialSnapshot(reservation);
+    if (financial.folio.status !== 'open') {
+      return res.status(400).json({ success: false, message: 'Charges can only be added while folio is open' });
+    }
+
+    const charge = await Charge.create({
+      folioId: financial.folio._id,
+      description: descStr,
+      amount: amt,
+      type: 'manual',
+      category: category || undefined,
+    });
+
+    res.status(201).json({ success: true, message: 'Charge recorded', data: charge });
+  } catch (error: any) {
+    console.error('Add charge error:', error);
+    res.status(500).json({ success: false, message: 'Server error while adding charge' });
+  }
+});
+
+// @route   DELETE /api/reservations/:id/charges/:chargeId
+// @desc    Delete a manual charge from a reservation folio
+// @access  Private (roles with managePayments permission)
+router.delete('/:id/charges/:chargeId', authenticate, authorizePermission('admin.reservations.managePayments'), async (req: AuthRequest, res: Response) => {
+  try {
+    const reservation = await Reservation.findById(req.params.id);
+    if (!reservation) return res.status(404).json({ success: false, message: 'Reservation not found' });
+
+    const financial = await getReservationFinancialSnapshot(reservation);
+    const charge = await Charge.findOne({ _id: req.params.chargeId, folioId: financial.folio._id });
+    if (!charge) return res.status(404).json({ success: false, message: 'Charge not found' });
+    if (charge.type === 'base') {
+      return res.status(400).json({ success: false, message: 'Base reservation charges cannot be deleted' });
+    }
+
+    await charge.deleteOne();
+    res.json({ success: true, message: 'Charge deleted' });
+  } catch (error: any) {
+    console.error('Delete charge error:', error);
+    res.status(500).json({ success: false, message: 'Server error while deleting charge' });
+  }
+});
+
 // @route   POST /api/reservations/:id/payments
 // @desc    Record a payment against reservation folio
 // @access  Private
 router.post('/:id/payments', authenticate, authorizePermission('admin.reservations.managePayments'), async (req: AuthRequest, res: Response) => {
   try {
-    const { amount, method, note, reference } = req.body as {
+    const { amount, method, note, reference, paymentStage: rawStage } = req.body as {
       amount?: number;
       method?: 'cash' | 'card' | 'transfer' | 'credit' | 'check';
       note?: string;
       reference?: string;
+      paymentStage?: string;
     };
 
     const reservation = await Reservation.findById(req.params.id);
@@ -1715,15 +1761,41 @@ router.post('/:id/payments', authenticate, authorizePermission('admin.reservatio
       return res.status(400).json({ success: false, message: 'Payment method is required and must be one of cash, card, transfer, credit, check' });
     }
 
+    const paymentStage: 'deposit' | 'in_house' = rawStage === 'deposit' ? 'deposit' : 'in_house';
+    const isDeposit = paymentStage === 'deposit';
+    const isPreArrival = !(reservation as any).actualCheckInAt;
+
+    // Deposits are only valid for pre-arrival reservations
+    if (isDeposit && !isPreArrival) {
+      return res.status(400).json({ success: false, message: 'Deposit payments can only be recorded for pre-arrival reservations' });
+    }
+    // Credit method not allowed for deposits (deposits must be settled funds)
+    if (isDeposit && method === 'credit') {
+      return res.status(400).json({ success: false, message: 'Credit payment method cannot be used for pre-arrival deposits' });
+    }
+
     const financial = await getReservationFinancialSnapshot(reservation);
     if (financial.folio.status !== 'open') {
       return res.status(400).json({ success: false, message: 'Payments can only be registered while folio is open' });
     }
-    if (financial.totals.totalCharges <= 0 || financial.totals.balance <= 0) {
-      return res.status(400).json({ success: false, message: 'Folio has no pending balance to pay' });
-    }
-    if (amt > financial.totals.balance) {
-      return res.status(400).json({ success: false, message: `Amount exceeds pending balance (${financial.totals.balance})` });
+
+    if (isDeposit) {
+      // Validate deposit does not exceed remaining balance on arrival
+      const remainingOnArrival = financial.totals.balanceOnArrival;
+      if (amt > remainingOnArrival) {
+        return res.status(400).json({
+          success: false,
+          message: `Deposit amount exceeds balance on arrival (${remainingOnArrival.toFixed(2)})`,
+        });
+      }
+    } else {
+      // Regular in-house payment: require existing folio charges and a pending balance
+      if (financial.totals.totalCharges <= 0 || financial.totals.balance <= 0) {
+        return res.status(400).json({ success: false, message: 'Folio has no pending balance to pay' });
+      }
+      if (amt > financial.totals.balance) {
+        return res.status(400).json({ success: false, message: `Amount exceeds pending balance (${financial.totals.balance})` });
+      }
     }
 
     const paymentStatus = method === 'credit' ? 'pending' : 'completed';
@@ -1754,6 +1826,7 @@ router.post('/:id/payments', authenticate, authorizePermission('admin.reservatio
       amount: amt,
       method,
       status: paymentStatus,
+      paymentStage,
       reference,
       note,
       createdBy: req.user?.id as any,

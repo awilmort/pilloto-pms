@@ -1,6 +1,34 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { tenantPlugin } from '../plugins/tenantPlugin';
 
+// ── Reservation Item (service or room line item) ─────────────
+export interface IReservationItem {
+  kind: 'room' | 'service';
+  // Room-specific (kind='room')
+  roomTypeId?: mongoose.Types.ObjectId;
+  ratePlanId?: mongoose.Types.ObjectId;
+  checkIn?: Date;
+  checkOut?: Date;
+  // Service-specific (kind='service')
+  serviceId?: mongoose.Types.ObjectId;
+  servicePriceId?: mongoose.Types.ObjectId;
+  /** Admin override — skips service pricing look-up */
+  manualPriceOverride?: number;
+  /** For service company pricing */
+  companyId?: mongoose.Types.ObjectId;
+  guestEmail?: string;
+  // Common
+  date?: Date;
+  adults?: number;
+  children?: number;
+  quantity: number;
+  unitPrice: number;
+  subtotal: number;
+  taxes: Array<{ name: string; type: string; amount: number; isInclusive: boolean }>;
+  totalTaxes: number;
+  total: number;
+}
+
 export interface IReservation extends Document {
   user?: mongoose.Types.ObjectId; // Optional for guest bookings
 
@@ -22,6 +50,7 @@ export interface IReservation extends Document {
   // Room-specific fields (required for room reservations)
   room?: mongoose.Types.ObjectId; // Specific room assigned by admin
   rooms?: mongoose.Types.ObjectId[]; // Multiple rooms assigned (optional)
+  roomCount?: number; // Number of rooms requested at booking time
 
   // Event-specific fields (required for event reservations)
   // Accept any identifier matching EventType.type (e.g., 'boda')
@@ -49,9 +78,28 @@ export interface IReservation extends Document {
     infants: number;
   };
 
+  // Line items — each room stay or service is represented as an item.
+  // Optional for backward compat: legacy reservations without items still work.
+  items?: IReservationItem[];
+
+  /** Derived from items: 'room' | 'service' | 'mixed' | 'unknown' */
+  primaryKind?: 'room' | 'service' | 'mixed' | 'unknown';
+
   // Pricing and payment
-  adultPrice?: number;
-  childrenPrice?: number;
+  // Immutable snapshot of pricing calculated at booking time (tiered rate plan)
+  pricingSnapshot?: {
+    ratePlanId: string;
+    ratePlanName: string;
+    roomTypeName: string;
+    basePrice: number;
+    occupancyCost: number;
+    subtotal: number;
+    adjustedSubtotal: number;
+    taxes: Array<{ name: string; type: 'percentage' | 'fixed'; amount: number; isInclusive: boolean }>;
+    totalTaxes: number;
+    finalTotal: number;
+    nights: number;
+  };
   estimatedTotal: number;
   totalPrice?: number; // compatibility alias (virtual)
   totalPayments: number;
@@ -83,6 +131,31 @@ export interface IReservation extends Document {
   createdAt: Date;
   updatedAt: Date;
 }
+
+const reservationItemSchema = new Schema<IReservationItem>(
+  {
+    kind: { type: String, enum: ['room', 'service'], required: true },
+    roomTypeId: { type: Schema.Types.ObjectId, ref: 'RoomType' },
+    ratePlanId: { type: Schema.Types.ObjectId, ref: 'RatePlan' },
+    checkIn: { type: Date },
+    checkOut: { type: Date },
+    serviceId: { type: Schema.Types.ObjectId, ref: 'Service' },
+    servicePriceId: { type: Schema.Types.ObjectId, ref: 'ServicePrice' },
+    manualPriceOverride: { type: Number, min: 0 },
+    companyId: { type: Schema.Types.ObjectId, ref: 'Company' },
+    guestEmail: { type: String },
+    date: { type: Date },
+    adults: { type: Number, min: 0 },
+    children: { type: Number, min: 0 },
+    quantity: { type: Number, required: true, min: 1, default: 1 },
+    unitPrice: { type: Number, required: true, min: 0 },
+    subtotal: { type: Number, required: true, min: 0 },
+    taxes: [{ name: String, type: String, amount: Number, isInclusive: Boolean }],
+    totalTaxes: { type: Number, required: true, min: 0, default: 0 },
+    total: { type: Number, required: true, min: 0 },
+  },
+  { _id: false }
+);
 
 const reservationSchema = new Schema<IReservation>({
   user: {
@@ -139,6 +212,11 @@ const reservationSchema = new Schema<IReservation>({
     ref: 'Room',
     required: false
   }],
+  roomCount: {
+    type: Number,
+    min: 1,
+    required: false,
+  },
 
   // Event-specific fields
   eventType: {
@@ -201,15 +279,18 @@ const reservationSchema = new Schema<IReservation>({
   },
 
   // Pricing and payment
-  adultPrice: {
-    type: Number,
-    required: false,
-    min: 0
-  },
-  childrenPrice: {
-    type: Number,
-    required: false,
-    min: 0
+  pricingSnapshot: {
+    ratePlanId: { type: String },
+    ratePlanName: { type: String },
+    roomTypeName: { type: String },
+    basePrice: { type: Number },
+    occupancyCost: { type: Number },
+    subtotal: { type: Number },
+    adjustedSubtotal: { type: Number },
+    taxes: [{ name: String, type: String, amount: Number, isInclusive: Boolean }],
+    totalTaxes: { type: Number },
+    finalTotal: { type: Number },
+    nights: { type: Number },
   },
   estimatedTotal: {
     type: Number,
@@ -312,7 +393,13 @@ const reservationSchema = new Schema<IReservation>({
     type: Schema.Types.ObjectId,
     ref: 'Guest',
     required: false
-  }
+  },
+
+  // Line items — optional, enables multi-item pricing for service reservations
+  items: {
+    type: [reservationItemSchema],
+    default: undefined,
+  },
 }, {
   timestamps: true
 });
@@ -372,6 +459,14 @@ reservationSchema.virtual('totalPrice')
   .set(function (this: IReservation, value: number) {
     this.estimatedTotal = value;
   });
+
+// Derive primaryKind from items array
+reservationSchema.virtual('primaryKind').get(function (this: IReservation) {
+  if (!this.items || this.items.length === 0) return 'unknown';
+  const kinds = new Set(this.items.map(i => i.kind));
+  if (kinds.size === 1) return kinds.has('room') ? 'room' : 'service';
+  return 'mixed';
+});
 
 // ── Multi-tenancy ────────────────────────────────────────────
 reservationSchema.plugin(tenantPlugin);

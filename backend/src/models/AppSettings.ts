@@ -3,35 +3,15 @@ import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export interface IAppSettings extends Document {
   key: string;        // singleton key, always 'global'
-  services: {
-    daypass: boolean;
-    accommodation: boolean;
-    pasatarde: boolean;
-    event: boolean;
-  };
-  accommodationPricingModel: 'perGuest' | 'perRoom';
   sections: Record<string, boolean>;
-  cashierShift: {
-    openTime: string;
-    closeTime: string;
-  };
+  nightAuditEnabled: boolean;       // master toggle for automated night audit
+  nightAuditTime: string;           // cron expression for this tenant (overrides env default)
   updatedAt: Date;
 }
 
 const appSettingsSchema = new Schema<IAppSettings>(
   {
     key: { type: String, default: 'global' },  // kept for backward compat; uniqueness is per-tenant
-    services: {
-      daypass:       { type: Boolean, default: true },
-      accommodation: { type: Boolean, default: true },
-      pasatarde:     { type: Boolean, default: true },
-      event:         { type: Boolean, default: true },
-    },
-    accommodationPricingModel: {
-      type: String,
-      enum: ['perGuest', 'perRoom'],
-      default: 'perGuest',
-    },
     sections: {
       type: Schema.Types.Mixed,
       default: () => ({
@@ -43,10 +23,8 @@ const appSettingsSchema = new Schema<IAppSettings>(
         companies: true, guests: true, 'cashier-closures': true,
       }),
     },
-    cashierShift: {
-      openTime: { type: String, default: '08:00' },
-      closeTime: { type: String, default: '17:00' },
-    },
+    nightAuditEnabled: { type: Boolean, default: true },
+    nightAuditTime:    { type: String, default: '' },  // empty = use server default from env
   },
   { timestamps: true }
 );

@@ -1,49 +1,12 @@
 import mongoose from 'mongoose';
 import express, { Response } from 'express';
 import { authenticate, authorizePermission, AuthRequest } from '../middleware/auth';
-import AppSettings from '../models/AppSettings';
 import Payment from '../models/Payment';
 import CashierClosure from '../models/CashierClosure';
 
 const router = express.Router();
 
 const DENOMINATIONS = [2000, 1000, 500, 200, 100, 50, 25, 10, 5, 1];
-
-const parseShiftTime = (timeValue: string, baseDate: Date) => {
-  const [rawHour, rawMinute] = String(timeValue || '').split(':');
-  const hour = Number(rawHour || 0);
-  const minute = Number(rawMinute || 0);
-  return new Date(
-    baseDate.getFullYear(),
-    baseDate.getMonth(),
-    baseDate.getDate(),
-    hour,
-    minute,
-    0,
-    0
-  );
-};
-
-const resolveShiftPeriod = async () => {
-  const settings = await AppSettings.findOne({ key: 'global' }).lean();
-  const openTime = settings?.cashierShift?.openTime || '08:00';
-  const closeTime = settings?.cashierShift?.closeTime || '17:00';
-
-  const now = new Date();
-  let periodStart = parseShiftTime(openTime, now);
-  let periodEnd = parseShiftTime(closeTime, now);
-
-  if (periodEnd <= periodStart) {
-    periodEnd.setDate(periodEnd.getDate() + 1);
-  }
-
-  if (now < periodStart) {
-    periodStart.setDate(periodStart.getDate() - 1);
-    periodEnd.setDate(periodEnd.getDate() - 1);
-  }
-
-  return { periodStart, periodEnd, openTime, closeTime };
-};
 
 const getPaymentTotalsForUser = async (userId: string, periodStart: Date, periodEnd: Date) => {
   const userObjectId = new mongoose.Types.ObjectId(userId);
@@ -105,7 +68,21 @@ router.get('/preview', authenticate, authorizePermission('cashier', 'admin.acces
     const userId = String(req.user?._id || req.user?.id || '');
     if (!userId) return res.status(401).json({ success: false, message: 'Authentication required' });
 
-    const { periodStart, periodEnd } = await resolveShiftPeriod();
+    const { shiftStart, shiftEnd } = req.query as { shiftStart?: string; shiftEnd?: string };
+    if (!shiftStart || !shiftEnd) {
+      return res.status(400).json({ success: false, message: 'shiftStart and shiftEnd are required' });
+    }
+
+    const periodStart = new Date(shiftStart);
+    const periodEnd = new Date(shiftEnd);
+
+    if (isNaN(periodStart.getTime()) || isNaN(periodEnd.getTime())) {
+      return res.status(400).json({ success: false, message: 'Invalid shiftStart or shiftEnd' });
+    }
+    if (periodEnd <= periodStart) {
+      return res.status(400).json({ success: false, message: 'shiftEnd must be after shiftStart' });
+    }
+
     const paymentTotals = await getPaymentTotalsForUser(userId, periodStart, periodEnd);
 
     res.status(200).json({
@@ -154,9 +131,24 @@ router.post('/', authenticate, authorizePermission('cashier', 'admin.access'), a
     const userId = String(req.user?._id || req.user?.id || '');
     if (!userId) return res.status(401).json({ success: false, message: 'Authentication required' });
 
-    const inputDistribution = (req.body?.cashDistribution || {}) as Record<string, number>;
-    const note: string | undefined = req.body?.note ? String(req.body.note).trim() : undefined;
-    const { periodStart, periodEnd } = await resolveShiftPeriod();
+    const { shiftStart, shiftEnd, cashDistribution: inputDistribution, note: rawNote } = req.body;
+
+    if (!shiftStart || !shiftEnd) {
+      return res.status(400).json({ success: false, message: 'shiftStart and shiftEnd are required' });
+    }
+
+    const periodStart = new Date(shiftStart);
+    const periodEnd = new Date(shiftEnd);
+
+    if (isNaN(periodStart.getTime()) || isNaN(periodEnd.getTime())) {
+      return res.status(400).json({ success: false, message: 'Invalid shiftStart or shiftEnd' });
+    }
+    if (periodEnd <= periodStart) {
+      return res.status(400).json({ success: false, message: 'shiftEnd must be after shiftStart' });
+    }
+
+    const note: string | undefined = rawNote ? String(rawNote).trim() : undefined;
+    const inputDist = (inputDistribution || {}) as Record<string, number>;
 
     const exists = await CashierClosure.findOne({ user: userId, periodStart, periodEnd });
     if (exists) {
@@ -165,12 +157,8 @@ router.post('/', authenticate, authorizePermission('cashier', 'admin.access'), a
 
     const paymentTotals = await getPaymentTotalsForUser(userId, periodStart, periodEnd);
     const cashDistribution = DENOMINATIONS.map((denomination) => {
-      const count = Math.max(0, Number(inputDistribution[String(denomination)] || 0));
-      return {
-        denomination,
-        count,
-        subtotal: denomination * count,
-      };
+      const count = Math.max(0, Number(inputDist[String(denomination)] || 0));
+      return { denomination, count, subtotal: denomination * count };
     });
 
     const closure = await CashierClosure.create({

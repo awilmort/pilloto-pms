@@ -21,12 +21,10 @@ router.get('/', authenticate, authorize('admin'), async (req: AuthRequest, res: 
 // PUT /api/settings — update settings (admin only)
 router.put('/', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
   try {
-    const { services, accommodationPricingModel, sections, cashierShift } = req.body;
+    const { services, sections } = req.body;
     const update: any = {};
     if (services) update.services = services;
-    if (accommodationPricingModel) update.accommodationPricingModel = accommodationPricingModel;
     if (sections !== undefined) update.sections = sections;
-    if (cashierShift !== undefined) update.cashierShift = cashierShift;
 
     const settings = await AppSettings.findOneAndUpdate(
       { key: 'global' },

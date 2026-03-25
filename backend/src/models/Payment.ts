@@ -3,12 +3,14 @@ import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export type PaymentMethod = 'cash' | 'card' | 'transfer' | 'credit' | 'check';
 export type PaymentStatus = 'completed' | 'pending' | 'reversed';
+export type PaymentStage = 'deposit' | 'in_house';
 
 export interface IPayment extends Document {
   folioId: mongoose.Types.ObjectId;
   amount: number;
   method: PaymentMethod;
   status: PaymentStatus;
+  paymentStage: PaymentStage;
   creditPaymentMethod?: Exclude<PaymentMethod, 'credit'>;
   creditPaymentDate?: Date;
   reference?: string;
@@ -58,6 +60,12 @@ const paymentSchema = new Schema<IPayment>({
     type: String,
     trim: true,
     maxlength: 500,
+  },
+  paymentStage: {
+    type: String,
+    enum: ['deposit', 'in_house'],
+    default: 'in_house',
+    required: true,
   },
   createdBy: {
     type: Schema.Types.ObjectId,

@@ -15,7 +15,6 @@ export interface IPricing extends Document {
   companyId?: mongoose.Types.ObjectId; // required when category = 'company', ref: 'Company'
   adultPrice: number;
   childrenPrice: number;
-  roomPrice?: number; // Used when pricing model is perRoom for hospedaje
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -31,7 +30,6 @@ const pricingSchema = new Schema<IPricing>({
   companyId: { type: Schema.Types.ObjectId, ref: 'Company', index: true, sparse: true },
   adultPrice: { type: Number, required: true, min: 0 },
   childrenPrice: { type: Number, required: true, min: 0 },
-  roomPrice: { type: Number, min: 0 }, // Optional: flat per-room nightly rate for hospedaje perRoom model
   isActive: { type: Boolean, default: true },
 }, { timestamps: true });
 
