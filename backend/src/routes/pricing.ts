@@ -4,6 +4,7 @@ import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 import RatePlan from '../models/RatePlan';
 import PricingRule from '../models/PricingRule';
 import RoomType from '../models/RoomType';
+import Room from '../models/Room';
 import Tax from '../models/Tax';
 import { calculateTieredPrice } from '../utils/pricing';
 import { calculateServicePrice } from '../utils/servicePricing';
@@ -248,6 +249,125 @@ router.post('/calculate-service', authenticate, async (req: AuthRequest, res: Re
     res.status(200).json({ success: true, data: result });
   } catch (error: any) {
     res.status(400).json({ success: false, message: error.message || 'Failed to calculate service price' });
+  }
+});
+
+// ─────────────────────────────────────────────────────────────
+// Rooms-based Price Calculation
+// Accepts an array of room IDs + dates + guest counts and returns
+// a price breakdown derived from each room's associated rate plan.
+// Guests are distributed across rooms in capacity order.
+// ─────────────────────────────────────────────────────────────
+
+router.post('/calculate-rooms', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { roomIds, checkInDate, checkOutDate, adults = 1, children = 0, companyId, guestEmail } = req.body;
+
+    if (!Array.isArray(roomIds) || roomIds.length === 0) {
+      return res.status(400).json({ success: false, message: 'roomIds array is required' });
+    }
+    if (!checkInDate || !checkOutDate) {
+      return res.status(400).json({ success: false, message: 'checkInDate and checkOutDate are required' });
+    }
+
+    const parseLocalDate = (s: string) => {
+      const parts = String(s).split('-').map(Number);
+      return new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0);
+    };
+    const start = parseLocalDate(checkInDate);
+    const end = parseLocalDate(checkOutDate);
+    const nights = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+
+    // Load rooms with populated room type capacity
+    const rooms: any[] = await Room.find({ _id: { $in: roomIds } }).populate('roomTypeId', 'name capacity').lean();
+
+    // Sort rooms by capacity ascending so we fill smallest rooms first
+    const sorted = [...rooms].sort((a, b) => {
+      const capA = (a.roomTypeId as any)?.capacity ?? 1;
+      const capB = (b.roomTypeId as any)?.capacity ?? 1;
+      return capA - capB;
+    });
+
+    let remainingAdults = Number(adults);
+    let remainingChildren = Number(children);
+    let grandTotal = 0;
+    let grandBase = 0;
+    let grandOccupancy = 0;
+    let grandSubtotal = 0;
+    let grandTaxes = 0;
+    const perRoom: any[] = [];
+
+    for (const room of sorted) {
+      const roomTypeDoc = room.roomTypeId as any;
+      const roomTypeId = roomTypeDoc?._id ?? room.roomTypeId;
+      if (!roomTypeId) {
+        perRoom.push({ roomId: String(room._id), roomName: room.name, error: 'No room type assigned' });
+        continue;
+      }
+
+      const ratePlan = await RatePlan.findOne({ roomTypeId, isActive: true }).lean();
+      if (!ratePlan) {
+        perRoom.push({ roomId: String(room._id), roomName: room.name, roomTypeName: roomTypeDoc?.name, error: 'No active rate plan for this room type' });
+        continue;
+      }
+
+      const capacity = roomTypeDoc?.capacity ?? 1;
+      const roomAdults = Math.min(remainingAdults, capacity);
+      const roomChildren = Math.min(remainingChildren, Math.max(0, capacity - roomAdults));
+      remainingAdults = Math.max(0, remainingAdults - roomAdults);
+      remainingChildren = Math.max(0, remainingChildren - roomChildren);
+
+      const result = await calculateTieredPrice({
+        ratePlanId: String(ratePlan._id),
+        adults: roomAdults,
+        children: roomChildren,
+        date: start,
+        nights,
+        rooms: 1,
+        companyId: companyId || undefined,
+        guestEmail: guestEmail || undefined,
+      });
+
+      grandTotal += result.finalTotal;
+      grandBase += result.basePrice;
+      grandOccupancy += result.occupancyCost;
+      grandSubtotal += result.subtotal;
+      grandTaxes += result.totalTaxes;
+
+      perRoom.push({
+        roomId: String(room._id),
+        roomName: room.name,
+        roomTypeName: roomTypeDoc?.name ?? '',
+        ratePlanId: String(ratePlan._id),
+        ratePlanName: (ratePlan as any).name,
+        assignedAdults: roomAdults,
+        assignedChildren: roomChildren,
+        basePrice: result.basePrice,
+        occupancyCost: result.occupancyCost,
+        subtotal: result.subtotal,
+        taxes: result.taxes,
+        totalTaxes: result.totalTaxes,
+        finalTotal: result.finalTotal,
+        nights,
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        perRoom,
+        nights,
+        basePrice: grandBase,
+        occupancyCost: grandOccupancy,
+        subtotal: grandSubtotal,
+        totalTaxes: grandTaxes,
+        finalTotal: grandTotal,
+        unassignedAdults: remainingAdults,
+        unassignedChildren: remainingChildren,
+      },
+    });
+  } catch (error: any) {
+    res.status(400).json({ success: false, message: error.message || 'Failed to calculate room prices' });
   }
 });
 

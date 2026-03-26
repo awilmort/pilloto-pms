@@ -257,8 +257,8 @@ router.get('/available', async (req, res) => {
     };
     const start = parseLocalDate(checkIn);
     const end = parseLocalDate(checkOut);
-    // Get active rooms only
-    const rooms = await Room.find({ status: 'active' }).lean();
+    // Get active rooms only (populate roomTypeId so the client can use capacity)
+    const rooms = await Room.find({ status: 'active' }).populate('roomTypeId', 'name capacity').lean();
     const roomIds = rooms.map(r => r._id);
     // Find overlapping reservations for these rooms
     const overlaps = await Reservation.find({

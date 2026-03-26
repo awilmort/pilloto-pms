@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import Reservation from '../models/Reservation';
 import Room from '../models/Room';
+import RatePlan from '../models/RatePlan';
 import Role from '../models/Role';
 import { authenticate, authorize, authorizePermission, AuthRequest } from '../middleware/auth';
 import { validateReservation } from '../middleware/validation';
@@ -323,7 +324,8 @@ router.post('/', async (req: Request, res: Response) => {
       specialRequests,
       isCorporate,
       company,
-      roomCount,
+      rooms: assignedRoomIds, // array of room IDs (new: required for room reservations)
+      roomCount,              // legacy: kept for backward compatibility
       items, // optional: ReservationItem[] from service pricing
     } = req.body;
 
@@ -492,36 +494,116 @@ router.post('/', async (req: Request, res: Response) => {
     if (normalizedType === 'room') {
       // Room reservation pricing via tiered rate plan
       nights = Math.ceil((checkOut!.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-      const inboundRatePlanId = req.body.ratePlanId;
-      const inboundRoomCount = Math.max(1, Number(roomCount) || 1);
-      if (inboundRatePlanId) {
-        // Snapshot all prices at booking time so future rate plan changes
-        // cannot retroactively affect this reservation.
-        const priceResult = await calculateTieredPrice({
-          ratePlanId: inboundRatePlanId,
-          adults: guestDetails.adults,
-          children: guestDetails.children,
-          date: checkIn,
-          nights,
-          rooms: inboundRoomCount,
-          companyId: (isCorporate && company) ? company : undefined,
-          guestEmail: contactInfo?.email,
+
+      if (Array.isArray(assignedRoomIds) && assignedRoomIds.length > 0) {
+        // ── New path: derive pricing from the assigned rooms' rate plans ──
+        const roomDocs: any[] = await Room.find({ _id: { $in: assignedRoomIds } })
+          .populate('roomTypeId', 'name capacity')
+          .lean();
+
+        // Sort by room type capacity ascending so we fill smallest rooms first
+        roomDocs.sort((a, b) => {
+          const capA = (a.roomTypeId as any)?.capacity ?? 1;
+          const capB = (b.roomTypeId as any)?.capacity ?? 1;
+          return capA - capB;
         });
-        if (priceResult.ratePlan) {
+
+        let remainingAdults = Number(guestDetails?.adults ?? 0);
+        let remainingChildren = Number(guestDetails?.children ?? 0);
+        let grandTotal = 0;
+        let grandBase = 0;
+        let grandOccupancy = 0;
+        let grandSubtotal = 0;
+        let grandTaxes: any[] = [];
+        let grandTaxesTotal = 0;
+
+        for (const room of roomDocs) {
+          const roomTypeDoc = room.roomTypeId as any;
+          const roomTypeId = roomTypeDoc?._id ?? room.roomTypeId;
+          if (!roomTypeId) continue;
+
+          const ratePlan = await RatePlan.findOne({ roomTypeId, isActive: true }).lean();
+          if (!ratePlan) continue;
+
+          const capacity = roomTypeDoc?.capacity ?? 1;
+          const roomAdults = Math.min(remainingAdults, capacity);
+          const roomChildren = Math.min(remainingChildren, Math.max(0, capacity - roomAdults));
+          remainingAdults = Math.max(0, remainingAdults - roomAdults);
+          remainingChildren = Math.max(0, remainingChildren - roomChildren);
+
+          const priceResult = await calculateTieredPrice({
+            ratePlanId: String(ratePlan._id),
+            adults: roomAdults,
+            children: roomChildren,
+            date: checkIn,
+            nights,
+            rooms: 1,
+            companyId: (isCorporate && company) ? company : undefined,
+            guestEmail: contactInfo?.email,
+          });
+
+          grandTotal += priceResult.finalTotal;
+          grandBase += priceResult.basePrice;
+          grandOccupancy += priceResult.occupancyCost;
+          grandSubtotal += priceResult.subtotal;
+          grandTaxesTotal += priceResult.totalTaxes;
+          // Merge taxes by name
+          for (const tx of (priceResult.taxes ?? [])) {
+            const existing = grandTaxes.find(t => t.name === tx.name);
+            if (existing) existing.amount += tx.amount;
+            else grandTaxes.push({ ...tx });
+          }
+        }
+
+        estimatedTotal = grandTotal;
+        if (grandTotal > 0) {
           pricingSnapshotData = {
-            ratePlanId: inboundRatePlanId,
-            ratePlanName: priceResult.ratePlan.name,
-            roomTypeName: priceResult.ratePlan.roomTypeName,
-            basePrice: priceResult.basePrice,
-            occupancyCost: priceResult.occupancyCost,
-            subtotal: priceResult.subtotal,
-            adjustedSubtotal: priceResult.adjustedSubtotal,
-            taxes: priceResult.taxes,
-            totalTaxes: priceResult.totalTaxes,
-            finalTotal: priceResult.finalTotal,
-            nights: priceResult.nights,
+            ratePlanId: '',
+            ratePlanName: roomDocs.map((r: any) => r.roomTypeId?.name ?? r.name).join(', '),
+            roomTypeName: roomDocs.map((r: any) => r.roomTypeId?.name ?? '').join(', '),
+            basePrice: grandBase,
+            occupancyCost: grandOccupancy,
+            subtotal: grandSubtotal,
+            adjustedSubtotal: grandSubtotal,
+            taxes: grandTaxes,
+            totalTaxes: grandTaxesTotal,
+            finalTotal: grandTotal,
+            nights,
           };
-          estimatedTotal = priceResult.finalTotal;
+        }
+      } else {
+        // ── Legacy path: single explicit rate plan ──
+        const inboundRatePlanId = req.body.ratePlanId;
+        const inboundRoomCount = Math.max(1, Number(roomCount) || 1);
+        if (inboundRatePlanId) {
+          // Snapshot all prices at booking time so future rate plan changes
+          // cannot retroactively affect this reservation.
+          const priceResult = await calculateTieredPrice({
+            ratePlanId: inboundRatePlanId,
+            adults: guestDetails.adults,
+            children: guestDetails.children,
+            date: checkIn,
+            nights,
+            rooms: inboundRoomCount,
+            companyId: (isCorporate && company) ? company : undefined,
+            guestEmail: contactInfo?.email,
+          });
+          if (priceResult.ratePlan) {
+            pricingSnapshotData = {
+              ratePlanId: inboundRatePlanId,
+              ratePlanName: priceResult.ratePlan.name,
+              roomTypeName: priceResult.ratePlan.roomTypeName,
+              basePrice: priceResult.basePrice,
+              occupancyCost: priceResult.occupancyCost,
+              subtotal: priceResult.subtotal,
+              adjustedSubtotal: priceResult.adjustedSubtotal,
+              taxes: priceResult.taxes,
+              totalTaxes: priceResult.totalTaxes,
+              finalTotal: priceResult.finalTotal,
+              nights: priceResult.nights,
+            };
+            estimatedTotal = priceResult.finalTotal;
+          }
         }
       }
     } else if (normalizedType === 'event') {
@@ -596,8 +678,13 @@ router.post('/', async (req: Request, res: Response) => {
     };
 
     if (pricingSnapshotData) reservationData.pricingSnapshot = pricingSnapshotData;
-    if (normalizedType === 'room' && roomCount && Number(roomCount) > 1) {
-      reservationData.roomCount = Math.max(1, Number(roomCount));
+    if (normalizedType === 'room') {
+      if (Array.isArray(assignedRoomIds) && assignedRoomIds.length > 0) {
+        reservationData.rooms = assignedRoomIds;
+        reservationData.roomCount = assignedRoomIds.length;
+      } else if (roomCount && Number(roomCount) > 1) {
+        reservationData.roomCount = Math.max(1, Number(roomCount));
+      }
     }
     if (guestRecordId) reservationData.guestRecord = guestRecordId;
     if (Array.isArray(items) && items.length > 0) {

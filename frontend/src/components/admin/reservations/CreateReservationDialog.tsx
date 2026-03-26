@@ -15,6 +15,7 @@ import {
   Button,
   Card,
   CardActionArea,
+  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
@@ -24,7 +25,9 @@ import {
   Divider,
   FormControl,
   FormControlLabel,
+  InputAdornment,
   InputLabel,
+  LinearProgress,
   MenuItem,
   Paper,
   Select,
@@ -33,18 +36,21 @@ import {
   Stepper,
   Switch,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import {
   ArrowBack,
   ArrowForward,
   Celebration,
+  CheckCircle,
   EventNote,
   Hotel,
+  KingBed,
   Search,
   WbSunny,
 } from '@mui/icons-material';
-import { Reservation, Company } from '../../../types';
+import { Reservation, Company, RoomType } from '../../../types';
 import { reservationsService, roomsService, pricingService, companiesService, servicesService } from '../../../services/api';
 import type { ServiceRecord, ServiceKind } from '../../../services/api';
 import { useTranslation } from 'react-i18next';
@@ -115,17 +121,15 @@ const CreateReservationDialog: React.FC<Props> = ({
   const [createCompanyOptions, setCreateCompanyOptions] = useState<Company[]>([]);
   const [createCompanySearch, setCreateCompanySearch] = useState('');
 
-  // Room availability
+  // Room availability + selection
   const [createAvailableRooms, setCreateAvailableRooms]       = useState<any[]>([]);
   const [createCheckingAvailability, setCreateCheckingAvailability] = useState(false);
   const [createAvailabilityChecked, setCreateAvailabilityChecked]   = useState(false);
-
-  // Pricing
-  const [ratePlans, setRatePlans]                   = useState<any[]>([]);
-  const [createRatePlanId, setCreateRatePlanId]     = useState('');
+  const [selectedRooms, setSelectedRooms]                           = useState<any[]>([]);
+  const [roomSearch, setRoomSearch]                                 = useState('');
+  // Rooms-based pricing preview
   const [createPricePreview, setCreatePricePreview] = useState<any>(null);
   const [createPriceLoading, setCreatePriceLoading] = useState(false);
-  const [createRoomCount, setCreateRoomCount]       = useState(1);
 
   // Validation
   const [createStep2Error, setCreateStep2Error] = useState<string | null>(null);
@@ -138,14 +142,6 @@ const CreateReservationDialog: React.FC<Props> = ({
   const [servicePricePreview, setServicePricePreview] = useState<any>(null);
   const [servicePriceLoading, setServicePriceLoading] = useState(false);
 
-  // Load rate plans when dialog opens
-  useEffect(() => {
-    if (!open) return;
-    pricingService.getRatePlans({ active: true })
-      .then(res => setRatePlans(res.data.data ?? []))
-      .catch(() => {});
-  }, [open]);
-
   // Company search autocomplete
   useEffect(() => {
     if (createCompanySearch.length < 1) return;
@@ -154,25 +150,44 @@ const CreateReservationDialog: React.FC<Props> = ({
       .catch(() => {});
   }, [createCompanySearch]);
 
-  // Auto-calculate price preview
+  // Auto-fetch available rooms when both dates are set (room type only)
   useEffect(() => {
-    if (!open || createForm.type !== 'room' || !createRatePlanId || !createForm.checkInDate || !createForm.checkOutDate) {
+    if (!open || createForm.type !== 'room' || !createForm.checkInDate || !createForm.checkOutDate) return;
+    const { ci, co } = normalizeRange(createForm.checkInDate, createForm.checkOutDate);
+    setCreateCheckingAvailability(true);
+    setCreateAvailabilityChecked(false);
+    setSelectedRooms([]);
+    setCreatePricePreview(null);
+    roomsService.getAvailableRooms(ci, co)
+      .then(res => {
+        setCreateAvailableRooms(Array.isArray(res.data.data) ? res.data.data : []);
+        setCreateAvailabilityChecked(true);
+      })
+      .catch(() => { setCreateAvailableRooms([]); setCreateAvailabilityChecked(true); })
+      .finally(() => setCreateCheckingAvailability(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, createForm.type, createForm.checkInDate, createForm.checkOutDate]);
+
+  // Auto-calculate price preview when selected rooms change
+  useEffect(() => {
+    if (
+      createForm.type !== 'room' ||
+      selectedRooms.length === 0 ||
+      !createForm.checkInDate ||
+      !createForm.checkOutDate
+    ) {
       if (createForm.type === 'room') setCreatePricePreview(null);
       return;
     }
-    const ci     = new Date(createForm.checkInDate  + 'T12:00:00');
-    const co     = new Date(createForm.checkOutDate + 'T12:00:00');
-    const nights = Math.max(1, Math.ceil((co.getTime() - ci.getTime()) / (1000 * 60 * 60 * 24)));
     setCreatePriceLoading(true);
-    pricingService.calculatePrice({
-      ratePlanId: createRatePlanId,
-      adults:     createForm.adults,
-      children:   createForm.children,
-      date:       createForm.checkInDate,
-      nights,
-      rooms:      createRoomCount,
-      companyId:  createIsCorporate && createCompanyId ? createCompanyId : undefined,
-      guestEmail: createForm.email || undefined,
+    pricingService.calculateRoomsPrice({
+      roomIds:      selectedRooms.map(r => r._id),
+      checkInDate:  createForm.checkInDate,
+      checkOutDate: createForm.checkOutDate,
+      adults:       createForm.adults,
+      children:     createForm.children,
+      companyId:    createIsCorporate && createCompanyId ? createCompanyId : undefined,
+      guestEmail:   createForm.email || undefined,
     })
       .then(res => {
         const data = res.data.data;
@@ -182,18 +197,7 @@ const CreateReservationDialog: React.FC<Props> = ({
       .catch(() => setCreatePricePreview(null))
       .finally(() => setCreatePriceLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, createForm.type, createRatePlanId, createForm.checkInDate, createForm.checkOutDate, createForm.adults, createForm.children, createRoomCount, createIsCorporate, createCompanyId, createForm.email]);
-
-  // Auto-suggest room count based on rate plan capacity
-  useEffect(() => {
-    if (createForm.type !== 'room' || !createRatePlanId) return;
-    const rp       = ratePlans.find((p: any) => p._id === createRatePlanId);
-    const capacity = typeof rp?.roomTypeId === 'object' ? rp.roomTypeId?.capacity : undefined;
-    if (!capacity || capacity <= 0) return;
-    const totalGuests = createForm.adults + createForm.children;
-    setCreateRoomCount(Math.max(1, Math.ceil(totalGuests / capacity)));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [createRatePlanId, createForm.adults, createForm.children, ratePlans]);
+  }, [open, createForm.type, selectedRooms, createForm.checkInDate, createForm.checkOutDate, createForm.adults, createForm.children, createIsCorporate, createCompanyId, createForm.email]);
 
   // Load services for non-room types when dialog opens or type changes
   useEffect(() => {
@@ -242,15 +246,15 @@ const CreateReservationDialog: React.FC<Props> = ({
     setCreateStep(0);
     setCreateAvailableRooms([]);
     setCreateAvailabilityChecked(false);
+    setSelectedRooms([]);
+    setRoomSearch('');
     setCreateGuestPriceApplied(false);
     setCreateCorporatePriceApplied(false);
     setCreateIsCorporate(false);
     setCreateCompanyId('');
     setCreateCompanyName('');
     setCreateStep2Error(null);
-    setCreateRatePlanId('');
     setCreatePricePreview(null);
-    setCreateRoomCount(1);
     setServiceOptions([]);
     setSelectedServiceId('');
     setServicePricePreview(null);
@@ -261,32 +265,26 @@ const CreateReservationDialog: React.FC<Props> = ({
     onClose();
   };
 
-  const handleCheckCreateAvailability = async (): Promise<any[]> => {
-    if (!createForm.checkInDate || !createForm.checkOutDate) return [];
-    setCreateCheckingAvailability(true);
-    setCreateAvailabilityChecked(false);
-    try {
-      const { ci, co } = normalizeRange(createForm.checkInDate, createForm.checkOutDate);
-      const res = await roomsService.getAvailableRooms(ci, co);
-      const filtered = Array.isArray(res.data.data ?? []) ? (res.data.data ?? []) : [];
-      setCreateAvailableRooms(filtered);
-      setCreateAvailabilityChecked(true);
-      return filtered;
-    } catch {
-      setCreateAvailableRooms([]);
-      setCreateAvailabilityChecked(true);
-      return [];
-    } finally {
-      setCreateCheckingAvailability(false);
-    }
+  // Capacity helpers
+  const totalBillableGuests = createForm.adults + createForm.children;
+  const selectedCapacity = selectedRooms.reduce((sum, r) => {
+    const cap = (r.roomTypeId as any)?.capacity ?? (typeof r.roomTypeId === 'object' ? (r.roomTypeId as RoomType)?.capacity : undefined) ?? 1;
+    return sum + cap;
+  }, 0);
+  const capacitySatisfied = selectedCapacity >= totalBillableGuests;
+
+  const toggleRoomSelection = (room: any) => {
+    setSelectedRooms(prev => {
+      const already = prev.some(r => r._id === room._id);
+      return already ? prev.filter(r => r._id !== room._id) : [...prev, room];
+    });
   };
 
   const handleContinueStep1 = async () => {
     if (createForm.type !== 'room') { setCreateStep(2); return; }
-    const available = createAvailabilityChecked
-      ? createAvailableRooms
-      : await handleCheckCreateAvailability();
-    if (available.length > 0) setCreateStep(2);
+    // Rooms must be selected and capacity must be sufficient
+    if (selectedRooms.length === 0 || !capacitySatisfied) return;
+    setCreateStep(2);
   };
 
   const handleContinueStep2 = () => {
@@ -313,8 +311,9 @@ const CreateReservationDialog: React.FC<Props> = ({
         totalPrice:       createForm.totalPrice,
       };
       if (createForm.checkOutDate) payload.checkOutDate = createForm.checkOutDate;
-      if (createRatePlanId) payload.ratePlanId = createRatePlanId;
-      if (createForm.type === 'room' && createRoomCount > 1) payload.roomCount = createRoomCount;
+      if (createForm.type === 'room' && selectedRooms.length > 0) {
+        payload.rooms = selectedRooms.map(r => r._id);
+      }
       if (createIsCorporate && createCompanyId) {
         payload.isCorporate = true;
         payload.company = createCompanyId;
@@ -467,66 +466,212 @@ const CreateReservationDialog: React.FC<Props> = ({
             <Box>
               <Typography variant="subtitle2" gutterBottom>{t('admin.reservations.create.guestCount', 'Guests')}</Typography>
               <Box sx={{ display: 'flex', gap: 2 }}>
-                <NumberField label={t('admin.reservations.form.adults', 'Adults')}    value={createForm.adults}   min={1} onChange={v => { setCreateForm(f => ({ ...f, adults:   v ?? 1 })); setCreateAvailabilityChecked(false); }} />
-                <NumberField label={t('admin.reservations.form.children', 'Children')} value={createForm.children} min={0} onChange={v => { setCreateForm(f => ({ ...f, children: v ?? 0 })); setCreateAvailabilityChecked(false); }} />
+                <NumberField label={t('admin.reservations.form.adults', 'Adults')}    value={createForm.adults}   min={1} onChange={v => setCreateForm(f => ({ ...f, adults:   v ?? 1 }))} />
+                <NumberField label={t('admin.reservations.form.children', 'Children')} value={createForm.children} min={0} onChange={v => setCreateForm(f => ({ ...f, children: v ?? 0 }))} />
                 <NumberField label={t('admin.reservations.form.infants', 'Infants')}   value={createForm.infants}  min={0} onChange={v => setCreateForm(f => ({ ...f, infants: v ?? 0 }))} />
               </Box>
             </Box>
 
             {createForm.type === 'room' && (
               <Box>
-                <Typography variant="subtitle2" gutterBottom>{t('admin.reservations.create.numberOfRooms', 'Number of Rooms')}</Typography>
-                <NumberField label={t('admin.reservations.create.numberOfRooms', 'Rooms')} value={createRoomCount} min={1} onChange={v => { setCreateRoomCount(v ?? 1); setCreateAvailabilityChecked(false); }} />
-              </Box>
-            )}
+                <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', mb: 0.75 }}>
+                  <Typography variant="subtitle2">
+                    {t('admin.reservations.create.assignRooms', 'Assign Rooms')}
+                  </Typography>
+                  {selectedRooms.length > 0 && (
+                    <Typography variant="caption" color="primary.main" fontWeight={600}>
+                      {selectedRooms.length} {t('admin.reservations.create.selected', 'selected')}
+                      {' · '}
+                      {t('admin.reservations.create.capacityOf', '{{cap}} guest capacity', { cap: selectedCapacity })}
+                    </Typography>
+                  )}
+                </Box>
 
-            {createForm.type === 'room' && (
-              <Box>
-                <Typography variant="subtitle2" gutterBottom>{t('admin.reservations.create.ratePlan', 'Rate Plan')}</Typography>
-                <FormControl fullWidth size="small">
-                  <InputLabel>{t('admin.reservations.create.selectRatePlan', 'Select a rate plan')}</InputLabel>
-                  <Select value={createRatePlanId} label={t('admin.reservations.create.selectRatePlan', 'Select a rate plan')} onChange={e => setCreateRatePlanId(e.target.value)}>
-                    <MenuItem value=""><em>{t('admin.reservations.create.noRatePlan', 'None (manual pricing)')}</em></MenuItem>
-                    {ratePlans.map(rp => (
-                      <MenuItem key={rp._id} value={rp._id}>{rp.name}{rp.roomTypeId?.name ? ` · ${rp.roomTypeId.name}` : ''}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                {createPriceLoading && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                {createCheckingAvailability && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <CircularProgress size={14} />
-                    <Typography variant="caption" color="text.secondary">{t('admin.reservations.create.calculatingPrice', 'Calculating price...')}</Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {t('admin.reservations.create.checkingAvailability', 'Checking availability...')}
+                    </Typography>
                   </Box>
                 )}
-                {!createPriceLoading && createPricePreview?.ratePlan && (
-                  <Paper variant="outlined" sx={{ p: 1.5, mt: 1.5, borderRadius: 1.5 }}>
-                    <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                      {t('admin.reservations.create.pricePreview', 'Price Preview')}
-                    </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" color="text.secondary">{t('admin.reservations.create.basePrice', 'Base')} ({createPricePreview.nights} {t('admin.reservations.create.nights', 'nights')})</Typography>
-                        <Typography variant="body2">{formatMoney(createPricePreview.basePrice)}</Typography>
-                      </Box>
-                      {createPricePreview.occupancyCost > 0 && (
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">{t('admin.reservations.create.occupancy', 'Occupancy')}</Typography>
-                          <Typography variant="body2">{formatMoney(createPricePreview.occupancyCost)}</Typography>
+
+                {!createCheckingAvailability && createAvailabilityChecked && createAvailableRooms.length === 0 && (
+                  <Alert severity="error" sx={{ borderRadius: 1.5 }}>
+                    {t('admin.reservations.create.noRoomsAvailable', 'No rooms available for the selected dates.')}
+                  </Alert>
+                )}
+
+                {!createCheckingAvailability && createAvailabilityChecked && createAvailableRooms.length > 0 && (() => {
+                  const query = roomSearch.trim().toLowerCase();
+                  const filteredRooms = query
+                    ? createAvailableRooms.filter((r: any) => {
+                        const typeName: string = (r.roomTypeId as any)?.name ?? '';
+                        return (
+                          r.name?.toLowerCase().includes(query) ||
+                          typeName.toLowerCase().includes(query) ||
+                          r.bedConfiguration?.toLowerCase().includes(query)
+                        );
+                      })
+                    : createAvailableRooms;
+
+                  return (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                      {/* Search filter */}
+                      <TextField
+                        size="small" fullWidth
+                        placeholder={t('admin.reservations.create.filterRooms', 'Filter rooms...')}
+                        value={roomSearch}
+                        onChange={e => setRoomSearch(e.target.value)}
+                        InputProps={{
+                          startAdornment: (
+                            <InputAdornment position="start">
+                              <Search sx={{ fontSize: 18, color: 'text.disabled' }} />
+                            </InputAdornment>
+                          ),
+                        }}
+                      />
+
+                      {/* Compact room list */}
+                      <Paper variant="outlined" sx={{ borderRadius: 1.5, overflow: 'hidden' }}>
+                        <Box sx={{ maxHeight: 240, overflowY: 'auto' }}>
+                          {filteredRooms.length === 0 && (
+                            <Box sx={{ p: 2, textAlign: 'center' }}>
+                              <Typography variant="caption" color="text.secondary">
+                                {t('admin.reservations.create.noMatchingRooms', 'No matching rooms')}
+                              </Typography>
+                            </Box>
+                          )}
+                          {filteredRooms.map((room: any, idx: number) => {
+                            const isSelected = selectedRooms.some(r => r._id === room._id);
+                            const capacity = (room.roomTypeId as any)?.capacity ?? 1;
+                            const typeName: string = (room.roomTypeId as any)?.name ?? '';
+                            return (
+                              <Box key={room._id}>
+                                <Box
+                                  onClick={() => toggleRoomSelection(room)}
+                                  sx={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    px: 1,
+                                    py: 0.5,
+                                    cursor: 'pointer',
+                                    bgcolor: isSelected ? 'primary.50' : 'transparent',
+                                    '&:hover': { bgcolor: isSelected ? 'primary.100' : 'action.hover' },
+                                    transition: 'background-color 0.1s',
+                                    userSelect: 'none',
+                                  }}
+                                >
+                                  <Checkbox
+                                    size="small"
+                                    checked={isSelected}
+                                    tabIndex={-1}
+                                    disableRipple
+                                    sx={{ p: 0.5, mr: 0.5 }}
+                                  />
+                                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography
+                                      variant="body2"
+                                      fontWeight={isSelected ? 600 : 400}
+                                      noWrap
+                                    >
+                                      {room.name}
+                                    </Typography>
+                                    {(typeName || room.bedConfiguration) && (
+                                      <Typography variant="caption" color="text.secondary" noWrap sx={{ lineHeight: 1.2 }}>
+                                        {typeName}{room.bedConfiguration ? ` · ${room.bedConfiguration}` : ''}
+                                      </Typography>
+                                    )}
+                                  </Box>
+                                  <Tooltip title={t('admin.reservations.create.roomCapacity', 'Up to {{n}} guests', { n: capacity })}>
+                                    <Chip
+                                      size="small"
+                                      icon={<KingBed sx={{ fontSize: '14px !important' }} />}
+                                      label={capacity}
+                                      variant={isSelected ? 'filled' : 'outlined'}
+                                      color={isSelected ? 'primary' : 'default'}
+                                      sx={{ height: 20, fontSize: 11, flexShrink: 0 }}
+                                    />
+                                  </Tooltip>
+                                </Box>
+                                {idx < filteredRooms.length - 1 && <Divider />}
+                              </Box>
+                            );
+                          })}
+                        </Box>
+                      </Paper>
+
+                      {/* Capacity gauge — only when rooms selected */}
+                      {selectedRooms.length > 0 && (
+                        <Box>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                            <Typography variant="caption" color="text.secondary">
+                              {t('admin.reservations.create.capacityGauge', '{{accommodated}} of {{total}} guests accommodated', {
+                                accommodated: Math.min(selectedCapacity, totalBillableGuests),
+                                total: totalBillableGuests,
+                              })}
+                            </Typography>
+                            {capacitySatisfied && (
+                              <CheckCircle sx={{ fontSize: 14, color: 'success.main' }} />
+                            )}
+                          </Box>
+                          <LinearProgress
+                            variant="determinate"
+                            value={Math.min((selectedCapacity / Math.max(totalBillableGuests, 1)) * 100, 100)}
+                            color={capacitySatisfied ? 'success' : 'warning'}
+                            sx={{ borderRadius: 1, height: 5 }}
+                          />
+                          {!capacitySatisfied && (
+                            <Alert severity="warning" sx={{ mt: 0.75, borderRadius: 1.5, py: 0.25 }}>
+                              {t('admin.reservations.create.insufficientCapacity', 'Selected rooms fit {{cap}} guests, but {{needed}} are needed.', {
+                                cap: selectedCapacity,
+                                needed: totalBillableGuests,
+                              })}
+                            </Alert>
+                          )}
                         </Box>
                       )}
-                      {createPricePreview.taxes?.filter((tx: any) => !tx.isInclusive).map((tx: any) => (
-                        <Box key={tx.name} sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">{tx.name}</Typography>
-                          <Typography variant="body2">{formatMoney(tx.amount)}</Typography>
-                        </Box>
-                      ))}
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 0.5, mt: 0.25, borderTop: 1, borderColor: 'divider' }}>
-                        <Typography variant="body2" fontWeight={700}>{t('admin.reservations.form.totalPrice', 'Total')}</Typography>
-                        <Typography variant="body2" fontWeight={700} color="primary.main">{formatMoney(createPricePreview.finalTotal)}</Typography>
-                      </Box>
+
+                      {/* Per-room price preview */}
+                      {selectedRooms.length > 0 && (
+                        <>
+                          {createPriceLoading && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <CircularProgress size={14} />
+                              <Typography variant="caption" color="text.secondary">
+                                {t('admin.reservations.create.calculatingPrice', 'Calculating price...')}
+                              </Typography>
+                            </Box>
+                          )}
+                          {!createPriceLoading && createPricePreview?.perRoom && (
+                            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+                              <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
+                                {t('admin.reservations.create.pricePreview', 'Price Preview')}
+                              </Typography>
+                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                                {createPricePreview.perRoom.map((pr: any, idx: number) => (
+                                  <Box key={idx} sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, pb: 0.75, mb: 0.25, borderBottom: idx < createPricePreview.perRoom.length - 1 ? 1 : 0, borderColor: 'divider' }}>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                                      <Typography variant="body2" fontWeight={600}>{pr.roomName}</Typography>
+                                      <Typography variant="body2" fontWeight={600}>{formatMoney(pr.finalTotal)}</Typography>
+                                    </Box>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {pr.roomTypeName}{pr.ratePlanName ? ` · ${pr.ratePlanName}` : ''}
+                                    </Typography>
+                                  </Box>
+                                ))}
+                                <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 0.5, borderTop: 1, borderColor: 'divider' }}>
+                                  <Typography variant="body2" fontWeight={700}>{t('admin.reservations.form.totalPrice', 'Total')}</Typography>
+                                  <Typography variant="body2" fontWeight={700} color="primary.main">{formatMoney(createPricePreview.finalTotal)}</Typography>
+                                </Box>
+                              </Box>
+                            </Paper>
+                          )}
+                        </>
+                      )}
                     </Box>
-                  </Paper>
-                )}
+                  );
+                })()}
               </Box>
             )}
 
@@ -694,26 +839,21 @@ const CreateReservationDialog: React.FC<Props> = ({
                   </Box>
                 )}
 
-                {createPricePreview?.ratePlan && createForm.type === 'room' ? (
+                {createPricePreview?.perRoom && createForm.type === 'room' ? (
                   <Box sx={{ gridColumn: '1 / -1', pt: 1.5, mt: 0.5, borderTop: 1, borderColor: 'divider' }}>
                     <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                      {t('admin.reservations.create.ratePlan', 'Rate Plan')}: <strong>{createPricePreview.ratePlan.name}</strong>
+                      {t('admin.reservations.create.roomBreakdown', 'Room Breakdown')} · {createPricePreview.nights} {t('admin.reservations.create.nights', 'nights')}
                     </Typography>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <Typography variant="body2" color="text.secondary">{t('admin.reservations.create.basePrice', 'Base')} ({createPricePreview.nights} {t('admin.reservations.create.nights', 'nights')})</Typography>
-                        <Typography variant="body2">{formatMoney(createPricePreview.basePrice)}</Typography>
-                      </Box>
-                      {createPricePreview.occupancyCost > 0 && (
-                        <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">{t('admin.reservations.create.occupancy', 'Occupancy')}</Typography>
-                          <Typography variant="body2">{formatMoney(createPricePreview.occupancyCost)}</Typography>
-                        </Box>
-                      )}
-                      {createPricePreview.taxes?.filter((tx: any) => !tx.isInclusive).map((tx: any) => (
-                        <Box key={tx.name} sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <Typography variant="body2" color="text.secondary">{tx.name}</Typography>
-                          <Typography variant="body2">{formatMoney(tx.amount)}</Typography>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
+                      {createPricePreview.perRoom.map((pr: any, idx: number) => (
+                        <Box key={idx} sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, pb: 0.75, borderBottom: idx < createPricePreview.perRoom.length - 1 ? 1 : 0, borderColor: 'divider' }}>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Typography variant="body2" fontWeight={600}>{pr.roomName}</Typography>
+                            <Typography variant="body2" fontWeight={600}>{formatMoney(pr.finalTotal)}</Typography>
+                          </Box>
+                          <Typography variant="caption" color="text.secondary">
+                            {pr.roomTypeName}{pr.ratePlanName ? ` · ${pr.ratePlanName}` : ''}
+                          </Typography>
                         </Box>
                       ))}
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 0.5, mt: 0.25, borderTop: 1, borderColor: 'divider' }}>
@@ -749,17 +889,6 @@ const CreateReservationDialog: React.FC<Props> = ({
         )}
 
         <Box sx={{ flex: 1 }} />
-
-        {createStep === 1 && createForm.type === 'room' && (
-          <Button
-            variant="outlined"
-            startIcon={createCheckingAvailability ? <CircularProgress size={16} /> : <Search />}
-            onClick={handleCheckCreateAvailability}
-            disabled={createCheckingAvailability || !createForm.checkInDate || !createForm.checkOutDate}
-          >
-            {t('admin.reservations.create.checkAvailability', 'Check Availability')}
-          </Button>
-        )}
 
         {createStep === 1 && (
           <Button

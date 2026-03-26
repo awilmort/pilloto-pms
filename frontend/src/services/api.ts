@@ -685,6 +685,42 @@ export const pricingService = {
     nights: number;
   }>>> => apiClient.post('/pricing/calculate', data),
 
+  calculateRoomsPrice: (data: {
+    roomIds: string[];
+    checkInDate: string;
+    checkOutDate: string;
+    adults: number;
+    children: number;
+    companyId?: string;
+    guestEmail?: string;
+  }): Promise<AxiosResponse<ApiResponse<{
+    perRoom: Array<{
+      roomId: string;
+      roomName: string;
+      roomTypeName: string;
+      ratePlanId: string;
+      ratePlanName: string;
+      assignedAdults: number;
+      assignedChildren: number;
+      basePrice: number;
+      occupancyCost: number;
+      subtotal: number;
+      taxes: Array<{ name: string; type: string; amount: number; isInclusive: boolean }>;
+      totalTaxes: number;
+      finalTotal: number;
+      nights: number;
+      error?: string;
+    }>;
+    nights: number;
+    basePrice: number;
+    occupancyCost: number;
+    subtotal: number;
+    totalTaxes: number;
+    finalTotal: number;
+    unassignedAdults: number;
+    unassignedChildren: number;
+  }>>> => apiClient.post('/pricing/calculate-rooms', data),
+
   // ── Service Price Calculation ──────────────────────────────
   calculateServicePrice: (data: {
     serviceId: string;

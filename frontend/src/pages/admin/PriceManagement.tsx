@@ -348,9 +348,14 @@ const PriceManagement: React.FC = () => {
       if (!ruleForm.name.trim()) { setError(t('admin.pricing.rules.errors.nameRequired')); return; }
       if (ruleForm.dateStart && !ruleForm.dateEnd) { setError(t('admin.pricing.rules.errors.endDateRequired')); return; }
       setError(null);
-      const payload = { ...ruleForm };
+      const payload: any = { ...ruleForm };
+      // Ensure clearing optional refs sends null (not undefined, which JSON omits)
+      if (!payload.roomTypeId) payload.roomTypeId = null;
+      if (!payload.companyId) payload.companyId = null;
+      if (!payload.ratePlanId) payload.ratePlanId = null;
+      if (!payload.guestEmail) payload.guestEmail = null;
       if (ruleForm._id) {
-        await pricingService.updatePricingRule(ruleForm._id, payload as any);
+        await pricingService.updatePricingRule(ruleForm._id, payload);
       } else {
         await pricingService.createPricingRule(payload as any);
       }
@@ -751,7 +756,7 @@ const PriceManagement: React.FC = () => {
               <TableBody>
                 {rules.map(rule => {
                   const companyName = typeof rule.companyId === 'object' ? (rule.companyId as any)?.name : rule.companyId;
-                  const ratePlanName = typeof rule.ratePlanId === 'object'
+                  const ratePlanName = rule.ratePlanId && typeof rule.ratePlanId === 'object'
                     ? `${getRoomTypeName((rule.ratePlanId as any).roomTypeId)} – ${(rule.ratePlanId as any).name}`
                     : rule.ratePlanId;
                   const roomTypeName = getRoomTypeName(rule.roomTypeId);
@@ -983,6 +988,7 @@ const PriceManagement: React.FC = () => {
                 value={ratePlanForm.basePrice}
                 onChange={val => setRatePlanForm(p => ({ ...p, basePrice: val ?? 0 }))}
                 min={0}
+                allowDecimal
               />
 
               <Divider />
@@ -1019,22 +1025,23 @@ const PriceManagement: React.FC = () => {
                             </FormControl>
                           </TableCell>
                           <TableCell>
-                            <TextField
+                            <NumberField
                               size="small"
-                              type="number"
                               value={tier.guestNumber}
-                              onChange={e => updateTier(idx, 'guestNumber', parseInt(e.target.value) || 1)}
-                              inputProps={{ min: 1, style: { width: 60 } }}
+                              onChange={v => updateTier(idx, 'guestNumber', v ?? 1)}
+                              min={1}
+                              sx={{ width: 80 }}
                             />
                           </TableCell>
                           <TableCell>
-                            <TextField
+                            <NumberField
                               size="small"
-                              type="number"
+                              allowDecimal
                               value={tier.price}
-                              onChange={e => updateTier(idx, 'price', parseFloat(e.target.value) || 0)}
-                              inputProps={{ min: 0, step: 0.01, style: { width: 90 } }}
+                              onChange={v => updateTier(idx, 'price', v ?? 0)}
+                              min={0}
                               helperText={tier.price === 0 ? t('admin.pricing.ratePlans.included') : undefined}
+                              sx={{ width: 100 }}
                             />
                           </TableCell>
                           <TableCell>
@@ -1158,6 +1165,7 @@ const PriceManagement: React.FC = () => {
                   label={ruleForm.adjustmentType === 'percent' ? t('admin.pricing.rules.form.adjustmentValuePercent') : t('admin.pricing.rules.form.adjustmentValue')}
                   value={ruleForm.adjustmentValue}
                   onChange={val => setRuleForm(p => ({ ...p, adjustmentValue: val ?? 0 }))}
+                  allowDecimal
                 />
               </Box>
 
@@ -1222,6 +1230,7 @@ const PriceManagement: React.FC = () => {
                   value={taxForm.value}
                   onChange={val => setTaxForm(p => ({ ...p, value: val ?? 0 }))}
                   min={0}
+                  allowDecimal
                 />
               </Box>
               <FormControl fullWidth>
