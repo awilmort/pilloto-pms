@@ -1,438 +1,388 @@
-import nodemailer from 'nodemailer';
-import axios from 'axios';
+/**
+ * Email service — Amazon SES (AWS SDK v3)
+ *
+ * Replaces the previous Microsoft Graph / SMTP implementation.
+ * Call signatures are backward-compatible.
+ *
+ * Key behaviours:
+ * - Sends via SES with Configuration Set (bounce/complaint tracking)
+ * - Checks the EmailSuppression collection before every send
+ * - Retries up to 3 times with exponential backoff on throttle errors
+ * - Never retries permanent SES errors
+ * - Logs only MessageId, email type, outcome, and internal IDs (no PII)
+ */
 
-// Email via Microsoft Graph API (preferred when configured)
-const isGraphConfigured = () => (
-  !!process.env.GRAPH_TENANT_ID &&
-  !!process.env.GRAPH_CLIENT_ID &&
-  !!process.env.GRAPH_CLIENT_SECRET &&
-  !!(process.env.GRAPH_SENDER_UPN || process.env.EMAIL_USER || process.env.EMAIL_FROM)
-);
+import {
+  SESClient,
+  SendEmailCommand,
+  SendEmailCommandInput,
+  SESServiceException,
+} from '@aws-sdk/client-ses';
+import mongoose from 'mongoose';
+import EmailSuppression from '../models/EmailSuppression';
+import Tenant from '../models/Tenant';
+import AppSettings from '../models/AppSettings';
+import Folio from '../models/Folio';
+import Charge from '../models/Charge';
+import Payment from '../models/Payment';
+import Reservation from '../models/Reservation';
+import { renderReservationConfirmation } from './emailTemplates/reservationConfirmation';
+import { renderInvoice } from './emailTemplates/invoice';
+import { getTenantId } from '../middleware/tenantContext';
 
-const getGraphAccessToken = async (): Promise<string> => {
-  const tenantId = process.env.GRAPH_TENANT_ID!;
-  const clientId = process.env.GRAPH_CLIENT_ID!;
-  const clientSecret = process.env.GRAPH_CLIENT_SECRET!;
+// ── SES client ───────────────────────────────────────────────────────────────
+// Lazy initialization: dotenv.config() runs after module imports are hoisted,
+// so we must not read process.env AWS vars at module-load time.
 
-  const form = new URLSearchParams();
-  form.append('client_id', clientId);
-  form.append('client_secret', clientSecret);
-  form.append('grant_type', 'client_credentials');
-  form.append('scope', 'https://graph.microsoft.com/.default');
+let _sesClient: SESClient | null = null;
 
-  const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
-  const resp = await axios.post(tokenUrl, form.toString(), {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-  });
-  return resp.data.access_token as string;
-};
-
-const sendEmailViaGraph = async (options: EmailOptions): Promise<void> => {
-  const accessToken = await getGraphAccessToken();
-  const sender = process.env.GRAPH_SENDER_UPN || process.env.EMAIL_USER || process.env.EMAIL_FROM!;
-
-  const bodyContent = options.html || options.text || '';
-  const contentType = options.html ? 'HTML' : 'Text';
-
-  const payload = {
-    message: {
-      subject: options.subject,
-      body: {
-        contentType,
-        content: bodyContent
+function getSesClient(): SESClient {
+  if (!_sesClient) {
+    _sesClient = new SESClient({
+      region: process.env.AWS_REGION || 'us-east-2',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
       },
-      from: { emailAddress: { address: process.env.GRAPH_SENDER_UPN } },
-      toRecipients: [
-        { emailAddress: { address: options.to } }
-      ],
-      // Optional reply-to
-      replyTo: process.env.EMAIL_FROM ? [{ emailAddress: { address: process.env.EMAIL_FROM } }] : undefined
-    },
-    saveToSentItems: false
-  };
-
-  // Application permissions: send as specific user
-  const url = `https://graph.microsoft.com/v1.0/users/${sender}/sendMail`;
-  await axios.post(url, payload, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json'
-    }
-  });
-};
-
-// SMTP transporter fallback (development/local testing)
-const createSmtpTransporter = () => {
-  const host = process.env.EMAIL_HOST;
-  const port = Number(process.env.EMAIL_PORT || 587);
-  const secure = (process.env.EMAIL_SECURE === 'true') || port === 465;
-  const user = process.env.EMAIL_USER || process.env.EMAIL_FROM;
-  const pass = process.env.EMAIL_PASS || process.env.EMAIL_PASSWORD;
-
-  if (host && user && pass) {
-    return nodemailer.createTransport({ host, port, secure, auth: { user, pass } });
+    });
   }
+  return _sesClient;
+}
 
-  if (process.env.NODE_ENV === 'production') {
-    throw new Error('Email service is not configured. Set Microsoft Graph env or SMTP env variables.');
-  }
+function getFromAddress(): string {
+  return process.env.SES_FROM_ADDRESS || 'noreply@pilloto.com';
+}
 
-  return nodemailer.createTransport({
-    host: 'smtp.ethereal.email',
-    port: 587,
-    secure: false,
-    auth: {
-      user: process.env.EMAIL_USER || 'test@ethereal.email',
-      pass: process.env.EMAIL_PASS || 'test123'
-    }
-  });
-};
+function getConfigurationSet(): string {
+  return process.env.SES_CONFIGURATION_SET || '';
+}
+
+// Transient error codes that warrant a retry
+const THROTTLE_CODES = new Set(['Throttling', 'SendingRateExceeded', 'TooManyRequestsException']);
+
+// ── Types ────────────────────────────────────────────────────────────────────
 
 export interface EmailOptions {
   to: string;
   subject: string;
   html: string;
   text?: string;
+  replyTo?: string;
+  /** Used only for structured logging. Not emitted in plain text. */
+  _logMeta?: { emailType: string; referenceId?: string };
 }
 
-export const sendEmail = async (options: EmailOptions): Promise<void> => {
-  try {
-    if (isGraphConfigured()) {
-      await sendEmailViaGraph(options);
-      return;
-    }
+// ── Suppression check ────────────────────────────────────────────────────────
 
-    // Fallback to SMTP (dev/local)
-    const transporter = createSmtpTransporter();
-    const info = await transporter.sendMail({
-      from: process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@pilloto.com',
-      to: options.to,
-      subject: options.subject,
-      html: options.html,
-      text: options.text
-    });
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Preview URL: %s', nodemailer.getTestMessageUrl(info));
-    }
-  } catch (error) {
-    console.error('Email send error:', error);
-    throw new Error('Email could not be sent');
+async function isSuppressed(email: string): Promise<boolean> {
+  const lower = email.toLowerCase().trim();
+  const record = await EmailSuppression.findOne({ email: lower }).lean();
+  return !!record;
+}
+
+// ── From address builder ─────────────────────────────────────────────────────
+
+async function buildFromAddress(fromAddress: string): Promise<string> {
+  const tid = getTenantId()?.toString();
+  if (!tid) return `"Pilloto" <${fromAddress}>`;
+  try {
+    const tenant = await Tenant.findById(tid).select('name').lean();
+    const tenantName = (tenant as any)?.name ?? 'Pilloto';
+    return `"${tenantName} via Pilloto" <${fromAddress}>`;
+  } catch {
+    return `"Pilloto" <${fromAddress}>`;
   }
+}
+
+// ── Core send wrapper ────────────────────────────────────────────────────────
+
+export const sendEmail = async (options: EmailOptions): Promise<string> => {
+  const emailType = options._logMeta?.emailType ?? 'unknown';
+  const referenceId = options._logMeta?.referenceId ?? null;
+
+  const suppressed = await isSuppressed(options.to);
+  if (suppressed) {
+    console.log(JSON.stringify({ emailEvent: 'suppressed', emailType, referenceId }));
+    return '';
+  }
+
+  const FROM_ADDRESS = getFromAddress();
+  const source = await buildFromAddress(FROM_ADDRESS);
+
+  const input: SendEmailCommandInput = {
+    Source: source,
+    Destination: { ToAddresses: [options.to] },
+    Message: {
+      Subject: { Data: options.subject, Charset: 'UTF-8' },
+      Body: {
+        Html: { Data: options.html, Charset: 'UTF-8' },
+        Text: {
+          Data: options.text || options.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+          Charset: 'UTF-8',
+        },
+      },
+    },
+    ...(getConfigurationSet() && { ConfigurationSetName: getConfigurationSet() }),
+    ...(options.replyTo && { ReplyToAddresses: [options.replyTo] }),
+  };
+
+  let attempt = 0;
+  const maxRetries = 3;
+
+  while (attempt <= maxRetries) {
+    try {
+      const response = await getSesClient().send(new SendEmailCommand(input));
+      const messageId = response.MessageId ?? 'unknown';
+      console.log(JSON.stringify({ emailEvent: 'sent', emailType, referenceId, sesMessageId: messageId }));
+      return messageId;
+    } catch (err: any) {
+      const isThrottle = err instanceof SESServiceException && THROTTLE_CODES.has(err.name);
+      if (isThrottle && attempt < maxRetries) {
+        const delay = Math.pow(2, attempt) * 500;
+        attempt++;
+        console.log(JSON.stringify({ emailEvent: 'retry', emailType, attempt, errorCode: err.name, errorMessage: err.message }));
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        const errorCode = err instanceof SESServiceException ? err.name : 'UnknownError';
+        const errorMessage = err?.message ?? String(err);
+        console.error(JSON.stringify({ emailEvent: 'failed', emailType, referenceId, errorCode, errorMessage }));
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('SES send error detail:', err);
+        }
+        throw new Error(`Email send failed [${errorCode}]: ${errorMessage}`);
+      }
+    }
+  }
+
+  throw new Error('Email send: max retries exceeded');
 };
+
+// ── Tenant helpers ────────────────────────────────────────────────────────────
+
+interface TenantEmailConfig {
+  fromDisplayName?: string;
+  replyTo?: string;
+  footerHtml?: string;
+  footerText?: string;
+}
+
+async function getTenantEmailConfig(): Promise<TenantEmailConfig> {
+  try {
+    const settings = await AppSettings.findOne({ key: 'global' }).lean<any>();
+    return settings?.emailSettings ?? {};
+  } catch {
+    return {};
+  }
+}
+
+async function getTenantInfo(): Promise<{ name: string; logoUrl?: string; currency?: string }> {
+  const tid = getTenantId()?.toString();
+  if (!tid) return { name: 'Pilloto' };
+  try {
+    const tenant = await Tenant.findById(tid).select('name settings').lean();
+    return {
+      name: (tenant as any)?.name ?? 'Pilloto',
+      logoUrl: (tenant as any)?.settings?.logoUrl,
+      currency: (tenant as any)?.settings?.currency,
+    };
+  } catch {
+    return { name: 'Pilloto' };
+  }
+}
+
+// ── Public email functions ────────────────────────────────────────────────────
 
 export const sendVerificationEmail = async (user: any, token: string): Promise<void> => {
   const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${token}`;
+  const year = new Date().getFullYear();
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-    <title>Verifica tu correo electrónico - Pilloto</title>
-        <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #f8f9fa; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-            .content { background: #fff; padding: 30px; border: 1px solid #e9ecef; }
-            .footer { background: #f8f9fa; padding: 15px; text-align: center; border-radius: 0 0 8px 8px; }
-            .btn { display: inline-block; padding: 12px 24px; background: #28a745; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-            .btn:hover { background: #218838; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-        <h1>Verifica tu dirección de correo</h1>
-            </div>
-            <div class="content">
-        <h2>Hola ${user.firstName},</h2>
-        <p>Por favor verifica tu correo electrónico haciendo clic en el botón de abajo:</p>
-        <p>Esto confirma que eres el propietario del correo y podrás usarlo de forma segura en tu cuenta.</p>
-                
-                <div style="text-align: center;">
-          <a href="${verifyUrl}" class="btn">Verificar correo electrónico</a>
-                </div>
-                
-        <p>Si el botón no funciona, puedes copiar y pegar el siguiente enlace en tu navegador:</p>
-                <p style="word-break: break-all; background: #f8f9fa; padding: 10px; border-radius: 4px;">${verifyUrl}</p>
-                
-        <p><strong>Importante:</strong> Este enlace de verificación expirará en 24 horas.</p>
-                
-        <p>Si no solicitaste esto, por favor ignora este correo.</p>
-                
-        <p>Saludos cordiales,<br>El equipo de Pilloto</p>
-            </div>
-            <div class="footer">
-        <p>&copy; 2024 Pilloto. Todos los derechos reservados.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-  `;
+  const html = '<!DOCTYPE html>'
+    + '<html lang="es"><head><meta charset="UTF-8" /><title>Verifica tu correo - Pilloto</title></head>'
+    + '<body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f4f4f4;">'
+    + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background:#f4f4f4;">'
+    + '<tr><td align="center" style="padding:24px 12px;">'
+    + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:#ffffff;border-radius:6px;border:1px solid #e0e0e0;">'
+    + '<tr><td style="background:#2E7D32;padding:24px;text-align:center;border-radius:6px 6px 0 0;">'
+    + '<p style="margin:0;font-size:22px;font-weight:bold;color:#ffffff;">Pilloto</p>'
+    + '<p style="margin:6px 0 0;font-size:13px;color:#c8e6c9;">Verificación de correo electrónico</p>'
+    + '</td></tr>'
+    + '<tr><td style="padding:32px 40px;">'
+    + '<p style="font-size:15px;margin:0 0 12px;">Hola <strong>' + user.firstName + '</strong>,</p>'
+    + '<p style="font-size:14px;color:#555;margin:0 0 24px;">Por favor verifica tu correo haciendo clic en el botón de abajo.</p>'
+    + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">'
+    + '<tr><td align="center">'
+    + '<a href="' + verifyUrl + '" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:12px 32px;background:#2E7D32;color:#ffffff;text-decoration:none;border-radius:4px;font-size:15px;font-weight:bold;">Verificar correo</a>'
+    + '</td></tr></table>'
+    + '<p style="font-size:13px;color:#777;margin:24px 0 6px;">Si el botón no funciona, copia este enlace:</p>'
+    + '<p style="font-size:12px;background:#f5f5f5;padding:10px;border-radius:4px;word-break:break-all;">' + verifyUrl + '</p>'
+    + '<p style="font-size:13px;color:#777;margin:16px 0 0;">Este enlace expira en <strong>24 horas</strong>. Si no solicitaste esto, ignora este correo.</p>'
+    + '</td></tr>'
+    + '<tr><td style="background:#fafafa;border-top:1px solid #eee;padding:16px;text-align:center;">'
+    + '<p style="margin:0;font-size:11px;color:#aaa;">&copy; ' + year + ' Pilloto. Todos los derechos reservados.</p>'
+    + '<p style="margin:4px 0 0;font-size:11px;color:#aaa;">Correo transaccional. <a href="mailto:noreply@pilloto.com?subject=unsubscribe" style="color:#aaa;">Cancelar suscripción</a></p>'
+    + '</td></tr>'
+    + '</table>'
+    + '</td></tr></table>'
+    + '</body></html>';
 
-  const text = `
-  Verifica tu correo electrónico - Pilloto
-    
-  Hola ${user.firstName},
-    
-  Por favor verifica tu correo visitando el siguiente enlace:
-    
-  ${verifyUrl}
-    
-  Este enlace de verificación expirará en 24 horas.
-    
-  Si no solicitaste esto, por favor ignora este correo.
-    
-  Saludos cordiales,
-  El equipo de Pilloto
-  `;
+  const text = 'Verificación de correo - Pilloto\n\nHola ' + user.firstName + ',\n\nVerifica tu correo visitando:\n' + verifyUrl + '\n\nEste enlace expira en 24 horas. Si no solicitaste esto, ignora este correo.';
 
   await sendEmail({
     to: user.pendingEmail || user.email,
-  subject: 'Verifica tu correo electrónico - Pilloto',
+    subject: 'Verifica tu correo electrónico - Pilloto',
     html,
-    text
+    text,
+    _logMeta: { emailType: 'email_verification' },
   });
 };
 
 export const sendPasswordResetEmail = async (user: any, token: string): Promise<void> => {
   const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
+  const year = new Date().getFullYear();
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-    <title>Restablecer contraseña - Pilloto</title>
-        <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #f8f9fa; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-            .content { background: #fff; padding: 30px; border: 1px solid #e9ecef; }
-            .footer { background: #f8f9fa; padding: 15px; text-align: center; border-radius: 0 0 8px 8px; }
-            .btn { display: inline-block; padding: 12px 24px; background: #dc3545; color: white; text-decoration: none; border-radius: 5px; margin: 20px 0; }
-            .btn:hover { background: #c82333; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-        <h1>Solicitud de restablecimiento de contraseña</h1>
-            </div>
-            <div class="content">
-        <h2>Hola ${user.firstName},</h2>
-        <p>Has solicitado restablecer la contraseña de tu cuenta de Pilloto. Haz clic en el botón para restablecerla:</p>
-                
-                <div style="text-align: center;">
-          <a href="${resetUrl}" class="btn">Restablecer contraseña</a>
-                </div>
-                
-        <p>Si el botón no funciona, puedes copiar y pegar el siguiente enlace en tu navegador:</p>
-                <p style="word-break: break-all; background: #f8f9fa; padding: 10px; border-radius: 4px;">${resetUrl}</p>
-                
-        <p><strong>Importante:</strong> Este enlace de restablecimiento expirará en 1 hora por razones de seguridad.</p>
-                
-        <p>Si no solicitaste el restablecimiento, por favor ignora este correo. Tu contraseña permanecerá sin cambios.</p>
-                
-        <p>Saludos cordiales,<br>El equipo de Pilloto</p>
-            </div>
-            <div class="footer">
-        <p>&copy; 2024 Pilloto. Todos los derechos reservados.</p>
-            </div>
-        </div>
-    </body>
-    </html>
-  `;
+  const html = '<!DOCTYPE html>'
+    + '<html lang="es"><head><meta charset="UTF-8" /><title>Restablecer contraseña - Pilloto</title></head>'
+    + '<body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f4f4f4;">'
+    + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background:#f4f4f4;">'
+    + '<tr><td align="center" style="padding:24px 12px;">'
+    + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:#ffffff;border-radius:6px;border:1px solid #e0e0e0;">'
+    + '<tr><td style="background:#c62828;padding:24px;text-align:center;border-radius:6px 6px 0 0;">'
+    + '<p style="margin:0;font-size:22px;font-weight:bold;color:#ffffff;">Pilloto</p>'
+    + '<p style="margin:6px 0 0;font-size:13px;color:#ffcdd2;">Restablecimiento de contraseña</p>'
+    + '</td></tr>'
+    + '<tr><td style="padding:32px 40px;">'
+    + '<p style="font-size:15px;margin:0 0 12px;">Hola <strong>' + user.firstName + '</strong>,</p>'
+    + '<p style="font-size:14px;color:#555;margin:0 0 24px;">Recibimos una solicitud para restablecer tu contraseña.</p>'
+    + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">'
+    + '<tr><td align="center">'
+    + '<a href="' + resetUrl + '" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:12px 32px;background:#c62828;color:#ffffff;text-decoration:none;border-radius:4px;font-size:15px;font-weight:bold;">Restablecer contraseña</a>'
+    + '</td></tr></table>'
+    + '<p style="font-size:13px;color:#777;margin:24px 0 6px;">Si el botón no funciona, copia este enlace:</p>'
+    + '<p style="font-size:12px;background:#f5f5f5;padding:10px;border-radius:4px;word-break:break-all;">' + resetUrl + '</p>'
+    + '<p style="font-size:13px;color:#777;margin:16px 0 0;">Este enlace expira en <strong>1 hora</strong>. Si no solicitaste esto, ignora este correo.</p>'
+    + '</td></tr>'
+    + '<tr><td style="background:#fafafa;border-top:1px solid #eee;padding:16px;text-align:center;">'
+    + '<p style="margin:0;font-size:11px;color:#aaa;">&copy; ' + year + ' Pilloto. Todos los derechos reservados.</p>'
+    + '<p style="margin:4px 0 0;font-size:11px;color:#aaa;">Correo transaccional. <a href="mailto:noreply@pilloto.com?subject=unsubscribe" style="color:#aaa;">Cancelar suscripción</a></p>'
+    + '</td></tr>'
+    + '</table>'
+    + '</td></tr></table>'
+    + '</body></html>';
 
-  const text = `
-  Solicitud de restablecimiento de contraseña
-    
-  Hola ${user.firstName},
-    
-  Has solicitado restablecer la contraseña de tu cuenta de Pilloto. Visita el siguiente enlace para restablecerla:
-    
-  ${resetUrl}
-    
-  Este enlace expirará en 1 hora por razones de seguridad.
-    
-  Si no solicitaste el restablecimiento, por favor ignora este correo.
-    
-  Saludos cordiales,
-  El equipo de Pilloto
-  `;
+  const text = 'Restablecimiento de contraseña - Pilloto\n\nHola ' + user.firstName + ',\n\nRestablece tu contraseña visitando:\n' + resetUrl + '\n\nEste enlace expira en 1 hora. Si no solicitaste esto, ignora este correo.';
 
   await sendEmail({
     to: user.email,
-  subject: 'Solicitud de restablecimiento de contraseña - Pilloto',
+    subject: 'Restablecimiento de contraseña - Pilloto',
     html,
-    text
+    text,
+    _logMeta: { emailType: 'password_reset' },
   });
 };
 
 export const sendReservationConfirmationEmail = async (reservation: any): Promise<void> => {
-  const reservationUrl = `${process.env.FRONTEND_URL}/reservation/code/${reservation.reservationCode}`;
-  const currentYear = new Date().getFullYear();
+  const contactEmail = reservation.contactInfo?.email;
+  if (!contactEmail) return;
 
-  // Determine guest name: prefer reservation.guestName, then user, else generic
-  const guestName = (reservation.guestName && reservation.guestName.firstName && reservation.guestName.lastName)
-    ? `${reservation.guestName.firstName} ${reservation.guestName.lastName}`
-    : (reservation.user ? `${reservation.user.firstName} ${reservation.user.lastName}` : 'Huésped');
+  const [tenantInfo, emailCfg] = await Promise.all([getTenantInfo(), getTenantEmailConfig()]);
 
-  const firstName = (reservation.guestName && reservation.guestName.firstName)
-    ? reservation.guestName.firstName
-    : (reservation.user ? reservation.user.firstName : 'Huésped');
-
-  // Format dates
-  const checkInDate = new Date(reservation.checkInDate).toLocaleDateString('es-ES', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
+  const { html, text } = renderReservationConfirmation({
+    reservation,
+    tenantName: emailCfg.fromDisplayName || tenantInfo.name,
+    tenantLogoUrl: tenantInfo.logoUrl,
+    currency: tenantInfo.currency,
+    customFooterHtml: emailCfg.footerHtml,
+    customFooterText: emailCfg.footerText,
   });
 
-  const checkOutDate = reservation.checkOutDate 
-    ? new Date(reservation.checkOutDate).toLocaleDateString('es-ES', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      })
-    : null;
+  await sendEmail({
+    to: contactEmail,
+    subject: 'Reserva confirmada - ' + (emailCfg.fromDisplayName || tenantInfo.name) + ' (' + (reservation.reservationCode || '') + ')',
+    html,
+    text,
+    replyTo: emailCfg.replyTo,
+    _logMeta: { emailType: 'reservation_confirmation', referenceId: String(reservation._id) },
+  });
+};
 
-  // Build reservation details based on type
-  let reservationDetails = '';
-  let reservationTypeLabel = '';
+export const sendInvoiceEmail = async (folioId: string | mongoose.Types.ObjectId): Promise<void> => {
+  const folio = await Folio.findById(folioId).lean();
+  if (!folio) throw new Error('Folio not found: ' + folioId);
 
-  if (reservation.type === 'room') {
-    reservationTypeLabel = 'Reserva de habitación';
-    reservationDetails = `
-      <p><strong>Check-in:</strong> ${checkInDate}</p>
-      <p><strong>Check-out:</strong> ${checkOutDate}</p>
-      <p><strong>Noches:</strong> ${reservation.totalNights}</p>
-    `;
-  } else if (reservation.type === 'daypass') {
-    reservationTypeLabel = 'Reserva Day Pass';
-    reservationDetails = `
-      <p><strong>Fecha de visita:</strong> ${checkInDate}</p>
-    `;
-  } else if (reservation.type === 'event') {
-    reservationTypeLabel = 'Reserva de evento';
-    reservationDetails = `
-      <p><strong>Tipo de evento:</strong> ${reservation.eventType ? (reservation.eventType.charAt(0).toUpperCase() + reservation.eventType.slice(1)) : 'Evento'}</p>
-      <p><strong>Fecha del evento:</strong> ${checkInDate}</p>
-      ${checkOutDate ? `<p><strong>Fecha de finalización:</strong> ${checkOutDate}</p>` : ''}
-      <p><strong>Asistentes esperados:</strong> ${reservation.expectedAttendees || reservation.guests}</p>
-      <p><strong>Descripción:</strong> ${reservation.eventDescription || 'N/D'}</p>
-    `;
-  }
+  const reservation = await Reservation.findById(folio.reservationId)
+    .populate('user', 'firstName lastName email')
+    .populate('rooms', 'name')
+    .populate('room', 'name')
+    .lean<any>();
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <title>Confirmación de reserva - Pilloto</title>
-        <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: #28a745; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-            .content { background: #fff; padding: 30px; border: 1px solid #e9ecef; }
-            .footer { background: #f8f9fa; padding: 15px; text-align: center; border-radius: 0 0 8px 8px; }
-            .btn { display: inline-block; padding: 12px 24px; background: #28a745; color: #ffffff !important; text-decoration: none !important; border-radius: 5px; margin: 20px 10px; cursor: pointer; }
-            .btn-cancel { background: #dc3545; color: #ffffff !important; }
-            .btn:hover { opacity: 0.9; }
-            .summary-box { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0; }
-            .total-price { font-size: 24px; color: #28a745; font-weight: bold; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <h1>✓ ¡Reserva confirmada!</h1>
-            </div>
-            <div class="content">
-                <h2>Hola ${firstName},</h2>
-                <p>¡Gracias por elegir Pilloto! Tu ${reservationTypeLabel.toLowerCase()} ha sido confirmada.</p>
-                
-                <div class="summary-box">
-                    <h3>${reservationTypeLabel}</h3>
-                    ${reservationDetails}
-                    <p><strong>Nombre del huésped:</strong> ${guestName}</p>
-                    <p><strong>Huéspedes:</strong> ${reservation.guestDetails.adults} Adultos, ${reservation.guestDetails.children} Niños, ${reservation.guestDetails.infants} Bebés</p>
-                    <p><strong>Contacto:</strong> ${reservation.contactInfo.email} | ${reservation.contactInfo.phone}</p>
-                    ${reservation.specialRequests ? `<p><strong>Solicitudes especiales:</strong> ${reservation.specialRequests}</p>` : ''}
-                    <hr>
-                    <p class="total-price">Total: $${reservation.totalPrice.toFixed(2)}</p>
-                    <p><strong>Estado:</strong> ${reservation.status.charAt(0).toUpperCase() + reservation.status.slice(1)}</p>
-                    ${reservation.reservationCode ? `<p><strong>Código de reserva:</strong> ${reservation.reservationCode}</p>` : ''}
-                </div>
-                
-                <div style="text-align: center;">
-                  <a href="${reservationUrl}" class="btn" style="color:#ffffff !important;" target="_blank" rel="noopener noreferrer">Ver reserva</a>
-                </div>
-                
-                <p><strong>Información importante:</strong></p>
-                <ul>
-                    <li>Por favor llega a la hora de check-in especificada</li>
-                    <li>Lleva una identificación válida para el check-in</li>
-                    <li>Las cancelaciones deben realizarse al menos con 24 horas de anticipación</li>
-                    <li>Contáctanos en info@pilloto.com para cualquier pregunta</li>
-                </ul>
-                
-                <p>¡Esperamos darte la bienvenida en Pilloto!</p>
-                
-                <p>Saludos cordiales,<br>El equipo de Pilloto</p>
-            </div>
-            <div class="footer">
-              <p>&copy; ${currentYear} Pilloto. Todos los derechos reservados.</p>
-                <p>¿Necesitas ayuda? Contáctanos en info@pilloto.com o llama al +1-234-567-8900</p>
-            </div>
-        </div>
-    </body>
-    </html>
-  `;
+  if (!reservation) throw new Error('Reservation not found for folio ' + folioId);
 
-  const text = `
-    Reserva confirmada - Pilloto
-    
-    Hola ${firstName},
-    
-    ¡Gracias por elegir Pilloto! Tu ${reservationTypeLabel.toLowerCase()} ha sido confirmada.
-    
-    RESUMEN DE LA RESERVA
-    ----------------------
-    ${reservationTypeLabel}
-    ${reservation.type === 'room' ? `Check-in: ${checkInDate}\nCheck-out: ${checkOutDate}\nNoches: ${reservation.totalNights}` : ''}
-    ${reservation.type === 'daypass' ? `Fecha de visita: ${checkInDate}` : ''}
-    ${reservation.type === 'event' ? `Tipo de evento: ${reservation.eventType}\nFecha del evento: ${checkInDate}\nAsistentes esperados: ${reservation.expectedAttendees || reservation.guests}` : ''}
-    
-    Nombre del huésped: ${guestName}
-    Huéspedes: ${reservation.guestDetails.adults} Adultos, ${reservation.guestDetails.children} Niños, ${reservation.guestDetails.infants} Bebés
-    Contacto: ${reservation.contactInfo.email} | ${reservation.contactInfo.phone}
-    
-    Total: $${reservation.totalPrice.toFixed(2)}
-    Estado: ${reservation.status.charAt(0).toUpperCase() + reservation.status.slice(1)}
-    ${reservation.reservationCode ? `Código de reserva: ${reservation.reservationCode}` : ''}
-    
-    Ver tu reserva:
-    ${reservationUrl}
-    
-    INFORMACIÓN IMPORTANTE:
-    - Por favor llega a la hora de check-in especificada
-    - Lleva una identificación válida para el check-in
-    - Las cancelaciones deben realizarse al menos con 24 horas de anticipación
-    - Contáctanos en info@pilloto.com para cualquier pregunta
-    
-    ¡Esperamos darte la bienvenida en Pilloto!
-    
-    Saludos cordiales,
-    El equipo de Pilloto
-  `;
+  const contactEmail = reservation.contactInfo?.email;
+  if (!contactEmail) return;
+
+  const [chargesRaw, paymentsRaw, tenantInfo, emailCfg] = await Promise.all([
+    Charge.find({ folioId }).lean(),
+    Payment.find({ folioId }).lean(),
+    getTenantInfo(),
+    getTenantEmailConfig(),
+  ]);
+
+  const charges = (chargesRaw as any[]).map(c => ({
+    description: c.description,
+    amount: c.amount,
+    category: c.category,
+  }));
+  const payments = (paymentsRaw as any[]).map(p => ({
+    amount: p.amount,
+    method: p.method,
+    status: p.status,
+    reference: p.reference,
+    createdAt: p.createdAt,
+  }));
+
+  const activePayments = payments.filter(p => p.status !== 'reversed');
+  const totalCharges = charges.reduce((sum, c) => sum + c.amount, 0);
+  const totalPayments = activePayments.reduce((sum, p) => sum + p.amount, 0);
+  const balance = Math.max(0, totalCharges - totalPayments);
+
+  const guestName =
+    reservation.guestName?.firstName && reservation.guestName?.lastName
+      ? reservation.guestName.firstName + ' ' + reservation.guestName.lastName
+      : reservation.user
+        ? reservation.user.firstName + ' ' + reservation.user.lastName
+        : 'Huesped';
+
+  const typeLabels: Record<string, string> = {
+    room: 'Reserva de habitacion',
+    daypass: 'Day Pass',
+    PasaTarde: 'Pasa Tarde',
+    event: 'Reserva de evento',
+  };
+
+  const { html, text } = renderInvoice({
+    reservationCode: reservation.reservationCode ?? String(reservation._id),
+    guestName,
+    checkInDate: reservation.checkInDate,
+    checkOutDate: reservation.checkOutDate,
+    reservationType: typeLabels[reservation.type] ?? reservation.type,
+    charges,
+    payments,
+    totalCharges,
+    totalPayments,
+    balance,
+    tenantName: emailCfg.fromDisplayName || tenantInfo.name,
+    tenantLogoUrl: tenantInfo.logoUrl,
+    currency: tenantInfo.currency,
+    customFooterHtml: emailCfg.footerHtml,
+    customFooterText: emailCfg.footerText,
+  });
 
   await sendEmail({
-    to: reservation.contactInfo.email,
-    subject: `Reserva confirmada - Pilloto (${reservation.reservationCode || 'CONFIRMADA'})`,
+    to: contactEmail,
+    subject: 'Factura - ' + (emailCfg.fromDisplayName || tenantInfo.name) + ' (' + (reservation.reservationCode || '') + ')',
     html,
-    text
+    text,
+    replyTo: emailCfg.replyTo,
+    _logMeta: { emailType: 'invoice', referenceId: String(folio._id) },
   });
 };

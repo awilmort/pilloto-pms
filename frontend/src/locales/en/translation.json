@@ -311,7 +311,9 @@
       },
       "form": {
         "name": "Name",
-        "description": "Description"
+        "description": "Description",
+        "discountLimit": "Max Discount (%)",
+        "discountLimitHint": "Maximum percentage this role can discount (0–100)"
       },
       "messages": {
         "loadFailed": "Failed to load roles",
@@ -325,6 +327,7 @@
         "reservationsManagePayments": "Reservations: Manage Payments",
         "reservationsPriceUpdate": "Reservations: Price Update",
         "reservationsAmountUpdate": "Reservations: Total Price Update",
+        "reservationsDiscount": "Reservations: Apply Discount",
         "reservationsCheckIn": "Reservations: Check-in",
         "reservationsCancel": "Reservations: Cancel",
         "wristbandsView": "Wristbands: View",
@@ -740,7 +743,11 @@
         "companyRequired": "Please select a company for the corporate booking.",
         "corporatePriceApplied": "A corporate rate has been applied for {{company}}.",
         "guestPriceApplied": "A special guest rate has been applied for {{email}}.",
-        "summaryTitle": "Reservation Summary"
+        "summaryTitle": "Reservation Summary",
+        "discount": "Discount",
+        "calculatingPrice": "Calculating price...",
+        "pricePreview": "Price Preview",
+        "basePrice": "Base"
       },
       "none": "None",
       "tooltips": {
@@ -781,7 +788,14 @@
       "checkout": {
         "title": "Check-Out",
         "confirm": "Confirm the guest is checking out.",
-        "confirmButton": "Confirm Check-Out"
+        "confirmButton": "Confirm Check-Out",
+        "totalCharges": "Total charges",
+        "paymentsMade": "Payments made",
+        "remainingBalance": "Balance due",
+        "availableCredit": "Credit available",
+        "addPayment": "Add Payment",
+        "useCredit": "Use Credit & Check Out",
+        "pendingHint": "There is an outstanding balance. Please collect payment or apply available credit before checking out."
       },
       "financial": {
         "estimatedTotal": "Estimated Total",
@@ -908,11 +922,46 @@
         "amenities": "Amenities",
         "eventTypes": "Event Types",
         "roles": "Roles",
-        "media": "Media"
+        "media": "Media",
+        "nightAudit": "Night Audit",
+        "email": "Email",
+        "checkout": "Check-Out"
       },
       "sections": {
         "heading": "Menu Sections",
         "description": "Choose which sections appear in the admin sidebar navigation."
+      },
+      "nightAudit": {
+        "heading": "Night Audit Worker",
+        "description": "The night audit runs automatically to post nightly charges based on active charge rules. You can enable or disable it and optionally override the run schedule.",
+        "enabled": "Enable night audit",
+        "schedule": "Run time",
+        "scheduleHint": "The audit runs automatically once at this hour each day."
+      },
+      "email": {
+        "heading": "Email Settings",
+        "description": "Customise the display name, reply-to address, and footer appended to every outgoing email.",
+        "fromDisplayName": "Sender display name",
+        "fromDisplayNameHint": "Shown as the sender name, e.g. \"Banana Ranch via Pilloto\"",
+        "replyTo": "Reply-to address",
+        "replyToHint": "Replies from guests will go here instead of the sending address.",
+        "footerHtml": "Footer HTML",
+        "footerHtmlHint": "HTML appended to every email footer. Only basic tags are allowed (p, br, strong, em, a, ul, ol, li).",
+        "footerText": "Footer plain text",
+        "footerTextHint": "Plain-text version of the footer for email clients that do not render HTML."
+      },
+      "checkout": {
+        "heading": "Check-Out Settings",
+        "description": "Set the standard time guests must check out. This is used as the baseline for late checkout detection in auto-charge policies.",
+        "checkoutTime": "Check-out time",
+        "checkoutTimeHint": "Guests are expected to check out by this time. Auto-charge policies use this as the reference point."
+      },
+      "errors": {
+        "loadFailed": "Failed to load settings",
+        "saveFailed": "Failed to save settings"
+      },
+      "messages": {
+        "saved": "Settings saved"
       }
     },
     "cashierClosures": {
@@ -987,6 +1036,12 @@
       "printFolio": "Print Folio",
       "printPaymentSummary": "Print Payment Summary",
       "printReceipt": "Print Receipt",
+      "sendEmail": "Send Email",
+      "sendConfirmation": "Send Confirmation Email",
+      "sendInvoice": "Send Invoice Email",
+      "emailSent": "Email sent successfully",
+      "emailSendFailed": "Failed to send email",
+      "emailNoAddress": "No contact email address on this reservation",
       "docs": {
         "popupBlocked": "Pop-ups are blocked. Please allow pop-ups for this site to enable printing.",
         "printedOn": "Printed on",
@@ -1781,5 +1836,89 @@
     "editGuest": "Edit Guest",
     "deleteConfirm": "Are you sure you want to delete this guest record?",
     "total": "guests"
+  },
+  "marketing": {
+    "nav": {
+      "features": "Features",
+      "pricing": "Pricing",
+      "contact": "Contact",
+      "signIn": "Sign in",
+      "getStarted": "Get started"
+    },
+    "hero": {
+      "badge": "Purpose-built for resort operations",
+      "headline": "The PMS that runs",
+      "headlineAccent": "your whole resort",
+      "body": "Reservations, day passes, events, wristbands, folio billing, and reporting — in one platform built for Caribbean hospitality.",
+      "ctaPricing": "See pricing",
+      "ctaDemo": "Request a demo",
+      "trustedBy": "Trusted by resort operators across the Caribbean"
+    },
+    "features": {
+      "heading": "Everything in one place",
+      "subheading": "From check-in to cashier closure, Pilloto covers the full daily workflow.",
+      "roomRate_title": "Room & Rate Management",
+      "roomRate_body": "Room types, rate plans, tiered occupancy pricing, seasonal rules — all unified.",
+      "bookingCal_title": "Booking Calendar",
+      "bookingCal_body": "A visual drag-and-drop calendar your whole team can work from.",
+      "folio_title": "Folio & Billing",
+      "folio_body": "Automatic folios, charge rules, taxes, and end-of-day cashier closures.",
+      "guestProfiles_title": "Guest Profiles",
+      "guestProfiles_body": "Centralised guest records with stay history and communication log.",
+      "dayPass_title": "Day Pass Sales",
+      "dayPass_body": "Sell day passes and evening passes directly from your PMS.",
+      "events_title": "Events Module",
+      "events_body": "Plan and manage on-property events with dedicated tools.",
+      "reporting_title": "Revenue Reporting",
+      "reporting_body": "Occupancy rates, revenue breakdowns, and cashier closure reports.",
+      "roles_title": "Roles & Permissions",
+      "roles_body": "Fine-grained access control for front desk, cashiers, and managers."
+    },
+    "pricing": {
+      "heading": "Simple, transparent pricing",
+      "subheading": "No setup fees. No long-term contracts. Cancel anytime.",
+      "mostPopular": "Most popular",
+      "perMonth": "/mo",
+      "ctaContactSales": "Contact Sales",
+      "trialNotice": "All plans include a 14-day free trial. No credit card required.",
+      "basic_desc": "Everything a small property needs to run daily operations.",
+      "basic_features": ["Up to 20 rooms", "Reservations & booking calendar", "Guest profiles", "Room & rate management", "Media library", "Email notifications", "Basic reporting"],
+      "pro_desc": "For growing resorts that sell day passes and manage events.",
+      "pro_features": ["Everything in Basic", "Up to 80 rooms", "Day-pass & evening-pass sales", "Events module", "Wristband tracking", "Charge rules & folios", "Revenue dashboard"],
+      "enterprise_desc": "Full operations suite for large resorts and hotel groups.",
+      "enterprise_features": ["Everything in Pro", "Unlimited rooms", "Agent commissions", "Corporate credit accounts", "Night audit", "Custom roles & permissions", "Dedicated onboarding"]
+    },
+    "cta": {
+      "heading": "Ready to modernize your property?",
+      "body": "Get in touch — we'll have your property live in minutes.",
+      "contactUs": "Contact us",
+      "viewPlans": "View plans"
+    },
+    "contact": {
+      "label": "Get in touch",
+      "heading": "Let's talk about your property",
+      "subheading": "Tell us about your resort and we'll help you find the right plan. We'll get back to you within one business day.",
+      "phone": "Phone",
+      "email": "Email",
+      "responsetime": "Available plans",
+      "formTitle": "Send us a message",
+      "formSubtitle": "Fill in the form below and we'll get in touch right away.",
+      "fieldName": "Full name",
+      "fieldEmail": "Email",
+      "fieldPhone": "Phone number",
+      "fieldPhoneHint": "Optional",
+      "fieldPlan": "Plan of interest",
+      "fieldMessage": "Message",
+      "fieldMessageHint": "Tell us about your property — number of rooms, current PMS, any special requirements…",
+      "submitButton": "Send message",
+      "sending": "Sending…",
+      "successTitle": "Message sent!",
+      "successBody": "Thanks for reaching out. We'll review your message and get back to you within one business day.",
+      "backToSite": "Back to website",
+      "errorGeneric": "Failed to send message. Please try again or email us directly at info@pilloto.com."
+    },
+    "footer": {
+      "copyright": "© {{year}} Pilloto. All rights reserved."
+    }
   }
 }

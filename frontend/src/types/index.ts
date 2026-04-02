@@ -158,7 +158,7 @@ export interface Reservation {
   estimatedTotal: number;
   totalPrice?: number; // compatibility alias
   totalPayments?: number;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'checked-in' | 'completed';
   paymentMethod?: string;
   payments?: Payment[];
 
@@ -368,6 +368,8 @@ export interface AuthContextType {
   logout: () => Promise<void>;
   loading: boolean;
   permissions: string[];
+  /** Max discount % the current user is allowed to apply (0 = none). Derived from their Role's discountLimit. */
+  discountLimit: number;
   refreshUser: () => Promise<void>;
 }
 

@@ -102,8 +102,14 @@ export interface IReservation extends Document {
   };
   estimatedTotal: number;
   totalPrice?: number; // compatibility alias (virtual)
+  /** Absolute amount discounted from the calculated total. Immutable after creation. */
+  discountAmount?: number;
+  /** Percentage applied to derive discountAmount. For audit only. */
+  discountPercent?: number;
+  /** Staff-entered reason for the discount. */
+  discountReason?: string;
   totalPayments: number;
-  status: 'pending' | 'confirmed' | 'cancelled' | 'completed';
+  status: 'pending' | 'confirmed' | 'cancelled' | 'checked-in' | 'completed';
 
   // Contact and requests
   contactInfo: {
@@ -297,6 +303,9 @@ const reservationSchema = new Schema<IReservation>({
     required: true,
     min: 0
   },
+  discountAmount:  { type: Number, min: 0, default: 0 },
+  discountPercent: { type: Number, min: 0, max: 100, default: 0 },
+  discountReason:  { type: String, trim: true, maxlength: 300, default: '' },
   totalPayments: {
     type: Number,
     required: true,
@@ -305,7 +314,7 @@ const reservationSchema = new Schema<IReservation>({
   },
   status: {
     type: String,
-    enum: ['pending', 'confirmed', 'cancelled', 'completed'],
+    enum: ['pending', 'confirmed', 'cancelled', 'checked-in', 'completed'],
     default: 'pending'
   },
 
@@ -468,7 +477,51 @@ reservationSchema.virtual('primaryKind').get(function (this: IReservation) {
   return 'mixed';
 });
 
+// ── Status normalization ─────────────────────────────────────
+// Ensures status is always consistent with actualCheckInAt/actualCheckOutAt.
+// This guards against code paths that set timestamps without updating status.
+reservationSchema.pre('save', function (next) {
+  if (this.status === 'cancelled') { next(); return; }
+  if (this.actualCheckOutAt) {
+    this.status = 'completed';
+  } else if (this.actualCheckInAt && (this.status === 'pending' || this.status === 'confirmed')) {
+    this.status = 'checked-in';
+  }
+  next();
+});
+
 // ── Multi-tenancy ────────────────────────────────────────────
 reservationSchema.plugin(tenantPlugin);
 
-export default mongoose.model<IReservation>('Reservation', reservationSchema);
+const ReservationModel = mongoose.model<IReservation>('Reservation', reservationSchema);
+
+/**
+ * One-time migration: fix documents where check-in/check-out timestamps were
+ * recorded but the status field was never updated (legacy data from before
+ * the status-normalization hook was added).
+ */
+export async function migrateReservationStatuses(): Promise<void> {
+  const [checkedIn, checkedOut] = await Promise.all([
+    ReservationModel.updateMany(
+      {
+        actualCheckInAt: { $exists: true, $ne: null },
+        actualCheckOutAt: { $exists: false },
+        status: { $in: ['pending', 'confirmed'] },
+      },
+      { $set: { status: 'checked-in' } },
+    ),
+    ReservationModel.updateMany(
+      {
+        actualCheckOutAt: { $exists: true, $ne: null },
+        status: { $in: ['pending', 'confirmed', 'checked-in'] },
+      },
+      { $set: { status: 'completed' } },
+    ),
+  ]);
+  const total = checkedIn.modifiedCount + checkedOut.modifiedCount;
+  if (total > 0) {
+    console.log(`🔄 Reservation status migration: fixed ${checkedIn.modifiedCount} checked-in, ${checkedOut.modifiedCount} completed document(s)`);
+  }
+}
+
+export default ReservationModel;

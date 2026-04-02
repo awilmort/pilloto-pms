@@ -54,6 +54,7 @@ import { Reservation, Company, RoomType } from '../../../types';
 import { reservationsService, roomsService, pricingService, companiesService, servicesService } from '../../../services/api';
 import type { ServiceRecord, ServiceKind } from '../../../services/api';
 import { useTranslation } from 'react-i18next';
+import { useAuth } from '../../../contexts/AuthContext';
 import NumberField from '../../common/NumberField';
 import DateRangePicker from '../../common/DateRangePicker';
 import { formatMoney } from '../../../utils/currency';
@@ -109,6 +110,10 @@ const CreateReservationDialog: React.FC<Props> = ({
   open, onClose, onCreated, onSnackbar, reservationServices,
 }) => {
   const { t } = useTranslation();
+  const { permissions, discountLimit } = useAuth();
+  const canDiscount = permissions.includes('admin.reservations.discount') && discountLimit > 0;
+
+  const [discountPercent, setDiscountPercent] = useState<number>(0);
 
   const [createStep, setCreateStep]     = useState<0 | 1 | 2 | 3>(0);
   const [createForm, setCreateForm]     = useState(DEFAULT_FORM);
@@ -258,6 +263,7 @@ const CreateReservationDialog: React.FC<Props> = ({
     setServiceOptions([]);
     setSelectedServiceId('');
     setServicePricePreview(null);
+    setDiscountPercent(0);
   };
 
   const handleClose = () => {
@@ -267,6 +273,13 @@ const CreateReservationDialog: React.FC<Props> = ({
 
   // Capacity helpers
   const totalBillableGuests = createForm.adults + createForm.children;
+  // Discount computation (service/daypass reservations)
+  const discountAmount = (canDiscount && discountPercent > 0 && servicePricePreview)
+    ? Math.round((discountPercent / 100) * servicePricePreview.finalTotal * 100) / 100
+    : 0;
+  const effectiveTotal = servicePricePreview
+    ? Math.max(0, servicePricePreview.finalTotal - discountAmount)
+    : 0;
   const selectedCapacity = selectedRooms.reduce((sum, r) => {
     const cap = (r.roomTypeId as any)?.capacity ?? (typeof r.roomTypeId === 'object' ? (r.roomTypeId as RoomType)?.capacity : undefined) ?? 1;
     return sum + cap;
@@ -333,6 +346,10 @@ const CreateReservationDialog: React.FC<Props> = ({
           totalTaxes:     servicePricePreview.totalTaxes,
           total:          servicePricePreview.finalTotal,
         }];
+        if (discountAmount > 0) {
+          payload.discountAmount  = discountAmount;
+          payload.discountPercent = discountPercent;
+        }
       }
       const res = await reservationsService.createReservation(payload);
       onCreated(res.data.data as Reservation);
@@ -694,16 +711,10 @@ const CreateReservationDialog: React.FC<Props> = ({
               </Box>
             )}
 
-            {createForm.type !== 'room' && selectedServiceId && (
-              <Box>
-                {servicePriceLoading && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <CircularProgress size={14} />
-                    <Typography variant="caption" color="text.secondary">{t('admin.reservations.create.calculatingPrice', 'Calculating price...')}</Typography>
-                  </Box>
-                )}
-                {!servicePriceLoading && servicePricePreview && (
-                  <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
+            {createForm.type !== 'room' && selectedServiceId && (servicePriceLoading || servicePricePreview) && (
+              <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5, opacity: servicePriceLoading ? 0.5 : 1, transition: 'opacity 0.15s' }}>
+                {servicePricePreview ? (
+                  <>
                     <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
                       {t('admin.reservations.create.pricePreview', 'Price Preview')}
                     </Typography>
@@ -720,12 +731,41 @@ const CreateReservationDialog: React.FC<Props> = ({
                       ))}
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 0.5, mt: 0.25, borderTop: 1, borderColor: 'divider' }}>
                         <Typography variant="body2" fontWeight={700}>{t('admin.reservations.form.totalPrice', 'Total')}</Typography>
-                        <Typography variant="body2" fontWeight={700} color="primary.main">{formatMoney(servicePricePreview.finalTotal)}</Typography>
+                        <Typography variant="body2" fontWeight={700} color="primary.main">{formatMoney(canDiscount && discountAmount > 0 ? effectiveTotal : servicePricePreview.finalTotal)}</Typography>
                       </Box>
+                      {canDiscount && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, pt: 0.5, mt: 0.25, borderTop: 1, borderColor: 'divider' }}>
+                          <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                            {t('admin.reservations.create.discount', 'Discount')} (0–{discountLimit}%)
+                          </Typography>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <input
+                              type="number"
+                              min={0}
+                              max={discountLimit}
+                              step={0.5}
+                              value={discountPercent}
+                              onChange={e => setDiscountPercent(Math.min(discountLimit, Math.max(0, Number(e.target.value) || 0)))}
+                              style={{ width: 60, fontSize: 13, padding: '2px 4px', borderRadius: 4, border: '1px solid #ccc' }}
+                            />
+                            <Typography variant="caption">%</Typography>
+                          </Box>
+                          {discountAmount > 0 && (
+                            <Typography variant="caption" color="error.main" sx={{ minWidth: 64, textAlign: 'right' }}>
+                              −{formatMoney(discountAmount)}
+                            </Typography>
+                          )}
+                        </Box>
+                      )}
                     </Box>
-                  </Paper>
+                  </>
+                ) : (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CircularProgress size={14} />
+                    <Typography variant="caption" color="text.secondary">{t('admin.reservations.create.calculatingPrice', 'Calculating price...')}</Typography>
+                  </Box>
                 )}
-              </Box>
+              </Paper>
             )}
           </Box>
         )}

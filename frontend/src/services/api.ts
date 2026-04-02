@@ -309,6 +309,8 @@ export const reservationsService = {
     apiClient.patch(`/reservations/${id}/check-out`, data || {}),
   useCreditAndCheckout: (id: string): Promise<AxiosResponse<ApiResponse<Reservation>>> =>
     apiClient.post(`/reservations/${id}/use-credit`),
+  sendReservationEmail: (id: string, type: 'confirmation' | 'invoice'): Promise<AxiosResponse<ApiResponse<null>>> =>
+    apiClient.post(`/reservations/${id}/send-email`, { type }),
 
   // Payments
   addReservationPayment: (id: string, data: { amount: number; method?: 'cash' | 'card' | 'transfer' | 'credit' | 'check'; status?: 'completed' | 'pending' | 'reversed'; reference?: string; note?: string; paymentStage?: 'deposit' | 'in_house' }): Promise<AxiosResponse<ApiResponse<Reservation>>> =>
@@ -547,9 +549,9 @@ export const wristbandsService = {
 export const rolesService = {
   getRoles: (): Promise<AxiosResponse<ApiResponse<any[]>>> =>
     apiClient.get('/roles'),
-  createRole: (data: { name: string; description?: string; permissions: string[] }): Promise<AxiosResponse<ApiResponse<any>>> =>
+  createRole: (data: { name: string; description?: string; permissions: string[]; discountLimit?: number }): Promise<AxiosResponse<ApiResponse<any>>> =>
     apiClient.post('/roles', data),
-  updateRole: (id: string, data: Partial<{ name: string; description?: string; permissions: string[] }>): Promise<AxiosResponse<ApiResponse<any>>> =>
+  updateRole: (id: string, data: Partial<{ name: string; description?: string; permissions: string[]; discountLimit?: number }>): Promise<AxiosResponse<ApiResponse<any>>> =>
     apiClient.put(`/roles/${id}`, data),
   deleteRole: (id: string): Promise<AxiosResponse<ApiResponse<any>>> =>
     apiClient.delete(`/roles/${id}`),
@@ -815,6 +817,13 @@ export interface AppSettings {
   sections: Record<string, boolean>;
   nightAuditEnabled?: boolean;
   nightAuditTime?: string;
+  checkoutTime?: string;
+  emailSettings?: {
+    fromDisplayName?: string;
+    replyTo?: string;
+    footerHtml?: string;
+    footerText?: string;
+  };
 }
 
 export interface CashierClosure {

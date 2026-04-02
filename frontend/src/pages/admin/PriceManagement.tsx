@@ -104,7 +104,15 @@ const PriceManagement: React.FC = () => {
   // Auto-Charge Policies (unified UI over templates + rules)
   const [chargePolicyDialog, setChargePolicyDialog] = useState(false);
   const [chargePolicyEditIds, setChargePolicyEditIds] = useState<{ ruleId: string | null; templateId: string | null }>({ ruleId: null, templateId: null });
-  const [chargePolicyForm, setChargePolicyForm] = useState({
+  const [chargePolicyForm, setChargePolicyForm] = useState<{
+    name: string;
+    trigger: ChargeTrigger;
+    calculationMethod: CalculationMethod;
+    amount: number | string;
+    taxApplicable: boolean;
+    isActive: boolean;
+    timeThresholdHours: number | undefined;
+  }>({
     name: '',
     trigger: 'checkout_overdue' as ChargeTrigger,
     calculationMethod: 'fixed' as CalculationMethod,
@@ -543,7 +551,7 @@ const PriceManagement: React.FC = () => {
         name: `${name} (template)`,
         descriptionTemplate: `Charge for reservation {code}`,
         calculationMethod,
-        amount,
+        amount: Number(amount) || 0,
         category: 'late_fee' as ChargeCategory,
         taxApplicable,
         isActive,
@@ -1693,7 +1701,7 @@ const PriceManagement: React.FC = () => {
                       : t('admin.pricing.chargePolicies.form.amountPercent', 'Percentage (%)')}
                     type="number"
                     value={chargePolicyForm.amount}
-                    onChange={e => setChargePolicyForm(p => ({ ...p, amount: Number(e.target.value) || 0 }))}
+                    onChange={e => setChargePolicyForm(p => ({ ...p, amount: e.target.value }))}
                     inputProps={{ min: 0, step: chargePolicyForm.calculationMethod === 'fixed' ? 0.01 : 1 }}
                   />
                 )}

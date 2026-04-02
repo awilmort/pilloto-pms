@@ -81,6 +81,14 @@ export const resolveTenant = async (
     return;
   }
 
+  // ── 1.5. Login portal requests (login.pilloto.com or X-Tenant-Slug: __login_portal__)
+  // These need cross-tenant access (e.g. email lookup) but are not platform superadmin.
+  const isLoginPortal = subdomain === 'login' || xSlug === '__login_portal__';
+  if (isLoginPortal) {
+    tenantLocalStorage.run(null, () => next());
+    return;
+  }
+
   // ── 2. Determine the slug to look up ─────────────────────
   const slug = xSlug || subdomain || process.env.TENANT_SLUG;
 

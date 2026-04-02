@@ -31,7 +31,9 @@ import servicePriceRoutes from './routes/servicePrices';
 import chargeTemplateRoutes from './routes/chargeTemplates';
 import chargeRuleRoutes from './routes/chargeRules';
 import auditRoutes from './routes/audit';
+import sesWebhookRoutes from './routes/sesWebhook';
 import { syncUploadsToMedia } from './utils/mediaSync';
+import { migrateReservationStatuses } from './models/Reservation';
 import { runAudit } from './utils/chargeWorker';
 import cron from 'node-cron';
 import { resolveTenant } from './middleware/tenantContext';
@@ -166,6 +168,9 @@ app.get('/api/health', (_req, res) => {
 // Must come after cookie-parser and body-parser but before routes
 app.use('/api', resolveTenant);
 
+// ── SES / SNS webhook (no tenant context, no JWT) ────────────────────────────
+app.use('/api/webhooks', sesWebhookRoutes);
+
 // Routes
 app.use('/api/platform', platformRoutes);
 app.use('/api/auth', authRoutes);
@@ -278,6 +283,14 @@ const startServer = async () => {
     }
   } catch (e) {
     console.warn('Media sync skipped:', e);
+  }
+
+  // Fix legacy reservations where check-in/checkout timestamps were recorded
+  // but the status field was never updated.
+  try {
+    await migrateReservationStatuses();
+  } catch (e) {
+    console.warn('Reservation status migration skipped:', e);
   }
 
   const server = app.listen(PORT, () => {

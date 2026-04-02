@@ -23,7 +23,7 @@ router.get('/', authenticate, async (req: Request, res: Response) => {
 // @access  Private (Admin only)
 router.post('/', authenticate, authorizePermission('admin.roles'), async (req: Request, res: Response) => {
   try {
-    const { name, description, permissions } = req.body;
+    const { name, description, permissions, discountLimit } = req.body;
     if (!name) {
       return res.status(400).json({ success: false, message: 'Role name is required' });
     }
@@ -31,7 +31,12 @@ router.post('/', authenticate, authorizePermission('admin.roles'), async (req: R
     if (existing) {
       return res.status(400).json({ success: false, message: 'Role name already exists' });
     }
-    const role = await Role.create({ name: String(name).toLowerCase(), description, permissions: Array.isArray(permissions) ? permissions : [] });
+    const role = await Role.create({
+      name: String(name).toLowerCase(),
+      description,
+      permissions: Array.isArray(permissions) ? permissions : [],
+      discountLimit: Number(discountLimit) >= 0 ? Math.min(100, Number(discountLimit)) : 0,
+    });
     res.status(201).json({ success: true, message: 'Role created', data: role });
   } catch (error: any) {
     console.error('Create role error:', error);
@@ -44,7 +49,7 @@ router.post('/', authenticate, authorizePermission('admin.roles'), async (req: R
 // @access  Private (Admin only)
 router.put('/:id', authenticate, authorizePermission('admin.roles'), async (req: Request, res: Response) => {
   try {
-    const { name, description, permissions } = req.body;
+    const { name, description, permissions, discountLimit } = req.body;
     const role = await Role.findById(req.params.id);
     if (!role) {
       return res.status(404).json({ success: false, message: 'Role not found' });
@@ -52,6 +57,7 @@ router.put('/:id', authenticate, authorizePermission('admin.roles'), async (req:
     if (name) role.name = String(name).toLowerCase();
     if (description !== undefined) role.description = description;
     if (permissions) role.permissions = Array.isArray(permissions) ? permissions : [];
+    if (discountLimit !== undefined) role.discountLimit = Math.min(100, Math.max(0, Number(discountLimit) || 0));
     await role.save();
     res.status(200).json({ success: true, message: 'Role updated', data: role });
   } catch (error: any) {

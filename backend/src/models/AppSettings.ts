@@ -1,11 +1,20 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { tenantPlugin } from '../plugins/tenantPlugin';
 
+export interface IEmailSettings {
+  fromDisplayName?: string;
+  replyTo?: string;
+  footerHtml?: string;
+  footerText?: string;
+}
+
 export interface IAppSettings extends Document {
   key: string;        // singleton key, always 'global'
   sections: Record<string, boolean>;
   nightAuditEnabled: boolean;       // master toggle for automated night audit
   nightAuditTime: string;           // cron expression for this tenant (overrides env default)
+  checkoutTime: string;             // HH:MM — time guests must check out (default 11:00)
+  emailSettings?: IEmailSettings;
   updatedAt: Date;
 }
 
@@ -25,6 +34,13 @@ const appSettingsSchema = new Schema<IAppSettings>(
     },
     nightAuditEnabled: { type: Boolean, default: true },
     nightAuditTime:    { type: String, default: '' },  // empty = use server default from env
+    checkoutTime:      { type: String, default: '11:00' }, // HH:MM
+    emailSettings: {
+      fromDisplayName: { type: String, default: '', maxlength: 100 },
+      replyTo:         { type: String, default: '' },
+      footerHtml:      { type: String, default: '' },
+      footerText:      { type: String, default: '' },
+    },
   },
   { timestamps: true }
 );

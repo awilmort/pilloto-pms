@@ -244,11 +244,3 @@ The `emailSettings.footerHtml` field submitted by tenant admins must be sanitize
 5. Validate `fromDisplayName` max length (100 chars) and `replyTo` email format on both client and server
 
 ---
-
-## 9. Out of Scope (Phase 1–4)
-
-- Tenant-owned sending domains (all tenants use `noreply@pilloto.com`)
-- Marketing/promotional email campaigns
-- Email open/click tracking (can be added later via SES Configuration Set event publishing)
-- Attachment support (invoices are rendered as HTML email bodies, not PDF attachments — revisit if requested)
-- Email scheduling or queuing infrastructure (a job queue like Bull would be needed if volume grows; not required now)

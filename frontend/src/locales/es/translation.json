@@ -310,7 +310,9 @@
       },
       "form": {
         "name": "Nombre",
-        "description": "Descripción"
+        "description": "Descripción",
+        "discountLimit": "Descuento máximo (%)",
+        "discountLimitHint": "Porcentaje máximo que este rol puede descontar (0–100)"
       },
       "messages": {
         "loadFailed": "No se pudieron cargar los roles",
@@ -324,6 +326,7 @@
         "reservationsManagePayments": "Reservas: Gestionar pagos",
         "reservationsPriceUpdate": "Reservas: Actualización de precios",
         "reservationsAmountUpdate": "Reservas: Actualización de precio total",
+        "reservationsDiscount": "Reservas: Aplicar descuento",
         "reservationsCheckIn": "Reservas: Check-in",
         "reservationsCancel": "Reservas: Cancelar",
         "wristbandsView": "Pulseras: Ver",
@@ -737,7 +740,11 @@
         "companyRequired": "Por favor selecciona una empresa para la reserva corporativa.",
         "corporatePriceApplied": "Se ha aplicado una tarifa corporativa para {{company}}.",
         "guestPriceApplied": "Se ha aplicado una tarifa especial para {{email}}.",
-        "summaryTitle": "Resumen de reserva"
+        "summaryTitle": "Resumen de reserva",
+        "discount": "Descuento",
+        "calculatingPrice": "Calculando precio...",
+        "pricePreview": "Vista previa de precio",
+        "basePrice": "Base"
       },
       "none": "Ninguna",
       "tooltips": {
@@ -778,7 +785,14 @@
       "checkout": {
         "title": "Check-Out",
         "confirm": "Confirma que el huésped está realizando el check-out.",
-        "confirmButton": "Confirmar Check-Out"
+        "confirmButton": "Confirmar Check-Out",
+        "totalCharges": "Total de cargos",
+        "paymentsMade": "Pagos realizados",
+        "remainingBalance": "Saldo pendiente",
+        "availableCredit": "Crédito disponible",
+        "addPayment": "Agregar Pago",
+        "useCredit": "Usar Crédito y Hacer Check-Out",
+        "pendingHint": "Hay un saldo pendiente. Por favor cobra el pago o aplica el crédito disponible antes de hacer check-out."
       },
       "financial": {
         "estimatedTotal": "Total Estimado",
@@ -878,11 +892,46 @@
         "amenities": "Comodidades",
         "eventTypes": "Tipos de evento",
         "roles": "Roles",
-        "media": "Medios"
+        "media": "Medios",
+        "nightAudit": "Auditoría nocturna",
+        "email": "Correo",
+        "checkout": "Check-Out"
       },
       "sections": {
         "heading": "Secciones del menú",
         "description": "Elige qué secciones aparecen en el menú lateral del panel de administración."
+      },
+      "nightAudit": {
+        "heading": "Auditoría nocturna",
+        "description": "La auditoría nocturna se ejecuta automáticamente para registrar cargos nocturnos según las reglas activas. Puedes habilitarla o deshabilitarla y opcionalmente cambiar el horario.",
+        "enabled": "Habilitar auditoría nocturna",
+        "schedule": "Hora de ejecución",
+        "scheduleHint": "La auditoría se ejecuta automáticamente una vez a esta hora cada día."
+      },
+      "email": {
+        "heading": "Configuración de correo",
+        "description": "Personaliza el nombre del remitente, la dirección de respuesta y el pie de página de todos los correos.",
+        "fromDisplayName": "Nombre del remitente",
+        "fromDisplayNameHint": "Se muestra como el nombre del remitente, p. ej. \"Banana Ranch via Pilloto\"",
+        "replyTo": "Dirección de respuesta",
+        "replyToHint": "Las respuestas de los huéspedes irán aquí en lugar de la dirección de envío.",
+        "footerHtml": "Pie de página HTML",
+        "footerHtmlHint": "HTML añadido al pie de cada correo. Solo se permiten etiquetas básicas (p, br, strong, em, a, ul, ol, li).",
+        "footerText": "Pie de página texto plano",
+        "footerTextHint": "Versión en texto plano del pie de página para clientes de correo que no renderizan HTML."
+      },
+      "checkout": {
+        "heading": "Configuración de check-out",
+        "description": "Define la hora estándar a la que los huéspedes deben hacer el check-out. Se usa como referencia para detectar salidas tardías en las políticas de cargo automático.",
+        "checkoutTime": "Hora de check-out",
+        "checkoutTimeHint": "Se espera que los huéspedes hagan el check-out a esta hora. Las políticas de cargo automático la usan como punto de referencia."
+      },
+      "errors": {
+        "loadFailed": "No se pudo cargar la configuración",
+        "saveFailed": "No se pudo guardar la configuración"
+      },
+      "messages": {
+        "saved": "Configuración guardada"
       }
     },
     "cashierClosures": {
@@ -984,6 +1033,12 @@
       "printFolio": "Imprimir Factura",
       "printPaymentSummary": "Imprimir Resumen de Pagos",
       "printReceipt": "Imprimir Recibo",
+      "sendEmail": "Enviar por correo",
+      "sendConfirmation": "Enviar Confirmación por correo",
+      "sendInvoice": "Enviar Factura por correo",
+      "emailSent": "Correo enviado exitosamente",
+      "emailSendFailed": "No se pudo enviar el correo",
+      "emailNoAddress": "Esta reserva no tiene dirección de correo de contacto",
       "docs": {
         "popupBlocked": "Las ventanas emergentes están bloqueadas. Permite las ventanas emergentes en este sitio para habilitar la impresión.",
         "printedOn": "Impreso el",
@@ -1777,5 +1832,89 @@
     "editGuest": "Editar huésped",
     "deleteConfirm": "¿Estás seguro de que deseas eliminar este registro de huésped?",
     "total": "huéspedes"
+  },
+  "marketing": {
+    "nav": {
+      "features": "Funciones",
+      "pricing": "Precios",
+      "contact": "Contacto",
+      "signIn": "Iniciar sesión",
+      "getStarted": "Comenzar"
+    },
+    "hero": {
+      "badge": "Diseñado para operaciones de resort",
+      "headline": "El PMS que gestiona",
+      "headlineAccent": "todo tu resort",
+      "body": "Reservaciones, pases de día, eventos, pulseras, facturación y reportes — en una sola plataforma para la hospitalidad caribeña.",
+      "ctaPricing": "Ver precios",
+      "ctaDemo": "Solicitar demo",
+      "trustedBy": "Utilizado por operadores de resort en el Caribe"
+    },
+    "features": {
+      "heading": "Todo en un solo lugar",
+      "subheading": "Desde el check-in hasta el cierre de caja, Pilloto cubre el flujo operativo diario completo.",
+      "roomRate_title": "Gestión de habitaciones y tarifas",
+      "roomRate_body": "Tipos de habitación, planes de tarifas, precios escalonados por ocupación y reglas estacionales — todo unificado.",
+      "bookingCal_title": "Calendario de reservas",
+      "bookingCal_body": "Un calendario visual de arrastra y suelta que todo tu equipo puede usar.",
+      "folio_title": "Folio y facturación",
+      "folio_body": "Folios automáticos, reglas de cargos, impuestos y cierres de caja al final del día.",
+      "guestProfiles_title": "Perfiles de huéspedes",
+      "guestProfiles_body": "Registros centralizados de huéspedes con historial de estancias y registro de comunicaciones.",
+      "dayPass_title": "Venta de pases de día",
+      "dayPass_body": "Vende pases de día y pases de tarde directamente desde tu PMS.",
+      "events_title": "Módulo de eventos",
+      "events_body": "Planifica y gestiona eventos en la propiedad con herramientas dedicadas.",
+      "reporting_title": "Reportes de ingresos",
+      "reporting_body": "Tasas de ocupación, desglose de ingresos y reportes de cierre de caja.",
+      "roles_title": "Roles y permisos",
+      "roles_body": "Control de acceso detallado para recepción, cajeros y gerentes."
+    },
+    "pricing": {
+      "heading": "Precios simples y transparentes",
+      "subheading": "Sin costos de instalación. Sin contratos a largo plazo. Cancela cuando quieras.",
+      "mostPopular": "Más popular",
+      "perMonth": "/mes",
+      "ctaContactSales": "Contactar ventas",
+      "trialNotice": "Todos los planes incluyen 14 días de prueba gratis. No se requiere tarjeta de crédito.",
+      "basic_desc": "Todo lo que una pequeña propiedad necesita para sus operaciones diarias.",
+      "basic_features": ["Hasta 20 habitaciones", "Reservas y calendario de reservas", "Perfiles de huéspedes", "Gestión de habitaciones y tarifas", "Biblioteca de medios", "Notificaciones por correo", "Reportes básicos"],
+      "pro_desc": "Para resorts en crecimiento que venden pases de día y gestionan eventos.",
+      "pro_features": ["Todo lo del plan Basic", "Hasta 80 habitaciones", "Venta de pases de día y tarde", "Módulo de eventos", "Seguimiento de pulseras", "Reglas de cargos y folios", "Panel de ingresos"],
+      "enterprise_desc": "Suite operativa completa para grandes resorts y grupos hoteleros.",
+      "enterprise_features": ["Todo lo del plan Pro", "Habitaciones ilimitadas", "Comisiones de agentes", "Cuentas de crédito corporativas", "Auditoría nocturna", "Roles y permisos personalizados", "Incorporación dedicada"]
+    },
+    "cta": {
+      "heading": "¿Listo para modernizar tu propiedad?",
+      "body": "Contáctanos y tendremos tu propiedad activa en minutos.",
+      "contactUs": "Contáctanos",
+      "viewPlans": "Ver planes"
+    },
+    "contact": {
+      "label": "Contáctanos",
+      "heading": "Hablemos de tu propiedad",
+      "subheading": "Cuéntanos sobre tu resort y te ayudaremos a encontrar el plan ideal. Te respondemos en un día hábil.",
+      "phone": "Teléfono",
+      "email": "Correo electrónico",
+      "responsetime": "Planes disponibles",
+      "formTitle": "Envíanos un mensaje",
+      "formSubtitle": "Completa el formulario y te contactamos de inmediato.",
+      "fieldName": "Nombre completo",
+      "fieldEmail": "Correo electrónico",
+      "fieldPhone": "Número de teléfono",
+      "fieldPhoneHint": "Opcional",
+      "fieldPlan": "Plan de interés",
+      "fieldMessage": "Mensaje",
+      "fieldMessageHint": "Cuéntanos sobre tu propiedad — número de habitaciones, PMS actual, requisitos especiales…",
+      "submitButton": "Enviar mensaje",
+      "sending": "Enviando…",
+      "successTitle": "¡Mensaje enviado!",
+      "successBody": "Gracias por comunicarte. Revisaremos tu mensaje y te responderemos en un día hábil.",
+      "backToSite": "Volver al sitio web",
+      "errorGeneric": "Error al enviar el mensaje. Inténtalo de nuevo o escríbenos a info@pilloto.com."
+    },
+    "footer": {
+      "copyright": "© {{year}} Pilloto. Todos los derechos reservados."
+    }
   }
 }

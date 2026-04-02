@@ -26,6 +26,7 @@ import {
   TableHead,
   TableRow,
   Chip,
+  Snackbar,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -84,6 +85,7 @@ const defaultSettings: AppSettings = {
   sections: {},
   nightAuditEnabled: true,
   nightAuditTime: '',
+  checkoutTime: '11:00',
 };
 
 const Settings: React.FC = () => {
@@ -94,6 +96,19 @@ const Settings: React.FC = () => {
   const [error, setError] = React.useState<string | null>(null);
   const [saving, setSaving] = React.useState(false);
   const [nightAuditTime, setNightAuditTime] = React.useState('');
+  const [nightAuditTimeSaving, setNightAuditTimeSaving] = React.useState(false);
+  const [checkoutTime, setCheckoutTime] = React.useState('11:00');
+  const [checkoutTimeSaving, setCheckoutTimeSaving] = React.useState(false);
+  const [snackbar, setSnackbar] = React.useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
+  const showSnackbar = (message: string, severity: 'success' | 'error' = 'success') =>
+    setSnackbar({ open: true, message, severity });
+
+  // ── Email Settings state ──────────────────────────────────
+  const [emailFromDisplayName, setEmailFromDisplayName] = React.useState('');
+  const [emailReplyTo, setEmailReplyTo] = React.useState('');
+  const [emailFooterHtml, setEmailFooterHtml] = React.useState('');
+  const [emailFooterText, setEmailFooterText] = React.useState('');
+  const [emailSaving, setEmailSaving] = React.useState(false);
 
   // ── Room Types state ──────────────────────────────────────
   const [roomTypes, setRoomTypes] = React.useState<RoomType[]>([]);
@@ -126,6 +141,23 @@ const Settings: React.FC = () => {
   React.useEffect(() => {
     setNightAuditTime(settings.nightAuditTime ?? '');
   }, [settings.nightAuditTime]);
+
+  React.useEffect(() => {
+    setCheckoutTime(settings.checkoutTime ?? '11:00');
+  }, [settings.checkoutTime]);
+
+  React.useEffect(() => {
+    setEmailFromDisplayName(settings.emailSettings?.fromDisplayName ?? '');
+    setEmailReplyTo(settings.emailSettings?.replyTo ?? '');
+    setEmailFooterHtml(settings.emailSettings?.footerHtml ?? '');
+    setEmailFooterText(settings.emailSettings?.footerText ?? '');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    settings.emailSettings?.fromDisplayName,
+    settings.emailSettings?.replyTo,
+    settings.emailSettings?.footerHtml,
+    settings.emailSettings?.footerText,
+  ]);
 
   const openNewRoomType = () => {
     setRoomTypeForm({ name: '', capacity: 2, isActive: true });
@@ -221,6 +253,8 @@ const Settings: React.FC = () => {
                 <Tab label={t('admin.settings.tabs.roles', 'Roles')} id="settings-tab-4" />
                 <Tab label={t('admin.settings.tabs.media', 'Media')} id="settings-tab-5" />
                 <Tab label={t('admin.settings.tabs.nightAudit', 'Night Audit')} id="settings-tab-6" />
+                <Tab label={t('admin.settings.tabs.email', 'Email')} id="settings-tab-7" />
+                <Tab label={t('admin.settings.tabs.checkout', 'Check-Out')} id="settings-tab-8" />
               </Tabs>
             </Box>
 
@@ -391,22 +425,169 @@ const Settings: React.FC = () => {
                   type="time"
                   value={nightAuditTime || '03:00'}
                   onChange={e => setNightAuditTime(e.target.value)}
-                  onBlur={() => {
-                    const patch = { nightAuditTime };
-                    setSettings(s => ({ ...s, ...patch }));
-                    save(patch);
-                  }}
                   inputProps={{ step: 3600 }}
                   InputLabelProps={{ shrink: true }}
                   helperText={t('admin.settings.nightAudit.scheduleHint', 'The audit runs automatically once at this hour each day.')}
                   disabled={settings.nightAuditEnabled === false}
-                  sx={{ maxWidth: 200 }}
+                  sx={{ maxWidth: 200, display: 'block', mb: 2 }}
                 />
+                <Button
+                  variant="contained"
+                  disabled={nightAuditTimeSaving || settings.nightAuditEnabled === false}
+                  onClick={async () => {
+                    setNightAuditTimeSaving(true);
+                    try {
+                      const patch = { nightAuditTime };
+                      setSettings(s => ({ ...s, ...patch }));
+                      await save(patch);
+                      showSnackbar(t('admin.settings.messages.saved', 'Settings saved'));
+                    } catch {
+                      showSnackbar(t('admin.settings.errors.saveFailed', 'Failed to save settings'), 'error');
+                    } finally {
+                      setNightAuditTimeSaving(false);
+                    }
+                  }}
+                >
+                  {nightAuditTimeSaving ? t('common.saving', 'Saving…') : t('common.save', 'Save')}
+                </Button>
+              </Box>
+            </TabPanel>
+
+            {/* Email tab */}
+            <TabPanel value={activeTab} index={7}>
+              <Box sx={{ px: 3, pb: 3, maxWidth: 600 }}>
+                <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+                  {t('admin.settings.email.heading', 'Email Settings')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {t('admin.settings.email.description', 'Customise the display name, reply-to address, and footer appended to every outgoing email.')}
+                </Typography>
+                <Divider sx={{ mb: 3 }} />
+
+                <Box sx={{ display: 'grid', gap: 2.5 }}>
+                  <TextField
+                    label={t('admin.settings.email.fromDisplayName', 'Sender display name')}
+                    value={emailFromDisplayName}
+                    onChange={e => setEmailFromDisplayName(e.target.value.slice(0, 100))}
+                    inputProps={{ maxLength: 100 }}
+                    helperText={t('admin.settings.email.fromDisplayNameHint', 'Shown as the sender name, e.g. "Banana Ranch via Pilloto"')}
+                    fullWidth
+                  />
+                  <TextField
+                    label={t('admin.settings.email.replyTo', 'Reply-to address')}
+                    value={emailReplyTo}
+                    onChange={e => setEmailReplyTo(e.target.value)}
+                    type="email"
+                    inputProps={{ maxLength: 254 }}
+                    helperText={t('admin.settings.email.replyToHint', 'Replies from guests will go here instead of the sending address.')}
+                    fullWidth
+                  />
+                  <TextField
+                    label={t('admin.settings.email.footerHtml', 'Footer HTML')}
+                    value={emailFooterHtml}
+                    onChange={e => setEmailFooterHtml(e.target.value)}
+                    multiline
+                    rows={4}
+                    inputProps={{ maxLength: 5000 }}
+                    helperText={t('admin.settings.email.footerHtmlHint', 'HTML appended to every email footer. Only basic tags are allowed (p, br, strong, em, a, ul, ol, li).')}
+                    fullWidth
+                  />
+                  <TextField
+                    label={t('admin.settings.email.footerText', 'Footer plain text')}
+                    value={emailFooterText}
+                    onChange={e => setEmailFooterText(e.target.value)}
+                    multiline
+                    rows={3}
+                    inputProps={{ maxLength: 2000 }}
+                    helperText={t('admin.settings.email.footerTextHint', 'Plain-text version of the footer for email clients that do not render HTML.')}
+                    fullWidth
+                  />
+                  <Box>
+                    <Button
+                      variant="contained"
+                      disabled={emailSaving}
+                      onClick={async () => {
+                        setEmailSaving(true);
+                        try {
+                          const patch = {
+                            emailSettings: {
+                              fromDisplayName: emailFromDisplayName,
+                              replyTo: emailReplyTo,
+                              footerHtml: emailFooterHtml,
+                              footerText: emailFooterText,
+                            },
+                          };
+                          await save(patch);
+                          showSnackbar(t('admin.settings.messages.saved', 'Settings saved'));
+                        } catch {
+                          showSnackbar(t('admin.settings.errors.saveFailed', 'Failed to save settings'), 'error');
+                        } finally {
+                          setEmailSaving(false);
+                        }
+                      }}
+                    >
+                      {emailSaving ? t('common.saving', 'Saving…') : t('common.save', 'Save')}
+                    </Button>
+                  </Box>
+                </Box>
+              </Box>
+            </TabPanel>
+
+            {/* Check-Out tab */}
+            <TabPanel value={activeTab} index={8}>
+              <Box sx={{ px: 3, pb: 3, maxWidth: 400 }}>
+                <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
+                  {t('admin.settings.checkout.heading', 'Check-Out Settings')}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {t('admin.settings.checkout.description', 'Set the standard time guests must check out. This is used as the baseline for late checkout detection in auto-charge policies.')}
+                </Typography>
+                <Divider sx={{ mb: 3 }} />
+                <TextField
+                  label={t('admin.settings.checkout.checkoutTime', 'Check-out time')}
+                  type="time"
+                  value={checkoutTime || '11:00'}
+                  onChange={e => setCheckoutTime(e.target.value)}
+                  inputProps={{ step: 900 }}
+                  InputLabelProps={{ shrink: true }}
+                  helperText={t('admin.settings.checkout.checkoutTimeHint', 'Guests are expected to check out by this time. Auto-charge policies use this as the reference point.')}
+                  sx={{ maxWidth: 200, display: 'block', mb: 2 }}
+                />
+                <Button
+                  variant="contained"
+                  disabled={checkoutTimeSaving}
+                  onClick={async () => {
+                    setCheckoutTimeSaving(true);
+                    try {
+                      const patch = { checkoutTime };
+                      setSettings(s => ({ ...s, ...patch }));
+                      await save(patch);
+                      showSnackbar(t('admin.settings.messages.saved', 'Settings saved'));
+                    } catch {
+                      showSnackbar(t('admin.settings.errors.saveFailed', 'Failed to save settings'), 'error');
+                    } finally {
+                      setCheckoutTimeSaving(false);
+                    }
+                  }}
+                >
+                  {checkoutTimeSaving ? t('common.saving', 'Saving…') : t('common.save', 'Save')}
+                </Button>
               </Box>
             </TabPanel>
           </Paper>
         )}
       </Box>
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar(s => ({ ...s, open: false }))}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+      >
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar(s => ({ ...s, open: false }))} variant="filled">
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </AdminLayout>
   );
 };

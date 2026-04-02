@@ -5,6 +5,8 @@ export interface IRole extends Document {
   name: string; // e.g., 'admin', 'customer', 'maintenance', 'staff'
   description?: string;
   permissions: string[]; // e.g., ['admin.access', 'accommodations.manage', 'schedule.view']
+  /** Max discount % a user with this role can apply (0-100). Only relevant when admin.reservations.discount permission is granted. */
+  discountLimit?: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -24,7 +26,8 @@ const roleSchema = new Schema<IRole>({
     maxlength: 200,
     default: ''
   },
-  permissions: [{ type: String, trim: true }]
+  permissions: [{ type: String, trim: true }],
+  discountLimit: { type: Number, min: 0, max: 100, default: 0 },
 }, { timestamps: true });
 
 // ── Multi-tenancy ────────────────────────────────────────────

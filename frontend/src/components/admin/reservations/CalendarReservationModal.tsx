@@ -19,12 +19,13 @@ import {
   FormControl,
   IconButton,
   InputLabel,
+  Menu,
   MenuItem,
   Select,
   TextField,
   Typography,
 } from '@mui/material';
-import { Close, OpenInNew, Print as PrintIcon } from '@mui/icons-material';
+import { ArrowDropDown, Close, Email as EmailIcon, OpenInNew, Print as PrintIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useTenant } from '../../../contexts/TenantContext';
 import { printConfirmation } from '../../../utils/print';
@@ -90,6 +91,26 @@ const CalendarReservationModal: React.FC<Props> = ({
   const [idType, setIdType] = useState('cedula');
   const [checkinLoading, setCheckinLoading] = useState(false);
 
+  const [emailMenuAnchor, setEmailMenuAnchor] = useState<HTMLElement | null>(null);
+  const [emailSending, setEmailSending] = useState(false);
+
+  const [checkoutMenuAnchor, setCheckoutMenuAnchor] = useState<HTMLElement | null>(null);
+
+  const handleSendEmail = async (type: 'confirmation' | 'invoice') => {
+    setEmailMenuAnchor(null);
+    if (!reservation?._id) return;
+    setEmailSending(true);
+    try {
+      await reservationsService.sendReservationEmail(reservation._id as string, type);
+      onSnackbar(t('admin.printing.emailSent', 'Email sent successfully'), 'success');
+    } catch (e: any) {
+      const msg = e?.response?.data?.message || t('admin.printing.emailSendFailed', 'Failed to send email');
+      onSnackbar(msg, 'error');
+    } finally {
+      setEmailSending(false);
+    }
+  };
+
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [payAmount, setPayAmount] = useState(0);
   const [payMethod, setPayMethod] = useState<'cash' | 'card' | 'transfer' | 'credit' | 'check' | ''>('');
@@ -122,7 +143,7 @@ const CalendarReservationModal: React.FC<Props> = ({
       ))
     : null;
   const canDoCheckin  = reservation.status === 'pending' || reservation.status === 'confirmed';
-  const canDoCheckout = (reservation.status as string) === 'checked-in';
+  const canDoCheckout = reservation.status === 'checked-in';
 
   return (
     <>
@@ -143,9 +164,9 @@ const CalendarReservationModal: React.FC<Props> = ({
               size="small"
               label={t(`admin.reservations.statusLabels.${reservation.status.replace('-', '_')}`, reservation.status)}
               color={
-                reservation.status === 'pending'   ? 'warning' :
-                reservation.status === 'confirmed' ? 'success' :
-                (reservation.status as string) === 'checked-in' ? 'info' : 'default'
+                reservation.status === 'pending'    ? 'warning' :
+                reservation.status === 'confirmed'  ? 'success' :
+                reservation.status === 'checked-in' ? 'info' : 'default'
               }
             />
             <IconButton size="small" onClick={onClose}>
@@ -358,6 +379,29 @@ const CalendarReservationModal: React.FC<Props> = ({
           >
             {t('admin.printing.printConfirmation', 'Print Confirmation')}
           </Button>
+          <Button
+            size="small"
+            startIcon={emailSending ? <CircularProgress size={14} color="inherit" /> : <EmailIcon fontSize="small" />}
+            endIcon={<ArrowDropDown fontSize="small" />}
+            onClick={(e) => setEmailMenuAnchor(e.currentTarget)}
+            disabled={emailSending}
+          >
+            {t('admin.printing.sendEmail', 'Send Email')}
+          </Button>
+          <Menu
+            anchorEl={emailMenuAnchor}
+            open={Boolean(emailMenuAnchor)}
+            onClose={() => setEmailMenuAnchor(null)}
+            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+            transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          >
+            <MenuItem onClick={() => handleSendEmail('confirmation')}>
+              {t('admin.printing.sendConfirmation', 'Send Confirmation Email')}
+            </MenuItem>
+            <MenuItem onClick={() => handleSendEmail('invoice')}>
+              {t('admin.printing.sendInvoice', 'Send Invoice Email')}
+            </MenuItem>
+          </Menu>
           <Box sx={{ flex: 1 }} />
           {canCheckIn && canDoCheckin && (
             <Button
@@ -369,27 +413,42 @@ const CalendarReservationModal: React.FC<Props> = ({
             </Button>
           )}
           {canCheckIn && canDoCheckout && (
-            <Button
-              variant="contained"
-              color="warning"
-              disabled={checkinLoading}
-              onClick={async () => {
-                try {
-                  setCheckinLoading(true);
-                  const res = await reservationsService.checkOutReservation(reservation._id as string, {});
-                  onUpdated(res.data.data as Reservation);
-                  onSnackbar(t('admin.reservations.messages.checkoutSuccess', 'Checked out'), 'success');
-                } catch (e: any) {
-                  onSnackbar(e?.response?.data?.message || 'Checkout failed', 'error');
-                } finally {
-                  setCheckinLoading(false);
-                }
-              }}
-            >
-              {checkinLoading
-                ? <CircularProgress size={18} color="inherit" />
-                : t('admin.reservations.checkout.confirmButton', 'Check Out')}
-            </Button>
+            <>
+              <Button
+                variant="contained"
+                color="info"
+                endIcon={checkinLoading ? <CircularProgress size={14} color="inherit" /> : <ArrowDropDown fontSize="small" />}
+                disabled={checkinLoading}
+                onClick={(e) => setCheckoutMenuAnchor(e.currentTarget)}
+              >
+                {t('admin.reservations.statusLabels.checked_in', 'Checked In')}
+              </Button>
+              <Menu
+                anchorEl={checkoutMenuAnchor}
+                open={Boolean(checkoutMenuAnchor)}
+                onClose={() => setCheckoutMenuAnchor(null)}
+                anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+              >
+                <MenuItem
+                  onClick={async () => {
+                    setCheckoutMenuAnchor(null);
+                    try {
+                      setCheckinLoading(true);
+                      const res = await reservationsService.checkOutReservation(reservation._id as string, {});
+                      onUpdated(res.data.data as Reservation);
+                      onSnackbar(t('admin.reservations.messages.checkoutSuccess', 'Checked out'), 'success');
+                    } catch (e: any) {
+                      onSnackbar(e?.response?.data?.message || 'Checkout failed', 'error');
+                    } finally {
+                      setCheckinLoading(false);
+                    }
+                  }}
+                >
+                  {t('admin.reservations.checkout.confirmButton', 'Check Out')}
+                </MenuItem>
+              </Menu>
+            </>
           )}
         </DialogActions>
       </Dialog>

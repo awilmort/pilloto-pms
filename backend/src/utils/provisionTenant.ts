@@ -73,6 +73,7 @@ export async function provisionTenant(input: ProvisionTenantInput): Promise<Prov
         roles: true, media: true, analytics: true,
         companies: true, guests: true, 'cashier-closures': true,
       },
+      checkoutTime: '11:00',
     });
 
     // ── 5. Create the initial admin user ───────────────────────────────────────

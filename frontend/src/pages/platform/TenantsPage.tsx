@@ -10,6 +10,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import BarChartIcon from '@mui/icons-material/BarChart';
+import EditIcon from '@mui/icons-material/Edit';
 import { platformService, TenantRecord, ProvisionTenantPayload } from '../../services/api';
 import PlatformLayout from './PlatformLayout';
 import { toast } from 'react-toastify';
@@ -36,6 +37,34 @@ const TenantsPage: React.FC = () => {
   // Stats dialog
   const [statsOpen, setStatsOpen] = useState(false);
   const [stats, setStats] = useState<{ tenant: TenantRecord; stats: any } | null>(null);
+
+  // Edit plan dialog
+  const [editPlanOpen, setEditPlanOpen] = useState(false);
+  const [editingTenant, setEditingTenant] = useState<TenantRecord | null>(null);
+  const [editPlanValue, setEditPlanValue] = useState('basic');
+  const [editPlanSaving, setEditPlanSaving] = useState(false);
+
+  const handleOpenEditPlan = (t: TenantRecord) => {
+    setEditingTenant(t);
+    setEditPlanValue(t.plan);
+    setEditPlanOpen(true);
+  };
+
+  const handleSavePlan = async () => {
+    if (!editingTenant) return;
+    setEditPlanSaving(true);
+    try {
+      await platformService.updateTenant(editingTenant._id, { plan: editPlanValue });
+      toast.success(`Plan updated to "${editPlanValue}" for ${editingTenant.name}`);
+      setEditPlanOpen(false);
+      setEditingTenant(null);
+      load();
+    } catch {
+      toast.error('Failed to update plan');
+    } finally {
+      setEditPlanSaving(false);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -135,6 +164,11 @@ const TenantsPage: React.FC = () => {
                   </TableCell>
                   <TableCell>{new Date(t.createdAt).toLocaleDateString()}</TableCell>
                   <TableCell align="center">
+                    <Tooltip title="Edit plan">
+                      <IconButton size="small" onClick={() => handleOpenEditPlan(t)}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                     <Tooltip title="View stats">
                       <IconButton size="small" onClick={() => handleStats(t)}>
                         <BarChartIcon fontSize="small" />
@@ -207,6 +241,35 @@ const TenantsPage: React.FC = () => {
             startIcon={submitting ? <CircularProgress size={16} /> : undefined}
           >
             Create & Provision
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Plan Dialog */}
+      <Dialog open={editPlanOpen} onClose={() => setEditPlanOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Change Plan — {editingTenant?.name}</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <TextField
+            select
+            label="Plan"
+            value={editPlanValue}
+            onChange={(e) => setEditPlanValue(e.target.value)}
+            fullWidth
+          >
+            {['basic', 'pro', 'enterprise'].map(p => (
+              <MenuItem key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</MenuItem>
+            ))}
+          </TextField>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditPlanOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            onClick={handleSavePlan}
+            disabled={editPlanSaving}
+            startIcon={editPlanSaving ? <CircularProgress size={16} /> : undefined}
+          >
+            Save
           </Button>
         </DialogActions>
       </Dialog>

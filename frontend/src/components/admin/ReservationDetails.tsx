@@ -180,7 +180,7 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
             <Box sx={{ pl: 1 }}>
               <Typography variant="body2"><strong>{t('admin.reservations.details.labels.type')}:</strong> {current.type}</Typography>
               <Typography variant="body2"><strong>{t('admin.reservations.details.labels.dates')}:</strong> {formatDate(current.checkInDate)} {current.checkOutDate ? `- ${formatDate(current.checkOutDate)}` : ''}</Typography>
-              <Typography variant="body2"><strong>{t('admin.reservations.details.labels.guests')}:</strong> {current.guestDetails.adults} {t('schedule.cards.adults')}, {current.guestDetails.children} {t('schedule.cards.children')}, {current.guestDetails.infants} {t('schedule.cards.infants')}</Typography>
+              <Typography variant="body2"><strong>{t('admin.reservations.details.labels.guests')}:</strong> {current.guestDetails.adults} {t('admin.schedule.cards.adults')}, {current.guestDetails.children} {t('admin.schedule.cards.children')}, {current.guestDetails.infants} {t('admin.schedule.cards.infants')}</Typography>
               {current.reservationCode && (
                 <Typography variant="body2"><strong>{t('admin.reservations.details.labels.reservationCode')}:</strong> {current.reservationCode}</Typography>
               )}

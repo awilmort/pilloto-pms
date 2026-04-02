@@ -5,8 +5,9 @@ import User from '../models/User';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { validateRegister, validateLogin, validateEmail, validatePasswordReset } from '../middleware/validation';
 import { sendTokenResponse } from '../utils/jwt';
-import { sendVerificationEmail, sendPasswordResetEmail } from '../utils/email';
-import { TenantRequest } from '../middleware/tenantContext';
+import { sendVerificationEmail, sendPasswordResetEmail, sendEmail } from '../utils/email';
+import { TenantRequest, tenantLocalStorage } from '../middleware/tenantContext';
+import Tenant from '../models/Tenant';
 
 const router = express.Router();
 
@@ -508,6 +509,123 @@ router.put('/change-password', authenticate, async (req: AuthRequest, res: Respo
       success: false,
       message: 'Server error during password change'
     });
+  }
+});
+
+// @route   POST /api/auth/lookup-tenant
+// @desc    Given an email, return the tenant slug the user belongs to.
+//          Used by login.pilloto.com to redirect users to their workspace.
+// @access  Public (login portal only — runs in null tenant context)
+router.post('/lookup-tenant', authRateLimit, async (req: Request, res: Response) => {
+  try {
+    const email = String(req.body?.email || '').toLowerCase().trim();
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required.' });
+    }
+
+    // Cross-tenant query — explicitly run outside tenant AsyncLocalStorage scope
+    const user = await tenantLocalStorage.run(null, () =>
+      User.findOne({ email, tenantId: { $exists: true, $ne: null } })
+        .select('tenantId')
+        .lean()
+    );
+
+    if (!user || !user.tenantId) {
+      return res.status(404).json({ success: false, message: 'No workspace found for this email address.' });
+    }
+
+    const tenant = await tenantLocalStorage.run(null, () =>
+      Tenant.findById(user.tenantId).select('slug name isActive').lean()
+    );
+
+    if (!tenant || !(tenant as any).isActive) {
+      return res.status(404).json({ success: false, message: 'Workspace not found or inactive.' });
+    }
+
+    res.status(200).json({ success: true, data: { slug: (tenant as any).slug, name: (tenant as any).name } });
+  } catch (error) {
+    console.error('Lookup tenant error:', error);
+    res.status(500).json({ success: false, message: 'Server error during workspace lookup.' });
+  }
+});
+
+// ── Contact form (public — marketing site) ────────────────────────────────────
+const contactRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15-minute window
+  max: 5,                      // 5 submissions per IP per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many requests. Please try again later.' },
+});
+
+const CONTACT_EMAIL = process.env.CONTACT_FORM_TO_EMAIL || 'info@pilloto.com';
+
+const PLAN_LABELS: Record<string, string> = {
+  basic: 'Basic',
+  pro: 'Pro',
+  enterprise: 'Enterprise',
+  general: 'General inquiry',
+};
+
+router.post('/contact', contactRateLimit, async (req: Request, res: Response) => {
+  try {
+    const { name, email, phone, plan, message } = req.body as {
+      name?: string; email?: string; phone?: string; plan?: string; message?: string;
+    };
+
+    if (!name?.trim() || !email?.trim() || !message?.trim()) {
+      return res.status(400).json({ success: false, message: 'Name, email, and message are required.' });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).json({ success: false, message: 'Invalid email address.' });
+    }
+
+    const planLabel = PLAN_LABELS[plan?.trim() ?? ''] ?? 'General inquiry';
+    const safeName    = name.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const safeEmail   = email.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const safePhone   = (phone ?? '').trim().replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const safeMessage = message.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>');
+
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:32px 24px;color:#1a1a1a">
+        <div style="margin-bottom:24px">
+          <span style="font-size:22px;font-weight:700;letter-spacing:-0.5px">Pilloto</span>
+          <span style="font-size:13px;color:#888;margin-left:12px">New Contact Request</span>
+        </div>
+        <hr style="border:none;border-top:1px solid #eee;margin-bottom:24px">
+        <table style="width:100%;border-collapse:collapse">
+          <tr><td style="padding:8px 0;color:#666;width:140px;font-size:14px">Plan of interest</td>
+              <td style="padding:8px 0;font-weight:600;font-size:14px">${planLabel}</td></tr>
+          <tr><td style="padding:8px 0;color:#666;font-size:14px">Name</td>
+              <td style="padding:8px 0;font-size:14px">${safeName}</td></tr>
+          <tr><td style="padding:8px 0;color:#666;font-size:14px">Email</td>
+              <td style="padding:8px 0;font-size:14px"><a href="mailto:${safeEmail}" style="color:#1A3C34">${safeEmail}</a></td></tr>
+          ${safePhone ? `<tr><td style="padding:8px 0;color:#666;font-size:14px">Phone</td>
+              <td style="padding:8px 0;font-size:14px">${safePhone}</td></tr>` : ''}
+        </table>
+        <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+        <p style="font-size:14px;color:#666;margin-bottom:8px">Message</p>
+        <p style="font-size:15px;line-height:1.7;color:#333">${safeMessage}</p>
+        <hr style="border:none;border-top:1px solid #eee;margin-top:32px">
+        <p style="font-size:12px;color:#aaa;margin-top:16px">Sent from pilloto.com/contact — ${new Date().toUTCString()}</p>
+      </div>`;
+
+    await tenantLocalStorage.run(null, () =>
+      sendEmail({
+        to: CONTACT_EMAIL,
+        subject: `[Pilloto] ${planLabel} inquiry from ${name.trim()}`,
+        html,
+        replyTo: email.trim(),
+        _logMeta: { emailType: 'contact-form' },
+      })
+    );
+
+    res.status(200).json({ success: true, message: "Message received. We'll be in touch soon." });
+  } catch (error) {
+    console.error('Contact form error:', error);
+    res.status(500).json({ success: false, message: 'Failed to send message. Please try again.' });
   }
 });
 

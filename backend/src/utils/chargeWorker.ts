@@ -44,6 +44,8 @@ interface AuditContext {
   now: Date;
   businessDate: string; // YYYY-MM-DD
   tenantId: string;
+  /** HH:MM checkout time from tenant settings (default '11:00') */
+  checkoutTime: string;
 }
 
 interface DetectionResult {
@@ -96,13 +98,24 @@ function nightlyRateOf(reservation: any): number {
 
 /**
  * checkout_overdue: checkout date has passed, guest has NOT checked out,
- * and we've exceeded the configured grace threshold (default 2 h).
+ * and we've exceeded the configured grace threshold (default 0 h).
+ * The deadline is the tenant's configured checkout time (default 11:00) on the checkout date.
  */
 const detectCheckoutOverdue: DetectorFn = (reservation, rule, ctx) => {
   if (!reservation.checkOutDate) return { detected: false };
-  const checkOut = new Date(reservation.checkOutDate);
-  const thresholdMs = (rule.conditions.timeThresholdHours ?? 2) * 60 * 60 * 1000;
-  if (ctx.now.getTime() <= checkOut.getTime() + thresholdMs) return { detected: false };
+  // Build the checkout deadline: checkout date at the tenant's checkout time
+  const rawCheckOut = new Date(reservation.checkOutDate);
+  const [hStr, mStr] = ctx.checkoutTime.split(':');
+  const checkoutDeadline = new Date(
+    rawCheckOut.getFullYear(),
+    rawCheckOut.getMonth(),
+    rawCheckOut.getDate(),
+    Number(hStr),
+    Number(mStr),
+    0, 0
+  );
+  const thresholdMs = (rule.conditions.timeThresholdHours ?? 0) * 60 * 60 * 1000;
+  if (ctx.now.getTime() <= checkoutDeadline.getTime() + thresholdMs) return { detected: false };
   if (reservation.actualCheckOutAt || !reservation.actualCheckInAt) return { detected: false };
   return { detected: true, nightlyRate: nightlyRateOf(reservation), nights: 1 };
 };
@@ -254,7 +267,7 @@ export async function runAuditForTenant(tenantId: string, options: RunAuditOptio
   const { triggeredBy = 'cron', dryRun = false } = options;
   const now = new Date();
   const businessDate = toBusinessDate(now);
-  const ctx: AuditContext = { now, businessDate, tenantId };
+  const ctx: AuditContext = { now, businessDate, tenantId, checkoutTime: '11:00' };
 
   const summary: AuditSummary = {
     tenantId, businessDate, dryRun,
@@ -277,6 +290,11 @@ export async function runAuditForTenant(tenantId: string, options: RunAuditOptio
       if (!isNaN(configuredHour) && now.getHours() !== configuredHour) {
         return summary; // not the right hour yet — silent no-op
       }
+    }
+
+    // Load checkout time from tenant settings
+    if (settings?.checkoutTime && /^([01]\d|2[0-3]):[0-5]\d$/.test(settings.checkoutTime)) {
+      ctx.checkoutTime = settings.checkoutTime;
     }
   }
 

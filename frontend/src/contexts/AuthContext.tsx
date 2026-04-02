@@ -10,6 +10,7 @@ interface AuthState {
   isAuthenticated: boolean;
   loading: boolean;
   permissions: string[];
+  discountLimit: number;
 }
 
 type AuthAction =
@@ -24,6 +25,7 @@ const initialState: AuthState = {
   isAuthenticated: false,
   loading: true,
   permissions: [],
+  discountLimit: 0,
 };
 
 const authReducer = (state: AuthState, action: AuthAction): AuthState => {
@@ -38,6 +40,7 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         isAuthenticated: true,
         loading: false,
         permissions: (action.payload.user as any).permissions || [],
+        discountLimit: (action.payload.user as any).discountLimit ?? 0,
       };
     case 'LOGOUT':
       return {
@@ -47,12 +50,14 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         isAuthenticated: false,
         loading: false,
         permissions: [],
+        discountLimit: 0,
       };
     case 'UPDATE_USER':
       return {
         ...state,
         user: action.payload,
         permissions: (action.payload as any).permissions || state.permissions,
+        discountLimit: (action.payload as any).discountLimit ?? state.discountLimit,
       };
     default:
       return state;
@@ -97,8 +102,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
               };
               const rawPerms: string[] = roleDef?.permissions || [];
               user.permissions = rawPerms.map(p => legacyMap[p] || p);
+              user.discountLimit = roleDef?.discountLimit ?? 0;
             } catch (e) {
               user.permissions = [];
+              user.discountLimit = 0;
             }
             dispatch({ type: 'LOGIN_SUCCESS', payload: { user, token } });
           } else {
@@ -135,8 +142,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           };
           const rawPerms: string[] = roleDef?.permissions || [];
           user.permissions = rawPerms.map(p => legacyMap[p] || p);
+          user.discountLimit = roleDef?.discountLimit ?? 0;
         } catch (e) {
           user.permissions = [];
+          user.discountLimit = 0;
         }
         dispatch({ type: 'UPDATE_USER', payload: user });
       }
@@ -165,8 +174,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           };
           const rawPerms: string[] = roleDef?.permissions || [];
           user.permissions = rawPerms.map(p => legacyMap[p] || p);
+          user.discountLimit = roleDef?.discountLimit ?? 0;
         } catch (e) {
           user.permissions = [];
+          user.discountLimit = 0;
         }
         localStorage.setItem('token', token);
         dispatch({ type: 'LOGIN_SUCCESS', payload: { user, token } });
@@ -225,6 +236,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     register,
     logout,
     permissions: state.permissions,
+    discountLimit: state.discountLimit,
     refreshUser,
   };
 

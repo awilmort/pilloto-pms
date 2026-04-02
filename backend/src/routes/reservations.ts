@@ -6,7 +6,7 @@ import Role from '../models/Role';
 import { authenticate, authorize, authorizePermission, AuthRequest } from '../middleware/auth';
 import { validateReservation } from '../middleware/validation';
 import { getSortObject } from '../utils/helpers';
-import { sendReservationConfirmationEmail } from '../utils/email';
+import { sendReservationConfirmationEmail, sendInvoiceEmail } from '../utils/email';
 import EventType from '../models/EventType';
 import { calculateTieredPrice } from '../utils/pricing';
 import AppSettings from '../models/AppSettings';
@@ -327,6 +327,9 @@ router.post('/', async (req: Request, res: Response) => {
       rooms: assignedRoomIds, // array of room IDs (new: required for room reservations)
       roomCount,              // legacy: kept for backward compatibility
       items, // optional: ReservationItem[] from service pricing
+      discountAmount: rawDiscountAmount,
+      discountPercent: rawDiscountPercent,
+      discountReason,
     } = req.body;
 
     // Normalize and basic validation
@@ -633,6 +636,41 @@ router.post('/', async (req: Request, res: Response) => {
       if (itemsTotal > 0) estimatedTotal = itemsTotal;
     }
 
+    // ── Discount validation and application ─────────────────────────────────
+    const requestedDiscount = Number(rawDiscountAmount) || 0;
+    const requestedPercent  = Number(rawDiscountPercent) || 0;
+    let appliedDiscount = 0;
+
+    if (requestedDiscount > 0) {
+      const authReq = req as AuthRequest;
+      const isPrivilegedRole = authReq.user &&
+        ['admin', 'superadmin'].includes(String(authReq.user.role).toLowerCase());
+
+      if (!isPrivilegedRole) {
+        // Must have the discount permission
+        const tenantFilter = authReq.tenantId ? { tenantId: authReq.tenantId } : {};
+        const roleDef = authReq.user
+          ? await Role.findOne({ name: String(authReq.user.role).toLowerCase(), ...tenantFilter })
+          : null;
+
+        if (!roleDef?.permissions.includes('admin.reservations.discount')) {
+          return res.status(403).json({ success: false, message: 'Insufficient permissions to apply a discount' });
+        }
+
+        const limit = roleDef.discountLimit ?? 0;
+        const maxAllowed = Math.round((limit / 100) * estimatedTotal * 100) / 100;
+        if (requestedDiscount > maxAllowed + 0.01) {
+          return res.status(400).json({
+            success: false,
+            message: `Discount of ${requestedDiscount} exceeds your allowed maximum of ${limit}% (${maxAllowed})`
+          });
+        }
+      }
+
+      appliedDiscount = Math.min(requestedDiscount, estimatedTotal);
+      estimatedTotal  = Math.max(0, estimatedTotal - appliedDiscount);
+    }
+
     // Ensure a Guest record exists and link by guestRecord id
     let guestRecordId: any = undefined;
     if (contactInfo?.email) {
@@ -678,6 +716,11 @@ router.post('/', async (req: Request, res: Response) => {
     };
 
     if (pricingSnapshotData) reservationData.pricingSnapshot = pricingSnapshotData;
+    if (appliedDiscount > 0) {
+      reservationData.discountAmount  = appliedDiscount;
+      reservationData.discountPercent = requestedPercent || undefined;
+      reservationData.discountReason  = discountReason   || undefined;
+    }
     if (normalizedType === 'room') {
       if (Array.isArray(assignedRoomIds) && assignedRoomIds.length > 0) {
         reservationData.rooms = assignedRoomIds;
@@ -1606,6 +1649,7 @@ router.patch('/:id/check-in', authenticate, authorizePermission('admin.reservati
     const now = new Date();
     const when = checkInAt ? new Date(checkInAt) : now;
     reservation.actualCheckInAt = when;
+    reservation.status = 'checked-in';
 
     const folio = await ensureFolio(reservation._id);
     const existingBaseCharge = await Charge.findOne({ folioId: folio._id, description: { $regex: '^Reservation base charge:', $options: 'i' } });
@@ -1737,6 +1781,10 @@ router.patch('/:id/check-out', authenticate, async (req: AuthRequest, res: Respo
     if (financial.folio.status === 'open') {
       financial.folio.status = 'closed';
       await financial.folio.save();
+      // Fire-and-forget invoice email — errors must not block checkout response
+      sendInvoiceEmail(financial.folio._id as string).catch(err =>
+        console.error(JSON.stringify({ emailEvent: 'failed', emailType: 'invoice', errorCode: String(err.message) }))
+      );
     }
 
     await reservation.save();
@@ -2075,6 +2123,42 @@ router.post('/:id/use-credit', authenticate, authorizePermission('admin.reservat
   } catch (error: any) {
     console.error('Use credit error:', error);
     res.status(500).json({ success: false, message: 'Server error while using credit' });
+  }
+});
+
+// @route   POST /api/reservations/:id/send-email
+// @desc    Send a transactional email for this reservation on demand
+// @access  Private (admin)
+router.post('/:id/send-email', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const { type } = req.body as { type?: string };
+    if (!type || !['confirmation', 'invoice'].includes(type)) {
+      return res.status(400).json({ success: false, message: 'Invalid email type. Must be "confirmation" or "invoice".' });
+    }
+
+    const reservation = await Reservation.findById(req.params.id)
+      .populate('user', 'firstName lastName email')
+      .populate('room', 'name')
+      .populate('rooms', 'name')
+      .populate('guestRecord', 'firstName lastName email phone');
+    if (!reservation) return res.status(404).json({ success: false, message: 'Reservation not found' });
+
+    const contactEmail = (reservation as any).contactInfo?.email;
+    if (!contactEmail) {
+      return res.status(422).json({ success: false, message: 'Reservation has no contact email address' });
+    }
+
+    if (type === 'confirmation') {
+      await sendReservationConfirmationEmail(reservation);
+    } else if (type === 'invoice') {
+      const financial = await getReservationFinancialSnapshot(reservation);
+      await sendInvoiceEmail(financial.folio._id as string);
+    }
+
+    res.status(200).json({ success: true, message: `${type} email sent` });
+  } catch (error: any) {
+    console.error('Send email error:', error);
+    res.status(500).json({ success: false, message: error.message || 'Failed to send email' });
   }
 });
 

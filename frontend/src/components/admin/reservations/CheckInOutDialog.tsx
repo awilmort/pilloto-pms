@@ -78,14 +78,11 @@ const CheckInOutDialog: React.FC<Props> = ({
     try {
       setLoading(true);
       if (mode === 'checkin') {
-        const isRoom = reservation.type === 'room';
-        if (isRoom && !idDocument.trim()) {
+        if (!idDocument.trim()) {
           onSnackbar(t('admin.reservations.checkin.idRequired'), 'error');
           return;
         }
-        const payload = isRoom
-          ? { identificationDocument: idDocument.trim(), identificationType: idType }
-          : { identificationDocument: '' };
+        const payload = { identificationDocument: idDocument.trim(), identificationType: idType };
         const res = await reservationsService.checkInReservation(reservation._id, payload as any);
         onSuccess(res.data.data as Reservation);
         onSnackbar(t('admin.reservations.messages.checkinSuccess'), 'success');
@@ -138,28 +135,24 @@ const CheckInOutDialog: React.FC<Props> = ({
         {mode === 'checkin' ? (
           <Box sx={{ display: 'grid', gap: 2 }}>
             <Alert severity="info">{t('admin.reservations.checkin.provideId')}</Alert>
-            {reservation?.type === 'room' && (
-              <>
-                <FormControl fullWidth>
-                  <InputLabel>{t('admin.reservations.checkin.idType')}</InputLabel>
-                  <Select
-                    value={idType}
-                    label={t('admin.reservations.checkin.idType')}
-                    onChange={e => setIdType(e.target.value)}
-                  >
-                    <MenuItem value="cedula">{t('admin.reservations.checkin.idTypeOptions.cedula')}</MenuItem>
-                    <MenuItem value="pasaporte">{t('admin.reservations.checkin.idTypeOptions.pasaporte')}</MenuItem>
-                    <MenuItem value="rnc">{t('admin.reservations.checkin.idTypeOptions.rnc')}</MenuItem>
-                  </Select>
-                </FormControl>
-                <TextField
-                  label={t('admin.reservations.checkin.idDocument')}
-                  value={idDocument}
-                  onChange={e => setIdDocument(e.target.value)}
-                  required
-                />
-              </>
-            )}
+            <FormControl fullWidth>
+              <InputLabel>{t('admin.reservations.checkin.idType')}</InputLabel>
+              <Select
+                value={idType}
+                label={t('admin.reservations.checkin.idType')}
+                onChange={e => setIdType(e.target.value)}
+              >
+                <MenuItem value="cedula">{t('admin.reservations.checkin.idTypeOptions.cedula')}</MenuItem>
+                <MenuItem value="pasaporte">{t('admin.reservations.checkin.idTypeOptions.pasaporte')}</MenuItem>
+                <MenuItem value="rnc">{t('admin.reservations.checkin.idTypeOptions.rnc')}</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              label={t('admin.reservations.checkin.idDocument')}
+              value={idDocument}
+              onChange={e => setIdDocument(e.target.value)}
+              required
+            />
             {checkoutFinancial && checkoutFinancial.depositTotal > 0 && (
               <Alert severity="success">
                 {t('admin.reservations.financial.depositOnFile', 'Deposit on file')}: {' '}
@@ -233,7 +226,7 @@ const CheckInOutDialog: React.FC<Props> = ({
           variant="contained"
           onClick={handleConfirm}
           disabled={
-            (mode === 'checkin' && reservation?.type === 'room' && !idDocument.trim()) ||
+            (mode === 'checkin' && !idDocument.trim()) ||
             checkoutFinancialLoading ||
             loading
           }

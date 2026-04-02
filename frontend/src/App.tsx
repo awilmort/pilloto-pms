@@ -42,6 +42,9 @@ import CreditAccountsManagement from './pages/admin/CreditAccountsManagement';
 import CashierClosuresPage from './pages/admin/CashierClosuresPage';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import NotFoundPage from './pages/NotFoundPage';
+import LandingPage from './pages/marketing/LandingPage';
+import CrossTenantLoginPage from './pages/marketing/CrossTenantLoginPage';
+import ContactPage from './pages/marketing/ContactPage';
 
 const globalStyles = (
   <GlobalStyles
@@ -90,6 +93,27 @@ const toastConfig = (
     theme="light"
   />
 );
+
+// ─── Login portal (login.pilloto.com) ──────────────────────────────────────────
+function LoginPortalApp() {
+  return (
+    <Router>
+      <Routes>
+        <Route path="*" element={<CrossTenantLoginPage />} />
+      </Routes>
+    </Router>
+  );
+}
+
+// ─── Marketing site (pilloto.com — no subdomain) ──────────────────────────────
+function MarketingApp() {
+  return (
+    <Router>
+      <Routes>        <Route path="/contact" element={<ContactPage />} />        <Route path="*" element={<LandingPage />} />
+      </Routes>
+    </Router>
+  );
+}
 
 // ─── Platform portal (admin.pilloto.com) ───────────────────────────────────────
 function PlatformApp() {
@@ -264,7 +288,7 @@ function TenantApp() {
 
 // ─── Root: picks platform vs tenant app ───────────────────────────────────────
 function AppContent() {
-  const { isPlatform, loading, tenantNotFound } = useTenant();
+  const { isPlatform, loading, tenantNotFound, tenantSlug, isLoginPortal } = useTenant();
 
   if (loading) {
     return (
@@ -275,6 +299,11 @@ function AppContent() {
   }
 
   if (tenantNotFound) return <TenantNotFoundPage />;
+
+  if (isLoginPortal) return <LoginPortalApp />;
+
+  // No subdomain and not platform → marketing site
+  if (!isPlatform && !tenantSlug) return <MarketingApp />;
 
   return isPlatform ? <PlatformApp /> : <TenantApp />;
 }
