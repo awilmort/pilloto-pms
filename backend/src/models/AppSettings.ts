@@ -8,6 +8,16 @@ export interface IEmailSettings {
   footerText?: string;
 }
 
+export interface IOtaSettings {
+  enabled: boolean;
+  /** Minimum minutes between automatic sync runs for this tenant (15 | 30 | 60 | 120 | 360) */
+  syncIntervalMinutes: number;
+  /** IANA timezone used to interpret OTA iCal dates (e.g. 'America/Santo_Domingo') */
+  timezone: string;
+  /** Whether to surface conflict alerts in the admin dashboard */
+  conflictAlerts: boolean;
+}
+
 export interface IAppSettings extends Document {
   key: string;        // singleton key, always 'global'
   sections: Record<string, boolean>;
@@ -15,6 +25,7 @@ export interface IAppSettings extends Document {
   nightAuditTime: string;           // cron expression for this tenant (overrides env default)
   checkoutTime: string;             // HH:MM — time guests must check out (default 11:00)
   emailSettings?: IEmailSettings;
+  otaSettings?: IOtaSettings;
   updatedAt: Date;
 }
 
@@ -40,6 +51,12 @@ const appSettingsSchema = new Schema<IAppSettings>(
       replyTo:         { type: String, default: '' },
       footerHtml:      { type: String, default: '' },
       footerText:      { type: String, default: '' },
+    },
+    otaSettings: {
+      enabled:              { type: Boolean, default: false },
+      syncIntervalMinutes:  { type: Number, default: 60 },
+      timezone:             { type: String, default: 'UTC', maxlength: 80 },
+      conflictAlerts:       { type: Boolean, default: true },
     },
   },
   { timestamps: true }

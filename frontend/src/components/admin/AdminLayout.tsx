@@ -31,6 +31,7 @@ import {
   AccountBalanceWallet,
   PointOfSale,
   CalendarMonth,
+  SyncAlt,
 } from '@mui/icons-material';
 import { ConfirmationNumber } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -100,6 +101,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       { text: t('admin.nav.guests'), icon: <PersonPin />, path: '/admin/guests', key: 'guests', perm: 'admin.guests' },
       { text: t('admin.nav.creditAccounts'), icon: <AccountBalanceWallet />, path: '/admin/credit-accounts', key: 'credit-accounts', perm: 'admin.creditAccounts' },
       { text: t('admin.nav.cashierClosures', 'Cashier Closures'), icon: <PointOfSale />, path: '/admin/cashier-closures', key: 'cashier-closures', perm: 'cashier' },
+      { text: t('admin.nav.otaConflicts', 'OTA Conflicts'), icon: <SyncAlt />, path: '/admin/ota-conflicts', key: 'ota-conflicts', perm: 'admin.ota.view' },
       { text: t('admin.nav.settings'), icon: <Settings />, path: '/admin/settings', key: 'settings', perm: 'admin.settings' },
     ];
     const role = user?.role || 'customer';

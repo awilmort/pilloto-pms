@@ -13,6 +13,7 @@ import Layout from './components/layout/Layout';
 
 // Platform portal pages (admin.pilloto.com)
 import TenantsPage from './pages/platform/TenantsPage';
+import OtaSyncPage from './pages/platform/OtaSyncPage';
 import TenantNotFoundPage from './pages/TenantNotFoundPage';
 
 // Pages
@@ -40,6 +41,7 @@ import CompaniesManagement from './pages/admin/CompaniesManagement';
 import GuestsManagement from './pages/admin/GuestsManagement';
 import CreditAccountsManagement from './pages/admin/CreditAccountsManagement';
 import CashierClosuresPage from './pages/admin/CashierClosuresPage';
+import OtaConflictQueue from './pages/admin/OtaConflictQueue';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import NotFoundPage from './pages/NotFoundPage';
 import LandingPage from './pages/marketing/LandingPage';
@@ -130,6 +132,11 @@ function PlatformApp() {
           <Route path="/platform/tenants" element={
             <ProtectedRoute>
               <TenantsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/platform/ota" element={
+            <ProtectedRoute>
+              <OtaSyncPage />
             </ProtectedRoute>
           } />
           <Route path="*" element={<Navigate to="/platform/tenants" replace />} />
@@ -226,6 +233,12 @@ function TenantApp() {
             <Route path="/admin/cashier-closures" element={
               <ProtectedRoute requiredPermission="cashier" requiredSection="cashier-closures">
                 <CashierClosuresPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin/ota-conflicts" element={
+              <ProtectedRoute requiredPermission="admin.ota.view">
+                <OtaConflictQueue />
               </ProtectedRoute>
             } />
 

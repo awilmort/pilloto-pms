@@ -22,7 +22,7 @@ router.get('/', authenticate, authorize('admin'), async (req: AuthRequest, res: 
 // PUT /api/settings — update settings (admin only)
 router.put('/', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
   try {
-    const { services, sections, nightAuditEnabled, nightAuditTime, checkoutTime, emailSettings } = req.body;
+    const { services, sections, nightAuditEnabled, nightAuditTime, checkoutTime, emailSettings, otaSettings } = req.body;
     const update: any = {};
     if (services) update.services = services;
     if (sections !== undefined) update.sections = sections;
@@ -53,6 +53,16 @@ router.put('/', authenticate, authorize('admin'), async (req: AuthRequest, res: 
           ? emailSettings.footerText.trim().slice(0, 2000)
           : '',
       };
+    }
+    if (otaSettings !== undefined) {
+      update['otaSettings.enabled']             = typeof otaSettings.enabled === 'boolean' ? otaSettings.enabled : undefined;
+      update['otaSettings.syncIntervalMinutes'] = typeof otaSettings.syncIntervalMinutes === 'number' ? otaSettings.syncIntervalMinutes : undefined;
+      update['otaSettings.timezone']            = typeof otaSettings.timezone === 'string' ? otaSettings.timezone.slice(0, 80) : undefined;
+      update['otaSettings.conflictAlerts']      = typeof otaSettings.conflictAlerts === 'boolean' ? otaSettings.conflictAlerts : undefined;
+      // Remove undefined keys so $set is clean
+      for (const k of Object.keys(update)) {
+        if (update[k] === undefined) delete update[k];
+      }
     }
 
     const settings = await AppSettings.findOneAndUpdate(

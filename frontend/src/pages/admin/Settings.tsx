@@ -41,6 +41,7 @@ import { AmenitiesContent } from './AmenitiesManagement';
 import { EventTypesContent } from './EventTypesManagement';
 import { RolesContent } from './RolesManagement';
 import { MediaContent } from './MediaManagement';
+import OtaSettingsTab from '../../components/admin/OtaSettingsTab';
 
 export type { AppSettings };
 
@@ -255,6 +256,7 @@ const Settings: React.FC = () => {
                 <Tab label={t('admin.settings.tabs.nightAudit', 'Night Audit')} id="settings-tab-6" />
                 <Tab label={t('admin.settings.tabs.email', 'Email')} id="settings-tab-7" />
                 <Tab label={t('admin.settings.tabs.checkout', 'Check-Out')} id="settings-tab-8" />
+                <Tab label={t('admin.settings.tabs.ota', 'OTA Sync')} id="settings-tab-9" />
               </Tabs>
             </Box>
 
@@ -573,6 +575,9 @@ const Settings: React.FC = () => {
                   {checkoutTimeSaving ? t('common.saving', 'Saving…') : t('common.save', 'Save')}
                 </Button>
               </Box>
+            </TabPanel>
+            <TabPanel value={activeTab} index={9}>
+              <OtaSettingsTab showSnackbar={showSnackbar} />
             </TabPanel>
           </Paper>
         )}

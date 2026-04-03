@@ -61,6 +61,9 @@ const buildAvailablePermissions = (t: (key: string) => string) => ([
   { key: 'admin.creditAccounts.create', label: t('admin.roles.permissionLabels.creditAccountsCreate') },
   { key: 'admin.creditAccounts.edit', label: t('admin.roles.permissionLabels.creditAccountsEdit') },
   { key: 'cashier', label: t('admin.roles.permissionLabels.cashier') },
+  { key: 'admin.ota.view', label: t('admin.roles.permissionLabels.otaView') },
+  { key: 'admin.ota.manage', label: t('admin.roles.permissionLabels.otaManage') },
+  { key: 'admin.ota.resolve', label: t('admin.roles.permissionLabels.otaResolve') },
 ]);
 
 interface RoleItem {

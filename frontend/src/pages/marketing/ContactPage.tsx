@@ -16,8 +16,8 @@ const BRAND_LIGHT = '#E8F0EE';
 
 const PLAN_OPTIONS = [
   { value: 'basic',      label: 'Basic — up to 20 rooms' },
-  { value: 'pro',        label: 'Pro — up to 80 rooms' },
-  { value: 'enterprise', label: 'Enterprise — unlimited rooms' },
+  { value: 'pro',        label: 'Pro — up to 50 rooms' },
+  { value: 'enterprise', label: 'Enterprise — up to 200 rooms' },
   { value: 'general',    label: 'General inquiry' },
 ];
 

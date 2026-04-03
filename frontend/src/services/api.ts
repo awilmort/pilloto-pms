@@ -824,6 +824,12 @@ export interface AppSettings {
     footerHtml?: string;
     footerText?: string;
   };
+  otaSettings?: {
+    enabled: boolean;
+    syncIntervalMinutes: number;
+    timezone: string;
+    conflictAlerts: boolean;
+  };
 }
 
 export interface CashierClosure {
@@ -956,6 +962,67 @@ export const platformService = {
     apiClient.get(`/platform/tenants/${id}/stats`),
 };
 
+// ── Platform OTA service ────────────────────────────────────────────────────────
+export interface PlatformOtaConfig {
+  globalEnabled: boolean;
+  cronIntervalMinutes: number;
+  cronStatus: { running: boolean; globalEnabled: boolean; intervalMinutes: number };
+}
+
+export interface PlatformOtaTenantRow {
+  tenantId: string;
+  tenantName: string;
+  tenantSlug: string;
+  isActive: boolean;
+  otaEnabled: boolean;
+  syncIntervalMinutes: number;
+  mappingCount: number;
+  pendingConflicts: number;
+  lastRun: {
+    _id: string;
+    status: string;
+    startedAt: string;
+    completedAt?: string;
+    imported: number;
+    updated: number;
+    conflicts: number;
+    errorCount: number;
+  } | null;
+}
+
+export interface PlatformOtaSyncRun {
+  _id: string;
+  tenantId: string;
+  tenantName: string;
+  tenantSlug: string;
+  triggeredBy: 'cron' | 'manual';
+  status: 'running' | 'completed' | 'failed' | 'partial';
+  startedAt: string;
+  completedAt?: string;
+  imported: number;
+  updated: number;
+  conflicts: number;
+  errorCount: number;
+  error?: string;
+}
+
+export const platformOtaService = {
+  getConfig: (): Promise<AxiosResponse<ApiResponse<PlatformOtaConfig>>> =>
+    apiClient.get('/platform/ota/config'),
+
+  updateConfig: (data: { globalEnabled?: boolean; cronIntervalMinutes?: number }): Promise<AxiosResponse<ApiResponse<PlatformOtaConfig>>> =>
+    apiClient.patch('/platform/ota/config', data),
+
+  getTenantStats: (): Promise<AxiosResponse<ApiResponse<PlatformOtaTenantRow[]>>> =>
+    apiClient.get('/platform/ota/tenant-stats'),
+
+  getSyncRuns: (params?: { page?: number; limit?: number; tenantId?: string; status?: string }): Promise<AxiosResponse<ApiResponse<PlatformOtaSyncRun[]> & { pagination: { page: number; limit: number; total: number; totalPages: number } }>> =>
+    apiClient.get('/platform/ota/sync-runs', { params }),
+
+  triggerSync: (tenantId?: string): Promise<AxiosResponse<ApiResponse<{ message: string }>>> =>
+    apiClient.post('/platform/ota/sync', tenantId ? { tenantId } : {}),
+};
+
 // ─────────────────────────────────────────────────────────────
 // Charge Templates Service
 // ─────────────────────────────────────────────────────────────
@@ -1026,5 +1093,103 @@ export const auditService = {
     limit?: number;
   }): Promise<AxiosResponse<ApiResponse<AuditRun[]> & { pagination: { total: number; page: number; limit: number; pages: number } }>> =>
     apiClient.get('/audit/runs', { params }),
+};
+
+// ─────────────────────────────────────────────────────────────
+// OTA iCal Sync Service
+// ─────────────────────────────────────────────────────────────
+
+export type OtaProvider = 'airbnb' | 'booking' | 'vrbo' | 'other';
+export type OtaConflictStatus =
+  | 'pending_review'
+  | 'resolved_keep_pilloto'
+  | 'resolved_accept_ota'
+  | 'resolved_outside_system'
+  | 'ignored_false_positive';
+
+export interface OtaListingMapping {
+  _id: string;
+  provider: OtaProvider;
+  listingLabel: string;
+  externalListingId?: string;
+  inboundFeedUrl?: string;
+  outboundFeedUrl?: string;
+  outboundToken: string;
+  roomId: string | { _id: string; name: string; number?: string };
+  isActive: boolean;
+  lastSyncedAt?: string;
+  lastSyncStatus?: 'success' | 'partial' | 'failed' | 'never';
+  lastSyncError?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OtaSyncRun {
+  _id: string;
+  mappingId: string;
+  triggeredBy: 'cron' | 'manual';
+  status: 'running' | 'completed' | 'failed';
+  startedAt: string;
+  completedAt?: string;
+  imported: number;
+  updated: number;
+  conflicts: number;
+  errors: string[];
+}
+
+export interface OtaConflict {
+  _id: string;
+  mappingId: string | OtaListingMapping;
+  externalEventId: string;
+  overlappingReservationId: string;
+  conflictType: 'overlap' | 'exact_match';
+  status: OtaConflictStatus;
+  resolvedBy?: string;
+  resolvedAt?: string;
+  notes?: string;
+  snapshot: {
+    otaCheckIn: string;
+    otaCheckOut: string;
+    otaGuestName?: string;
+    pillotoCheckIn: string;
+    pillotoCheckOut: string;
+    pillotoGuestName?: string;
+  };
+  createdAt: string;
+}
+
+export const otaService = {
+  // Listing mappings
+  getMappings: (): Promise<AxiosResponse<ApiResponse<OtaListingMapping[]>>> =>
+    apiClient.get('/ota/mappings'),
+
+  createMapping: (data: Partial<OtaListingMapping>): Promise<AxiosResponse<ApiResponse<OtaListingMapping>>> =>
+    apiClient.post('/ota/mappings', data),
+
+  updateMapping: (id: string, data: Partial<OtaListingMapping>): Promise<AxiosResponse<ApiResponse<OtaListingMapping>>> =>
+    apiClient.put(`/ota/mappings/${id}`, data),
+
+  deleteMapping: (id: string): Promise<AxiosResponse<ApiResponse>> =>
+    apiClient.delete(`/ota/mappings/${id}`),
+
+  rotateToken: (id: string): Promise<AxiosResponse<ApiResponse<{ outboundToken: string; outboundFeedUrl: string }>>> =>
+    apiClient.post(`/ota/mappings/${id}/rotate-token`),
+
+  // Sync
+  triggerSync: (mappingId?: string): Promise<AxiosResponse<ApiResponse<{ queued: boolean; mappingId?: string }>>> =>
+    apiClient.post('/ota/sync', mappingId ? { mappingId } : {}),
+
+  getSyncRuns: (params?: { mappingId?: string; page?: number; limit?: number }): Promise<AxiosResponse<ApiResponse<OtaSyncRun[]> & { pagination: { total: number; page: number; limit: number; pages: number } }>> =>
+    apiClient.get('/ota/sync-runs', { params }),
+
+  // Conflicts
+  getConflicts: (params?: { status?: OtaConflictStatus; page?: number; limit?: number }): Promise<AxiosResponse<ApiResponse<OtaConflict[]> & { pagination: { total: number; page: number; limit: number; pages: number } }>> =>
+    apiClient.get('/ota/conflicts', { params }),
+
+  getPendingConflictCount: (): Promise<AxiosResponse<ApiResponse<{ count: number }>>> =>
+    apiClient.get('/ota/conflicts/count'),
+
+  resolveConflict: (id: string, data: { status: OtaConflictStatus; notes?: string }): Promise<AxiosResponse<ApiResponse<OtaConflict>>> =>
+    apiClient.put(`/ota/conflicts/${id}/resolve`, data),
 };
 

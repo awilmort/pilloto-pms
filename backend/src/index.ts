@@ -32,9 +32,13 @@ import chargeTemplateRoutes from './routes/chargeTemplates';
 import chargeRuleRoutes from './routes/chargeRules';
 import auditRoutes from './routes/audit';
 import sesWebhookRoutes from './routes/sesWebhook';
+import otaRoutes from './routes/ota';
+import otaFeedRoutes from './routes/otaFeed';
 import { syncUploadsToMedia } from './utils/mediaSync';
 import { migrateReservationStatuses } from './models/Reservation';
 import { runAudit } from './utils/chargeWorker';
+import { initOtaCron, stopOtaCron } from './utils/otaCron';
+import PlatformSettings from './models/PlatformSettings';
 import cron from 'node-cron';
 import { resolveTenant } from './middleware/tenantContext';
 import Tenant from './models/Tenant';
@@ -192,6 +196,9 @@ app.use('/api/service-prices', servicePriceRoutes);
 app.use('/api/charge-templates', chargeTemplateRoutes);
 app.use('/api/charge-rules', chargeRuleRoutes);
 app.use('/api/audit', auditRoutes);
+app.use('/api/ota', otaRoutes);
+// Public outbound iCal feed — no JWT, token is the auth
+app.use('/api/ota/feed', otaFeedRoutes);
 
 // Public endpoint: returns tenant info from the Host/X-Tenant-Slug header (no auth required)
 app.get('/api/tenant/info', async (req, res) => {
@@ -323,8 +330,20 @@ const startServer = async () => {
     console.log('⚠️  Night audit disabled via NIGHT_AUDIT_DISABLED=true');
   }
 
-  process.on('SIGTERM', () => gracefulShutdown('SIGTERM', server));
-  process.on('SIGINT',  () => gracefulShutdown('SIGINT',  server));
+  // OTA iCal sync cron — interval and enabled-state are stored in PlatformSettings.
+  // Disable entirely with OTA_SYNC_DISABLED=true (env override, e.g. for workers that
+  // should not run the cron).
+  if (process.env.OTA_SYNC_DISABLED !== 'true') {
+    const platformCfg = await PlatformSettings.findOne({ key: 'global' }).lean();
+    const otaCronEnabled  = platformCfg?.otaSync?.globalEnabled  ?? true;
+    const otaCronInterval = platformCfg?.otaSync?.cronIntervalMinutes ?? 5;
+    initOtaCron(otaCronInterval, otaCronEnabled);
+  } else {
+    console.log('⚠️  OTA sync disabled via OTA_SYNC_DISABLED=true');
+  }
+
+  process.on('SIGTERM', () => { stopOtaCron(); gracefulShutdown('SIGTERM', server); });
+  process.on('SIGINT',  () => { stopOtaCron(); gracefulShutdown('SIGINT',  server); });
 };
 
 startServer().catch(console.error);

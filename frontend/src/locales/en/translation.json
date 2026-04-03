@@ -125,7 +125,8 @@
       "guests": "Guests",
       "creditAccounts": "Credit Accounts",
       "cashierClosures": "Cashier Closures",
-      "bookingCalendar": "Calendar"
+      "bookingCalendar": "Calendar",
+      "otaConflicts": "OTA Conflicts"
     },
     "revenue": {
       "title": "Revenue",
@@ -335,7 +336,10 @@
         "creditAccountsCreate": "Credit Accounts: Create",
         "creditAccountsEdit": "Credit Accounts: Edit",
         "cashier": "Cashier",
-        "salesman": "Salesman"
+        "salesman": "Salesman",
+        "otaView": "OTA Sync: View",
+        "otaManage": "OTA Sync: Manage",
+        "otaResolve": "OTA Sync: Resolve Conflicts"
       }
     },
     "commissions": {
@@ -925,7 +929,8 @@
         "media": "Media",
         "nightAudit": "Night Audit",
         "email": "Email",
-        "checkout": "Check-Out"
+        "checkout": "Check-Out",
+        "ota": "OTA Sync"
       },
       "sections": {
         "heading": "Menu Sections",
@@ -955,6 +960,94 @@
         "description": "Set the standard time guests must check out. This is used as the baseline for late checkout detection in auto-charge policies.",
         "checkoutTime": "Check-out time",
         "checkoutTimeHint": "Guests are expected to check out by this time. Auto-charge policies use this as the reference point."
+      },
+      "ota": {
+        "heading": "OTA Sync",
+        "description": "Connect OTA listing calendars (Airbnb, Booking.com, VRBO) via iCal. Pilloto pulls availability blocks and publishes a live iCal feed for each room.",
+        "enabled": "Enable OTA sync",
+        "syncInterval": "Sync interval",
+        "timezone": "Calendar timezone",
+        "conflictAlerts": "Conflict alerts",
+        "syncAll": "Sync All Now",
+        "sync": "Sync now",
+        "mappings": {
+          "heading": "Listing Mappings",
+          "description": "Each mapping links one OTA listing to one Pilloto room.",
+          "add": "Add Mapping",
+          "addTitle": "Add Listing Mapping",
+          "editTitle": "Edit Listing Mapping",
+          "provider": "Provider",
+          "label": "Listing label",
+          "labelHint": "A friendly name for this listing, e.g. \"Airbnb – Room 12\"",
+          "externalId": "External listing ID (optional)",
+          "externalIdHint": "Used for reference only.",
+          "inboundUrl": "Inbound iCal URL",
+          "inboundUrlHint": "The .ics URL from Airbnb / Booking / VRBO listing calendar settings.",
+          "room": "Pilloto room",
+          "active": "Active",
+          "copyUrl": "Copy URL",
+          "rotateToken": "Rotate outbound token",
+          "deleteTitle": "Delete listing mapping?",
+          "deleteConfirm": "This will permanently remove this listing mapping and its sync history. Existing reservations are not affected.",
+          "empty": "No listing mappings yet.",
+          "table": {
+            "provider": "Provider",
+            "label": "Label",
+            "room": "Room",
+            "lastSync": "Last sync",
+            "status": "Status",
+            "outboundFeed": "Outbound feed"
+          }
+        },
+        "syncStatus": {
+          "success": "OK",
+          "partial": "Partial",
+          "failed": "Failed",
+          "never": "Never"
+        },
+        "errors": {
+          "loadFailed": "Failed to load OTA mappings",
+          "saveFailed": "Failed to save listing mapping",
+          "deleteFailed": "Failed to delete listing mapping",
+          "rotateFailed": "Failed to rotate token",
+          "syncFailed": "Failed to trigger sync"
+        },
+        "messages": {
+          "mappingCreated": "Listing mapping created",
+          "mappingUpdated": "Listing mapping updated",
+          "mappingDeleted": "Listing mapping deleted",
+          "tokenRotated": "Outbound feed token rotated",
+          "syncQueued": "Sync triggered",
+          "urlCopied": "Feed URL copied to clipboard"
+        },
+        "conflicts": {
+          "heading": "OTA Conflict Queue",
+          "description": "OTA calendar blocks that overlap with existing Pilloto reservations. Review and resolve each conflict before the next sync run.",
+          "pendingBadge": "{{count}} pending",
+          "statusFilter": "Status",
+          "loadFailed": "Failed to load conflicts",
+          "resolved": "Conflict resolved",
+          "resolveFailed": "Failed to resolve conflict",
+          "resolve": "Resolve",
+          "resolveTitle": "Resolve Conflict",
+          "submitResolve": "Submit Resolution",
+          "otaBlock": "OTA block",
+          "pillotoBlock": "Pilloto reservation",
+          "resolution": "Resolution",
+          "notes": "Notes (optional)",
+          "notesHint": "Add any context for the audit trail.",
+          "overlap": "Overlap",
+          "exactMatch": "Exact match",
+          "empty": "No conflicts found for this filter.",
+          "table": {
+            "provider": "Provider / Listing",
+            "otaBlock": "OTA Block",
+            "pillotoReservation": "Pilloto Reservation",
+            "type": "Type",
+            "status": "Status",
+            "detected": "Detected"
+          }
+        }
       },
       "errors": {
         "loadFailed": "Failed to load settings",
@@ -1884,9 +1977,9 @@
       "basic_desc": "Everything a small property needs to run daily operations.",
       "basic_features": ["Up to 20 rooms", "Reservations & booking calendar", "Guest profiles", "Room & rate management", "Media library", "Email notifications", "Basic reporting"],
       "pro_desc": "For growing resorts that sell day passes and manage events.",
-      "pro_features": ["Everything in Basic", "Up to 80 rooms", "Day-pass & evening-pass sales", "Events module", "Wristband tracking", "Charge rules & folios", "Revenue dashboard"],
+      "pro_features": ["Everything in Basic", "Up to 50 rooms", "Day-pass & evening-pass sales", "Events module", "Wristband tracking", "Charge rules & folios", "Revenue dashboard"],
       "enterprise_desc": "Full operations suite for large resorts and hotel groups.",
-      "enterprise_features": ["Everything in Pro", "Unlimited rooms", "Agent commissions", "Corporate credit accounts", "Night audit", "Custom roles & permissions", "Dedicated onboarding"]
+      "enterprise_features": ["Everything in Pro", "Up to 200 rooms", "Agent commissions", "Corporate credit accounts", "Night audit", "Custom roles & permissions", "Dedicated onboarding"]
     },
     "cta": {
       "heading": "Ready to modernize your property?",

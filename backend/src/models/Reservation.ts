@@ -134,6 +134,16 @@ export interface IReservation extends Document {
   cancellationReason?: string;
   assignedBy?: mongoose.Types.ObjectId; // Admin who assigned the room/approved event
   assignedAt?: Date;
+
+  // OTA source metadata — set only for reservations imported from OTA iCal feeds
+  otaSource?: {
+    provider: string;                            // e.g. 'airbnb'
+    externalEventId: mongoose.Types.ObjectId;    // ref: OtaExternalEvent
+    mappingId: mongoose.Types.ObjectId;          // ref: OtaListingMapping
+    externalUid: string;                         // original iCal UID
+    importedAt: Date;
+  };
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -386,6 +396,15 @@ const reservationSchema = new Schema<IReservation>({
     required: false
   },
 
+  // OTA source metadata
+  otaSource: {
+    provider:         { type: String, maxlength: 80 },
+    externalEventId:  { type: Schema.Types.ObjectId, ref: 'OtaExternalEvent' },
+    mappingId:        { type: Schema.Types.ObjectId, ref: 'OtaListingMapping' },
+    externalUid:      { type: String, maxlength: 500 },
+    importedAt:       { type: Date },
+  },
+
   // Corporate booking
   isCorporate: {
     type: Boolean,
@@ -458,6 +477,7 @@ reservationSchema.index({ status: 1 });
 reservationSchema.index({ checkInDate: 1, checkOutDate: 1 });
 reservationSchema.index({ actualCheckInAt: 1 });
 reservationSchema.index({ actualCheckOutAt: 1 });
+reservationSchema.index({ 'otaSource.mappingId': 1 });
 // reservationCode already has a unique index via field definition; avoid duplicate index
 
 // Backward-compat alias during transition: totalPrice -> estimatedTotal

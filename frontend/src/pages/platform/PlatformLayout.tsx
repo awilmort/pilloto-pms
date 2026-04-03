@@ -26,6 +26,9 @@ const PlatformLayout: React.FC<PlatformLayoutProps> = ({ children }) => {
           <Button color="inherit" onClick={() => navigate('/platform/tenants')}>
             Tenants
           </Button>
+          <Button color="inherit" onClick={() => navigate('/platform/ota')} sx={{ ml: 1 }}>
+            OTA Sync
+          </Button>
           <Button color="inherit" onClick={handleLogout} sx={{ ml: 1 }}>
             Logout
           </Button>

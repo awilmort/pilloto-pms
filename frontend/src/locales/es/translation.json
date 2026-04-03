@@ -125,7 +125,8 @@
       "guests": "Huéspedes",
       "creditAccounts": "Cuentas de crédito",
       "cashierClosures": "Cierres de caja",
-      "bookingCalendar": "Calendario"
+      "bookingCalendar": "Calendario",
+      "otaConflicts": "Conflictos OTA"
     },
     "revenue": {
       "title": "Ingresos",
@@ -334,7 +335,10 @@
         "creditAccountsCreate": "Cuentas de crédito: Crear",
         "creditAccountsEdit": "Cuentas de crédito: Editar",
         "cashier": "Cajero",
-        "salesman": "Vendedor"
+        "salesman": "Vendedor",
+        "otaView": "Sync OTA: Ver",
+        "otaManage": "Sync OTA: Gestionar",
+        "otaResolve": "Sync OTA: Resolver conflictos"
       }
     },
     
@@ -895,7 +899,8 @@
         "media": "Medios",
         "nightAudit": "Auditoría nocturna",
         "email": "Correo",
-        "checkout": "Check-Out"
+        "checkout": "Check-Out",
+        "ota": "Sincronización OTA"
       },
       "sections": {
         "heading": "Secciones del menú",
@@ -925,6 +930,94 @@
         "description": "Define la hora estándar a la que los huéspedes deben hacer el check-out. Se usa como referencia para detectar salidas tardías en las políticas de cargo automático.",
         "checkoutTime": "Hora de check-out",
         "checkoutTimeHint": "Se espera que los huéspedes hagan el check-out a esta hora. Las políticas de cargo automático la usan como punto de referencia."
+      },
+      "ota": {
+        "heading": "Sincronización OTA",
+        "description": "Conecta calendarios de listados OTA (Airbnb, Booking.com, VRBO) mediante iCal. Pilloto importa bloqueos de disponibilidad y publica su propio feed iCal para cada habitación.",
+        "enabled": "Habilitar sincronización OTA",
+        "syncInterval": "Intervalo de sincronización",
+        "timezone": "Zona horaria del calendario",
+        "conflictAlerts": "Alertas de conflictos",
+        "syncAll": "Sincronizar todo ahora",
+        "sync": "Sincronizar ahora",
+        "mappings": {
+          "heading": "Listados vinculados",
+          "description": "Cada vínculo conecta un listado OTA con una habitación de Pilloto.",
+          "add": "Agregar vínculo",
+          "addTitle": "Agregar listado vinculado",
+          "editTitle": "Editar listado vinculado",
+          "provider": "Proveedor",
+          "label": "Etiqueta del listado",
+          "labelHint": "Nombre descriptivo, p. ej. \"Airbnb – Habitación 12\"",
+          "externalId": "ID externo del listado (opcional)",
+          "externalIdHint": "Solo para referencia.",
+          "inboundUrl": "URL iCal de entrada",
+          "inboundUrlHint": "La URL .ics del calendario del listado en Airbnb / Booking / VRBO.",
+          "room": "Habitación de Pilloto",
+          "active": "Activo",
+          "copyUrl": "Copiar URL",
+          "rotateToken": "Rotar token de feed saliente",
+          "deleteTitle": "¿Eliminar listado vinculado?",
+          "deleteConfirm": "Se eliminará permanentemente este vínculo y su historial de sincronización. Las reservas existentes no se verán afectadas.",
+          "empty": "Aún no hay listados vinculados.",
+          "table": {
+            "provider": "Proveedor",
+            "label": "Etiqueta",
+            "room": "Habitación",
+            "lastSync": "Última sincronización",
+            "status": "Estado",
+            "outboundFeed": "Feed saliente"
+          }
+        },
+        "syncStatus": {
+          "success": "OK",
+          "partial": "Parcial",
+          "failed": "Falló",
+          "never": "Nunca"
+        },
+        "errors": {
+          "loadFailed": "Error al cargar listados OTA",
+          "saveFailed": "Error al guardar listado vinculado",
+          "deleteFailed": "Error al eliminar listado vinculado",
+          "rotateFailed": "Error al rotar token",
+          "syncFailed": "Error al activar sincronización"
+        },
+        "messages": {
+          "mappingCreated": "Listado vinculado creado",
+          "mappingUpdated": "Listado vinculado actualizado",
+          "mappingDeleted": "Listado vinculado eliminado",
+          "tokenRotated": "Token de feed saliente rotado",
+          "syncQueued": "Sincronización activada",
+          "urlCopied": "URL del feed copiada al portapapeles"
+        },
+        "conflicts": {
+          "heading": "Cola de conflictos OTA",
+          "description": "Bloqueos del calendario OTA que se superponen con reservas existentes de Pilloto. Revisa y resuelve cada conflicto antes de la próxima sincronización.",
+          "pendingBadge": "{{count}} pendientes",
+          "statusFilter": "Estado",
+          "loadFailed": "Error al cargar conflictos",
+          "resolved": "Conflicto resuelto",
+          "resolveFailed": "Error al resolver conflicto",
+          "resolve": "Resolver",
+          "resolveTitle": "Resolver conflicto",
+          "submitResolve": "Enviar resolución",
+          "otaBlock": "Bloqueo OTA",
+          "pillotoBlock": "Reserva en Pilloto",
+          "resolution": "Resolución",
+          "notes": "Notas (opcional)",
+          "notesHint": "Agrega contexto para el registro de auditoría.",
+          "overlap": "Superposición",
+          "exactMatch": "Coincidencia exacta",
+          "empty": "No se encontraron conflictos con este filtro.",
+          "table": {
+            "provider": "Proveedor / Listado",
+            "otaBlock": "Bloqueo OTA",
+            "pillotoReservation": "Reserva Pilloto",
+            "type": "Tipo",
+            "status": "Estado",
+            "detected": "Detectado"
+          }
+        }
       },
       "errors": {
         "loadFailed": "No se pudo cargar la configuración",
@@ -1880,9 +1973,9 @@
       "basic_desc": "Todo lo que una pequeña propiedad necesita para sus operaciones diarias.",
       "basic_features": ["Hasta 20 habitaciones", "Reservas y calendario de reservas", "Perfiles de huéspedes", "Gestión de habitaciones y tarifas", "Biblioteca de medios", "Notificaciones por correo", "Reportes básicos"],
       "pro_desc": "Para resorts en crecimiento que venden pases de día y gestionan eventos.",
-      "pro_features": ["Todo lo del plan Basic", "Hasta 80 habitaciones", "Venta de pases de día y tarde", "Módulo de eventos", "Seguimiento de pulseras", "Reglas de cargos y folios", "Panel de ingresos"],
+      "pro_features": ["Todo lo del plan Basic", "Hasta 50 habitaciones", "Venta de pases de día y tarde", "Módulo de eventos", "Seguimiento de pulseras", "Reglas de cargos y folios", "Panel de ingresos"],
       "enterprise_desc": "Suite operativa completa para grandes resorts y grupos hoteleros.",
-      "enterprise_features": ["Todo lo del plan Pro", "Habitaciones ilimitadas", "Comisiones de agentes", "Cuentas de crédito corporativas", "Auditoría nocturna", "Roles y permisos personalizados", "Incorporación dedicada"]
+      "enterprise_features": ["Todo lo del plan Pro", "Hasta 200 habitaciones", "Comisiones de agentes", "Cuentas de crédito corporativas", "Auditoría nocturna", "Roles y permisos personalizados", "Incorporación dedicada"]
     },
     "cta": {
       "heading": "¿Listo para modernizar tu propiedad?",
