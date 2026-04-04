@@ -143,15 +143,15 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 
     // Date filtering
     if (dateFrom || dateTo) {
-      const toStartOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
-      const toEndOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+      const toStartOfDay = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+      const toEndOfDay = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 23, 59, 59, 999));
       const parseLocalDate = (s: string) => {
         const parts = s.split('-');
         if (parts.length === 3) {
           const y = Number(parts[0]);
           const m = Number(parts[1]);
           const d = Number(parts[2]);
-          return new Date(y, (m - 1), d, 0, 0, 0, 0);
+          return new Date(Date.UTC(y, m - 1, d));
         }
         // Fallback to native parsing
         return new Date(s);
@@ -378,7 +378,8 @@ router.post('/', async (req: Request, res: Response) => {
       }
     }
 
-    // Parse dates safely. Prefer strict YYYY-MM-DD; otherwise fallback to native parsing.
+    // Parse dates safely. Store as noon UTC so that local-timezone getters
+    // (on both server and client) always return the correct calendar date.
     const parseLocalDate = (s: string | Date | null | undefined) => {
       if (!s) return null;
       if (s instanceof Date) return s;
@@ -389,7 +390,7 @@ router.post('/', async (req: Request, res: Response) => {
         const y = Number(yStr);
         const m = Number(mStr);
         const d = Number(dStr);
-        return new Date(y, m - 1, d, 0, 0, 0, 0);
+        return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
       }
       const d2 = new Date(str);
       return isNaN(d2.getTime()) ? null : d2;
@@ -480,7 +481,7 @@ router.post('/', async (req: Request, res: Response) => {
 
     // Check if check-in date is not before today (allow same-day)
     const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfToday = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     if (checkIn < startOfToday) {
       return res.status(400).json({
         success: false,
@@ -901,7 +902,8 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 
     // If dates are being updated, validate them
     if (checkInDate || checkOutDate) {
-      // Parse local date strings (YYYY-MM-DD) to avoid timezone drift
+      // Parse local date strings (YYYY-MM-DD) — store as noon UTC so that
+      // local-timezone getters always return the correct calendar date.
       const parseLocalDate = (s: string | Date) => {
         if (s instanceof Date) return s;
         const str = String(s);
@@ -910,7 +912,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
           const y = Number(parts[0]);
           const m = Number(parts[1]);
           const d = Number(parts[2]);
-          return new Date(y, m - 1, d, 0, 0, 0, 0);
+          return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
         }
         return new Date(str);
       };

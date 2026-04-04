@@ -161,8 +161,8 @@ async function fetchFeed(url: string): Promise<NormalizedEvent[]> {
     if (!start || !end) continue;
 
     // Normalize to midnight UTC — iCal DATE (all-day) values arrive as local midnight
-    const checkIn = toUTCMidnight(start);
-    const checkOut = toUTCMidnight(end);
+    const checkIn = toUTCNoon(start);
+    const checkOut = toUTCNoon(end);
 
     if (checkIn >= checkOut) continue; // skip degenerate events
 
@@ -179,12 +179,12 @@ async function fetchFeed(url: string): Promise<NormalizedEvent[]> {
   return events;
 }
 
-/** Converts a JS Date to UTC midnight of the same calendar date. */
-function toUTCMidnight(d: Date): Date {
+/** Converts a JS Date to UTC noon of the same calendar date. */
+function toUTCNoon(d: Date): Date {
   const y = d.getUTCFullYear();
   const m = d.getUTCMonth();
   const day = d.getUTCDate();
-  return new Date(Date.UTC(y, m, day));
+  return new Date(Date.UTC(y, m, day, 12, 0, 0));
 }
 
 /** Heuristically extracts a guest name from common OTA iCal summary patterns. */

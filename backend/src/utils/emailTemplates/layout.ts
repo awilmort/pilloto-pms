@@ -150,8 +150,8 @@ export function formatCurrency(amount: number, currency = 'DOP', locale = 'es-DO
   }
 }
 
-/** Format a date using the given locale. */
+/** Format a date using the given locale. Uses UTC to avoid timezone-induced day shifts. */
 export function formatDate(date: Date | string, locale = 'es-ES'): string {
   const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  return d.toLocaleDateString(locale, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
 }

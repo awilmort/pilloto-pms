@@ -272,7 +272,7 @@ router.post('/calculate-rooms', authenticate, async (req: AuthRequest, res: Resp
 
     const parseLocalDate = (s: string) => {
       const parts = String(s).split('-').map(Number);
-      return new Date(parts[0], parts[1] - 1, parts[2], 0, 0, 0, 0);
+      return new Date(Date.UTC(parts[0], parts[1] - 1, parts[2], 12, 0, 0));
     };
     const start = parseLocalDate(checkInDate);
     const end = parseLocalDate(checkOutDate);

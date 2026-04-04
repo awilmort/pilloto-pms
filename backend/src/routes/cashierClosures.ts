@@ -110,8 +110,8 @@ router.get('/', authenticate, authorizePermission('cashier', 'admin.access'), as
 
     if (from || to) {
       filter.periodStart = {};
-      if (from) filter.periodStart.$gte = new Date(`${from}T00:00:00.000`);
-      if (to) filter.periodStart.$lte = new Date(`${to}T23:59:59.999`);
+      if (from) filter.periodStart.$gte = new Date(`${from}T00:00:00.000Z`);
+      if (to) filter.periodStart.$lte = new Date(`${to}T23:59:59.999Z`);
     }
 
     const closures = await CashierClosure.find(filter)

@@ -54,7 +54,7 @@ router.get('/', optionalAuth, async (req, res) => {
     if (date && typeof date === 'string') {
       const parseLocalDate = (s: string) => {
         const [y,m,d] = s.split('-').map(Number);
-        return new Date(y, (m - 1), d, 0, 0, 0, 0);
+        return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
       };
       const dayStart = parseLocalDate(date);
       // Occupancy condition: checkInDate <= dayStart AND checkOutDate > dayStart
@@ -130,7 +130,7 @@ router.get('/available-dates', async (req, res) => {
 
     const parseLocalDate = (s: string) => {
       const [y, m, d] = s.split('-').map(Number);
-      return new Date(y, m - 1, d, 0, 0, 0, 0);
+      return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
     };
 
     const start = parseLocalDate(startDate);
@@ -171,9 +171,9 @@ router.get('/available-dates', async (req, res) => {
 
     // Helper to format date as YYYY-MM-DD
     const formatDate = (d: Date) => {
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
+      const year = d.getUTCFullYear();
+      const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
     };
 
@@ -192,8 +192,10 @@ router.get('/available-dates', async (req, res) => {
       }
 
       // Mark each date in the reservation period as occupied for these rooms
-      const currentDate = new Date(resStart);
-      while (currentDate < resEnd) {
+      let currentMs = Date.UTC(resStart.getUTCFullYear(), resStart.getUTCMonth(), resStart.getUTCDate(), 12, 0, 0);
+      const endMs = Date.UTC(resEnd.getUTCFullYear(), resEnd.getUTCMonth(), resEnd.getUTCDate(), 12, 0, 0);
+      while (currentMs < endMs) {
+        const currentDate = new Date(currentMs);
         const dateKey = formatDate(currentDate);
         
         if (!dateOccupancyMap.has(dateKey)) {
@@ -203,7 +205,7 @@ router.get('/available-dates', async (req, res) => {
         const occupiedRooms = dateOccupancyMap.get(dateKey)!;
         roomIds.forEach(roomId => occupiedRooms.add(roomId));
         
-        currentDate.setDate(currentDate.getDate() + 1);
+        currentMs += 86_400_000;
       }
     }
 
@@ -211,8 +213,10 @@ router.get('/available-dates', async (req, res) => {
     const availableDates: string[] = [];
     const unavailableDates: string[] = [];
     
-    const currentDate = new Date(start);
-    while (currentDate <= end) {
+    let curMs = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), 12, 0, 0);
+    const endMs2 = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate(), 12, 0, 0);
+    while (curMs <= endMs2) {
+      const currentDate = new Date(curMs);
       const dateKey = formatDate(currentDate);
       const occupiedRooms = dateOccupancyMap.get(dateKey);
       const occupiedCount = occupiedRooms ? occupiedRooms.size : 0;
@@ -224,7 +228,7 @@ router.get('/available-dates', async (req, res) => {
         unavailableDates.push(dateKey);
       }
 
-      currentDate.setDate(currentDate.getDate() + 1);
+      curMs += 86_400_000;
     }
 
     res.status(200).json({
