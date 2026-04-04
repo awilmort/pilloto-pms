@@ -42,6 +42,7 @@ import {
   OtaListingMapping,
   OtaProvider,
   AppSettings,
+  API_ORIGIN,
 } from '../../services/api';
 import { Room } from '../../types';
 
@@ -179,6 +180,12 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
   };
 
   const openEdit = (m: OtaListingMapping) => {
+    // Prefer the server-computed URL; fall back to constructing it from the token
+    // (the token is always present — BACKEND_PUBLIC_URL may not be set in all envs).
+    const outboundFeedUrl =
+      m.outboundFeedUrl ||
+      (m.outboundToken ? `${API_ORIGIN}/api/ota/feed/${m.outboundToken}` : undefined);
+
     setDialog({
       open: true,
       mode: 'edit',
@@ -190,7 +197,7 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
         inboundFeedUrl: m.inboundFeedUrl ?? '',
         roomId: typeof m.roomId === 'object' ? (m.roomId as any)._id : m.roomId,
         isActive: m.isActive,
-        outboundFeedUrl: m.outboundFeedUrl,
+        outboundFeedUrl,
       },
     });
   };

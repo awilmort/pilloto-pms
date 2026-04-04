@@ -3,8 +3,12 @@ import { User, Room, Reservation, MediaItem, Amenity, EventType, Company, Guest,
 import type { ChargeTemplate, ChargeRule, ChargeRuleExecution, AuditRun } from '../types';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
-// Derive the API origin to resolve file URLs like /uploads/xxx
+// Prefer the explicit public backend URL env var; fall back to deriving from API_BASE_URL.
+// REACT_APP_BACKEND_PUBLIC_URL must match BACKEND_PUBLIC_URL in the backend .env.
 export const API_ORIGIN = (() => {
+  if (process.env.REACT_APP_BACKEND_PUBLIC_URL) {
+    return process.env.REACT_APP_BACKEND_PUBLIC_URL.replace(/\/$/, '');
+  }
   try {
     return new URL(API_BASE_URL).origin;
   } catch {
