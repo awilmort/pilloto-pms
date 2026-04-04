@@ -33,6 +33,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SyncIcon from '@mui/icons-material/Sync';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import RefreshIcon from '@mui/icons-material/Refresh';
+import WarningAmberIcon from '@mui/icons-material/WarningAmber';
 import { useTranslation } from 'react-i18next';
 import {
   otaService,
@@ -41,11 +42,8 @@ import {
   OtaListingMapping,
   OtaProvider,
   AppSettings,
-  API_ORIGIN,
 } from '../../services/api';
 import { Room } from '../../types';
-
-const buildOutboundUrl = (token: string) => `${API_ORIGIN}/api/ota/feed/${token}`;
 
 const PROVIDERS: { value: OtaProvider; label: string }[] = [
   { value: 'airbnb', label: 'Airbnb' },
@@ -95,6 +93,10 @@ interface Props {
 const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
   const { t } = useTranslation();
 
+  // Stable ref so callbacks don't re-create when the parent passes a new showSnackbar reference
+  const showSnackbarRef = React.useRef(showSnackbar);
+  React.useEffect(() => { showSnackbarRef.current = showSnackbar; });
+
   // ── OTA global settings ────────────────────────────────────────
   const [otaSettings, setOtaSettings] = useState<NonNullable<AppSettings['otaSettings']>>({
     enabled: false,
@@ -126,7 +128,9 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
   // ── Delete confirm ─────────────────────────────────────────────
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
-
+  // ── Rotate token confirm ───────────────────────────────────────
+  const [rotateConfirmId, setRotateConfirmId] = useState<string | null>(null);
+  const [rotateLoading, setRotateLoading] = useState(false);
   // ── Load data ──────────────────────────────────────────────────
   const loadMappings = useCallback(async () => {
     setMappingsLoading(true);
@@ -134,11 +138,11 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
       const res = await otaService.getMappings();
       setMappings(res.data.data ?? []);
     } catch {
-      showSnackbar(t('admin.ota.errors.loadFailed', 'Failed to load OTA mappings'), 'error');
+      showSnackbarRef.current(t('admin.ota.errors.loadFailed', 'Failed to load OTA mappings'), 'error');
     } finally {
       setMappingsLoading(false);
     }
-  }, [showSnackbar, t]);
+  }, [t]);
 
   useEffect(() => {
     // Load global OTA settings
@@ -186,6 +190,7 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
         inboundFeedUrl: m.inboundFeedUrl ?? '',
         roomId: typeof m.roomId === 'object' ? (m.roomId as any)._id : m.roomId,
         isActive: m.isActive,
+        outboundFeedUrl: m.outboundFeedUrl,
       },
     });
   };
@@ -229,12 +234,21 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
 
   // ── Token rotation ─────────────────────────────────────────────
   const rotateToken = async (id: string) => {
+    setRotateLoading(true);
     try {
-      await otaService.rotateToken(id);
+      const res = await otaService.rotateToken(id);
+      const newFeedUrl = (res.data.data as any)?.outboundFeedUrl as string | undefined;
+      setRotateConfirmId(null);
+      // Update the dialog's URL in place so the user can copy it immediately
+      if (newFeedUrl) {
+        setDialog(d => d.mapping._id === id ? { ...d, mapping: { ...d.mapping, outboundFeedUrl: newFeedUrl } } : d);
+      }
       showSnackbar(t('admin.ota.messages.tokenRotated', 'Calendar link regenerated. Copy the new URL and update your OTA listing.'));
       await loadMappings();
     } catch {
       showSnackbar(t('admin.ota.errors.rotateFailed', 'Failed to rotate token'), 'error');
+    } finally {
+      setRotateLoading(false);
     }
   };
 
@@ -443,7 +457,7 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
                   </TableCell>
                   <TableCell>{statusChip(m.lastSyncStatus)}</TableCell>
                   <TableCell>
-                    {m.outboundToken ? (
+                    {m.outboundFeedUrl ? (
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <Typography
                           variant="caption"
@@ -454,12 +468,12 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
                             whiteSpace: 'nowrap',
                             display: 'block',
                           }}
-                          title={buildOutboundUrl(m.outboundToken)}
+                          title={m.outboundFeedUrl}
                         >
-                          {buildOutboundUrl(m.outboundToken)}
+                          {m.outboundFeedUrl}
                         </Typography>
                         <Tooltip title={t('admin.ota.mappings.copyUrl', 'Copy URL')}>
-                          <IconButton size="small" onClick={() => copyFeedUrl(buildOutboundUrl(m.outboundToken))}>
+                          <IconButton size="small" onClick={() => copyFeedUrl(m.outboundFeedUrl!)}>
                             <ContentCopyIcon sx={{ fontSize: 14 }} />
                           </IconButton>
                         </Tooltip>
@@ -484,11 +498,6 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
                             )}
                           </IconButton>
                         </span>
-                      </Tooltip>
-                      <Tooltip title={t('admin.ota.mappings.rotateToken', 'Regenerate calendar link — the old link will stop working')}>
-                        <IconButton size="small" onClick={() => rotateToken(m._id)}>
-                          <RefreshIcon fontSize="small" />
-                        </IconButton>
                       </Tooltip>
                       <Tooltip title={t('common.edit', 'Edit')}>
                         <IconButton size="small" onClick={() => openEdit(m)}>
@@ -578,6 +587,47 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
               }
               label={t('admin.ota.mappings.active', 'Active')}
             />
+
+            {dialog.mode === 'edit' && (
+              <>
+                <Divider />
+                <Box>
+                  <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    {t('admin.ota.mappings.outboundSection', 'Your Pilloto calendar link')}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5, mb: 1.5 }}>
+                    {t('admin.ota.mappings.outboundHint', 'Paste this URL into your OTA listing\'s calendar import settings so it can import your Pilloto availability.')}
+                  </Typography>
+                  {dialog.mapping.outboundFeedUrl ? (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <TextField
+                        size="small"
+                        fullWidth
+                        value={dialog.mapping.outboundFeedUrl}
+                        InputProps={{ readOnly: true }}
+                        sx={{ '& input': { fontSize: 11, fontFamily: 'monospace' } }}
+                      />
+                      <Tooltip title={t('admin.ota.mappings.copyUrl', 'Copy URL')}>
+                        <IconButton size="small" onClick={() => copyFeedUrl(dialog.mapping.outboundFeedUrl!)}>
+                          <ContentCopyIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Box>
+                  ) : (
+                    <Typography variant="caption" color="text.secondary">—</Typography>
+                  )}
+                  <Button
+                    size="small"
+                    color="warning"
+                    startIcon={<RefreshIcon />}
+                    onClick={() => setRotateConfirmId(dialog.mapping._id!)}
+                    sx={{ mt: 1.5 }}
+                  >
+                    {t('admin.ota.mappings.rotateTokenBtn', 'Regenerate link…')}
+                  </Button>
+                </Box>
+              </>
+            )}
           </Box>
         </DialogContent>
         <DialogActions>
@@ -590,6 +640,38 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
             disabled={dialogSaving || !dialog.mapping.providerLabel || !dialog.mapping.roomId}
           >
             {dialogSaving ? t('common.saving', 'Saving…') : t('common.save', 'Save')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Rotate Token Confirm Dialog ── */}
+      <Dialog open={!!rotateConfirmId} onClose={() => !rotateLoading && setRotateConfirmId(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <WarningAmberIcon color="warning" />
+          {t('admin.ota.mappings.rotateConfirmTitle', 'Regenerate calendar link?')}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 1.5 }}>
+            {t('admin.ota.mappings.rotateConfirmLine1', 'The current calendar link will be permanently invalidated.')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t('admin.ota.mappings.rotateConfirmLine2', 'Any OTA platform already importing this feed — Airbnb, Booking.com, VRBO — will stop receiving updates until you go into each listing and replace the URL with the new one.')}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRotateConfirmId(null)} disabled={rotateLoading}>
+            {t('common.cancel', 'Cancel')}
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={() => rotateToken(rotateConfirmId!)}
+            disabled={rotateLoading}
+            startIcon={rotateLoading ? <CircularProgress size={14} /> : <RefreshIcon />}
+          >
+            {rotateLoading
+              ? t('common.processing', 'Processing…')
+              : t('admin.ota.mappings.rotateConfirmBtn', 'Yes, regenerate link')}
           </Button>
         </DialogActions>
       </Dialog>

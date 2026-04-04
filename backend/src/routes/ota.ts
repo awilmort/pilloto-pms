@@ -53,11 +53,18 @@ router.get(
   authorizePermission('admin.ota.view'),
   async (req: AuthRequest, res: Response) => {
     try {
+      const backendPublicUrl = (process.env.BACKEND_PUBLIC_URL || '').replace(/\/$/, '');
       const mappings = await OtaListingMapping.find()
         .populate('roomId', 'name number floor')
         .sort({ createdAt: -1 })
         .lean();
-      res.json({ success: true, data: mappings });
+      const mapped = mappings.map((m: any) => ({
+        ...m,
+        outboundFeedUrl: backendPublicUrl
+          ? `${backendPublicUrl}/api/ota/feed/${m.outboundToken}`
+          : undefined,
+      }));
+      res.json({ success: true, data: mapped });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
     }
@@ -167,7 +174,11 @@ router.post(
         { new: true },
       );
       if (!mapping) return res.status(404).json({ success: false, message: 'Mapping not found' });
-      res.json({ success: true, data: mapping });
+      const backendPublicUrl = (process.env.BACKEND_PUBLIC_URL || '').replace(/\/$/, '');
+      const outboundFeedUrl = backendPublicUrl
+        ? `${backendPublicUrl}/api/ota/feed/${outboundToken}`
+        : undefined;
+      res.json({ success: true, data: { ...(mapping as any).toObject(), outboundFeedUrl } });
     } catch (err: any) {
       res.status(500).json({ success: false, message: err.message });
     }

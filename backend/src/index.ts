@@ -168,6 +168,11 @@ app.get('/api/health', (_req, res) => {
   res.status(200).json({ status: 'OK', message: 'Pilloto API is running', timestamp: new Date().toISOString() });
 });
 
+// Public outbound iCal feed — no JWT, no tenant context, token is the auth.
+// MUST be registered BEFORE resolveTenant to avoid Render's internal hostname
+// ("pilloto-pms.onrender.com") being extracted as a tenant slug and returning 404.
+app.use('/api/ota/feed', otaFeedRoutes);
+
 // ── Tenant resolution middleware (runs before all API routes) ─────────────────
 // Must come after cookie-parser and body-parser but before routes
 app.use('/api', resolveTenant);
@@ -197,8 +202,7 @@ app.use('/api/charge-templates', chargeTemplateRoutes);
 app.use('/api/charge-rules', chargeRuleRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/ota', otaRoutes);
-// Public outbound iCal feed — no JWT, token is the auth
-app.use('/api/ota/feed', otaFeedRoutes);
+// (outbound iCal feed is registered before resolveTenant above)
 
 // Public endpoint: returns tenant info from the Host/X-Tenant-Slug header (no auth required)
 app.get('/api/tenant/info', async (req, res) => {
