@@ -109,11 +109,17 @@ export async function generateOutboundFeed(token: string): Promise<string | null
     const guestLabel = (res as any).guestName
       ? `${(res as any).guestName.firstName} ${(res as any).guestName.lastName}`.trim()
       : 'Reserved';
+    const checkIn: Date = (res as any).checkInDate;
+    const checkOut: Date = (res as any).checkOutDate || (res as any).checkInDate;
+    // Strip time — use UTC date parts so the iCal VALUE=DATE is always correct
+    // regardless of the server's local timezone.
+    const startDate = new Date(Date.UTC(checkIn.getUTCFullYear(), checkIn.getUTCMonth(), checkIn.getUTCDate()));
+    const endDate   = new Date(Date.UTC(checkOut.getUTCFullYear(), checkOut.getUTCMonth(), checkOut.getUTCDate()));
     cal.createEvent({
       id: `pilloto-${res._id}@pilloto.com`,
       summary: guestLabel,
-      start: (res as any).checkInDate,
-      end: (res as any).checkOutDate || (res as any).checkInDate,
+      start: startDate,
+      end: endDate,
       allDay: true,
     });
   }
