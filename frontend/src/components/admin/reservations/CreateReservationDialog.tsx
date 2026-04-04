@@ -15,7 +15,6 @@ import {
   Button,
   Card,
   CardActionArea,
-  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
@@ -36,7 +35,6 @@ import {
   Stepper,
   Switch,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material';
 import {
@@ -88,6 +86,12 @@ interface Props {
   onCreated: (reservation: Reservation) => void;
   onSnackbar: (message: string, severity: 'success' | 'error') => void;
   reservationServices: ReservationServices;
+  /** When provided, skip Step 0 and pre-fill type + dates */
+  defaultType?: ReservationType;
+  defaultCheckIn?: string;
+  defaultCheckOut?: string;
+  /** Pre-select this room (by ID) once available rooms are fetched */
+  defaultRoomId?: string;
 }
 
 const DEFAULT_FORM = {
@@ -108,6 +112,7 @@ const DEFAULT_FORM = {
 // ─── Component ────────────────────────────────────────────────────────────────
 const CreateReservationDialog: React.FC<Props> = ({
   open, onClose, onCreated, onSnackbar, reservationServices,
+  defaultType, defaultCheckIn, defaultCheckOut, defaultRoomId,
 }) => {
   const { t } = useTranslation();
   const { permissions, discountLimit } = useAuth();
@@ -117,6 +122,23 @@ const CreateReservationDialog: React.FC<Props> = ({
 
   const [createStep, setCreateStep]     = useState<0 | 1 | 2 | 3>(0);
   const [createForm, setCreateForm]     = useState(DEFAULT_FORM);
+
+  // When opened with pre-fill props, skip Step 0 and populate dates
+  const [defaultRoomApplied, setDefaultRoomApplied] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    if (defaultType) {
+      setCreateForm(f => ({
+        ...f,
+        type: defaultType,
+        checkInDate: defaultCheckIn || f.checkInDate,
+        checkOutDate: defaultCheckOut || f.checkOutDate,
+      }));
+      setCreateStep(1);
+      setDefaultRoomApplied(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, defaultType, defaultCheckIn, defaultCheckOut]);
   const [createLoading, setCreateLoading] = useState(false);
 
   // Corporate booking
@@ -172,6 +194,17 @@ const CreateReservationDialog: React.FC<Props> = ({
       .finally(() => setCreateCheckingAvailability(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, createForm.type, createForm.checkInDate, createForm.checkOutDate]);
+
+  // Auto-select the default room once available rooms are fetched
+  useEffect(() => {
+    if (!defaultRoomId || defaultRoomApplied || !createAvailabilityChecked) return;
+    const match = createAvailableRooms.find((r: any) => r._id === defaultRoomId);
+    if (match) {
+      setSelectedRooms([match]);
+      setDefaultRoomApplied(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [defaultRoomId, createAvailableRooms, createAvailabilityChecked, defaultRoomApplied]);
 
   // Auto-calculate price preview when selected rooms change
   useEffect(() => {
@@ -264,6 +297,7 @@ const CreateReservationDialog: React.FC<Props> = ({
     setSelectedServiceId('');
     setServicePricePreview(null);
     setDiscountPercent(0);
+    setDefaultRoomApplied(false);
   };
 
   const handleClose = () => {
@@ -532,8 +566,18 @@ const CreateReservationDialog: React.FC<Props> = ({
                       })
                     : createAvailableRooms;
 
+                  // Group rooms by room type
+                  const groupedRooms: { typeName: string; rooms: any[] }[] = [];
+                  const typeMap = new Map<string, any[]>();
+                  for (const room of filteredRooms) {
+                    const typeName: string = (room.roomTypeId as any)?.name ?? t('admin.reservations.create.otherRooms', 'Other');
+                    if (!typeMap.has(typeName)) typeMap.set(typeName, []);
+                    typeMap.get(typeName)!.push(room);
+                  }
+                  typeMap.forEach((rooms, typeName) => groupedRooms.push({ typeName, rooms }));
+
                   return (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                       {/* Search filter */}
                       <TextField
                         size="small" fullWidth
@@ -549,109 +593,120 @@ const CreateReservationDialog: React.FC<Props> = ({
                         }}
                       />
 
-                      {/* Compact room list */}
-                      <Paper variant="outlined" sx={{ borderRadius: 1.5, overflow: 'hidden' }}>
-                        <Box sx={{ maxHeight: 240, overflowY: 'auto' }}>
-                          {filteredRooms.length === 0 && (
-                            <Box sx={{ p: 2, textAlign: 'center' }}>
-                              <Typography variant="caption" color="text.secondary">
-                                {t('admin.reservations.create.noMatchingRooms', 'No matching rooms')}
-                              </Typography>
-                            </Box>
-                          )}
-                          {filteredRooms.map((room: any, idx: number) => {
-                            const isSelected = selectedRooms.some(r => r._id === room._id);
-                            const capacity = (room.roomTypeId as any)?.capacity ?? 1;
-                            const typeName: string = (room.roomTypeId as any)?.name ?? '';
-                            return (
-                              <Box key={room._id}>
-                                <Box
-                                  onClick={() => toggleRoomSelection(room)}
-                                  sx={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    px: 1,
-                                    py: 0.5,
-                                    cursor: 'pointer',
-                                    bgcolor: isSelected ? 'primary.50' : 'transparent',
-                                    '&:hover': { bgcolor: isSelected ? 'primary.100' : 'action.hover' },
-                                    transition: 'background-color 0.1s',
-                                    userSelect: 'none',
-                                  }}
-                                >
-                                  <Checkbox
-                                    size="small"
-                                    checked={isSelected}
-                                    tabIndex={-1}
-                                    disableRipple
-                                    sx={{ p: 0.5, mr: 0.5 }}
-                                  />
-                                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                                    <Typography
-                                      variant="body2"
-                                      fontWeight={isSelected ? 600 : 400}
-                                      noWrap
-                                    >
+                      {/* Room cards grouped by type */}
+                      <Box sx={{ maxHeight: { xs: 300, sm: 360 }, overflowY: 'auto', pr: 0.5 }}>
+                        {filteredRooms.length === 0 && (
+                          <Box sx={{ p: 2, textAlign: 'center' }}>
+                            <Typography variant="caption" color="text.secondary">
+                              {t('admin.reservations.create.noMatchingRooms', 'No matching rooms')}
+                            </Typography>
+                          </Box>
+                        )}
+                        {groupedRooms.map(({ typeName, rooms: groupRooms }) => (
+                          <Box key={typeName} sx={{ mb: 1.5 }}>
+                            <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', mb: 0.75, px: 0.5 }}>
+                              {typeName}
+                            </Typography>
+                            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, 1fr)' }, gap: 1 }}>
+                              {groupRooms.map((room: any) => {
+                                const isSelected = selectedRooms.some(r => r._id === room._id);
+                                const capacity = (room.roomTypeId as any)?.capacity ?? 1;
+                                return (
+                                  <Paper
+                                    key={room._id}
+                                    variant="outlined"
+                                    onClick={() => toggleRoomSelection(room)}
+                                    sx={{
+                                      p: 1.25,
+                                      borderRadius: 2,
+                                      cursor: 'pointer',
+                                      userSelect: 'none',
+                                      borderWidth: 2,
+                                      borderColor: isSelected ? 'primary.main' : 'divider',
+                                      bgcolor: isSelected ? 'primary.50' : 'background.paper',
+                                      transition: 'all 0.15s',
+                                      '&:hover': {
+                                        borderColor: isSelected ? 'primary.dark' : 'primary.light',
+                                        boxShadow: 1,
+                                      },
+                                      '&:active': { transform: 'scale(0.97)' },
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: 0.25,
+                                      position: 'relative',
+                                      overflow: 'hidden',
+                                    }}
+                                  >
+                                    {isSelected && (
+                                      <CheckCircle sx={{ position: 'absolute', top: 6, right: 6, fontSize: 18, color: 'primary.main' }} />
+                                    )}
+                                    <Typography variant="body2" fontWeight={isSelected ? 700 : 500} noWrap>
                                       {room.name}
                                     </Typography>
-                                    {(typeName || room.bedConfiguration) && (
-                                      <Typography variant="caption" color="text.secondary" noWrap sx={{ lineHeight: 1.2 }}>
-                                        {typeName}{room.bedConfiguration ? ` · ${room.bedConfiguration}` : ''}
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                      <KingBed sx={{ fontSize: 14, color: 'text.disabled' }} />
+                                      <Typography variant="caption" color="text.secondary">
+                                        {capacity} {capacity === 1
+                                          ? t('admin.reservations.create.guest', 'guest')
+                                          : t('admin.reservations.create.guests', 'guests')}
+                                      </Typography>
+                                    </Box>
+                                    {room.bedConfiguration && (
+                                      <Typography variant="caption" color="text.disabled" noWrap sx={{ fontSize: '0.65rem' }}>
+                                        {room.bedConfiguration}
                                       </Typography>
                                     )}
-                                  </Box>
-                                  <Tooltip title={t('admin.reservations.create.roomCapacity', 'Up to {{n}} guests', { n: capacity })}>
-                                    <Chip
-                                      size="small"
-                                      icon={<KingBed sx={{ fontSize: '14px !important' }} />}
-                                      label={capacity}
-                                      variant={isSelected ? 'filled' : 'outlined'}
-                                      color={isSelected ? 'primary' : 'default'}
-                                      sx={{ height: 20, fontSize: 11, flexShrink: 0 }}
-                                    />
-                                  </Tooltip>
-                                </Box>
-                                {idx < filteredRooms.length - 1 && <Divider />}
-                              </Box>
-                            );
-                          })}
-                        </Box>
-                      </Paper>
-
-                      {/* Capacity gauge — only when rooms selected */}
-                      {selectedRooms.length > 0 && (
-                        <Box>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                            <Typography variant="caption" color="text.secondary">
-                              {t('admin.reservations.create.capacityGauge', '{{accommodated}} of {{total}} guests accommodated', {
-                                accommodated: Math.min(selectedCapacity, totalBillableGuests),
-                                total: totalBillableGuests,
+                                  </Paper>
+                                );
                               })}
-                            </Typography>
-                            {capacitySatisfied && (
-                              <CheckCircle sx={{ fontSize: 14, color: 'success.main' }} />
+                            </Box>
+                          </Box>
+                        ))}
+                      </Box>
+
+                      {/* Sticky capacity + price footer */}
+                      {selectedRooms.length > 0 && (
+                        <Paper
+                          variant="outlined"
+                          sx={{
+                            p: 1.5,
+                            borderRadius: 2,
+                            position: 'sticky',
+                            bottom: 0,
+                            bgcolor: 'background.paper',
+                            zIndex: 1,
+                          }}
+                        >
+                          {/* Capacity gauge */}
+                          <Box sx={{ mb: 1 }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                              <Typography variant="caption" color="text.secondary">
+                                {t('admin.reservations.create.capacityGauge', '{{accommodated}} of {{total}} guests accommodated', {
+                                  accommodated: Math.min(selectedCapacity, totalBillableGuests),
+                                  total: totalBillableGuests,
+                                })}
+                              </Typography>
+                              {capacitySatisfied && (
+                                <CheckCircle sx={{ fontSize: 14, color: 'success.main' }} />
+                              )}
+                            </Box>
+                            <LinearProgress
+                              variant="determinate"
+                              value={Math.min((selectedCapacity / Math.max(totalBillableGuests, 1)) * 100, 100)}
+                              color={capacitySatisfied ? 'success' : 'warning'}
+                              sx={{ borderRadius: 1, height: 5 }}
+                            />
+                            {!capacitySatisfied && (
+                              <Alert severity="warning" sx={{ mt: 0.75, borderRadius: 1.5, py: 0.25 }}>
+                                {t('admin.reservations.create.insufficientCapacity', 'Selected rooms fit {{cap}} guests, but {{needed}} are needed.', {
+                                  cap: selectedCapacity,
+                                  needed: totalBillableGuests,
+                                })}
+                              </Alert>
                             )}
                           </Box>
-                          <LinearProgress
-                            variant="determinate"
-                            value={Math.min((selectedCapacity / Math.max(totalBillableGuests, 1)) * 100, 100)}
-                            color={capacitySatisfied ? 'success' : 'warning'}
-                            sx={{ borderRadius: 1, height: 5 }}
-                          />
-                          {!capacitySatisfied && (
-                            <Alert severity="warning" sx={{ mt: 0.75, borderRadius: 1.5, py: 0.25 }}>
-                              {t('admin.reservations.create.insufficientCapacity', 'Selected rooms fit {{cap}} guests, but {{needed}} are needed.', {
-                                cap: selectedCapacity,
-                                needed: totalBillableGuests,
-                              })}
-                            </Alert>
-                          )}
-                        </Box>
-                      )}
 
-                      {/* Per-room price preview */}
-                      {selectedRooms.length > 0 && (
-                        <>
+                          {/* Price preview */}
                           {createPriceLoading && (
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <CircularProgress size={14} />
@@ -661,30 +716,20 @@ const CreateReservationDialog: React.FC<Props> = ({
                             </Box>
                           )}
                           {!createPriceLoading && createPricePreview?.perRoom && (
-                            <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 1.5 }}>
-                              <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                                {t('admin.reservations.create.pricePreview', 'Price Preview')}
-                              </Typography>
-                              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                                {createPricePreview.perRoom.map((pr: any, idx: number) => (
-                                  <Box key={idx} sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, pb: 0.75, mb: 0.25, borderBottom: idx < createPricePreview.perRoom.length - 1 ? 1 : 0, borderColor: 'divider' }}>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                                      <Typography variant="body2" fontWeight={600}>{pr.roomName}</Typography>
-                                      <Typography variant="body2" fontWeight={600}>{formatMoney(pr.finalTotal)}</Typography>
-                                    </Box>
-                                    <Typography variant="caption" color="text.secondary">
-                                      {pr.roomTypeName}{pr.ratePlanName ? ` · ${pr.ratePlanName}` : ''}
-                                    </Typography>
-                                  </Box>
-                                ))}
-                                <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 0.5, borderTop: 1, borderColor: 'divider' }}>
-                                  <Typography variant="body2" fontWeight={700}>{t('admin.reservations.form.totalPrice', 'Total')}</Typography>
-                                  <Typography variant="body2" fontWeight={700} color="primary.main">{formatMoney(createPricePreview.finalTotal)}</Typography>
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                              {createPricePreview.perRoom.map((pr: any, idx: number) => (
+                                <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.25, borderBottom: idx < createPricePreview.perRoom.length - 1 ? 1 : 0, borderColor: 'divider' }}>
+                                  <Typography variant="caption" color="text.secondary">{pr.roomName}</Typography>
+                                  <Typography variant="caption" fontWeight={600}>{formatMoney(pr.finalTotal)}</Typography>
                                 </Box>
+                              ))}
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 0.5, borderTop: 1, borderColor: 'divider' }}>
+                                <Typography variant="body2" fontWeight={700}>{t('admin.reservations.form.totalPrice', 'Total')}</Typography>
+                                <Typography variant="body2" fontWeight={700} color="primary.main">{formatMoney(createPricePreview.finalTotal)}</Typography>
                               </Box>
-                            </Paper>
+                            </Box>
                           )}
-                        </>
+                        </Paper>
                       )}
                     </Box>
                   );

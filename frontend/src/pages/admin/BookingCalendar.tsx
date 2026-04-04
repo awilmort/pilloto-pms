@@ -10,7 +10,7 @@
  *  • Click on a bar  → reservation quick-view modal (details + payments + check-in)
  *  • Click on blank   → create room reservation pre-filled with that date
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Box,
@@ -31,7 +31,7 @@ import {
 import AdminLayout from '../../components/admin/AdminLayout';
 import SectionTitle from '../../components/admin/SectionTitle';
 import CalendarReservationModal from '../../components/admin/reservations/CalendarReservationModal';
-import BookingCreateDialog from '../../components/admin/reservations/BookingCreateDialog';
+import CreateReservationDialog from '../../components/admin/reservations/CreateReservationDialog';
 import { roomsService, reservationsService } from '../../services/api';
 import { Room, Reservation } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
@@ -95,7 +95,13 @@ const BookingCalendar: React.FC = () => {
   const [createOpen, setCreateOpen]           = useState(false);
   const [createDefaultCheckIn, setCreateDefaultCheckIn]   = useState('');
   const [createDefaultCheckOut, setCreateDefaultCheckOut] = useState('');
+  const [createDefaultRoomId, setCreateDefaultRoomId]     = useState('');
 
+  // ── Drag-selection state ───────────────────────────────────────────────────
+  const [dragRoomId, setDragRoomId]       = useState<string | null>(null);
+  const [dragStartIdx, setDragStartIdx]   = useState<number | null>(null);
+  const [dragEndIdx, setDragEndIdx]       = useState<number | null>(null);
+  const isDragging = useRef(false);
   // ── Shared snackbar ────────────────────────────────────────────────────────
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({ open: false, message: '', severity: 'success' });
 
@@ -130,11 +136,11 @@ const BookingCalendar: React.FC = () => {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // ── Open create dialog pre-filled from a calendar click ───────────────────
-  const openCreateDialog = (date: string) => {
-    const nextDay = dayjs(date).add(1, 'day').format('YYYY-MM-DD');
-    setCreateDefaultCheckIn(date);
-    setCreateDefaultCheckOut(nextDay);
+  // ── Open create dialog pre-filled from a calendar click / drag ──────────
+  const openCreateDialog = (checkIn: string, checkOut: string, roomId?: string) => {
+    setCreateDefaultCheckIn(checkIn);
+    setCreateDefaultCheckOut(checkOut);
+    setCreateDefaultRoomId(roomId || '');
     setCreateOpen(true);
   };
 
@@ -192,6 +198,7 @@ const BookingCalendar: React.FC = () => {
         enterDelay={300}
       >
         <Box
+          onMouseDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); setViewRes(res); }}
           sx={{
             position:   'absolute',
@@ -248,15 +255,52 @@ const BookingCalendar: React.FC = () => {
   ) => {
     const bg = isUnassigned ? '#FFFBEB' : stripeIdx % 2 === 0 ? '#ffffff' : '#F8FAFC';
 
-    const handleGridClick = (e: React.MouseEvent<HTMLTableCellElement>) => {
-      // Reservation-bar clicks call e.stopPropagation(), so this only fires
-      // for genuinely blank-space clicks.
-      const rect    = e.currentTarget.getBoundingClientRect();
-      const offsetX = e.clientX - rect.left;
-      const dayIdx  = Math.min(Math.floor(offsetX / CELL_W), DAYS - 1);
-      const clicked = days[dayIdx];
-      if (clicked) openCreateDialog(clicked.format('YYYY-MM-DD'));
+    const getDayIdx = (e: React.MouseEvent<HTMLTableCellElement>) => {
+      const rect = e.currentTarget.getBoundingClientRect();
+      return Math.min(Math.floor((e.clientX - rect.left) / CELL_W), DAYS - 1);
     };
+
+    const handleMouseDown = (e: React.MouseEvent<HTMLTableCellElement>) => {
+      // Only respond to left-click
+      if (e.button !== 0) return;
+      const dayIdx = getDayIdx(e);
+      setDragRoomId(key);
+      setDragStartIdx(dayIdx);
+      setDragEndIdx(dayIdx);
+      isDragging.current = true;
+      e.preventDefault(); // prevent text selection
+    };
+
+    const handleMouseMove = (e: React.MouseEvent<HTMLTableCellElement>) => {
+      if (!isDragging.current || dragRoomId !== key) return;
+      setDragEndIdx(getDayIdx(e));
+    };
+
+    const handleMouseUp = (e: React.MouseEvent<HTMLTableCellElement>) => {
+      if (!isDragging.current || dragRoomId !== key || dragStartIdx === null) {
+        isDragging.current = false;
+        return;
+      }
+      isDragging.current = false;
+      const endIdx = getDayIdx(e);
+      const lo = Math.min(dragStartIdx, endIdx);
+      const hi = Math.max(dragStartIdx, endIdx);
+      const checkIn  = days[lo].format('YYYY-MM-DD');
+      // Single click: check-out is next day (1 night). Multi-cell drag: last cell IS the check-out date.
+      const checkOut = lo === hi
+        ? days[hi].add(1, 'day').format('YYYY-MM-DD')
+        : days[hi].format('YYYY-MM-DD');
+      setDragRoomId(null);
+      setDragStartIdx(null);
+      setDragEndIdx(null);
+      openCreateDialog(checkIn, checkOut, isUnassigned ? undefined : key);
+    };
+
+    // Compute selection highlight for this row
+    const selLo = (dragRoomId === key && dragStartIdx !== null && dragEndIdx !== null)
+      ? Math.min(dragStartIdx, dragEndIdx) : null;
+    const selHi = (dragRoomId === key && dragStartIdx !== null && dragEndIdx !== null)
+      ? Math.max(dragStartIdx, dragEndIdx) : null;
 
     return (
       <tr key={key} style={{ height: ROW_H }}>
@@ -286,10 +330,12 @@ const BookingCalendar: React.FC = () => {
           </Typography>
         </td>
 
-        {/* Relative container holding grid lines + reservation bars */}
+        {/* Relative container holding grid lines + reservation bars + drag highlight */}
         <td
           colSpan={DAYS}
-          onClick={handleGridClick}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
           style={{
             position:      'relative',
             width:         CELL_W * DAYS,
@@ -301,14 +347,48 @@ const BookingCalendar: React.FC = () => {
             verticalAlign: 'top',
             overflow:      'hidden',
             cursor:        'cell',
+            userSelect:    'none',
           }}
         >
           {renderGridLines()}
+
+          {/* Drag-selection highlight overlay */}
+          {selLo !== null && selHi !== null && (
+            <div
+              style={{
+                position:     'absolute',
+                top:          2,
+                height:       ROW_H - 4,
+                left:         selLo * CELL_W + 2,
+                width:        (selHi - selLo + 1) * CELL_W - 4,
+                background:   'rgba(59,130,246,0.18)',
+                border:       '2px solid rgba(59,130,246,0.5)',
+                borderRadius: 4,
+                zIndex:       0,
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+
           {rowReservations.map(res => renderBar(res))}
         </td>
       </tr>
     );
   };
+
+  // Clear drag state if mouse released outside the grid
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (isDragging.current) {
+        isDragging.current = false;
+        setDragRoomId(null);
+        setDragStartIdx(null);
+        setDragEndIdx(null);
+      }
+    };
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, []);
 
   const unassigned    = reservationsByRoom['__unassigned'] ?? [];
   const hasUnassigned = unassigned.length > 0;
@@ -522,15 +602,18 @@ const BookingCalendar: React.FC = () => {
       />
 
       {/* ══════════════════════════════════════════════════════════════
-          CREATE RESERVATION DIALOG
+          CREATE RESERVATION DIALOG (unified)
       ══════════════════════════════════════════════════════════════ */}
-      <BookingCreateDialog
+      <CreateReservationDialog
         open={createOpen}
+        defaultType="room"
         defaultCheckIn={createDefaultCheckIn}
         defaultCheckOut={createDefaultCheckOut}
+        defaultRoomId={createDefaultRoomId}
         onClose={() => setCreateOpen(false)}
         onCreated={fetchData}
         onSnackbar={(message, severity) => setSnackbar({ open: true, message, severity })}
+        reservationServices={{ accommodation: true, daypass: false, pasatarde: false, event: false }}
       />
 
       {/* ── Snackbar ── */}
