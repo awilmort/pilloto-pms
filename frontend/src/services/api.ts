@@ -1099,7 +1099,7 @@ export const auditService = {
 // OTA iCal Sync Service
 // ─────────────────────────────────────────────────────────────
 
-export type OtaProvider = 'airbnb' | 'booking' | 'vrbo' | 'other';
+export type OtaProvider = 'airbnb' | 'booking_com' | 'vrbo' | 'expedia' | 'other';
 export type OtaConflictStatus =
   | 'pending_review'
   | 'resolved_keep_pilloto'
@@ -1110,7 +1110,7 @@ export type OtaConflictStatus =
 export interface OtaListingMapping {
   _id: string;
   provider: OtaProvider;
-  listingLabel: string;
+  providerLabel?: string;
   externalListingId?: string;
   inboundFeedUrl?: string;
   outboundFeedUrl?: string;

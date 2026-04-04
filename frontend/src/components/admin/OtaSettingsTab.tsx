@@ -41,12 +41,15 @@ import {
   OtaListingMapping,
   OtaProvider,
   AppSettings,
+  API_ORIGIN,
 } from '../../services/api';
 import { Room } from '../../types';
 
+const buildOutboundUrl = (token: string) => `${API_ORIGIN}/api/ota/feed/${token}`;
+
 const PROVIDERS: { value: OtaProvider; label: string }[] = [
   { value: 'airbnb', label: 'Airbnb' },
-  { value: 'booking', label: 'Booking.com' },
+  { value: 'booking_com', label: 'Booking.com' },
   { value: 'vrbo', label: 'VRBO / Expedia' },
   { value: 'other', label: 'Other' },
 ];
@@ -78,7 +81,7 @@ interface MappingDialogState {
 
 const emptyMapping: Partial<OtaListingMapping> = {
   provider: 'airbnb',
-  listingLabel: '',
+  providerLabel: '',
   externalListingId: '',
   inboundFeedUrl: '',
   roomId: '',
@@ -178,7 +181,7 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
       mapping: {
         _id: m._id,
         provider: m.provider,
-        listingLabel: m.listingLabel,
+        providerLabel: m.providerLabel,
         externalListingId: m.externalListingId ?? '',
         inboundFeedUrl: m.inboundFeedUrl ?? '',
         roomId: typeof m.roomId === 'object' ? (m.roomId as any)._id : m.roomId,
@@ -228,7 +231,7 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
   const rotateToken = async (id: string) => {
     try {
       await otaService.rotateToken(id);
-      showSnackbar(t('admin.ota.messages.tokenRotated', 'Outbound feed token rotated'));
+      showSnackbar(t('admin.ota.messages.tokenRotated', 'Calendar link regenerated. Copy the new URL and update your OTA listing.'));
       await loadMappings();
     } catch {
       showSnackbar(t('admin.ota.errors.rotateFailed', 'Failed to rotate token'), 'error');
@@ -425,7 +428,7 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
                     </Typography>
                   </TableCell>
                   <TableCell>
-                    <Typography variant="body2">{m.listingLabel}</Typography>
+                    <Typography variant="body2">{m.providerLabel}</Typography>
                     {m.externalListingId && (
                       <Typography variant="caption" color="text.secondary">{m.externalListingId}</Typography>
                     )}
@@ -440,7 +443,7 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
                   </TableCell>
                   <TableCell>{statusChip(m.lastSyncStatus)}</TableCell>
                   <TableCell>
-                    {m.outboundFeedUrl ? (
+                    {m.outboundToken ? (
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                         <Typography
                           variant="caption"
@@ -451,12 +454,12 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
                             whiteSpace: 'nowrap',
                             display: 'block',
                           }}
-                          title={m.outboundFeedUrl}
+                          title={buildOutboundUrl(m.outboundToken)}
                         >
-                          {m.outboundFeedUrl}
+                          {buildOutboundUrl(m.outboundToken)}
                         </Typography>
                         <Tooltip title={t('admin.ota.mappings.copyUrl', 'Copy URL')}>
-                          <IconButton size="small" onClick={() => copyFeedUrl(m.outboundFeedUrl!)}>
+                          <IconButton size="small" onClick={() => copyFeedUrl(buildOutboundUrl(m.outboundToken))}>
                             <ContentCopyIcon sx={{ fontSize: 14 }} />
                           </IconButton>
                         </Tooltip>
@@ -482,7 +485,7 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
                           </IconButton>
                         </span>
                       </Tooltip>
-                      <Tooltip title={t('admin.ota.mappings.rotateToken', 'Rotate outbound token')}>
+                      <Tooltip title={t('admin.ota.mappings.rotateToken', 'Regenerate calendar link — the old link will stop working')}>
                         <IconButton size="small" onClick={() => rotateToken(m._id)}>
                           <RefreshIcon fontSize="small" />
                         </IconButton>
@@ -531,8 +534,8 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
             <TextField
               label={t('admin.ota.mappings.label', 'Channel name')}
               size="small"
-              value={dialog.mapping.listingLabel ?? ''}
-              onChange={e => setDialog(d => ({ ...d, mapping: { ...d.mapping, listingLabel: e.target.value } }))}
+              value={dialog.mapping.providerLabel ?? ''}
+              onChange={e => setDialog(d => ({ ...d, mapping: { ...d.mapping, providerLabel: e.target.value } }))}
               placeholder={t('admin.ota.mappings.labelPlaceholder', 'e.g. Airbnb – Room 12')}
               required
             />
@@ -584,7 +587,7 @@ const OtaSettingsTab: React.FC<Props> = ({ showSnackbar }) => {
           <Button
             variant="contained"
             onClick={saveDialog}
-            disabled={dialogSaving || !dialog.mapping.listingLabel || !dialog.mapping.roomId}
+            disabled={dialogSaving || !dialog.mapping.providerLabel || !dialog.mapping.roomId}
           >
             {dialogSaving ? t('common.saving', 'Saving…') : t('common.save', 'Save')}
           </Button>
