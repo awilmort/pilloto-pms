@@ -166,7 +166,7 @@ const Footer: React.FC = () => {
           </Typography>
           <Box sx={{ display: 'flex', gap: 3 }}>
             <Link
-              href="/privacy"
+              href="https://pilloto.com/privacy"
               color="inherit"
               underline="hover"
               variant="body2"
@@ -175,7 +175,7 @@ const Footer: React.FC = () => {
               {t('footer.privacyPolicy')}
             </Link>
             <Link
-              href="/terms"
+              href="https://pilloto.com/terms"
               color="inherit"
               underline="hover"
               variant="body2"

@@ -1,0 +1,43 @@
+Thank you for reviewing my request.
+I am happy to provide the details you need.
+
+About Pilloto
+Pilloto is a multi-tenant Property Management System (PMS) for hotels, boutique lodges, and vacation rental operators. Each property that signs up has its own isolated tenant account managed through our platform. Amazon SES is our sole transactional email provider.
+
+How often we send email
+All emails sent through Pilloto are transactional — triggered by a guest or staff action, never by a marketing campaign. The email types are:
+Reservation confirmations — sent to the guest when a reservation is created or confirmed (room stays, day passes, and event bookings)
+Invoices / receipts — sent when a guest folio is closed after checkout Email address verification — sent once when a hotel staff user registers an account
+Password reset — sent on request by a staff user
+Volume is driven entirely by reservation activity across our tenant hotels. We expect an average of 50–60 emails per day when we get our first 10 tenants. There are no newsletters, promotional blasts, or bulk campaigns of any kind.
+
+Recipient list management
+We do not maintain mailing lists. Every recipient address is provided directly by the guest or staff member at the point of action (booking, checkout, or account registration). We do not purchase, rent, or scrape email addresses.
+
+How we handle bounces, complaints, and unsubscribes
+We have built a dedicated bounce and complaint handling pipeline:
+SNS webhook: Our SES Configuration Set publishes Bounce and Complaint events to an SNS topic. Our backend exposes an HTTPS endpoint (POST /api/webhooks/ses-events) that processes these notifications in real time.
+Hard bounces (permanent delivery failures) are immediately and permanently added to an EmailSuppression collection in our database. The address is never emailed again.
+Spam complaints are treated identically to hard bounces — the address is permanently suppressed on receipt of the complaint notification.
+Soft bounces (transient failures) are logged; repeated soft bounces escalate to permanent suppression.
+Every send call checks the suppression list before dispatching. If the address is suppressed, the email is silently dropped and the event is logged (without PII).
+We also have AWS account-level suppression enabled in SES as a secondary safeguard.
+
+We actively monitor our bounce rate and complaint rate through the SES Reputation Dashboard.
+
+Unsubscribe handling
+Because all emails are transactional (guests cannot opt out of their own reservation confirmation or invoice), we include a List-Unsubscribe mailto header pointing to our support address on every message. Guests who reply requesting no further contact are manually suppressed.
+
+Sending practices and deliverability setup
+From address: noreply@pilloto.com — domain is verified in SES with SPF, DKIM, and DMARC records published.
+Custom MAIL FROM: mail.pilloto.com is configured for strict DMARC alignment.
+From display name: Includes the tenant hotel name so guests recognise the sender (e.g., "Hotel Miramar via Pilloto" <noreply@pilloto.com>).
+Content: Every email includes both an HTML and a plain-text part. Content is in Spanish and English depending on the tenant's locale configuration.
+Retry logic: Our sending layer retries only on throttle errors (SendingRateExceeded) with exponential backoff (up to 3 attempts). Permanent SES errors are never retried.
+
+Example email content
+A typical reservation confirmation includes: guest name, hotel name, check-in/check-out dates, room type, rate plan, taxes, and total. An invoice/receipt includes the full folio itemisation (charges and payments). Neither contains third-party advertising or external tracking pixels.
+
+Please let me know if you require DMARC/DNS records, a sample HTML template, or any further technical detail. We are committed to responsible sending and are happy to comply with any additional AWS requirements.
+
+Best regards, Abimael Wilmort (from Pilloto)

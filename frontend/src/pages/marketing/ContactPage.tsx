@@ -10,6 +10,7 @@ import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
 import PillotoLogo from '../../components/marketing/PillotoLogo';
+import MarketingFooter from '../../components/marketing/MarketingFooter';
 
 const BRAND = '#1A3C34';
 const BRAND_LIGHT = '#E8F0EE';
@@ -256,20 +257,7 @@ const ContactPage: React.FC = () => {
       </Container>
 
       {/* Footer */}
-      <Box component="footer" sx={{ backgroundColor: '#0F172A', py: 4, mt: 'auto' }}>
-        <Container maxWidth="lg">
-          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" spacing={2}>
-            <PillotoLogo variant="on-dark" iconHeight={28} />
-            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.35)' }}>
-              © {new Date().getFullYear()} Pilloto. All rights reserved.
-            </Typography>
-            <Link href="mailto:info@pilloto.com" variant="caption"
-              sx={{ color: 'rgba(255,255,255,0.4)', '&:hover': { color: 'white' } }}>
-              info@pilloto.com
-            </Link>
-          </Stack>
-        </Container>
-      </Box>
+      <MarketingFooter />
     </Box>
   );
 };

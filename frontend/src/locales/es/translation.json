@@ -2009,5 +2009,489 @@
     "footer": {
       "copyright": "© {{year}} Pilloto. Todos los derechos reservados."
     }
+  },
+  "legal": {
+    "breadcrumb": {
+      "home": "Inicio",
+      "legal": "Legal"
+    },
+    "effectiveDate": "Fecha de vigencia",
+    "tableOfContents": "En esta página",
+    "nav": {
+      "legalCenter": "Centro Legal",
+      "privacy": "Política de Privacidad",
+      "terms": "Términos del Servicio",
+      "cookies": "Política de Cookies",
+      "acceptableUse": "Política de Uso Aceptable",
+      "security": "Seguridad",
+      "accessibility": "Accesibilidad"
+    },
+    "footer": {
+      "tagline": "Software de gestión hotelera diseñado para la hospitalidad caribeña.",
+      "product": "Producto",
+      "legal": "Legal",
+      "company": "Empresa",
+      "entity": "Pilloto SRL"
+    },
+    "center": {
+      "metaTitle": "Centro Legal — Pilloto",
+      "metaDescription": "Información sobre privacidad, términos, seguridad y cumplimiento del software de gestión hotelera Pilloto.",
+      "heading": "Centro Legal y de Confianza",
+      "subheading": "La transparencia es importante para nosotros. A continuación encontrará nuestras políticas, términos, prácticas de seguridad y compromisos de accesibilidad.",
+      "viewPolicy": "Leer más",
+      "privacyDesc": "Cómo recopilamos, usamos y protegemos los datos personales — como operador del sitio web y como proveedor de software para hoteles.",
+      "termsDesc": "Las reglas que rigen el uso del sitio web y la plataforma Pilloto, incluyendo facturación, cuentas y alcance del servicio.",
+      "cookiesDesc": "Qué cookies y tecnologías similares usamos en pilloto.com, por qué las usamos y cómo gestionar sus preferencias.",
+      "acceptableUseDesc": "Reglas para los clientes hoteleros que usan la plataforma Pilloto, cubriendo correo electrónico, manejo de datos y conducta prohibida.",
+      "securityDesc": "Una descripción general de las medidas técnicas y organizativas que usamos para mantener sus datos seguros.",
+      "accessibilityDesc": "Nuestro compromiso de hacer Pilloto accesible para todos, incluyendo nuestros estándares de accesibilidad y cómo reportar problemas."
+    },
+    "cookies": {
+      "consentTitle": "Usamos cookies",
+      "consentBody": "Pilloto usa cookies esenciales para el funcionamiento del sitio y cookies opcionales para mejorar su experiencia. Puede leer nuestra política completa en",
+      "accept": "Aceptar todas",
+      "reject": "Solo esenciales"
+    },
+    "privacy": {
+      "pageTitle": "Política de Privacidad",
+      "effectiveDate": "6 de abril de 2026",
+      "metaTitle": "Política de Privacidad — Pilloto",
+      "metaDescription": "Conozca cómo Pilloto recopila, usa y protege los datos personales. Cubre el sitio web pilloto.com, la plataforma Pilloto PMS y el procesamiento de datos de huéspedes.",
+      "intro": "Esta Política de Privacidad explica cómo Pilloto SRL (\"Pilloto\", \"nosotros\") recopila, usa, almacena y protege los datos personales cuando visita nuestro sitio web en pilloto.com o utiliza la plataforma de gestión hotelera Pilloto. Pilloto está constituida en la República Dominicana y opera bajo la Ley 172-13 de Protección de Datos Personales de la República Dominicana. Cuando corresponda, también cumplimos con el Reglamento General de Protección de Datos (RGPD) de la UE y las leyes de privacidad estatales de EE.UU. aplicables.",
+      "controller": {
+        "title": "1. Responsable del Tratamiento",
+        "body": "El responsable del tratamiento de los datos personales recopilados a través del sitio web pilloto.com y las actividades de marketing es: Pilloto SRL, Matachalupe, Higüey, República Dominicana 23000. Correo: info@pilloto.com. Cuando Pilloto procesa datos de huéspedes en nombre de un hotel cliente que usa nuestra plataforma, el hotel es el responsable del tratamiento y Pilloto actúa como encargado del tratamiento. Consulte la Sección 16 para más detalles."
+      },
+      "dataCollected": {
+        "title": "2. Categorías de Datos Personales que Recopilamos",
+        "intro": "Podemos recopilar las siguientes categorías de datos personales según su interacción con nosotros:",
+        "items": [
+          "Información de contacto: nombre, correo electrónico, número de teléfono (proporcionados a través de nuestro formulario de contacto o consultas de ventas)",
+          "Datos de cuenta: correo electrónico, nombre, rol, credenciales de inicio de sesión (para usuarios de la plataforma)",
+          "Datos de uso: páginas visitadas, tipo de navegador, dirección IP, información del dispositivo, preferencia de idioma",
+          "Datos de transacción: plan de suscripción, historial de facturación (para clientes de pago)",
+          "Datos de comunicación: mensajes enviados a través de nuestro formulario de contacto o canales de soporte",
+          "Datos de cookies y seguimiento: consulte nuestra Política de Cookies para todos los detalles"
+        ]
+      },
+      "sources": {
+        "title": "3. Fuentes de Datos",
+        "body": "Recopilamos datos directamente de usted cuando completa nuestro formulario de contacto, crea una cuenta o interactúa con nuestra plataforma. También recopilamos datos automáticamente a través de cookies y registros del servidor cuando visita nuestro sitio web."
+      },
+      "purposes": {
+        "title": "4. Finalidades del Tratamiento",
+        "intro": "Procesamos datos personales para las siguientes finalidades:",
+        "items": [
+          "Responder a sus consultas enviadas a través de nuestro formulario de contacto",
+          "Proporcionar y mantener la plataforma y los servicios de Pilloto",
+          "Gestionar su cuenta y suscripción",
+          "Enviar correos electrónicos transaccionales relacionados con su cuenta o reservas (solo generados por el sistema — no enviamos correo de marketing)",
+          "Mejorar nuestro sitio web y servicios mediante análisis agregados",
+          "Garantizar la seguridad de nuestra plataforma y prevenir el abuso",
+          "Cumplir con las obligaciones legales bajo la ley dominicana"
+        ]
+      },
+      "legalBases": {
+        "title": "5. Bases Legales del Tratamiento",
+        "body": "Bajo la Ley 172-13 de la República Dominicana, procesamos datos personales con base en su consentimiento cuando es requerido, para la ejecución de un contrato (nuestros Términos del Servicio) y para cumplir con obligaciones legales. Para visitantes sujetos al RGPD, nuestras bases legales incluyen: consentimiento (para cookies opcionales), necesidad contractual (para prestar nuestros servicios), intereses legítimos (seguridad, análisis) y cumplimiento legal."
+      },
+      "sharing": {
+        "title": "6. Compartición de Datos y Destinatarios",
+        "intro": "Podemos compartir datos personales con:",
+        "items": [
+          "Proveedores de infraestructura en la nube (Amazon Web Services) para alojamiento y prestación de servicios",
+          "Servicios de entrega de correo electrónico (Amazon SES) para correo transaccional en nombre de nuestros clientes de la plataforma",
+          "Procesadores de pagos para la facturación de suscripciones",
+          "Asesores profesionales (legales, contables) cuando sea necesario"
+        ],
+        "noSale": "No vendemos, alquilamos ni intercambiamos sus datos personales a terceros para sus fines de marketing."
+      },
+      "internationalTransfers": {
+        "title": "7. Transferencias Internacionales de Datos",
+        "body": "Pilloto tiene su sede en la República Dominicana. Nuestra infraestructura está alojada en Amazon Web Services en Estados Unidos. Si accede a nuestro sitio web o servicios desde fuera de la República Dominicana o Estados Unidos, sus datos pueden ser transferidos y procesados en estas jurisdicciones. Implementamos salvaguardas apropiadas incluyendo protecciones contractuales para garantizar que sus datos estén protegidos de acuerdo con la ley aplicable."
+      },
+      "retention": {
+        "title": "8. Retención de Datos",
+        "body": "Retenemos datos personales solo durante el tiempo necesario para cumplir los fines descritos en esta política, o según lo requiera la ley. Los envíos del formulario de contacto se retienen hasta 24 meses. Los datos de cuenta se retienen durante la vigencia de su suscripción y hasta 12 meses después de la cancelación. Los registros del servidor y datos de uso se retienen hasta 90 días. Puede solicitar la eliminación en cualquier momento contactando a info@pilloto.com."
+      },
+      "security": {
+        "title": "9. Seguridad",
+        "body": "Implementamos medidas técnicas y organizativas para proteger los datos personales, incluyendo cifrado en tránsito (TLS), controles de acceso, salvaguardas de autenticación y revisiones de seguridad regulares. Para más información, consulte nuestra página de Seguridad."
+      },
+      "rights": {
+        "title": "10. Sus Derechos",
+        "intro": "Dependiendo de su ubicación, puede tener ciertos derechos respecto a sus datos personales. Honramos los derechos de los titulares de datos independientemente de su ubicación, aunque marcos legales específicos pueden aplicar según donde resida."
+      },
+      "drRights": {
+        "title": "11. Derechos bajo la Ley 172-13 de República Dominicana",
+        "body": "Bajo la Ley 172-13, usted tiene derecho a:",
+        "items": [
+          "Acceder a sus datos personales en nuestro poder",
+          "Solicitar la rectificación de datos inexactos",
+          "Solicitar la eliminación de sus datos",
+          "Oponerse al tratamiento de sus datos",
+          "Presentar una queja ante el Consejo Nacional de Regulación y Fomento de las Telecomunicaciones (INDOTEL) de la República Dominicana"
+        ]
+      },
+      "gdprRights": {
+        "title": "12. Derechos bajo el RGPD (Visitantes de la UE/Reino Unido)",
+        "body": "Si se encuentra en el Espacio Económico Europeo o el Reino Unido, además tiene derecho a:",
+        "items": [
+          "Recibir sus datos en un formato portátil",
+          "Restringir el tratamiento en ciertas circunstancias",
+          "Retirar el consentimiento en cualquier momento (cuando el tratamiento se base en el consentimiento)",
+          "Presentar una queja ante su autoridad local de protección de datos"
+        ]
+      },
+      "usRights": {
+        "title": "13. Derechos de Privacidad en Estados Unidos",
+        "body": "Si reside en California u otro estado de EE.UU. con legislación integral de privacidad, puede tener derechos adicionales incluyendo el derecho a saber qué datos recopilamos, el derecho a eliminar y el derecho a optar por no participar en la venta o compartición de información personal. No vendemos información personal. Para ejercer sus derechos, contáctenos en info@pilloto.com."
+      },
+      "children": {
+        "title": "14. Privacidad de Menores",
+        "body": "Nuestro sitio web y servicios no están dirigidos a menores de 16 años. No recopilamos intencionalmente datos personales de menores. Si cree que hemos recopilado datos de un menor inadvertidamente, contáctenos y los eliminaremos de inmediato."
+      },
+      "cookieReference": {
+        "title": "15. Cookies",
+        "body": "Usamos cookies y tecnologías similares en nuestro sitio web. Para todos los detalles, consulte nuestra"
+      },
+      "processorRole": {
+        "title": "16. Pilloto como Encargado del Tratamiento",
+        "body": "Cuando un hotel usa la plataforma Pilloto para gestionar reservas de huéspedes, check-ins, folios y comunicaciones, el hotel es el responsable del tratamiento de esos datos de huéspedes. Pilloto procesa estos datos estrictamente en nombre de y bajo las instrucciones del hotel cliente. No usamos los datos de huéspedes del hotel para nuestro propio marketing o análisis. Si usted es huésped de un hotel con preguntas sobre cómo se manejan sus datos, comuníquese directamente con el hotel. Los hoteles pueden solicitar un Acuerdo de Procesamiento de Datos contactando a info@pilloto.com."
+      },
+      "changes": {
+        "title": "17. Cambios a Esta Política",
+        "body": "Podemos actualizar esta Política de Privacidad periódicamente. Cuando realicemos cambios materiales, actualizaremos la fecha de vigencia en la parte superior de esta página. Le recomendamos revisar esta página periódicamente."
+      },
+      "contact": {
+        "title": "18. Contáctenos",
+        "body": "Para preguntas relacionadas con la privacidad, solicitudes de derechos de datos o quejas, contáctenos en:",
+        "email": "Correo"
+      }
+    },
+    "terms": {
+      "pageTitle": "Términos del Servicio",
+      "effectiveDate": "6 de abril de 2026",
+      "metaTitle": "Términos del Servicio — Pilloto",
+      "metaDescription": "Términos y condiciones para el uso del sitio web y la plataforma de gestión hotelera Pilloto, incluyendo alcance del servicio, facturación y obligaciones del cliente.",
+      "intro": "Estos Términos del Servicio (\"Términos\") rigen su acceso y uso del sitio web de Pilloto (pilloto.com) y la plataforma de gestión hotelera Pilloto (el \"Servicio\") operada por Pilloto SRL (\"Pilloto\", \"nosotros\"). Al acceder o usar el Servicio, usted acepta regirse por estos Términos. Si no está de acuerdo, no use el Servicio.",
+      "scope": {
+        "title": "1. Alcance",
+        "body": "Estos Términos se aplican a todos los visitantes del sitio web pilloto.com y a todos los clientes que se suscriban y usen la plataforma de gestión hotelera Pilloto. Términos adicionales pueden aplicar a funciones o servicios específicos, y se le presentarán al momento de suscripción o activación. Estos Términos incorporan por referencia nuestra Política de Privacidad, Política de Cookies y Política de Uso Aceptable."
+      },
+      "eligibility": {
+        "title": "2. Elegibilidad",
+        "body": "La plataforma Pilloto está destinada para uso de negocios de alojamiento (hoteles, resorts, hostales y propiedades similares). Al suscribirse, usted declara que tiene al menos 18 años y la autoridad legal para vincular a la entidad suscriptora a estos Términos."
+      },
+      "accountResponsibilities": {
+        "title": "3. Responsabilidades de la Cuenta",
+        "body": "Cuando crea una cuenta en la plataforma Pilloto, usted es responsable de:",
+        "items": [
+          "Mantener la confidencialidad de sus credenciales de inicio de sesión",
+          "Toda la actividad que ocurra bajo su cuenta",
+          "Asegurar que todos los usuarios que agregue a la cuenta de su propiedad cumplan con estos Términos y la ley aplicable",
+          "Notificarnos de inmediato sobre cualquier acceso no autorizado a su cuenta"
+        ]
+      },
+      "serviceDescription": {
+        "title": "4. Descripción del Servicio",
+        "body": "Pilloto es un sistema de gestión hotelera (PMS) basado en la nube que ayuda a los hoteles a gestionar reservas, perfiles de huéspedes, inventario de habitaciones, facturación, eventos, pases de día y operaciones relacionadas. Las funciones disponibles dependen de su plan de suscripción. Podemos actualizar, modificar o descontinuar funciones a nuestra discreción, con aviso razonable a los suscriptores activos."
+      },
+      "billing": {
+        "title": "5. Facturación y Pagos",
+        "body": "Las tarifas de suscripción se facturan mensualmente a las tarifas publicadas en nuestra página de precios o según lo acordado en su pedido. Todos los precios están en dólares estadounidenses salvo que se indique lo contrario. Las tarifas no son reembolsables excepto cuando lo requiera la ley. Nos reservamos el derecho de cambiar los precios con 30 días de aviso por escrito. Su uso continuado después de un cambio de precio constituye aceptación. Todos los planes incluyen 14 días de prueba gratis. No se requiere tarjeta de crédito para la prueba."
+      },
+      "customerObligations": {
+        "title": "6. Obligaciones del Cliente",
+        "intro": "Como cliente de la plataforma Pilloto, usted acepta:",
+        "items": [
+          "Usar el Servicio solo para fines lícitos relacionados con operaciones de alojamiento",
+          "No cargar o transmitir código malicioso ni intentar comprometer la plataforma",
+          "Cumplir con las leyes de privacidad y protección de datos aplicables al procesar datos de huéspedes a través de la plataforma",
+          "No usar la funcionalidad de correo electrónico de la plataforma para enviar marketing no solicitado, correo masivo o comunicaciones a listas de contactos compradas o extraídas",
+          "Mantener información precisa y actualizada en su cuenta",
+          "Cumplir con nuestra Política de Uso Aceptable"
+        ]
+      },
+      "prohibitedUses": {
+        "title": "7. Usos Prohibidos",
+        "intro": "No debe usar la plataforma Pilloto para:",
+        "items": [
+          "Enviar correo masivo no solicitado o spam",
+          "Cargar listas de contactos compradas, alquiladas o extraídas",
+          "Crear reservas falsas o registros de facturación fraudulentos",
+          "Usar incorrectamente los canales de correo transaccional con fines de marketing",
+          "Intentar acceder a los datos de otros inquilinos sin autorización",
+          "Hacer scraping, ingeniería inversa o interferir con el funcionamiento de la plataforma",
+          "Violar cualquier ley o regulación aplicable"
+        ],
+        "reference": "Para una lista completa de actividades prohibidas, consulte nuestra"
+      },
+      "suspensionTermination": {
+        "title": "8. Suspensión y Terminación",
+        "body": "Podemos suspender o terminar su cuenta si razonablemente creemos que ha violado estos Términos, la Política de Uso Aceptable o la ley aplicable. Haremos esfuerzos razonables para notificarle antes de la suspensión, excepto cuando se requiera acción inmediata para proteger la plataforma u otros usuarios. Tras la terminación, puede solicitar una exportación de sus datos dentro de 30 días. Después de 30 días, podemos eliminar sus datos de acuerdo con nuestras políticas de retención."
+      },
+      "ip": {
+        "title": "9. Propiedad Intelectual",
+        "body": "La plataforma Pilloto, el diseño del sitio web, la marca, la documentación y toda la propiedad intelectual relacionada son propiedad de Pilloto SRL o sus licenciantes. Su suscripción le otorga una licencia limitada, no exclusiva e intransferible para usar el Servicio para su propósito previsto durante el plazo de su suscripción. Usted retiene la propiedad de los datos que carga a la plataforma."
+      },
+      "disclaimers": {
+        "title": "10. Descargos de Responsabilidad",
+        "body": "El Servicio se proporciona \"tal cual\" y \"según disponibilidad\". En la máxima medida permitida por la ley, renunciamos a todas las garantías, expresas o implícitas, incluyendo garantías de comerciabilidad, idoneidad para un propósito particular y no infracción. No garantizamos la operación ininterrumpida o libre de errores del Servicio."
+      },
+      "liability": {
+        "title": "11. Limitación de Responsabilidad",
+        "body": "En la máxima medida permitida por la ley aplicable, la responsabilidad total de Pilloto por cualquier reclamación derivada de o relacionada con estos Términos o el Servicio no excederá las tarifas totales pagadas por usted en los doce (12) meses anteriores a la reclamación. En ningún caso Pilloto será responsable por daños indirectos, incidentales, consecuentes, especiales o punitivos."
+      },
+      "indemnification": {
+        "title": "12. Indemnización",
+        "body": "Usted acepta indemnizar y mantener indemne a Pilloto, sus funcionarios, directores, empleados y agentes de cualquier reclamación, daño, pérdida o gasto (incluyendo honorarios legales razonables) derivados de su uso del Servicio, su violación de estos Términos o su violación de cualquier ley aplicable o derechos de terceros."
+      },
+      "governingLaw": {
+        "title": "13. Ley Aplicable y Jurisdicción",
+        "body": "Estos Términos se rigen por las leyes de la República Dominicana. Cualquier disputa que surja bajo o en conexión con estos Términos estará sujeta a la jurisdicción exclusiva de los tribunales de la República Dominicana, sin consideración a los principios de conflicto de leyes."
+      },
+      "changes": {
+        "title": "14. Cambios a Estos Términos",
+        "body": "Podemos actualizar estos Términos periódicamente. Cuando realicemos cambios materiales, actualizaremos la fecha de vigencia y, para suscriptores activos, proporcionaremos aviso por correo electrónico o notificación dentro del producto al menos 15 días antes de que los cambios entren en vigencia. Su uso continuado del Servicio después de que los cambios entren en vigencia constituye aceptación de los Términos revisados."
+      },
+      "contact": {
+        "title": "15. Contáctenos",
+        "body": "Para preguntas sobre estos Términos, contáctenos en:"
+      }
+    },
+    "cookiePolicy": {
+      "pageTitle": "Política de Cookies",
+      "effectiveDate": "6 de abril de 2026",
+      "metaTitle": "Política de Cookies — Pilloto",
+      "metaDescription": "Conozca las cookies y tecnologías similares utilizadas en pilloto.com, sus propósitos y cómo gestionar sus preferencias.",
+      "intro": "Esta Política de Cookies explica cómo Pilloto SRL (\"Pilloto\", \"nosotros\") utiliza cookies y tecnologías similares en el sitio web pilloto.com. Esta política debe leerse junto con nuestra Política de Privacidad.",
+      "whatAreCookies": {
+        "title": "1. Qué Son las Cookies",
+        "body": "Las cookies son pequeños archivos de texto almacenados en su dispositivo cuando visita un sitio web. Ayudan a los sitios web a recordar sus preferencias y entender cómo interactúa con el sitio. Las tecnologías similares incluyen almacenamiento local y almacenamiento de sesión."
+      },
+      "cookiesWeUse": {
+        "title": "2. Cookies que Usamos",
+        "body": "Pilloto actualmente usa un conjunto mínimo de cookies. No ejecutamos píxeles de publicidad de terceros, herramientas de retargeting ni software de grabación de sesiones en el sitio web de marketing."
+      },
+      "essential": {
+        "title": "3. Cookies Esenciales",
+        "intro": "Estas cookies son necesarias para el funcionamiento del sitio web y no se pueden desactivar:",
+        "items": [
+          "Preferencia de consentimiento de cookies (pilloto_cookie_consent) — registra su elección de consentimiento de cookies. Persistente, primera parte.",
+          "Preferencia de idioma (i18nextLng) — almacena su idioma seleccionado. Persistente, primera parte."
+        ]
+      },
+      "functional": {
+        "title": "4. Cookies Funcionales",
+        "intro": "Estas cookies habilitan funcionalidad mejorada. Se establecen solo dentro de la plataforma (no en el sitio de marketing):",
+        "items": [
+          "Token de autenticación — identifica su sesión de inicio de sesión. Duración de sesión, primera parte, httpOnly.",
+          "Contexto de inquilino — identifica a qué propiedad está accediendo. Duración de sesión, primera parte."
+        ]
+      },
+      "analytics": {
+        "title": "5. Cookies de Análisis",
+        "body": "Pilloto no utiliza actualmente cookies de análisis ni servicios de análisis de terceros en el sitio web de marketing. Si introducimos análisis en el futuro, actualizaremos esta política y solicitaremos su consentimiento cuando sea necesario."
+      },
+      "thirdParty": {
+        "title": "6. Cookies de Terceros",
+        "body": "El sitio web de marketing pilloto.com no incluye cookies, píxeles o scripts de seguimiento de terceros. La aplicación de la plataforma puede interactuar con servicios de terceros (por ejemplo, gestores de canales OTA) como parte de las operaciones hoteleras — estos están cubiertos por los acuerdos de procesamiento de datos propios del hotel."
+      },
+      "consent": {
+        "title": "7. Consentimiento",
+        "body": "Cuando visita pilloto.com por primera vez, mostramos un banner de consentimiento de cookies. Las cookies esenciales se establecen independientemente de su elección porque son necesarias para la funcionalidad del sitio. Si introducimos cookies no esenciales en el futuro, requerirán su consentimiento explícito antes de establecerse."
+      },
+      "manageCookies": {
+        "title": "8. Gestión de Sus Cookies",
+        "body": "Puede gestionar o eliminar cookies a través de la configuración de su navegador en cualquier momento. Tenga en cuenta que desactivar las cookies esenciales puede afectar la funcionalidad del sitio web. La mayoría de los navegadores permiten bloquear o eliminar cookies a través de su configuración de privacidad."
+      },
+      "doNotTrack": {
+        "title": "9. Do Not Track y Global Privacy Control",
+        "body": "Respetamos las señales Do Not Track (DNT) y Global Privacy Control (GPC) del navegador. Dado que no usamos seguimiento no esencial en nuestro sitio de marketing, estas señales no tienen efecto adicional más allá de nuestro comportamiento predeterminado."
+      },
+      "changes": {
+        "title": "10. Cambios a Esta Política",
+        "body": "Podemos actualizar esta Política de Cookies periódicamente, particularmente si introducimos nuevas cookies o tecnologías de seguimiento. La fecha de vigencia en la parte superior de esta página se actualizará en consecuencia."
+      },
+      "contact": {
+        "title": "11. Contacto",
+        "body": "Para preguntas sobre nuestro uso de cookies, contáctenos en info@pilloto.com."
+      }
+    },
+    "aup": {
+      "pageTitle": "Política de Uso Aceptable",
+      "effectiveDate": "6 de abril de 2026",
+      "metaTitle": "Política de Uso Aceptable — Pilloto",
+      "metaDescription": "Reglas para el uso de la plataforma de gestión hotelera Pilloto, cubriendo conducta de correo electrónico, manejo de datos y actividades prohibidas.",
+      "intro": "Esta Política de Uso Aceptable (\"PUA\") define las reglas de conducta para todos los clientes y usuarios de la plataforma de gestión hotelera Pilloto. Se incorpora por referencia en los Términos del Servicio de Pilloto. Las violaciones de esta política pueden resultar en la suspensión o terminación de su cuenta.",
+      "overview": {
+        "title": "1. Descripción General",
+        "body": "Pilloto proporciona una plataforma de gestión hotelera multi-inquilino. Cada hotel cliente opera en un entorno aislado. Debido a que nuestra plataforma maneja datos de huéspedes y envía correo transaccional en nombre de los clientes, aplicamos reglas estrictas para prevenir el abuso del correo electrónico, datos y recursos de la plataforma."
+      },
+      "emailRules": {
+        "title": "2. Reglas de Correo Electrónico",
+        "intro": "Todo el correo saliente enviado a través de la plataforma Pilloto es transaccional y generado por el sistema. No debe:",
+        "items": [
+          "Enviar correo electrónico de marketing masivo no solicitado a través de la plataforma Pilloto",
+          "Cargar listas de correo electrónico compradas, alquiladas o extraídas",
+          "Usar la plataforma para enviar mensajes a destinatarios que no han interactuado con su propiedad",
+          "Usar incorrectamente los correos de confirmación de reserva, folio o notificación con contenido de marketing",
+          "Falsificar identidades de remitente o disfrazar el origen de los correos enviados a través de la plataforma",
+          "Interferir con o eludir el manejo de rebotes, procesamiento de quejas o listas de supresión"
+        ]
+      },
+      "platformRules": {
+        "title": "3. Reglas de la Plataforma",
+        "intro": "No debe:",
+        "items": [
+          "Intentar acceder a los datos o el entorno de otro inquilino",
+          "Crear reservas falsas, registros ficticios de huéspedes o transacciones financieras fraudulentas",
+          "Usar scripts automatizados, scrapers o bots para interactuar con la plataforma sin nuestro permiso",
+          "Intentar realizar ingeniería inversa, descompilar o extraer código fuente de la plataforma",
+          "Introducir malware, virus u otro código dañino",
+          "Usar la plataforma para cualquier propósito no relacionado con operaciones de alojamiento"
+        ]
+      },
+      "dataRules": {
+        "title": "4. Reglas de Datos de Huéspedes",
+        "intro": "Los datos de clientes de hotel se procesan bajo condiciones estrictas. Debe:",
+        "items": [
+          "Solo almacenar y procesar datos de huéspedes en conexión con operaciones legítimas de alojamiento",
+          "Cumplir con las leyes de protección de datos y privacidad aplicables al manejar datos de huéspedes",
+          "No exportar datos de huéspedes de la plataforma para propósitos no relacionados con sus operaciones hoteleras",
+          "No compartir datos de huéspedes con terceros excepto según lo requieran sus operaciones (ej. gestores de canales)",
+          "Notificar a Pilloto de inmediato sobre cualquier violación de datos que afecte los datos de huéspedes almacenados en la plataforma"
+        ]
+      },
+      "enforcement": {
+        "title": "5. Cumplimiento",
+        "body": "Pilloto monitorea el uso de la plataforma y las métricas de entregabilidad del correo electrónico. Si detectamos una violación de esta política, podemos tomar una o más de las siguientes acciones:",
+        "items": [
+          "Emitir una advertencia y solicitar remediación",
+          "Suspender temporalmente la función infractora (ej. correo saliente)",
+          "Suspender la cuenta del inquilino pendiente de investigación",
+          "Terminar permanentemente la cuenta del inquilino",
+          "Reportar la violación a las autoridades pertinentes cuando lo requiera la ley"
+        ]
+      },
+      "reporting": {
+        "title": "6. Reportar Abuso",
+        "body": "Si cree que un cliente de Pilloto está violando esta política, o si recibe comunicaciones no deseadas originadas desde la plataforma Pilloto, por favor repórtelo a"
+      },
+      "contact": {
+        "title": "7. Contacto",
+        "body": "Para preguntas sobre esta Política de Uso Aceptable, contáctenos en info@pilloto.com."
+      }
+    },
+    "security": {
+      "pageTitle": "Seguridad",
+      "effectiveDate": "6 de abril de 2026",
+      "metaTitle": "Seguridad — Pilloto",
+      "metaDescription": "Conozca las medidas de seguridad que Pilloto usa para proteger los datos de su hotel y huéspedes, incluyendo cifrado, controles de acceso y respuesta a incidentes.",
+      "intro": "Proteger los datos de nuestros clientes y los datos de sus huéspedes es una responsabilidad fundamental. Esta página describe las medidas de seguridad que implementamos en la plataforma Pilloto.",
+      "overview": {
+        "title": "1. Descripción General de Seguridad",
+        "body": "Pilloto es una plataforma SaaS multi-inquilino. Implementamos seguridad en cada capa — infraestructura, aplicación, datos y operaciones — para mantener los datos de cada inquilino aislados y protegidos."
+      },
+      "infrastructure": {
+        "title": "2. Infraestructura",
+        "body": "Nuestra infraestructura está alojada en Amazon Web Services (AWS). Las medidas clave incluyen:",
+        "items": [
+          "Las cargas de trabajo de producción se ejecutan en subredes privadas dentro de una Nube Privada Virtual (VPC)",
+          "El acceso a la red está restringido a través de grupos de seguridad y ACLs de red",
+          "Todo el tráfico externo se sirve sobre HTTPS con TLS 1.2 o superior",
+          "Las instancias de base de datos no son accesibles públicamente"
+        ]
+      },
+      "accessControl": {
+        "title": "3. Control de Acceso",
+        "body": "Aplicamos controles de acceso estrictos tanto a nivel de plataforma como administrativo:",
+        "items": [
+          "Aislamiento de inquilinos: los datos de cada hotel se separan lógicamente a nivel de base de datos",
+          "Control de acceso basado en roles (RBAC) dentro de cada inquilino con permisos configurables",
+          "La administración de la plataforma requiere credenciales de super-administrador separadas",
+          "Limitación de intentos de inicio de sesión para prevenir ataques de fuerza bruta (5 intentos por 15 minutos)",
+          "Hash de contraseñas usando bcrypt con factores de costo apropiados"
+        ]
+      },
+      "encryption": {
+        "title": "4. Cifrado",
+        "body": "Todos los datos en tránsito se cifran usando TLS 1.2+. Los datos en reposo en los servicios de AWS se benefician del cifrado administrado por AWS. Los tokens de autenticación usan JWTs firmados criptográficamente con controles de expiración."
+      },
+      "monitoring": {
+        "title": "5. Monitoreo y Registro",
+        "body": "Mantenemos registros operativos para eventos relevantes de seguridad incluyendo intentos de autenticación, cambios de permisos y acciones administrativas. Los registros se retienen de acuerdo con nuestras políticas de retención de datos."
+      },
+      "backups": {
+        "title": "6. Respaldos y Recuperación",
+        "body": "Las bases de datos de producción se respaldan en un horario regular. Los respaldos están cifrados y almacenados en una ubicación separada de la infraestructura de producción. Probamos los procedimientos de restauración periódicamente para garantizar la recuperabilidad de los datos."
+      },
+      "incidentResponse": {
+        "title": "7. Respuesta a Incidentes",
+        "body": "Pilloto mantiene un proceso de respuesta a incidentes. En caso de un incidente de seguridad que afecte los datos de los clientes, notificaremos a los clientes afectados dentro de 72 horas y proporcionaremos detalles relevantes sobre la naturaleza y el alcance del incidente, según lo requiera la ley aplicable."
+      },
+      "vendorSecurity": {
+        "title": "8. Seguridad de Proveedores",
+        "body": "Evaluamos la postura de seguridad de los servicios de terceros integrados en nuestra plataforma. Nuestros principales proveedores de infraestructura y servicios (AWS, Amazon SES) mantienen certificaciones de seguridad reconocidas en la industria."
+      },
+      "reporting": {
+        "title": "9. Divulgación Responsable",
+        "body": "Si descubre una vulnerabilidad de seguridad en la plataforma Pilloto, por favor repórtela responsablemente a"
+      },
+      "contact": {
+        "title": "10. Contacto",
+        "body": "Para preguntas o inquietudes de seguridad, contáctenos en info@pilloto.com."
+      },
+      "commitments": "Compromisos de Seguridad",
+      "badges": [
+        "HTTPS en todo el sitio",
+        "Aislamiento de datos por inquilino",
+        "Limitación de intentos de inicio de sesión",
+        "Hash de contraseñas con bcrypt",
+        "Notificación de brechas en 72 horas",
+        "Respaldos regulares",
+        "Control de acceso basado en roles"
+      ]
+    },
+    "accessibility": {
+      "pageTitle": "Accesibilidad",
+      "effectiveDate": "6 de abril de 2026",
+      "metaTitle": "Accesibilidad — Pilloto",
+      "metaDescription": "El compromiso de Pilloto con la accesibilidad digital, los estándares que seguimos y cómo reportar problemas de accesibilidad.",
+      "intro": "Pilloto está comprometido con garantizar que nuestro sitio web y plataforma sean accesibles para todos los usuarios, incluyendo personas con discapacidades.",
+      "commitment": {
+        "title": "1. Nuestro Compromiso",
+        "body": "Creemos que todos deben poder usar nuestro software sin importar su capacidad. Estamos trabajando activamente para mejorar la accesibilidad de la plataforma Pilloto y el sitio web pilloto.com."
+      },
+      "standards": {
+        "title": "2. Estándares",
+        "body": "Nuestro objetivo es cumplir con las Pautas de Accesibilidad para el Contenido Web (WCAG) 2.1 en el Nivel AA. Usamos estas pautas para informar nuestras decisiones de diseño y desarrollo y para evaluar la accesibilidad de nuestros productos."
+      },
+      "measures": {
+        "title": "3. Medidas que Tomamos",
+        "intro": "Nuestros esfuerzos de accesibilidad incluyen:",
+        "items": [
+          "HTML semántico y atributos ARIA para compatibilidad con lectores de pantalla",
+          "Navegabilidad por teclado para todas las interacciones principales",
+          "Ratios de contraste de color suficientes en nuestro sistema de diseño",
+          "Etiquetas de formularios y mensajes de error asociados con sus campos",
+          "Texto alternativo para imágenes significativas",
+          "Diseño responsivo que funciona en todos los dispositivos y niveles de zoom"
+        ]
+      },
+      "knownLimitations": {
+        "title": "4. Limitaciones Conocidas",
+        "body": "Aunque nos esforzamos por una accesibilidad completa, algunas áreas de la plataforma pueden tener limitaciones que estamos trabajando activamente para resolver. Las funciones interactivas complejas como el calendario de reservas de arrastrar y soltar pueden tener accesibilidad reducida en algunas tecnologías de asistencia. Agradecemos sus comentarios para ayudarnos a priorizar mejoras."
+      },
+      "feedback": {
+        "title": "5. Comentarios",
+        "body": "Si experimenta alguna barrera de accesibilidad al usar Pilloto, o si tiene sugerencias de mejora, contáctenos en"
+      },
+      "contact": {
+        "title": "6. Contacto",
+        "body": "Para preguntas de accesibilidad o para solicitar asistencia, contáctenos en info@pilloto.com."
+      }
+    }
   }
 }

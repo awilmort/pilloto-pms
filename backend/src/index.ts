@@ -34,6 +34,7 @@ import auditRoutes from './routes/audit';
 import sesWebhookRoutes from './routes/sesWebhook';
 import otaRoutes from './routes/ota';
 import otaFeedRoutes from './routes/otaFeed';
+import privacyRoutes from './routes/privacy';
 import { syncUploadsToMedia } from './utils/mediaSync';
 import { migrateReservationStatuses } from './models/Reservation';
 import { runAudit } from './utils/chargeWorker';
@@ -202,6 +203,7 @@ app.use('/api/charge-templates', chargeTemplateRoutes);
 app.use('/api/charge-rules', chargeRuleRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/ota', otaRoutes);
+app.use('/api/privacy', privacyRoutes);
 // (outbound iCal feed is registered before resolveTenant above)
 
 // Public endpoint: returns tenant info from the Host/X-Tenant-Slug header (no auth required)

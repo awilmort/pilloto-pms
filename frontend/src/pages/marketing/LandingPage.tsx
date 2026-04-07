@@ -12,6 +12,7 @@ import MenuIcon from '@mui/icons-material/Menu';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import HotelIcon from '@mui/icons-material/Hotel';
 import PillotoLogo from '../../components/marketing/PillotoLogo';
+import MarketingFooter from '../../components/marketing/MarketingFooter';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import GroupIcon from '@mui/icons-material/Group';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
@@ -289,27 +290,6 @@ function ContactSection() {
   );
 }
 
-// ── Footer ────────────────────────────────────────────────────────────────────
-function Footer() {
-  const { t } = useTranslation();
-  return (
-    <Box component="footer" sx={{ backgroundColor: '#0F172A', py: 5 }}>
-      <Container maxWidth="lg">
-        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" spacing={2}>
-          <PillotoLogo variant="on-dark" iconHeight={28} />
-          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.35)' }}>
-            {t('marketing.footer.copyright', { year: new Date().getFullYear() })}
-          </Typography>
-          <Link href="mailto:info@pilloto.com" variant="caption"
-            sx={{ color: 'rgba(255,255,255,0.4)', '&:hover': { color: 'white' } }}>
-            info@pilloto.com
-          </Link>
-        </Stack>
-      </Container>
-    </Box>
-  );
-}
-
 // ── Page ──────────────────────────────────────────────────────────────────────
 const LandingPage: React.FC = () => (
   <Box>
@@ -318,7 +298,7 @@ const LandingPage: React.FC = () => (
     <FeaturesSection />
     <PricingSection />
     <ContactSection />
-    <Footer />
+    <MarketingFooter />
   </Box>
 );
 

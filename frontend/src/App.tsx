@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline, GlobalStyles, CircularProgress, Box } from '@mui/material';
 import { ToastContainer } from 'react-toastify';
+import { HelmetProvider } from 'react-helmet-async';
 import 'react-toastify/dist/ReactToastify.css';
 
 import theme from './theme';
@@ -47,6 +48,14 @@ import NotFoundPage from './pages/NotFoundPage';
 import LandingPage from './pages/marketing/LandingPage';
 import CrossTenantLoginPage from './pages/marketing/CrossTenantLoginPage';
 import ContactPage from './pages/marketing/ContactPage';
+import LegalCenterPage from './pages/marketing/LegalCenterPage';
+import PrivacyPolicyPage from './pages/marketing/PrivacyPolicyPage';
+import TermsOfServicePage from './pages/marketing/TermsOfServicePage';
+import CookiePolicyPage from './pages/marketing/CookiePolicyPage';
+import AcceptableUsePage from './pages/marketing/AcceptableUsePage';
+import SecurityPage from './pages/marketing/SecurityPage';
+import AccessibilityPage from './pages/marketing/AccessibilityPage';
+import CookieConsent from './components/marketing/CookieConsent';
 
 const globalStyles = (
   <GlobalStyles
@@ -111,8 +120,18 @@ function LoginPortalApp() {
 function MarketingApp() {
   return (
     <Router>
-      <Routes>        <Route path="/contact" element={<ContactPage />} />        <Route path="*" element={<LandingPage />} />
+      <Routes>
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="/legal" element={<LegalCenterPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/terms" element={<TermsOfServicePage />} />
+        <Route path="/cookies" element={<CookiePolicyPage />} />
+        <Route path="/acceptable-use" element={<AcceptableUsePage />} />
+        <Route path="/security" element={<SecurityPage />} />
+        <Route path="/accessibility" element={<AccessibilityPage />} />
+        <Route path="*" element={<LandingPage />} />
       </Routes>
+      <CookieConsent />
     </Router>
   );
 }
@@ -323,13 +342,15 @@ function AppContent() {
 
 function App() {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      {globalStyles}
-      <TenantProvider>
-        <AppContent />
-      </TenantProvider>
-    </ThemeProvider>
+    <HelmetProvider>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        {globalStyles}
+        <TenantProvider>
+          <AppContent />
+        </TenantProvider>
+      </ThemeProvider>
+    </HelmetProvider>
   );
 }
 
