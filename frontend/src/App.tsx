@@ -57,6 +57,12 @@ import SecurityPage from './pages/marketing/SecurityPage';
 import AccessibilityPage from './pages/marketing/AccessibilityPage';
 import CookieConsent from './components/marketing/CookieConsent';
 
+// Public booking engine pages
+import BookingPage from './pages/booking/BookingPage';
+import BookingTermsPage from './pages/booking/BookingTermsPage';
+import BookingPrivacyPage from './pages/booking/BookingPrivacyPage';
+import { BookingProvider } from './contexts/BookingContext';
+
 const globalStyles = (
   <GlobalStyles
     styles={{
@@ -259,6 +265,23 @@ function TenantApp() {
               <ProtectedRoute requiredPermission="admin.ota.view">
                 <OtaConflictQueue />
               </ProtectedRoute>
+            } />
+
+            {/* Public booking engine routes (no auth required, own layout) */}
+            <Route path="/booking" element={
+              <BookingProvider>
+                <BookingPage />
+              </BookingProvider>
+            } />
+            <Route path="/booking/terms" element={
+              <BookingProvider>
+                <BookingTermsPage />
+              </BookingProvider>
+            } />
+            <Route path="/booking/privacy" element={
+              <BookingProvider>
+                <BookingPrivacyPage />
+              </BookingProvider>
             } />
 
             {/* All other routes use the main layout */}

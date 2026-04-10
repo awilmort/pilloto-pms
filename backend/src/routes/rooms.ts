@@ -44,6 +44,7 @@ router.get('/', optionalAuth, async (req, res) => {
     const skip = (pageNum - 1) * limitNum;
 
     const rooms = await Room.find(filter)
+      .populate('roomTypeId', 'name capacity')
       .sort(sortObj)
       .limit(limitNum)
       .skip(skip)

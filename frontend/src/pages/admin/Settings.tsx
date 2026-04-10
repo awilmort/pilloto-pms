@@ -35,13 +35,17 @@ import AdminLayout from '../../components/admin/AdminLayout';
 import SectionTitle from '../../components/admin/SectionTitle';
 import NumberField from '../../components/common/NumberField';
 import { useTranslation } from 'react-i18next';
-import { settingsService, AppSettings, roomTypeService } from '../../services/api';
+import { settingsService, AppSettings, roomTypeService, resolveMediaUrl } from '../../services/api';
 import { RoomType } from '../../types';
 import { AmenitiesContent } from './AmenitiesManagement';
 import { EventTypesContent } from './EventTypesManagement';
 import { RolesContent } from './RolesManagement';
 import { MediaContent } from './MediaManagement';
 import OtaSettingsTab from '../../components/admin/OtaSettingsTab';
+import BookingSettingsTab from '../../components/admin/BookingSettingsTab';
+import MediaPicker from '../../components/admin/MediaPicker';
+import { RoomIllustration, isIllustrationUrl, getIllustrationByKey, getIllustrationKey } from '../../components/illustrations';
+import ReviewsContent from '../../components/admin/ReviewsContent';
 
 export type { AppSettings };
 
@@ -117,6 +121,7 @@ const Settings: React.FC = () => {
   const [roomTypeDialog, setRoomTypeDialog] = React.useState(false);
   const [roomTypeForm, setRoomTypeForm] = React.useState<Partial<RoomType>>({ name: '', capacity: 2, isActive: true });
   const [roomTypeError, setRoomTypeError] = React.useState<string | null>(null);
+  const [roomTypeMediaPickerOpen, setRoomTypeMediaPickerOpen] = React.useState(false);
 
   React.useEffect(() => {
     settingsService.getSettings()
@@ -257,6 +262,8 @@ const Settings: React.FC = () => {
                 <Tab label={t('admin.settings.tabs.email', 'Email')} id="settings-tab-7" />
                 <Tab label={t('admin.settings.tabs.checkout', 'Check-Out')} id="settings-tab-8" />
                 <Tab label={t('admin.settings.tabs.ota', 'OTA Sync')} id="settings-tab-9" />
+                <Tab label={t('admin.settings.tabs.booking', 'Booking Engine')} id="settings-tab-10" />
+                <Tab label={t('admin.settings.tabs.reviews', 'Reviews')} id="settings-tab-11" />
               </Tabs>
             </Box>
 
@@ -335,7 +342,7 @@ const Settings: React.FC = () => {
                 )}
 
                 {/* Room Type Dialog */}
-                <Dialog open={roomTypeDialog} onClose={() => setRoomTypeDialog(false)} maxWidth="xs" fullWidth>
+                <Dialog open={roomTypeDialog} onClose={() => setRoomTypeDialog(false)} maxWidth="sm" fullWidth>
                   <DialogTitle>
                     {roomTypeForm._id ? t('admin.pricing.roomTypes.dialog.editTitle') : t('admin.pricing.roomTypes.dialog.newTitle')}
                   </DialogTitle>
@@ -354,6 +361,32 @@ const Settings: React.FC = () => {
                         onChange={val => setRoomTypeForm(p => ({ ...p, capacity: val ?? 1 }))}
                         min={1}
                       />
+                      {/* Image / Illustration */}
+                      <Box>
+                        <Typography variant="subtitle2" sx={{ mb: 1 }}>{t('admin.pricing.roomTypes.form.image', 'Image')}</Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Box sx={{ width: 120, height: 80, borderRadius: 2, overflow: 'hidden', bgcolor: '#F0F7FA', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid', borderColor: 'divider' }}>
+                            {roomTypeForm.image && isIllustrationUrl(roomTypeForm.image) ? (() => {
+                              const Illus = getIllustrationByKey(getIllustrationKey(roomTypeForm.image!));
+                              return <Illus width={110} height={70} />;
+                            })() : roomTypeForm.image ? (
+                              <img src={resolveMediaUrl(roomTypeForm.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <RoomIllustration width={110} height={70} />
+                            )}
+                          </Box>
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                            <Button size="small" variant="outlined" onClick={() => setRoomTypeMediaPickerOpen(true)}>
+                              {t('admin.pricing.roomTypes.form.selectImage', 'Select Image')}
+                            </Button>
+                            {roomTypeForm.image && (
+                              <Button size="small" color="error" onClick={() => setRoomTypeForm(p => ({ ...p, image: '' }))}>
+                                {t('admin.pricing.roomTypes.form.removeImage', 'Remove')}
+                              </Button>
+                            )}
+                          </Box>
+                        </Box>
+                      </Box>
                       <FormControlLabel
                         control={<Switch checked={roomTypeForm.isActive ?? true} onChange={e => setRoomTypeForm(p => ({ ...p, isActive: e.target.checked }))} />}
                         label={t('admin.pricing.form.active')}
@@ -365,6 +398,19 @@ const Settings: React.FC = () => {
                     <Button variant="contained" onClick={saveRoomType}>{t('admin.pricing.actions.save')}</Button>
                   </DialogActions>
                 </Dialog>
+
+                {/* Room Type Media Picker */}
+                <MediaPicker
+                  open={roomTypeMediaPickerOpen}
+                  onClose={() => setRoomTypeMediaPickerOpen(false)}
+                  multiple={false}
+                  categoryFilter="rooms"
+                  onSelect={(urls) => {
+                    if (urls.length > 0) {
+                      setRoomTypeForm(p => ({ ...p, image: urls[0] }));
+                    }
+                  }}
+                />
               </Box>
             </TabPanel>
 
@@ -578,6 +624,14 @@ const Settings: React.FC = () => {
             </TabPanel>
             <TabPanel value={activeTab} index={9}>
               <OtaSettingsTab showSnackbar={showSnackbar} />
+            </TabPanel>
+            <TabPanel value={activeTab} index={10}>
+              <BookingSettingsTab showSnackbar={showSnackbar} />
+            </TabPanel>
+            <TabPanel value={activeTab} index={11}>
+              <Box sx={{ px: 3, pb: 3 }}>
+                <ReviewsContent />
+              </Box>
             </TabPanel>
           </Paper>
         )}

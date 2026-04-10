@@ -162,6 +162,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (response.data.success && response.data.user && response.data.token) {
         const { user: rawUser, token } = response.data as any;
         const user = { ...rawUser } as any;
+        // Store token BEFORE any authenticated calls so the request interceptor can use it
+        localStorage.setItem('token', token);
         // Attach permissions by looking up Role definition (case-insensitive)
         try {
           const rolesRes = await rolesService.getRoles();
@@ -179,7 +181,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           user.permissions = [];
           user.discountLimit = 0;
         }
-        localStorage.setItem('token', token);
         dispatch({ type: 'LOGIN_SUCCESS', payload: { user, token } });
         toast.success('Login successful!');
       } else {

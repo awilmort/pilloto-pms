@@ -32,6 +32,8 @@ export interface PlanFeatures {
   nightAudit: boolean;
   /** Custom roles & permissions */
   customRoles: boolean;
+  /** Public booking engine for direct guest reservations */
+  bookingEngine: boolean;
 }
 
 export interface PlanConfig {
@@ -61,6 +63,7 @@ export const PLANS: Record<PlanSlug, PlanConfig> = {
       corporateAccounts: false,
       nightAudit: false,
       customRoles: false,
+      bookingEngine: false,
     },
   },
 
@@ -80,6 +83,7 @@ export const PLANS: Record<PlanSlug, PlanConfig> = {
       corporateAccounts: false,
       nightAudit: false,
       customRoles: false,
+      bookingEngine: true,
     },
   },
 
@@ -99,6 +103,7 @@ export const PLANS: Record<PlanSlug, PlanConfig> = {
       corporateAccounts: true,
       nightAudit: true,
       customRoles: true,
+      bookingEngine: true,
     },
   },
 };

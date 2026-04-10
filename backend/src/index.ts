@@ -35,6 +35,8 @@ import sesWebhookRoutes from './routes/sesWebhook';
 import otaRoutes from './routes/ota';
 import otaFeedRoutes from './routes/otaFeed';
 import privacyRoutes from './routes/privacy';
+import bookingRoutes from './routes/booking';
+import reviewRoutes from './routes/reviews';
 import { syncUploadsToMedia } from './utils/mediaSync';
 import { migrateReservationStatuses } from './models/Reservation';
 import { runAudit } from './utils/chargeWorker';
@@ -53,11 +55,19 @@ const PORT = process.env.PORT || 5000;
 // Trust proxy (required for accurate IP behind proxies/load balancers)
 app.set('trust proxy', 1);
 
-// Rate limiting
+// Rate limiting — global baseline for unauthenticated (public) requests.
+// Authenticated admin/staff requests are exempt because heavy portal usage
+// can easily exceed the public ceiling during normal operations.
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 300, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+  max: 300, // limit each IP to 300 requests per window
+  message: 'Too many requests from this IP, please try again later.',
+  skip: (req) => {
+    // Skip rate limiting for requests carrying a Bearer token (authenticated users).
+    // Route-specific limiters (auth, booking, privacy) still apply independently.
+    const auth = req.headers.authorization;
+    return !!(auth && auth.startsWith('Bearer '));
+  },
 });
 
 // Middleware
@@ -178,6 +188,9 @@ app.use('/api/ota/feed', otaFeedRoutes);
 // Must come after cookie-parser and body-parser but before routes
 app.use('/api', resolveTenant);
 
+// Global rate limiter — applied to all API routes (skips authenticated requests)
+app.use('/api', limiter);
+
 // ── SES / SNS webhook (no tenant context, no JWT) ────────────────────────────
 app.use('/api/webhooks', sesWebhookRoutes);
 
@@ -204,6 +217,8 @@ app.use('/api/charge-rules', chargeRuleRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/ota', otaRoutes);
 app.use('/api/privacy', privacyRoutes);
+app.use('/api/booking', bookingRoutes);
+app.use('/api/reviews', reviewRoutes);
 // (outbound iCal feed is registered before resolveTenant above)
 
 // Public endpoint: returns tenant info from the Host/X-Tenant-Slug header (no auth required)
@@ -236,9 +251,6 @@ app.get('/api/tenant/info', async (req, res) => {
 
   res.status(200).json({ success: true, data: tenant });
 });
-
-// Rate limiting — health check routes are already handled above, so apply to everything else
-app.use(limiter);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

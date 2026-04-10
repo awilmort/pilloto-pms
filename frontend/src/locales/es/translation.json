@@ -644,6 +644,7 @@
         "completed": "Completada",
         "cancelled": "Cancelada",
         "checked_in": "Check-In",
+        "checked-in": "Check-In",
         "checked_out": "Check-Out"
       },
       "paymentStatus": {
@@ -900,7 +901,8 @@
         "nightAudit": "Auditoría nocturna",
         "email": "Correo",
         "checkout": "Check-Out",
-        "ota": "Sincronización OTA"
+        "ota": "Sincronización OTA",
+        "booking": "Motor de reservas"
       },
       "sections": {
         "heading": "Secciones del menú",
@@ -1018,6 +1020,62 @@
             "detected": "Detectado"
           }
         }
+      },
+      "booking": {
+        "heading": "Motor de reservas",
+        "description": "Configura la página pública de reservas para los huéspedes. Controla disponibilidad, marca y widgets embebidos.",
+        "enabled": "Habilitar reservas en línea",
+        "enabledHint": "Cuando está habilitado, los huéspedes pueden hacer reservas a través de la página pública.",
+        "appearance": {
+          "heading": "Apariencia de la página de reservas",
+          "description": "Personaliza la apariencia de la página pública de reservas.",
+          "bannerImageUrl": "URL de imagen del banner",
+          "bannerImageUrlHint": "URL completa de la imagen que se muestra en la parte superior de la página de reservas.",
+          "welcomeHeadline": "Título de bienvenida",
+          "welcomeHeadlineHint": "Texto principal mostrado en la página de reservas. Máximo 200 caracteres.",
+          "welcomeMessage": "Mensaje de bienvenida",
+          "welcomeMessageHint": "Texto mostrado debajo del título. Máximo 500 caracteres."
+        },
+        "contact": {
+          "heading": "Información de contacto",
+          "description": "Datos de contacto mostrados a los huéspedes en la página de reservas.",
+          "phone": "Teléfono",
+          "email": "Correo electrónico",
+          "address": "Dirección"
+        },
+        "rules": {
+          "heading": "Reglas de reserva",
+          "description": "Controla con cuánta anticipación pueden reservar los huéspedes.",
+          "minAdvanceHours": "Horas mínimas de anticipación",
+          "minAdvanceHoursHint": "Horas mínimas antes del check-in para poder reservar.",
+          "maxAdvanceDays": "Días máximos de anticipación",
+          "maxAdvanceDaysHint": "Cantidad máxima de días a futuro para hacer una reserva."
+        },
+        "widgets": {
+          "heading": "Widget embebido",
+          "description": "Copia los fragmentos para incrustar el motor de reservas en tu sitio web. Agrega orígenes permitidos para habilitar la integración por iframe.",
+          "allowedOrigins": "Orígenes permitidos",
+          "allowedOriginsHint": "Dominios autorizados para incrustar el widget de reservas en un iframe.",
+          "addOrigin": "Agregar",
+          "originPlaceholder": "https://ejemplo.com",
+          "noOrigins": "No hay orígenes configurados — la integración por widget está deshabilitada.",
+          "bookingPageLink": "Enlace a la página de reservas",
+          "searchWidget": "Widget de búsqueda (Fechas y huéspedes)",
+          "resultsWidget": "Widget de resultados (Habitaciones y servicios)",
+          "buttonLink": "Botón de enlace",
+          "copied": "Copiado al portapapeles",
+          "urlWarning": "Configura un subdominio de tenant para generar URLs de incrustación funcionales."
+        },
+        "errors": {
+          "loadFailed": "Error al cargar la configuración de reservas",
+          "invalidOrigin": "Ingresa una URL válida (p. ej., https://ejemplo.com)",
+          "duplicateOrigin": "El origen ya fue agregado"
+        },
+        "messages": {
+          "saved": "Configuración de reservas guardada correctamente"
+        },
+        "save": "Guardar configuración de reservas",
+        "saving": "Guardando…"
       },
       "errors": {
         "loadFailed": "No se pudo cargar la configuración",
@@ -2492,6 +2550,167 @@
         "title": "6. Contacto",
         "body": "Para preguntas de accesibilidad o para solicitar asistencia, contáctenos en info@pilloto.com."
       }
+    }
+  },
+  "bookingEngine": {
+    "steps": {
+      "search": "Buscar",
+      "select": "Seleccionar",
+      "details": "Datos",
+      "verify": "Verificar",
+      "confirm": "Confirmar"
+    },
+    "search": {
+      "heroHeadlineDefault": "Bienvenido a {{tenantName}}",
+      "heroSubtitleDefault": "Encuentra la habitación perfecta para tu estadía",
+      "checkIn": "Entrada",
+      "checkOut": "Salida",
+      "adults": "Adultos",
+      "children": "Niños",
+      "search": "Buscar",
+      "selectDates": "Seleccionar fechas",
+      "addDate": "Agregar fecha",
+      "clearDates": "Borrar fechas",
+      "errorSelectDates": "Por favor selecciona las fechas de entrada y salida.",
+      "errorCheckoutAfter": "La fecha de salida debe ser posterior a la de entrada.",
+      "errorSearchFailed": "Error al buscar disponibilidad."
+    },
+    "guests": {
+      "guests": "huéspedes",
+      "adults": "Adultos",
+      "adultsSubtitle": "Mayores de 13 años",
+      "children": "Niños",
+      "childrenSubtitle": "De 0 a 12 años"
+    },
+    "amenities": {
+      "heading": "Lo que este lugar ofrece",
+      "subtitle": "Descubre nuestras instalaciones y servicios"
+    },
+    "results": {
+      "searchingRooms": "Buscando habitaciones disponibles...",
+      "modifySearch": "Modificar búsqueda",
+      "nightCount_one": "{{count}} noche",
+      "nightCount_other": "{{count}} noches",
+      "adultCount_one": "{{count}} adulto",
+      "adultCount_other": "{{count}} adultos",
+      "childCount_one": "{{count}} niño",
+      "childCount_other": "{{count}} niños",
+      "noRoomsAvailable": "No hay habitaciones disponibles para las fechas y huéspedes seleccionados. Intenta con otras fechas.",
+      "roomTypesAvailable_one": "{{count}} tipo de habitación disponible",
+      "roomTypesAvailable_other": "{{count}} tipos de habitación disponibles",
+      "upToGuests": "Hasta {{count}} huéspedes",
+      "perNight": "/noche",
+      "taxes": "+ {{amount}} impuestos",
+      "totalForNights_one": "total por {{count}} noche",
+      "totalForNights_other": "total por {{count}} noches",
+      "left": "{{count}} disponible(s)",
+      "selectRoom": "Seleccionar habitación",
+      "selected": "Seleccionada",
+      "addOnServices": "Servicios adicionales",
+      "addOnServicesSubtitle": "Mejora tu estadía con estos servicios opcionales.",
+      "perPerson": "Por persona",
+      "perRoom": "Por habitación",
+      "perStay": "Por estadía",
+      "perEvent": "Por evento",
+      "addService": "Agregar servicio",
+      "added": "Agregado",
+      "loadingServices": "Cargando servicios...",
+      "yourSelection": "Tu selección",
+      "room": "Habitación",
+      "service": "Servicio",
+      "total": "Total",
+      "payAtProperty": "Paga en el hotel — no se requiere pago ahora.",
+      "continueToDetails": "Continuar a datos del huésped",
+      "youWontBeCharged": "No se realizará ningún cobro aún"
+    },
+    "details": {
+      "heading": "Datos del huésped",
+      "totalPayAtProperty": "Total: {{amount}} · Paga en el hotel",
+      "firstName": "Nombre",
+      "lastName": "Apellido",
+      "email": "Correo electrónico",
+      "emailHint": "Se enviará un código de verificación a este correo",
+      "phone": "Teléfono (opcional)",
+      "specialRequests": "Solicitudes especiales (opcional)",
+      "firstNameRequired": "El nombre es obligatorio",
+      "lastNameRequired": "El apellido es obligatorio",
+      "emailRequired": "Se requiere un correo electrónico válido",
+      "back": "Atrás",
+      "continueToVerification": "Continuar a verificación"
+    },
+    "verify": {
+      "heading": "Verifica tu correo",
+      "codeSentTo": "Enviamos un código de 4 dígitos a",
+      "sendingCode": "Enviando código de verificación...",
+      "enterCode": "Ingresa el código de 4 dígitos enviado a tu correo",
+      "verifyCode": "Verificar código",
+      "resendCode": "Reenviar código",
+      "sending": "Enviando...",
+      "backToDetails": "Volver a datos del huésped",
+      "failedToSend": "Error al enviar el código de verificación.",
+      "verificationFailed": "La verificación falló.",
+      "attemptsRemaining_one": "{{count}} intento restante",
+      "attemptsRemaining_other": "{{count}} intentos restantes"
+    },
+    "review": {
+      "heading": "Revisar y confirmar",
+      "guestInfo": "Información del huésped",
+      "specialRequests": "Solicitudes especiales: {{requests}}",
+      "bookingDetails": "Detalles de la reserva",
+      "checkInLabel": "Entrada:",
+      "checkOutLabel": "Salida:",
+      "durationLabel": "Duración:",
+      "guestsLabel": "Huéspedes:",
+      "total": "Total",
+      "payAtProperty": "Paga en el hotel",
+      "payAtPropertyDetail": "No se cobra en línea. El pago se realiza al momento del check-in.",
+      "agreeTerms": "Acepto los",
+      "termsOfService": "Términos de servicio",
+      "agreePrivacy": "Acepto la",
+      "privacyPolicy": "Política de privacidad",
+      "acceptTermsError": "Debes aceptar los Términos de servicio y la Política de privacidad para continuar.",
+      "emailVerificationRequired": "Se requiere verificación de correo electrónico.",
+      "back": "Atrás",
+      "confirmBooking": "Confirmar reserva",
+      "confirming": "Confirmando...",
+      "reservationFailed": "Error al completar la reserva."
+    },
+    "confirmation": {
+      "heading": "¡Reserva confirmada!",
+      "emailSentTo": "Se ha enviado un correo de confirmación a",
+      "confirmationCode": "Código de confirmación",
+      "totalPayAtProperty": "Total (pago en el hotel)",
+      "checkIn": "Entrada",
+      "checkOut": "Salida",
+      "whatNext": "¿Qué sigue?",
+      "whatNextDetail": "Presenta tu código de confirmación ({{code}}) en la recepción al llegar. El pago se realiza al momento del check-in.",
+      "whatNextPhone": " Para preguntas, llama al {{phone}}.",
+      "makeAnother": "Hacer otra reserva"
+    },
+    "features": {
+      "wifi": "WiFi",
+      "airConditioning": "A/C",
+      "miniBar": "Mini Bar",
+      "balcony": "Balcón",
+      "oceanView": "Vista al mar",
+      "kitchenette": "Cocineta",
+      "jacuzzi": "Jacuzzi"
+    },
+    "layout": {
+      "booking": "Reservas",
+      "privacyPolicy": "Política de privacidad",
+      "termsOfService": "Términos de servicio",
+      "allRightsReserved": "Todos los derechos reservados.",
+      "poweredBy": "Desarrollado por"
+    },
+    "legal": {
+      "termsLoadFailed": "Error al cargar los términos de servicio.",
+      "privacyLoadFailed": "Error al cargar la política de privacidad."
+    },
+    "roomTypes": {
+      "heading": "Nuestras habitaciones",
+      "subtitle": "Descubre nuestras habitaciones y comienza tu estadía",
+      "bookNow": "Reservar Ahora"
     }
   }
 }

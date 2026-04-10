@@ -84,6 +84,7 @@ apiClient.interceptors.response.use(
         '/rooms',
         '/media',
         '/pricing',
+        '/booking',
         '/auth/login',
         '/auth/register',
         '/auth/forgot-password',
@@ -561,6 +562,184 @@ export const rolesService = {
     apiClient.delete(`/roles/${id}`),
 };
 
+// ── Booking Engine Service (public, no auth required) ────────────────────────
+export const bookingService = {
+  /** Fetch public booking page configuration (branding, contact, etc.) */
+  getConfig: (): Promise<AxiosResponse<ApiResponse<{
+    enabled: boolean;
+    tenantName: string;
+    tenantSlug: string;
+    logoUrl: string;
+    currency: string;
+    timezone: string;
+    language: string;
+    contactPhone: string;
+    contactEmail: string;
+    contactAddress: string;
+    minAdvanceHours: number;
+    maxAdvanceDays: number;
+    termsVersion: string;
+    privacyVersion: string;
+    checkoutTime: string;
+  }>>> =>
+    apiClient.get('/booking/config'),
+
+  /** Fetch public room types for the property showcase */
+  getRoomTypes: (): Promise<AxiosResponse<ApiResponse<Array<{
+    _id: string;
+    name: string;
+    capacity: number;
+    image: string;
+  }>>>> =>
+    apiClient.get('/booking/room-types'),
+
+  /** Fetch public amenities for the property */
+  getAmenities: (): Promise<AxiosResponse<ApiResponse<Array<{
+    _id: string;
+    name: string;
+    description: string;
+    image: string;
+    category: string;
+    order: number;
+  }>>>> =>
+    apiClient.get('/booking/amenities'),
+
+  /** Search available room types for a date range */
+  getAvailability: (params: {
+    checkIn: string;
+    checkOut: string;
+    adults: number;
+    children?: number;
+  }): Promise<AxiosResponse<ApiResponse<Array<{
+    roomType: { _id: string; name: string; capacity: number; image?: string };
+    availableCount: number;
+    ratePlan: { _id: string; name: string };
+    pricing: {
+      basePrice: number;
+      occupancyCost: number;
+      subtotal: number;
+      adjustedSubtotal: number;
+      taxes: Array<{ name: string; type: string; amount: number; isInclusive: boolean }>;
+      totalTaxes: number;
+      finalTotal: number;
+      nights: number;
+      perNight: number;
+    };
+    images: string[];
+    features: Record<string, boolean>;
+    amenities: string[];
+    bedConfiguration: string;
+  }>>>> =>
+    apiClient.get('/booking/availability', { params }),
+
+  /** Fetch active reviews for the trust & credibility bar */
+  getReviews: (): Promise<AxiosResponse<ApiResponse<Array<{
+    _id: string;
+    guestName: string;
+    rating: number;
+    comment: string;
+    source: string;
+    createdAt: string;
+  }>>>> =>
+    apiClient.get('/booking/reviews'),
+
+  /** Get a detailed price quote for a specific room type */
+  getQuote: (data: {
+    roomTypeId: string;
+    ratePlanId?: string;
+    checkIn: string;
+    checkOut: string;
+    adults: number;
+    children?: number;
+    rooms?: number;
+  }): Promise<AxiosResponse<ApiResponse<any>>> =>
+    apiClient.post('/booking/quote', data),
+
+  /** List online-bookable services */
+  getServices: (): Promise<AxiosResponse<ApiResponse<Array<{
+    _id: string;
+    code: string;
+    name: string;
+    kind: string;
+    chargeBasis: string;
+  }>>>> =>
+    apiClient.get('/booking/services'),
+
+  /** Get price for a specific service */
+  getServiceQuote: (data: {
+    serviceId: string;
+    date: string;
+    adults: number;
+    children?: number;
+  }): Promise<AxiosResponse<ApiResponse<any>>> =>
+    apiClient.post('/booking/services/quote', data),
+
+  /** Send 4-digit verification code to guest email */
+  sendVerification: (data: {
+    email: string;
+    guestName: string;
+  }): Promise<AxiosResponse<ApiResponse<{ expiresAt: string }>>> =>
+    apiClient.post('/booking/verify/send', data),
+
+  /** Confirm the 4-digit verification code */
+  confirmVerification: (data: {
+    email: string;
+    code: string;
+  }): Promise<AxiosResponse<ApiResponse<{ verificationId: string }>>> =>
+    apiClient.post('/booking/verify/confirm', data),
+
+  /** Finalize booking (requires verified email) */
+  reserve: (data: {
+    verificationId: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    specialRequests?: string;
+    items: Array<{
+      kind: 'room' | 'service';
+      roomTypeId?: string;
+      ratePlanId?: string;
+      checkIn?: string;
+      checkOut?: string;
+      serviceId?: string;
+      date?: string;
+      adults?: number;
+      children?: number;
+      quantity?: number;
+    }>;
+    acceptedTermsVersion: string;
+    acceptedPrivacyVersion: string;
+  }): Promise<AxiosResponse<ApiResponse<{
+    reservationId: string;
+    reservationCode: string;
+    confirmationToken: string;
+    status: string;
+    estimatedTotal: number;
+    checkIn: string;
+    checkOut: string;
+  }>>> =>
+    apiClient.post('/booking/reserve', data),
+
+  /** Get booking terms of service */
+  getTerms: (): Promise<AxiosResponse<ApiResponse<{
+    version: string;
+    title: string;
+    lastUpdated: string;
+    content: string;
+  }>>> =>
+    apiClient.get('/booking/legal/terms'),
+
+  /** Get booking privacy policy */
+  getPrivacyPolicy: (): Promise<AxiosResponse<ApiResponse<{
+    version: string;
+    title: string;
+    lastUpdated: string;
+    content: string;
+  }>>> =>
+    apiClient.get('/booking/legal/privacy'),
+};
+
 export default apiClient;
 
 // Room Type Service
@@ -834,6 +1013,20 @@ export interface AppSettings {
     timezone: string;
     conflictAlerts: boolean;
   };
+  bookingSettings?: {
+    enabled: boolean;
+    heroImageUrl?: string;
+    heroHeadline?: string;
+    heroSubtitle?: string;
+    contactPhone?: string;
+    contactEmail?: string;
+    contactAddress?: string;
+    widgetAllowedOrigins?: string[];
+    minAdvanceHours?: number;
+    maxAdvanceDays?: number;
+    termsVersion?: string;
+    privacyVersion?: string;
+  };
 }
 
 export interface CashierClosure {
@@ -854,6 +1047,30 @@ export const settingsService = {
 
   updateSettings: (data: Partial<AppSettings>): Promise<AxiosResponse<ApiResponse<AppSettings>>> =>
     apiClient.put('/settings', data),
+};
+
+// Reviews Service (admin CRUD)
+export interface ReviewData {
+  _id?: string;
+  guestName: string;
+  rating: number;
+  comment: string;
+  source: string;
+  isActive: boolean;
+  displayOrder: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const reviewsService = {
+  getReviews: (): Promise<AxiosResponse<ApiResponse<ReviewData[]>>> =>
+    apiClient.get('/reviews'),
+  createReview: (data: Omit<ReviewData, '_id' | 'createdAt' | 'updatedAt'>): Promise<AxiosResponse<ApiResponse<ReviewData>>> =>
+    apiClient.post('/reviews', data),
+  updateReview: (id: string, data: Partial<ReviewData>): Promise<AxiosResponse<ApiResponse<ReviewData>>> =>
+    apiClient.put(`/reviews/${id}`, data),
+  deleteReview: (id: string): Promise<AxiosResponse<ApiResponse<void>>> =>
+    apiClient.delete(`/reviews/${id}`),
 };
 
 export const cashierClosuresService = {

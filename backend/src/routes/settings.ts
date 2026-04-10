@@ -65,6 +65,41 @@ router.put('/', authenticate, authorize('admin'), async (req: AuthRequest, res: 
       }
     }
 
+    // ── Booking Engine settings ─────────────────────────────
+    const { bookingSettings } = req.body;
+    if (bookingSettings !== undefined) {
+      if (typeof bookingSettings.enabled === 'boolean') {
+        update['bookingSettings.enabled'] = bookingSettings.enabled;
+      }
+      if (typeof bookingSettings.contactPhone === 'string') {
+        update['bookingSettings.contactPhone'] = bookingSettings.contactPhone.trim().slice(0, 30);
+      }
+      if (typeof bookingSettings.contactEmail === 'string') {
+        update['bookingSettings.contactEmail'] = bookingSettings.contactEmail.trim().slice(0, 100);
+      }
+      if (typeof bookingSettings.contactAddress === 'string') {
+        update['bookingSettings.contactAddress'] = bookingSettings.contactAddress.trim().slice(0, 300);
+      }
+      if (Array.isArray(bookingSettings.widgetAllowedOrigins)) {
+        update['bookingSettings.widgetAllowedOrigins'] = bookingSettings.widgetAllowedOrigins
+          .filter((o: unknown) => typeof o === 'string')
+          .map((o: string) => o.trim().slice(0, 200))
+          .slice(0, 20);
+      }
+      if (typeof bookingSettings.minAdvanceHours === 'number') {
+        update['bookingSettings.minAdvanceHours'] = Math.max(0, Math.min(8760, bookingSettings.minAdvanceHours));
+      }
+      if (typeof bookingSettings.maxAdvanceDays === 'number') {
+        update['bookingSettings.maxAdvanceDays'] = Math.max(1, Math.min(730, bookingSettings.maxAdvanceDays));
+      }
+      if (typeof bookingSettings.termsVersion === 'string') {
+        update['bookingSettings.termsVersion'] = bookingSettings.termsVersion.trim().slice(0, 20);
+      }
+      if (typeof bookingSettings.privacyVersion === 'string') {
+        update['bookingSettings.privacyVersion'] = bookingSettings.privacyVersion.trim().slice(0, 20);
+      }
+    }
+
     const settings = await AppSettings.findOneAndUpdate(
       { key: 'global' },
       { $set: update },

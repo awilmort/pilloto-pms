@@ -17,6 +17,7 @@ export interface PlanFeatures {
   media: boolean;
   nightAudit: boolean;
   customRoles: boolean;
+  bookingEngine: boolean;
 }
 
 export interface PlanConfig {
@@ -46,6 +47,7 @@ export const PLANS: Record<PlanSlug, PlanConfig> = {
       corporateAccounts: false,
       nightAudit: false,
       customRoles: false,
+      bookingEngine: false,
     },
   },
 
@@ -65,6 +67,7 @@ export const PLANS: Record<PlanSlug, PlanConfig> = {
       corporateAccounts: false,
       nightAudit: false,
       customRoles: false,
+      bookingEngine: true,
     },
   },
 
@@ -84,6 +87,7 @@ export const PLANS: Record<PlanSlug, PlanConfig> = {
       corporateAccounts: true,
       nightAudit: true,
       customRoles: true,
+      bookingEngine: true,
     },
   },
 };

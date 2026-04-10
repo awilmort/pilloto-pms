@@ -4,6 +4,7 @@ import { tenantPlugin } from '../plugins/tenantPlugin';
 export interface IRoomType extends Document {
   name: string;
   capacity: number; // max total guests (adults + children)
+  image: string; // illustration:key or uploaded image URL
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -13,6 +14,7 @@ const roomTypeSchema = new Schema<IRoomType>(
   {
     name: { type: String, required: true, trim: true, maxlength: 100 },
     capacity: { type: Number, required: true, min: 1, default: 2 },
+    image: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
   },
   { timestamps: true }

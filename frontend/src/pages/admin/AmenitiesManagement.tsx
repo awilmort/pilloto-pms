@@ -42,6 +42,7 @@ import { amenitiesService } from '../../services/api';
 import SectionTitle from '../../components/admin/SectionTitle';
 import MediaPicker from '../../components/admin/MediaPicker';
 import { resolveMediaUrl } from '../../services/api';
+import { isIllustrationUrl, getIllustrationByKey, getIllustrationKey, AmenityIllustration } from '../../components/illustrations';
 import { useTranslation } from 'react-i18next';
 
 interface AmenityFormData {
@@ -248,19 +249,32 @@ export const AmenitiesContent: React.FC = () => {
                 <Grid item xs={12} sm={6} md={4} key={amenity._id}>
                   <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
                     <Box sx={{ position: 'relative' }}>
-                      <img
-                        src={amenity.image?.startsWith('http') ? amenity.image : resolveMediaUrl(amenity.image)}
-                        alt={amenity.name}
-                        style={{
-                          width: '100%',
-                          height: 200,
-                          objectFit: 'cover',
-                        }}
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = '/placeholder-image.jpg';
-                        }}
-                      />
+                      {isIllustrationUrl(amenity.image) ? (() => {
+                        const Illus = getIllustrationByKey(getIllustrationKey(amenity.image!));
+                        return (
+                          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', height: 200, bgcolor: '#F9FAFB' }}>
+                            <Illus width={280} height={180} />
+                          </Box>
+                        );
+                      })() : amenity.image ? (
+                        <img
+                          src={amenity.image?.startsWith('http') ? amenity.image : resolveMediaUrl(amenity.image)}
+                          alt={amenity.name}
+                          style={{
+                            width: '100%',
+                            height: 200,
+                            objectFit: 'cover',
+                          }}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = '/placeholder-image.jpg';
+                          }}
+                        />
+                      ) : (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', height: 200, bgcolor: '#F0F7FA' }}>
+                          <AmenityIllustration width={280} height={180} />
+                        </Box>
+                      )}
                       <Chip
                         icon={getCategoryIcon(amenity.category)}
                         label={getCategoryLabel(amenity.category)}
@@ -362,16 +376,25 @@ export const AmenitiesContent: React.FC = () => {
                         </Button>
                         {imagePreview && (
                           <Box sx={{ mt: 2, textAlign: 'center' }}>
-                            <img
-                              src={imagePreview}
-                              alt="Preview"
-                              style={{
-                                maxWidth: '100%',
-                                maxHeight: '200px',
-                                borderRadius: '8px',
-                                border: '1px solid #ddd'
-                              }}
-                            />
+                            {isIllustrationUrl(formData.imageUrl) ? (() => {
+                              const Illus = getIllustrationByKey(getIllustrationKey(formData.imageUrl!));
+                              return (
+                                <Box sx={{ display: 'inline-flex', justifyContent: 'center', alignItems: 'center', p: 2, borderRadius: '8px', border: '1px solid #ddd', bgcolor: '#F9FAFB' }}>
+                                  <Illus width={200} height={150} />
+                                </Box>
+                              );
+                            })() : (
+                              <img
+                                src={imagePreview}
+                                alt="Preview"
+                                style={{
+                                  maxWidth: '100%',
+                                  maxHeight: '200px',
+                                  borderRadius: '8px',
+                                  border: '1px solid #ddd'
+                                }}
+                              />
+                            )}
                           </Box>
                         )}
                       </Box>
@@ -445,7 +468,7 @@ export const AmenitiesContent: React.FC = () => {
               onSelect={(urls) => {
                 const url = urls[0];
                 setFormData(prev => ({ ...prev, imageUrl: url, imageFile: null }));
-                setImagePreview(resolveMediaUrl(url));
+                setImagePreview(isIllustrationUrl(url) ? url : resolveMediaUrl(url));
               }}
             />
 

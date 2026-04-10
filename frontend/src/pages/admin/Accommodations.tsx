@@ -288,7 +288,7 @@ const Accommodations: React.FC = () => {
             <TableHead>
               <TableRow>
                 <TableCell>{t('admin.schedule.table.room')}</TableCell>
-                {/* Removed Type column as requested */}
+                <TableCell>{t('admin.rooms.table.type')}</TableCell>
                 <TableCell>{t('admin.rooms.table.status')}</TableCell>
                 <TableCell>{t('admin.accommodations.table.availability')}</TableCell>
                 <TableCell>{t('admin.rooms.form.condition')}</TableCell>
@@ -300,6 +300,11 @@ const Accommodations: React.FC = () => {
               {rooms.map(room => (
                 <TableRow key={room._id}>
                   <TableCell>{room.name}</TableCell>
+                  <TableCell>
+                    {typeof room.roomTypeId === 'object' && room.roomTypeId
+                      ? (room.roomTypeId as any).name
+                      : '—'}
+                  </TableCell>
                   <TableCell>{renderStatusBadge((room as any).status)}</TableCell>
                   <TableCell>{renderAvailabilityBadge(getAvailabilityState(room))}</TableCell>
                   <TableCell>{renderConditionBadge((room as any).condition)}</TableCell>

@@ -12,8 +12,8 @@ const theme = createTheme({
     },
     secondary: {
       main: '#F4A460', // Sandy Brown
-      light: '#F7B881',
-      dark: '#D18B47',
+      light: '#F7BD89',
+      dark: '#D48B3E',
       contrastText: '#ffffff',
     },
     background: {

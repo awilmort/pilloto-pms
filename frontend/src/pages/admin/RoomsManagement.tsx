@@ -48,8 +48,8 @@ import { useAuth } from '../../contexts/AuthContext';
 import { roomsService, adminService, roomTypeService } from '../../services/api';
 import { Room, RoomType } from '../../types';
 import AdminLayout from '../../components/admin/AdminLayout';
+import { RoomIllustration, isIllustrationUrl, getIllustrationByKey, getIllustrationKey } from '../../components/illustrations';
 import SectionTitle from '../../components/admin/SectionTitle';
-import MediaPicker from '../../components/admin/MediaPicker';
 import { resolveMediaUrl } from '../../services/api';
 import { useTranslation } from 'react-i18next';
 import Autocomplete from '@mui/material/Autocomplete';
@@ -62,7 +62,6 @@ interface RoomFormData {
   comment: string;
   bedConfiguration: string;
   amenities: string[];
-  images: string[];
   roomTypeId?: string;
   features: {
     wifi: boolean;
@@ -83,7 +82,6 @@ const initialFormData: RoomFormData = {
   comment: '',
   bedConfiguration: '',
   amenities: [],
-  images: [],
   roomTypeId: undefined,
   features: {
     wifi: true,
@@ -111,7 +109,6 @@ const RoomsManagement: React.FC = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [newAmenity, setNewAmenity] = useState('');
-  const [mediaPickerOpen, setMediaPickerOpen] = useState(false);
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [selectedRoomType, setSelectedRoomType] = useState<RoomType | null>(null);
 
@@ -179,7 +176,6 @@ const RoomsManagement: React.FC = () => {
       comment: room.comment as any,
       bedConfiguration: room.bedConfiguration,
       amenities: room.amenities || [],
-      images: room.images || [],
       roomTypeId: rtId,
       features: room.features || {
         wifi: true,
@@ -210,7 +206,6 @@ const RoomsManagement: React.FC = () => {
         comment: formData.comment,
         bedConfiguration: formData.bedConfiguration,
         amenities: formData.amenities,
-        images: formData.images.length > 0 ? formData.images : ['/api/placeholder/400/300'],
         features: formData.features,
         ...(formData.roomTypeId ? { roomTypeId: formData.roomTypeId } : {}),
       };
@@ -288,9 +283,23 @@ const RoomsManagement: React.FC = () => {
 
   // Room type fields removed
 
+  const hasImage = (images?: string[]) => {
+    const img = images?.[0];
+    return img && !img.includes('/api/placeholder');
+  };
+
   const getImageUrl = (imagePath: string | undefined) => {
-    if (!imagePath) return '/api/placeholder/400/300';
+    if (!imagePath || imagePath.includes('/api/placeholder')) return '';
     return resolveMediaUrl(imagePath);
+  };
+
+  /** Get the image from the room's associated room type */
+  const getRoomTypeImage = (room: Room): string | undefined => {
+    if (typeof room.roomTypeId === 'object' && room.roomTypeId) {
+      return (room.roomTypeId as any).image;
+    }
+    const rt = roomTypes.find(r => r._id === room.roomTypeId);
+    return rt?.image;
   };
 
   const isAdmin = String(user?.role || '').toLowerCase() === 'admin';
@@ -374,12 +383,33 @@ const RoomsManagement: React.FC = () => {
                 {paginatedRooms.map((room) => (
                   <Grid item xs={12} md={6} lg={4} key={room._id}>
                     <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                      <CardMedia
-                        component="img"
-                        height="200"
-                        image={getImageUrl(room.images?.[0])}
-                        alt={room.name}
-                      />
+                      {(() => {
+                        const rtImage = getRoomTypeImage(room);
+                        if (rtImage && isIllustrationUrl(rtImage)) {
+                          const Illus = getIllustrationByKey(getIllustrationKey(rtImage));
+                          return (
+                            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200, bgcolor: '#F9FAFB' }}>
+                              <Illus width={300} height={180} />
+                            </Box>
+                          );
+                        }
+                        if (rtImage && !rtImage.includes('/api/placeholder')) {
+                          return (
+                            <CardMedia
+                              component="img"
+                              height="200"
+                              image={resolveMediaUrl(rtImage)}
+                              alt={room.name}
+                            />
+                          );
+                        }
+                        return (
+                          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 200, bgcolor: '#F0F7FA' }}>
+                            <RoomIllustration width={300} height={180} />
+                          </Box>
+                        );
+                      })()}
+                      
                       <CardContent sx={{ flexGrow: 1 }}>
                         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
                           <Typography variant="h6" component="h3">
@@ -454,11 +484,31 @@ const RoomsManagement: React.FC = () => {
                         <TableRow key={room._id} hover>
                           <TableCell>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                              <img
-                                src={getImageUrl(room.images?.[0])}
-                                alt={room.name}
-                                style={{ width: 50, height: 50, borderRadius: 8, objectFit: 'cover' }}
-                              />
+                              {(() => {
+                                const rtImage = getRoomTypeImage(room);
+                                if (rtImage && isIllustrationUrl(rtImage)) {
+                                  const Illus = getIllustrationByKey(getIllustrationKey(rtImage));
+                                  return (
+                                    <Box sx={{ width: 50, height: 50, borderRadius: 2, overflow: 'hidden', bgcolor: '#F9FAFB', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                      <Illus width={50} height={50} />
+                                    </Box>
+                                  );
+                                }
+                                if (rtImage && !rtImage.includes('/api/placeholder')) {
+                                  return (
+                                    <img
+                                      src={resolveMediaUrl(rtImage)}
+                                      alt={room.name}
+                                      style={{ width: 50, height: 50, borderRadius: 8, objectFit: 'cover' }}
+                                    />
+                                  );
+                                }
+                                return (
+                                  <Box sx={{ width: 50, height: 50, borderRadius: 2, overflow: 'hidden', bgcolor: '#F0F7FA', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <RoomIllustration width={50} height={50} />
+                                  </Box>
+                                );
+                              })()}
                               <Box>
                                 <Typography variant="subtitle2">{room.name}</Typography>
                                 <Typography variant="caption" color="text.secondary">
@@ -469,7 +519,9 @@ const RoomsManagement: React.FC = () => {
                           </TableCell>
                           <TableCell>
                             <Typography variant="body2">
-                              {typeof room.roomTypeId === 'object' ? (room.roomTypeId as any).name : room.type}
+                              {typeof room.roomTypeId === 'object' && room.roomTypeId
+                                ? (room.roomTypeId as any).name
+                                : roomTypes.find(rt => rt._id === room.roomTypeId)?.name || '—'}
                             </Typography>
                           </TableCell>
                           <TableCell>
@@ -726,48 +778,6 @@ const RoomsManagement: React.FC = () => {
                   </>
                 )}
 
-                {canFullEdit && (
-                  <>
-                    {/* Images */}
-                    <Grid item xs={12}>
-                      <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>{t('admin.rooms.sections.images')}</Typography>
-                      <Divider sx={{ mb: 2 }} />
-                    </Grid>
-
-                    <Grid item xs={12}>
-                      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-                        <Button variant="outlined" onClick={() => setMediaPickerOpen(true)}>{t('admin.rooms.actions.selectFromMedia')}</Button>
-                      </Box>
-                      {/* Selected Images Preview (no upload) */}
-                      {formData.images.length === 0 ? (
-                        <Alert severity="info">{t('admin.rooms.images.noneSelected')} {t('admin.rooms.images.useSelectFromMedia')}</Alert>
-                      ) : (
-                        <Grid container spacing={2}>
-                          {formData.images.map((img, idx) => (
-                            <Grid item xs={12} sm={6} md={4} key={idx}>
-                              <Card>
-                                <CardMedia
-                                  component="img"
-                                  height="160"
-                                  image={getImageUrl(img)}
-                                  alt={`Room image ${idx + 1}`}
-                                />
-                                <CardActions>
-                                  <Button color="error" onClick={() => {
-                                    const next = [...formData.images];
-                                    next.splice(idx, 1);
-                                    setFormData({ ...formData, images: next });
-                                  }}>{t('admin.rooms.actions.remove')}</Button>
-                                </CardActions>
-                              </Card>
-                            </Grid>
-                          ))}
-                        </Grid>
-                      )}
-                    </Grid>
-                  </>
-                )}
-
                 {/* Availability toggle removed; status managed via Room Ops */}
               </Grid>
             </Box>
@@ -792,17 +802,6 @@ const RoomsManagement: React.FC = () => {
             </Button>
           </DialogActions>
         </Dialog>
-
-        {/* Media Picker Dialog */}
-        <MediaPicker
-          open={mediaPickerOpen}
-          onClose={() => setMediaPickerOpen(false)}
-          multiple
-          categoryFilter="rooms"
-          onSelect={(urls) => {
-            setFormData({ ...formData, images: [...formData.images, ...urls] });
-          }}
-        />
 
         {/* Delete Confirmation Dialog */}
         <Dialog

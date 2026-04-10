@@ -53,6 +53,7 @@ export interface RoomType {
   _id: string;
   name: string;
   capacity: number;
+  image?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;

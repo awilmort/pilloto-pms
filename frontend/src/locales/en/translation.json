@@ -647,6 +647,7 @@
         "completed": "Completed",
         "cancelled": "Cancelled",
         "checked_in": "Checked In",
+        "checked-in": "Checked In",
         "checked_out": "Checked Out"
       },
       "paymentStatus": {
@@ -930,7 +931,8 @@
         "nightAudit": "Night Audit",
         "email": "Email",
         "checkout": "Check-Out",
-        "ota": "OTA Sync"
+        "ota": "OTA Sync",
+        "booking": "Booking Engine"
       },
       "sections": {
         "heading": "Menu Sections",
@@ -1048,6 +1050,62 @@
             "detected": "Detected"
           }
         }
+      },
+      "booking": {
+        "heading": "Booking Engine",
+        "description": "Configure the public online booking page for guests. Control availability, branding, and widget embeds.",
+        "enabled": "Enable online booking",
+        "enabledHint": "When enabled, guests can make reservations through the public booking page.",
+        "appearance": {
+          "heading": "Booking Page Appearance",
+          "description": "Customise the look and feel of the public booking page.",
+          "bannerImageUrl": "Banner image URL",
+          "bannerImageUrlHint": "Full URL to the image displayed at the top of the booking page.",
+          "welcomeHeadline": "Welcome headline",
+          "welcomeHeadlineHint": "Main heading text shown on the booking page. Max 200 characters.",
+          "welcomeMessage": "Welcome message",
+          "welcomeMessageHint": "Subtext displayed below the headline. Max 500 characters."
+        },
+        "contact": {
+          "heading": "Contact Information",
+          "description": "Contact details shown to guests on the booking page.",
+          "phone": "Phone",
+          "email": "Email",
+          "address": "Address"
+        },
+        "rules": {
+          "heading": "Booking Rules",
+          "description": "Control how far in advance guests can book.",
+          "minAdvanceHours": "Minimum advance hours",
+          "minAdvanceHoursHint": "Minimum hours before check-in a booking can be made.",
+          "maxAdvanceDays": "Maximum advance days",
+          "maxAdvanceDaysHint": "Maximum number of days into the future a booking can be made."
+        },
+        "widgets": {
+          "heading": "Widget Embed",
+          "description": "Copy snippets to embed the booking engine on your website. Add allowed origins to enable iframe embedding.",
+          "allowedOrigins": "Allowed origins",
+          "allowedOriginsHint": "Domains allowed to embed the booking widget in an iframe.",
+          "addOrigin": "Add",
+          "originPlaceholder": "https://example.com",
+          "noOrigins": "No origins configured — widget embedding disabled.",
+          "bookingPageLink": "Booking Page Link",
+          "searchWidget": "Search Widget (Date & Guest Selector)",
+          "resultsWidget": "Results Widget (Rooms & Services)",
+          "buttonLink": "Button Link",
+          "copied": "Copied to clipboard",
+          "urlWarning": "Configure a tenant subdomain to generate working embed URLs."
+        },
+        "errors": {
+          "loadFailed": "Failed to load booking settings",
+          "invalidOrigin": "Please enter a valid URL (e.g., https://example.com)",
+          "duplicateOrigin": "Origin already added"
+        },
+        "messages": {
+          "saved": "Booking settings saved successfully"
+        },
+        "save": "Save Booking Settings",
+        "saving": "Saving…"
       },
       "errors": {
         "loadFailed": "Failed to load settings",
@@ -2496,6 +2554,167 @@
         "title": "6. Contact",
         "body": "For accessibility questions or to request assistance, contact us at info@pilloto.com."
       }
+    }
+  },
+  "bookingEngine": {
+    "steps": {
+      "search": "Search",
+      "select": "Select",
+      "details": "Details",
+      "verify": "Verify",
+      "confirm": "Confirm"
+    },
+    "search": {
+      "heroHeadlineDefault": "Welcome to {{tenantName}}",
+      "heroSubtitleDefault": "Find the perfect room for your stay",
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "adults": "Adults",
+      "children": "Children",
+      "search": "Search",
+      "selectDates": "Select dates",
+      "addDate": "Add date",
+      "clearDates": "Clear dates",
+      "errorSelectDates": "Please select check-in and check-out dates.",
+      "errorCheckoutAfter": "Check-out must be after check-in.",
+      "errorSearchFailed": "Failed to search availability."
+    },
+    "guests": {
+      "guests": "guests",
+      "adults": "Adults",
+      "adultsSubtitle": "Ages 13 or above",
+      "children": "Children",
+      "childrenSubtitle": "Ages 0–12"
+    },
+    "amenities": {
+      "heading": "What this place offers",
+      "subtitle": "Discover our facilities and services"
+    },
+    "results": {
+      "searchingRooms": "Searching available rooms...",
+      "modifySearch": "Modify Search",
+      "nightCount_one": "{{count}} night",
+      "nightCount_other": "{{count}} nights",
+      "adultCount_one": "{{count}} adult",
+      "adultCount_other": "{{count}} adults",
+      "childCount_one": "{{count}} child",
+      "childCount_other": "{{count}} children",
+      "noRoomsAvailable": "No rooms available for the selected dates and guest count. Please try different dates.",
+      "roomTypesAvailable_one": "{{count}} room type available",
+      "roomTypesAvailable_other": "{{count}} room types available",
+      "upToGuests": "Up to {{count}} guests",
+      "perNight": "/night",
+      "taxes": "+ {{amount}} taxes",
+      "totalForNights_one": "total for {{count}} night",
+      "totalForNights_other": "total for {{count}} nights",
+      "left": "{{count}} left",
+      "selectRoom": "Select Room",
+      "selected": "Selected",
+      "addOnServices": "Add-on Services",
+      "addOnServicesSubtitle": "Enhance your stay with these optional services.",
+      "perPerson": "Per person",
+      "perRoom": "Per room",
+      "perStay": "Per stay",
+      "perEvent": "Per event",
+      "addService": "Add Service",
+      "added": "Added",
+      "loadingServices": "Loading services...",
+      "yourSelection": "Your Selection",
+      "room": "Room",
+      "service": "Service",
+      "total": "Total",
+      "payAtProperty": "Pay at the property — no payment required now.",
+      "continueToDetails": "Continue to Guest Details",
+      "youWontBeCharged": "You won't be charged yet"
+    },
+    "details": {
+      "heading": "Guest Details",
+      "totalPayAtProperty": "Total: {{amount}} · Pay at the property",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "email": "Email",
+      "emailHint": "A verification code will be sent to this email",
+      "phone": "Phone (optional)",
+      "specialRequests": "Special Requests (optional)",
+      "firstNameRequired": "First name is required",
+      "lastNameRequired": "Last name is required",
+      "emailRequired": "A valid email is required",
+      "back": "Back",
+      "continueToVerification": "Continue to Verification"
+    },
+    "verify": {
+      "heading": "Verify Your Email",
+      "codeSentTo": "We sent a 4-digit code to",
+      "sendingCode": "Sending verification code...",
+      "enterCode": "Enter the 4-digit code sent to your email",
+      "verifyCode": "Verify Code",
+      "resendCode": "Resend Code",
+      "sending": "Sending...",
+      "backToDetails": "Back to Guest Details",
+      "failedToSend": "Failed to send verification code.",
+      "verificationFailed": "Verification failed.",
+      "attemptsRemaining_one": "{{count}} attempt remaining",
+      "attemptsRemaining_other": "{{count}} attempts remaining"
+    },
+    "review": {
+      "heading": "Review & Confirm",
+      "guestInfo": "Guest Information",
+      "specialRequests": "Special requests: {{requests}}",
+      "bookingDetails": "Booking Details",
+      "checkInLabel": "Check-in:",
+      "checkOutLabel": "Check-out:",
+      "durationLabel": "Duration:",
+      "guestsLabel": "Guests:",
+      "total": "Total",
+      "payAtProperty": "Pay at the property",
+      "payAtPropertyDetail": "No payment is collected online. Payment is due at check-in.",
+      "agreeTerms": "I agree to the",
+      "termsOfService": "Terms of Service",
+      "agreePrivacy": "I agree to the",
+      "privacyPolicy": "Privacy Policy",
+      "acceptTermsError": "Please accept the Terms of Service and Privacy Policy to continue.",
+      "emailVerificationRequired": "Email verification is required.",
+      "back": "Back",
+      "confirmBooking": "Confirm Booking",
+      "confirming": "Confirming...",
+      "reservationFailed": "Failed to complete reservation."
+    },
+    "confirmation": {
+      "heading": "Booking Confirmed!",
+      "emailSentTo": "A confirmation email has been sent to",
+      "confirmationCode": "Confirmation Code",
+      "totalPayAtProperty": "Total Amount (Pay at Property)",
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "whatNext": "What happens next?",
+      "whatNextDetail": "Present your confirmation code ({{code}}) at the front desk upon arrival. Payment is due at check-in.",
+      "whatNextPhone": " For questions, call {{phone}}.",
+      "makeAnother": "Make Another Booking"
+    },
+    "features": {
+      "wifi": "WiFi",
+      "airConditioning": "A/C",
+      "miniBar": "Mini Bar",
+      "balcony": "Balcony",
+      "oceanView": "Ocean View",
+      "kitchenette": "Kitchenette",
+      "jacuzzi": "Jacuzzi"
+    },
+    "layout": {
+      "booking": "Booking",
+      "privacyPolicy": "Privacy Policy",
+      "termsOfService": "Terms of Service",
+      "allRightsReserved": "All rights reserved.",
+      "poweredBy": "Powered by"
+    },
+    "legal": {
+      "termsLoadFailed": "Failed to load terms of service.",
+      "privacyLoadFailed": "Failed to load privacy policy."
+    },
+    "roomTypes": {
+      "heading": "Our Rooms",
+      "subtitle": "Discover our rooms and start your stay",
+      "bookNow": "Book Now"
     }
   }
 }
