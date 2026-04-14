@@ -6,7 +6,7 @@ import Role from '../models/Role';
 import { authenticate, authorize, authorizePermission, AuthRequest } from '../middleware/auth';
 import { validateReservation } from '../middleware/validation';
 import { getSortObject } from '../utils/helpers';
-import { sendReservationConfirmationEmail, sendInvoiceEmail } from '../utils/email';
+import { sendReservationConfirmationEmail, sendInvoiceEmail, sendCorporatePriceRequestEmail } from '../utils/email';
 import EventType from '../models/EventType';
 import { calculateTieredPrice } from '../utils/pricing';
 import AppSettings from '../models/AppSettings';
@@ -16,6 +16,7 @@ import Folio from '../models/Folio';
 import Charge from '../models/Charge';
 import Payment from '../models/Payment';
 import CreditAccount from '../models/CreditAccount';
+import User from '../models/User';
 
 const router = express.Router();
 
@@ -324,6 +325,8 @@ router.post('/', async (req: Request, res: Response) => {
       specialRequests,
       isCorporate,
       company,
+      requestCorporatePrice,
+      requestedCompany,
       rooms: assignedRoomIds, // array of room IDs (new: required for room reservations)
       roomCount,              // legacy: kept for backward compatibility
       items, // optional: ReservationItem[] from service pricing
@@ -544,6 +547,7 @@ router.post('/', async (req: Request, res: Response) => {
             rooms: 1,
             companyId: (isCorporate && company) ? company : undefined,
             guestEmail: contactInfo?.email,
+            channel: authenticatedUser ? 'admin' : 'public',
           });
 
           grandTotal += priceResult.finalTotal;
@@ -591,6 +595,7 @@ router.post('/', async (req: Request, res: Response) => {
             rooms: inboundRoomCount,
             companyId: (isCorporate && company) ? company : undefined,
             guestEmail: contactInfo?.email,
+            channel: authenticatedUser ? 'admin' : 'public',
           });
           if (priceResult.ratePlan) {
             pricingSnapshotData = {
@@ -735,9 +740,31 @@ router.post('/', async (req: Request, res: Response) => {
       reservationData.items = items;
     }
 
-    // Link company for corporate bookings
+    // Link company for corporate bookings (direct assignment by privileged users)
     if (isCorporate && company) {
       reservationData.company = company;
+      reservationData.corporatePriceStatus = 'approved';
+    }
+
+    // Handle corporate price REQUEST from non-privileged users
+    if (requestCorporatePrice && !reservationData.company) {
+      reservationData.isCorporate = true;
+      if (requestedCompany) {
+        reservationData.requestedCompany = requestedCompany;
+      }
+      // Check if guest already has a company association (auto-approve)
+      if (guestRecordId) {
+        const guestDoc = await Guest.findById(guestRecordId).lean();
+        if (guestDoc && (guestDoc as any).companyId) {
+          reservationData.company = (guestDoc as any).companyId;
+          reservationData.corporatePriceStatus = 'approved';
+        } else {
+          // Guest has no company — mark as pending, normal pricing applied
+          reservationData.corporatePriceStatus = 'pending';
+        }
+      } else {
+        reservationData.corporatePriceStatus = 'pending';
+      }
     }
 
     // Persist the guest name from the form regardless of auth status
@@ -790,11 +817,48 @@ router.post('/', async (req: Request, res: Response) => {
       .populate('room', 'name status') // room may be null
       .populate('rooms', 'name status')
       .populate('company', 'name')
+      .populate('requestedCompany', 'name')
       .populate('guestRecord', 'firstName lastName email');
 
     // Send confirmation email (don't wait for it to complete)
     sendReservationConfirmationEmail(populatedReservation)
       .catch(err => console.error('Failed to send confirmation email:', err));
+
+    // Send corporate price request notification if pending approval
+    if (reservationData.corporatePriceStatus === 'pending') {
+      (async () => {
+        try {
+          // Find roles with the assignCorporatePrice permission
+          const rolesWithPerm = await Role.find({
+            permissions: 'admin.reservations.assignCorporatePrice',
+          }).lean();
+          const roleNames = rolesWithPerm.map((r: any) => String(r.name).toLowerCase());
+
+          let recipientUsers: any[];
+          if (roleNames.length > 0) {
+            // Find users whose role matches any of those role names
+            recipientUsers = await User.find({
+              role: { $in: roleNames.map(n => new RegExp(`^${n}$`, 'i')) },
+            }).select('email').lean();
+          } else {
+            // Fallback: send to all admins
+            recipientUsers = await User.find({
+              role: { $in: [/^admin$/i, /^superadmin$/i] },
+            }).select('email').lean();
+          }
+
+          const emails = recipientUsers
+            .map((u: any) => u.email)
+            .filter((e: string) => !!e);
+
+          if (emails.length > 0) {
+            await sendCorporatePriceRequestEmail(populatedReservation, emails);
+          }
+        } catch (err) {
+          console.error('Failed to send corporate price request emails:', err);
+        }
+      })();
+    }
 
     res.status(201).json({
       success: true,
@@ -2161,6 +2225,269 @@ router.post('/:id/send-email', authenticate, authorize('admin'), async (req: Aut
   } catch (error: any) {
     console.error('Send email error:', error);
     res.status(500).json({ success: false, message: error.message || 'Failed to send email' });
+  }
+});
+
+// ─── Corporate Price Approval ────────────────────────────────────────────────
+
+/**
+ * Recalculate estimatedTotal and pricingSnapshot for a room reservation using
+ * company pricing rules. Called immediately after a corporate price request is
+ * approved so the stored total reflects the negotiated corporate rate.
+ *
+ * Non-room reservation types are skipped (no corporate rate rules apply).
+ */
+async function recalculateCorporatePrice(reservation: any, companyId: string): Promise<void> {
+  if (reservation.type !== 'room') return;
+
+  const snap = reservation.pricingSnapshot;
+  const nights = snap?.nights
+    || (reservation.checkInDate && reservation.checkOutDate
+      ? Math.max(1, Math.ceil((new Date(reservation.checkOutDate).getTime() - new Date(reservation.checkInDate).getTime()) / 86400000))
+      : 1);
+
+  const adults   = reservation.guestDetails?.adults   ?? 1;
+  const children = reservation.guestDetails?.children ?? 0;
+  const checkIn  = new Date(reservation.checkInDate);
+
+  let newTotal = 0;
+  let newSnapshot: any = snap ? { ...snap } : undefined;
+
+  const rooms: any[] = Array.isArray(reservation.rooms) && reservation.rooms.length > 0
+    ? await Room.find({ _id: { $in: reservation.rooms } }).populate('roomTypeId', 'name capacity').lean()
+    : [];
+
+  if (rooms.length > 0) {
+    // Multi-room path: recalculate per room with corporate pricing
+    let grandTotal = 0, grandBase = 0, grandOccupancy = 0, grandSubtotal = 0, grandTaxesTotal = 0;
+    const grandTaxes: any[] = [];
+
+    let remainingAdults   = adults;
+    let remainingChildren = children;
+
+    rooms.sort((a, b) => ((a.roomTypeId as any)?.capacity ?? 1) - ((b.roomTypeId as any)?.capacity ?? 1));
+
+    for (const room of rooms) {
+      const roomTypeId = (room.roomTypeId as any)?._id ?? room.roomTypeId;
+      if (!roomTypeId) continue;
+      const ratePlan = await RatePlan.findOne({ roomTypeId, isActive: true }).lean();
+      if (!ratePlan) continue;
+
+      const cap          = (room.roomTypeId as any)?.capacity ?? 1;
+      const roomAdults   = Math.min(remainingAdults, cap);
+      const roomChildren = Math.min(remainingChildren, Math.max(0, cap - roomAdults));
+      remainingAdults   = Math.max(0, remainingAdults   - roomAdults);
+      remainingChildren = Math.max(0, remainingChildren - roomChildren);
+
+      const result = await calculateTieredPrice({
+        ratePlanId: String(ratePlan._id),
+        adults: roomAdults,
+        children: roomChildren,
+        date: checkIn,
+        nights,
+        rooms: 1,
+        companyId,
+        channel: 'admin',
+      });
+
+      grandTotal        += result.finalTotal;
+      grandBase         += result.basePrice;
+      grandOccupancy    += result.occupancyCost;
+      grandSubtotal     += result.subtotal;
+      grandTaxesTotal   += result.totalTaxes;
+      for (const tx of (result.taxes ?? [])) {
+        const existing = grandTaxes.find(t => t.name === tx.name);
+        if (existing) existing.amount += tx.amount;
+        else grandTaxes.push({ ...tx });
+      }
+    }
+
+    newTotal = grandTotal;
+    if (newSnapshot) {
+      newSnapshot.basePrice      = grandBase;
+      newSnapshot.occupancyCost  = grandOccupancy;
+      newSnapshot.subtotal       = grandSubtotal;
+      newSnapshot.adjustedSubtotal = grandSubtotal;
+      newSnapshot.taxes          = grandTaxes;
+      newSnapshot.totalTaxes     = grandTaxesTotal;
+      newSnapshot.finalTotal     = grandTotal;
+    }
+  } else if (snap?.ratePlanId) {
+    // Single rate-plan path
+    const result = await calculateTieredPrice({
+      ratePlanId: snap.ratePlanId,
+      adults,
+      children,
+      date: checkIn,
+      nights,
+      rooms: 1,
+      companyId,
+      channel: 'admin',
+    });
+
+    newTotal = result.finalTotal;
+    if (newSnapshot) {
+      newSnapshot.basePrice        = result.basePrice;
+      newSnapshot.occupancyCost    = result.occupancyCost;
+      newSnapshot.subtotal         = result.subtotal;
+      newSnapshot.adjustedSubtotal = result.adjustedSubtotal;
+      newSnapshot.taxes            = result.taxes;
+      newSnapshot.totalTaxes       = result.totalTaxes;
+      newSnapshot.finalTotal       = result.finalTotal;
+    }
+  } else {
+    // No pricing data to recalculate from — leave price unchanged
+    return;
+  }
+
+  // Re-apply any existing manual discount on top of the new corporate total
+  const existingDiscount = reservation.discountAmount ?? 0;
+  reservation.estimatedTotal = Math.max(0, newTotal - existingDiscount);
+  if (newSnapshot) reservation.pricingSnapshot = newSnapshot;
+}
+
+// @route   POST /api/reservations/:id/corporate-price/approve
+// @desc    Approve a pending corporate price request (via email link or admin UI)
+// @access  Public (stateless action link) — token-based in production
+router.post('/:id/corporate-price/approve', async (req: Request, res: Response) => {
+  try {
+    const reservation = await Reservation.findById(req.params.id);
+    if (!reservation) {
+      return res.status(404).json({ success: false, message: 'Reservation not found' });
+    }
+    if (reservation.corporatePriceStatus !== 'pending') {
+      return res.status(400).json({ success: false, message: `Corporate price is already ${reservation.corporatePriceStatus || 'not requested'}` });
+    }
+
+    // The company to assign can come from req.body or we look up the guest's company
+    let companyId = req.body.companyId || null;
+
+    // If no company provided, try to find via guest record
+    if (!companyId && reservation.guestRecord) {
+      const guest = await Guest.findById(reservation.guestRecord).lean();
+      if (guest && (guest as any).companyId) {
+        companyId = (guest as any).companyId;
+      }
+    }
+
+    reservation.corporatePriceStatus = 'approved';
+    if (companyId) {
+      reservation.company = companyId;
+
+      // Also associate the guest with the company for future auto-approval
+      if (reservation.guestRecord) {
+        await Guest.findByIdAndUpdate(reservation.guestRecord, { companyId });
+      }
+
+      // Recalculate price using company pricing rules
+      await recalculateCorporatePrice(reservation, String(companyId));
+    }
+    await reservation.save();
+
+    // If accessed from an email link (GET-like), redirect to a friendly page
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    if (req.headers.accept?.includes('text/html')) {
+      return res.redirect(`${frontendUrl}/admin/reservations?corporateApproved=${reservation.reservationCode}`);
+    }
+
+    res.json({ success: true, message: 'Corporate price approved', data: reservation });
+  } catch (error: any) {
+    console.error('Corporate price approve error:', error);
+    res.status(500).json({ success: false, message: 'Failed to approve corporate price' });
+  }
+});
+
+// Also support GET for email button clicks
+router.get('/:id/corporate-price/approve', async (req: Request, res: Response) => {
+  try {
+    const reservation = await Reservation.findById(req.params.id);
+    if (!reservation) {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      return res.redirect(`${frontendUrl}/admin/reservations?error=not_found`);
+    }
+    if (reservation.corporatePriceStatus !== 'pending') {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      return res.redirect(`${frontendUrl}/admin/reservations?info=already_${reservation.corporatePriceStatus || 'processed'}`);
+    }
+
+    reservation.corporatePriceStatus = 'approved';
+
+    // Try to auto-link guest's company
+    let resolvedCompanyId: string | null = null;
+    if (reservation.guestRecord) {
+      const guest = await Guest.findById(reservation.guestRecord).lean();
+      if (guest && (guest as any).companyId) {
+        reservation.company = (guest as any).companyId;
+        resolvedCompanyId = String((guest as any).companyId);
+      }
+    }
+
+    // Recalculate price using company pricing rules
+    if (resolvedCompanyId) {
+      await recalculateCorporatePrice(reservation, resolvedCompanyId);
+    }
+
+    await reservation.save();
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}/admin/reservations?corporateApproved=${reservation.reservationCode}`);
+  } catch (error: any) {
+    console.error('Corporate price approve error:', error);
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}/admin/reservations?error=approve_failed`);
+  }
+});
+
+// @route   POST /api/reservations/:id/corporate-price/decline
+// @desc    Decline a pending corporate price request
+// @access  Public (stateless action link)
+router.post('/:id/corporate-price/decline', async (req: Request, res: Response) => {
+  try {
+    const reservation = await Reservation.findById(req.params.id);
+    if (!reservation) {
+      return res.status(404).json({ success: false, message: 'Reservation not found' });
+    }
+    if (reservation.corporatePriceStatus !== 'pending') {
+      return res.status(400).json({ success: false, message: `Corporate price is already ${reservation.corporatePriceStatus || 'not requested'}` });
+    }
+
+    reservation.corporatePriceStatus = 'declined';
+    await reservation.save();
+
+    if (req.headers.accept?.includes('text/html')) {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      return res.redirect(`${frontendUrl}/admin/reservations?corporateDeclined=${reservation.reservationCode}`);
+    }
+
+    res.json({ success: true, message: 'Corporate price declined', data: reservation });
+  } catch (error: any) {
+    console.error('Corporate price decline error:', error);
+    res.status(500).json({ success: false, message: 'Failed to decline corporate price' });
+  }
+});
+
+// Also support GET for email button clicks
+router.get('/:id/corporate-price/decline', async (req: Request, res: Response) => {
+  try {
+    const reservation = await Reservation.findById(req.params.id);
+    if (!reservation) {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      return res.redirect(`${frontendUrl}/admin/reservations?error=not_found`);
+    }
+    if (reservation.corporatePriceStatus !== 'pending') {
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      return res.redirect(`${frontendUrl}/admin/reservations?info=already_${reservation.corporatePriceStatus || 'processed'}`);
+    }
+
+    reservation.corporatePriceStatus = 'declined';
+    await reservation.save();
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}/admin/reservations?corporateDeclined=${reservation.reservationCode}`);
+  } catch (error: any) {
+    console.error('Corporate price decline error:', error);
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    res.redirect(`${frontendUrl}/admin/reservations?error=decline_failed`);
   }
 });
 

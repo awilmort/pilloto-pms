@@ -109,6 +109,8 @@ interface BookingContextValue {
   // Step navigation
   currentStep: BookingStep;
   setCurrentStep: (step: BookingStep) => void;
+  prevStep: BookingStep | null;
+  setPrevStep: (step: BookingStep | null) => void;
 
   // Pre-selected room type (from showcase click)
   preselectedRoomTypeId: string | null;
@@ -148,6 +150,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   });
   const [verificationId, setVerificationId] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<BookingStep>('search');
+  const [prevStep, setPrevStep] = useState<BookingStep | null>(null);
   const [bookingResult, setBookingResult] = useState<any>(null);
   const [preselectedRoomTypeId, setPreselectedRoomTypeId] = useState<string | null>(null);
 
@@ -229,6 +232,8 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         setVerificationId,
         currentStep,
         setCurrentStep,
+        prevStep,
+        setPrevStep,
         preselectedRoomTypeId,
         setPreselectedRoomTypeId,
         bookingResult,

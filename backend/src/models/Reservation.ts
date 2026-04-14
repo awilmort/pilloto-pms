@@ -126,6 +126,10 @@ export interface IReservation extends Document {
   // Corporate booking
   isCorporate?: boolean;
   company?: mongoose.Types.ObjectId; // ref: 'Company'
+  /** Corporate price approval flow: pending → approved | declined */
+  corporatePriceStatus?: 'pending' | 'approved' | 'declined';
+  /** Company requested by the guest when isCorporate is pending */
+  requestedCompany?: mongoose.Types.ObjectId; // ref: 'Company'
 
   // Linked guest record (auto-created/upserted from contactInfo.email)
   guestRecord?: mongoose.Types.ObjectId; // ref: 'Guest'
@@ -411,6 +415,16 @@ const reservationSchema = new Schema<IReservation>({
     default: false
   },
   company: {
+    type: Schema.Types.ObjectId,
+    ref: 'Company',
+    required: false
+  },
+  corporatePriceStatus: {
+    type: String,
+    enum: ['pending', 'approved', 'declined'],
+    required: false
+  },
+  requestedCompany: {
     type: Schema.Types.ObjectId,
     ref: 'Company',
     required: false

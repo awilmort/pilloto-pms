@@ -242,6 +242,9 @@ export const reservationsService = {
   getReservation: (id: string): Promise<AxiosResponse<ApiResponse<Reservation>>> =>
     apiClient.get(`/reservations/${id}`),
 
+  corporatePriceAction: (id: string, action: 'approve' | 'decline'): Promise<AxiosResponse<ApiResponse<Reservation>>> =>
+    apiClient.post(`/reservations/${id}/corporate-price/${action}`),
+
   getReservationFinancial: (id: string): Promise<AxiosResponse<ApiResponse<{
     folio: { _id: string; reservationId: string; status: 'open' | 'in_ar' | 'closed' };
     charges: Array<{ _id: string; folioId: string; description: string; amount: number; createdAt: string; updatedAt: string }>;
@@ -655,14 +658,8 @@ export const bookingService = {
   }): Promise<AxiosResponse<ApiResponse<any>>> =>
     apiClient.post('/booking/quote', data),
 
-  /** List online-bookable services */
-  getServices: (): Promise<AxiosResponse<ApiResponse<Array<{
-    _id: string;
-    code: string;
-    name: string;
-    kind: string;
-    chargeBasis: string;
-  }>>>> =>
+  /** List online-bookable services (public booking engine) */
+  getServices: (): Promise<AxiosResponse<ApiResponse<Array<Pick<ServiceRecord, '_id' | 'code' | 'name' | 'kind' | 'chargeBasis' | 'reservationMode' | 'basePrice'>>>>> =>
     apiClient.get('/booking/services'),
 
   /** Get price for a specific service */
@@ -738,6 +735,9 @@ export const bookingService = {
     content: string;
   }>>> =>
     apiClient.get('/booking/legal/privacy'),
+
+  getReservation: (code: string, token: string): Promise<AxiosResponse<ApiResponse<any>>> =>
+    apiClient.get(`/booking/reservation/${encodeURIComponent(code)}`, { params: { token } }),
 };
 
 export default apiClient;
@@ -789,31 +789,43 @@ export const pricingService = {
 
   createPricingRule: (data: {
     name: string;
-    priority?: number;
-    dateStart?: string;
-    dateEnd?: string;
-    roomTypeId?: string;
-    ratePlanId?: string;
-    companyId?: string;
-    guestEmail?: string;
-    adjustmentType: 'replace' | 'percent' | 'fixed';
-    adjustmentValue: number;
-    adjustmentScope: 'base' | 'occupancy' | 'subtotal';
+    ruleTarget: 'guest' | 'company' | 'promotional';
+    companyId?: string | null;
+    guestEmail?: string | null;
+    ratePlanId: string;
+    ruleModel: 'percentage' | 'fixed' | 'custom';
+    direction?: 'discount' | 'surcharge';
+    value?: number;
+    scope?: 'base' | 'occupancy' | 'both';
+    customBasePrice?: number;
+    customOccupancyTiers?: Array<{ guestType: 'adult' | 'child'; guestNumber: number; price: number }>;
+    periodPattern?: 'all_days' | 'weekdays' | 'weekends' | 'specific_days';
+    specificDays?: number[];
+    dateStart?: string | null;
+    dateEnd?: string | null;
+    minimumNights?: number | null;
+    blackoutDates?: Array<{ start: string; end: string }>;
     isActive?: boolean;
   }): Promise<AxiosResponse<ApiResponse<any>>> => apiClient.post('/pricing/rules', data),
 
   updatePricingRule: (id: string, data: Partial<{
     name: string;
-    priority: number;
-    dateStart?: string;
-    dateEnd?: string;
-    roomTypeId?: string;
-    ratePlanId?: string;
-    companyId?: string;
-    guestEmail?: string;
-    adjustmentType: 'replace' | 'percent' | 'fixed';
-    adjustmentValue: number;
-    adjustmentScope: 'base' | 'occupancy' | 'subtotal';
+    ruleTarget: 'guest' | 'company' | 'promotional';
+    companyId: string | null;
+    guestEmail: string | null;
+    ratePlanId: string;
+    ruleModel: 'percentage' | 'fixed' | 'custom';
+    direction: 'discount' | 'surcharge';
+    value: number;
+    scope: 'base' | 'occupancy' | 'both';
+    customBasePrice: number;
+    customOccupancyTiers: Array<{ guestType: 'adult' | 'child'; guestNumber: number; price: number }>;
+    periodPattern: 'all_days' | 'weekdays' | 'weekends' | 'specific_days';
+    specificDays: number[];
+    dateStart: string | null;
+    dateEnd: string | null;
+    minimumNights: number | null;
+    blackoutDates: Array<{ start: string; end: string }>;
     isActive: boolean;
   }>): Promise<AxiosResponse<ApiResponse<any>>> => apiClient.put(`/pricing/rules/${id}`, data),
 
@@ -930,6 +942,7 @@ export const pricingService = {
 // ── Service types ─────────────────────────────────────────────
 export type ServiceKind = 'daypass' | 'pasatarde' | 'event' | 'roomAddon' | 'generic';
 export type ChargeBasis = 'perPerson' | 'perRoom' | 'perStay' | 'perEvent';
+export type ReservationMode = 'dateRange' | 'singleDate';
 
 export interface ServiceRecord {
   _id: string;
@@ -937,9 +950,12 @@ export interface ServiceRecord {
   name: string;
   kind: ServiceKind;
   chargeBasis: ChargeBasis;
+  reservationMode?: ReservationMode;
   isActive: boolean;
   isOnlineBookable: boolean;
   isVisibleInPOS: boolean;
+  /** Standard everyday adult price returned by the booking services endpoint. */
+  basePrice?: number | null;
   createdAt: string;
   updatedAt: string;
 }

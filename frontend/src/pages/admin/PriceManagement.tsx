@@ -3,7 +3,7 @@ import {
   Container, Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Button, Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl, InputLabel,
   Select, MenuItem, Switch, FormControlLabel, Alert, Typography, Tabs, Tab, Chip, IconButton,
-  Autocomplete, Tooltip, Divider, CircularProgress,
+  Autocomplete, Tooltip, Divider, CircularProgress, Stepper, Step, StepLabel,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -11,11 +11,11 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AdminLayout from '../../components/admin/AdminLayout';
 import SectionTitle from '../../components/admin/SectionTitle';
 import NumberField from '../../components/common/NumberField';
-import { pricingService, companiesService, roomTypeService, servicesService, servicePricesService, chargeTemplatesService, chargeRulesService, auditService } from '../../services/api';
-import type { ServiceRecord, ServicePriceRecord, ServiceKind, ChargeBasis, ServicePriceCategory, ServicePriceValidity, AuditSummary } from '../../services/api';
-import { Company, RoomType, ChargeTemplate, ChargeRule, ChargeRuleExecution, ChargeTrigger, CalculationMethod, ChargeCategory, AuditRun } from '../../types';
+import { pricingService, companiesService, roomTypeService, servicesService, servicePricesService, chargeTemplatesService, chargeRulesService, auditService, guestsService } from '../../services/api';
+import type { ServiceRecord, ServicePriceRecord, ServiceKind, ChargeBasis, ReservationMode, ServicePriceCategory, ServicePriceValidity, AuditSummary } from '../../services/api';
+import { Company, RoomType, ChargeTemplate, ChargeRule, ChargeRuleExecution, ChargeTrigger, CalculationMethod, ChargeCategory, AuditRun, Guest } from '../../types';
 import { useTranslation } from 'react-i18next';
-import type { OccupancyTier, RatePlan, PricingRuleAdjustment, TaxConfig } from '../../utils/pricing';
+import type { OccupancyTier, RatePlan, PricingRule, RuleTarget, RuleModel, RuleDirection, RuleScope, PeriodPattern, IOccupancyTierOverride, IBlackoutRange, TaxConfig } from '../../utils/pricing';
 
 // ─────────────────────────────────────────────────────────────
 // Tab panel helper
@@ -33,6 +33,42 @@ function defaultTiers(): OccupancyTier[] {
     { guestType: 'adult', guestNumber: 2, price: 0 },
     { guestType: 'child', guestNumber: 1, price: 0 },
   ];
+}
+
+// ─────────────────────────────────────────────────────────────
+// Rule Wizard form type
+// ─────────────────────────────────────────────────────────────
+interface RuleWizardForm {
+  _id?: string;
+  name: string;
+  ruleTarget: RuleTarget;
+  companyId: string;
+  guestEmail: string;
+  ratePlanId: string;
+  ruleModel: RuleModel;
+  direction: RuleDirection;
+  value: number;
+  scope: RuleScope;
+  customBasePrice: number;
+  customOccupancyTiers: IOccupancyTierOverride[];
+  periodPattern: PeriodPattern;
+  specificDays: number[];
+  dateStart: string;
+  dateEnd: string;
+  minimumNights: string;
+  blackoutDates: IBlackoutRange[];
+  isActive: boolean;
+}
+
+function defaultRuleWizardForm(): RuleWizardForm {
+  return {
+    name: '', ruleTarget: 'promotional',
+    companyId: '', guestEmail: '', ratePlanId: '',
+    ruleModel: 'percentage', direction: 'discount', value: 0, scope: 'both',
+    customBasePrice: 0, customOccupancyTiers: defaultTiers().map(t => ({ ...t })),
+    periodPattern: 'all_days', specificDays: [], dateStart: '', dateEnd: '',
+    minimumNights: '', blackoutDates: [], isActive: true,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -56,16 +92,18 @@ const PriceManagement: React.FC = () => {
   const [selectedRatePlanRoomType, setSelectedRatePlanRoomType] = useState<RoomType | null>(null);
 
   // ── Pricing Rules state ───────────────────────────────────
-  const [rules, setRules] = useState<PricingRuleAdjustment[]>([]);
+  const [rules, setRules] = useState<PricingRule[]>([]);
   const [rulesLoading, setRulesLoading] = useState(true);
   const [ruleDialog, setRuleDialog] = useState(false);
-  const [ruleForm, setRuleForm] = useState<PricingRuleAdjustment>({
-    name: '', priority: 0, adjustmentType: 'percent', adjustmentValue: 0, adjustmentScope: 'subtotal', isActive: true,
-  });
+  const [ruleWizardStep, setRuleWizardStep] = useState(0);
+  const [ruleForm, setRuleForm] = useState<RuleWizardForm>(defaultRuleWizardForm());
   const [ruleCompanyOptions, setRuleCompanyOptions] = useState<Company[]>([]);
   const [ruleCompanySearch, setRuleCompanySearch] = useState('');
   const [selectedRuleCompany, setSelectedRuleCompany] = useState<Company | null>(null);
-  const [selectedRuleRoomType, setSelectedRuleRoomType] = useState<RoomType | null>(null);
+  const [ruleGuestOptions, setRuleGuestOptions] = useState<Guest[]>([]);
+  const [ruleGuestSearch, setRuleGuestSearch] = useState('');
+  const [selectedRuleGuest, setSelectedRuleGuest] = useState<Guest | null>(null);
+  const [selectedRuleRatePlan, setSelectedRuleRatePlan] = useState<RatePlan | null>(null);
 
   // ── Taxes state ───────────────────────────────────────────
   const [taxes, setTaxes] = useState<TaxConfig[]>([]);
@@ -259,6 +297,14 @@ const PriceManagement: React.FC = () => {
   }, [ruleCompanySearch]);
 
   useEffect(() => {
+    if (ruleGuestSearch.length >= 1) {
+      guestsService.getGuests({ search: ruleGuestSearch, limit: 20 })
+        .then(res => setRuleGuestOptions(res.data.data || []))
+        .catch(() => {});
+    }
+  }, [ruleGuestSearch]);
+
+  useEffect(() => {
     if (servicePriceCompanySearch.length >= 1) {
       companiesService.getCompanies({ search: servicePriceCompanySearch, limit: 20 })
         .then(res => setServicePriceCompanyOptions(res.data.data || []))
@@ -276,8 +322,8 @@ const PriceManagement: React.FC = () => {
   };
 
   const openEditRatePlan = (plan: RatePlan) => {
-    const rtId = typeof plan.roomTypeId === 'object' ? (plan.roomTypeId as any)?._id : plan.roomTypeId;
-    const rtObj = typeof plan.roomTypeId === 'object'
+    const rtId = typeof plan.roomTypeId === 'object' && plan.roomTypeId ? (plan.roomTypeId as any)._id : plan.roomTypeId;
+    const rtObj = typeof plan.roomTypeId === 'object' && plan.roomTypeId
       ? plan.roomTypeId as any
       : roomTypes.find(rt => rt._id === plan.roomTypeId) || null;
     setSelectedRatePlanRoomType(rtObj ? { _id: rtObj._id || '', name: rtObj.name || '', capacity: rtObj.capacity || 0, isActive: true, createdAt: '', updatedAt: '' } : null);
@@ -291,7 +337,7 @@ const PriceManagement: React.FC = () => {
       if (!ratePlanForm.roomTypeId || String(ratePlanForm.roomTypeId).trim() === '') { setError(t('admin.pricing.ratePlans.errors.roomTypeRequired')); return; }
       setError(null);
       if (ratePlanForm._id) {
-        await pricingService.updateRatePlan(ratePlanForm._id, { ...ratePlanForm, roomTypeId: String(typeof ratePlanForm.roomTypeId === 'object' ? (ratePlanForm.roomTypeId as any)._id : ratePlanForm.roomTypeId) });
+        await pricingService.updateRatePlan(ratePlanForm._id, { ...ratePlanForm, roomTypeId: String(typeof ratePlanForm.roomTypeId === 'object' && ratePlanForm.roomTypeId ? (ratePlanForm.roomTypeId as any)._id : ratePlanForm.roomTypeId) });
       } else {
         await pricingService.createRatePlan(ratePlanForm as any);
       }
@@ -332,40 +378,112 @@ const PriceManagement: React.FC = () => {
 
   // ── Rule handlers ─────────────────────────────────────────
   const openNewRule = () => {
-    setRuleForm({ name: '', priority: 0, adjustmentType: 'percent', adjustmentValue: 0, adjustmentScope: 'subtotal', isActive: true });
+    setRuleForm(defaultRuleWizardForm());
     setSelectedRuleCompany(null);
-    setSelectedRuleRoomType(null);
+    setSelectedRuleGuest(null);
+    setSelectedRuleRatePlan(null);
+    setRuleWizardStep(0);
     setRuleDialog(true);
   };
 
-  const openEditRule = (rule: PricingRuleAdjustment) => {
-    const companyId = typeof rule.companyId === 'object' ? (rule.companyId as any)?._id : rule.companyId;
-    const companyName = typeof rule.companyId === 'object' ? (rule.companyId as any)?.name : undefined;
-    const rtId = typeof rule.roomTypeId === 'object' ? (rule.roomTypeId as any)?._id : rule.roomTypeId;
-    const rtObj = typeof rule.roomTypeId === 'object'
-      ? rule.roomTypeId as any
-      : roomTypes.find(rt => rt._id === rule.roomTypeId) || null;
-    setSelectedRuleCompany(companyId ? { _id: companyId, name: companyName || companyId } as Company : null);
-    setSelectedRuleRoomType(rtObj ? { _id: rtObj._id || '', name: rtObj.name || '', capacity: rtObj.capacity || 0, isActive: true, createdAt: '', updatedAt: '' } : null);
-    setRuleForm({ ...rule, companyId, roomTypeId: rtId || undefined });
+  const openEditRule = (rule: PricingRule) => {
+    const companyId = typeof rule.companyId === 'object' && rule.companyId ? (rule.companyId as any)._id : rule.companyId;
+    const companyName = typeof rule.companyId === 'object' && rule.companyId ? (rule.companyId as any).name : undefined;
+    const ratePlanId = typeof rule.ratePlanId === 'object' && rule.ratePlanId ? (rule.ratePlanId as any)._id : rule.ratePlanId;
+    const ratePlanObj = typeof rule.ratePlanId === 'object' && rule.ratePlanId
+      ? rule.ratePlanId as any
+      : ratePlans.find(rp => rp._id === (typeof rule.ratePlanId === 'string' ? rule.ratePlanId : (rule.ratePlanId as any)?._id)) || null;
+    setSelectedRuleCompany(companyId && rule.ruleTarget === 'company' ? { _id: companyId, name: companyName || companyId } as Company : null);
+    setSelectedRuleGuest(rule.ruleTarget === 'guest' && rule.guestEmail
+      ? { _id: '', firstName: '', lastName: '', email: rule.guestEmail, createdAt: '', updatedAt: '' } as Guest
+      : null);
+    setSelectedRuleRatePlan(ratePlanObj
+      ? { _id: ratePlanObj._id || ratePlanId || '', name: ratePlanObj.name || '', roomTypeId: ratePlanObj.roomTypeId || '', basePrice: ratePlanObj.basePrice ?? 0, pricingMode: 'tiered', occupancyTiers: ratePlanObj.occupancyTiers || [] }
+      : null);
+    setRuleForm({
+      _id: rule._id,
+      name: rule.name,
+      ruleTarget: rule.ruleTarget,
+      companyId: companyId || '',
+      guestEmail: rule.guestEmail || '',
+      ratePlanId: ratePlanId || '',
+      ruleModel: rule.ruleModel,
+      direction: rule.direction || 'discount',
+      value: rule.value ?? 0,
+      scope: rule.scope || 'both',
+      customBasePrice: rule.customBasePrice ?? 0,
+      customOccupancyTiers: rule.customOccupancyTiers ? [...rule.customOccupancyTiers] : defaultTiers().map(t => ({ ...t })),
+      periodPattern: rule.periodPattern || 'all_days',
+      specificDays: rule.specificDays || [],
+      dateStart: rule.dateStart?.substring(0, 10) || '',
+      dateEnd: rule.dateEnd?.substring(0, 10) || '',
+      minimumNights: rule.minimumNights != null ? String(rule.minimumNights) : '',
+      blackoutDates: rule.blackoutDates
+        ? rule.blackoutDates.map(b => ({ start: b.start.substring(0, 10), end: b.end.substring(0, 10) }))
+        : [],
+      isActive: rule.isActive ?? true,
+    });
+    setRuleWizardStep(0);
     setRuleDialog(true);
+  };
+
+  const validateRuleWizardStep = (): string | null => {
+    if (ruleWizardStep === 0) {
+      if (!ruleForm.name.trim()) return t('admin.pricing.rules.errors.nameRequired', 'Rule name is required');
+      if (!ruleForm.ratePlanId) return 'Please select a base rate plan';
+      if (ruleForm.ruleTarget === 'company' && !ruleForm.companyId) return 'Please select a company';
+      if (ruleForm.ruleTarget === 'guest' && !ruleForm.guestEmail.trim()) return 'Please select or enter a guest email';
+    }
+    if (ruleWizardStep === 2) {
+      if (ruleForm.dateStart && !ruleForm.dateEnd) return t('admin.pricing.rules.errors.endDateRequired', 'End date is required when start date is set');
+      if (!ruleForm.dateStart && ruleForm.dateEnd) return 'Start date is required when end date is set';
+      if (ruleForm.periodPattern === 'specific_days' && ruleForm.specificDays.length === 0) return 'Please select at least one day';
+      for (const bo of ruleForm.blackoutDates) {
+        if (!bo.start || !bo.end) return 'Blackout dates require both start and end dates';
+      }
+    }
+    return null;
+  };
+
+  const handleRuleWizardNext = () => {
+    const err = validateRuleWizardStep();
+    if (err) { setError(err); return; }
+    setError(null);
+    setRuleWizardStep(s => s + 1);
   };
 
   const saveRule = async () => {
+    const err = validateRuleWizardStep();
+    if (err) { setError(err); return; }
     try {
-      if (!ruleForm.name.trim()) { setError(t('admin.pricing.rules.errors.nameRequired')); return; }
-      if (ruleForm.dateStart && !ruleForm.dateEnd) { setError(t('admin.pricing.rules.errors.endDateRequired')); return; }
       setError(null);
-      const payload: any = { ...ruleForm };
-      // Ensure clearing optional refs sends null (not undefined, which JSON omits)
-      if (!payload.roomTypeId) payload.roomTypeId = null;
-      if (!payload.companyId) payload.companyId = null;
-      if (!payload.ratePlanId) payload.ratePlanId = null;
-      if (!payload.guestEmail) payload.guestEmail = null;
+      const payload: any = {
+        name: ruleForm.name,
+        ruleTarget: ruleForm.ruleTarget,
+        companyId: ruleForm.ruleTarget === 'company' ? ruleForm.companyId || null : null,
+        guestEmail: ruleForm.ruleTarget === 'guest' ? ruleForm.guestEmail.trim() || null : null,
+        ratePlanId: ruleForm.ratePlanId,
+        ruleModel: ruleForm.ruleModel,
+        periodPattern: ruleForm.periodPattern,
+        specificDays: ruleForm.periodPattern === 'specific_days' ? ruleForm.specificDays : [],
+        dateStart: ruleForm.dateStart || null,
+        dateEnd: ruleForm.dateEnd || null,
+        minimumNights: ruleForm.minimumNights !== '' ? Number(ruleForm.minimumNights) : null,
+        blackoutDates: ruleForm.blackoutDates,
+        isActive: ruleForm.isActive,
+      };
+      if (ruleForm.ruleModel === 'custom') {
+        payload.customBasePrice = ruleForm.customBasePrice;
+        payload.customOccupancyTiers = ruleForm.customOccupancyTiers;
+      } else {
+        payload.direction = ruleForm.ruleTarget === 'promotional' ? ruleForm.direction : 'discount';
+        payload.value = ruleForm.value;
+        payload.scope = ruleForm.scope;
+      }
       if (ruleForm._id) {
         await pricingService.updatePricingRule(ruleForm._id, payload);
       } else {
-        await pricingService.createPricingRule(payload as any);
+        await pricingService.createPricingRule(payload);
       }
       setRuleDialog(false);
       await fetchRules();
@@ -382,6 +500,49 @@ const PriceManagement: React.FC = () => {
     } catch {
       setError(t('admin.pricing.messages.saveFailed'));
     }
+  };
+
+  // ── Custom tier helpers for rule wizard ───────────────────
+  const addRuleTier = () => {
+    setRuleForm(prev => ({
+      ...prev,
+      customOccupancyTiers: [...prev.customOccupancyTiers, { guestType: 'adult', guestNumber: prev.customOccupancyTiers.filter(tt => tt.guestType === 'adult').length + 1, price: 0 }],
+    }));
+  };
+
+  const removeRuleTier = (index: number) => {
+    setRuleForm(prev => ({ ...prev, customOccupancyTiers: prev.customOccupancyTiers.filter((_, i) => i !== index) }));
+  };
+
+  const updateRuleTier = (index: number, field: keyof IOccupancyTierOverride, value: any) => {
+    setRuleForm(prev => ({
+      ...prev,
+      customOccupancyTiers: prev.customOccupancyTiers.map((tier, i) => i === index ? { ...tier, [field]: value } : tier),
+    }));
+  };
+
+  const toggleRuleDay = (day: number) => {
+    setRuleForm(prev => ({
+      ...prev,
+      specificDays: prev.specificDays.includes(day)
+        ? prev.specificDays.filter(d => d !== day)
+        : [...prev.specificDays, day].sort((a, b) => a - b),
+    }));
+  };
+
+  const addRuleBlackout = () => {
+    setRuleForm(prev => ({ ...prev, blackoutDates: [...prev.blackoutDates, { start: '', end: '' }] }));
+  };
+
+  const removeRuleBlackout = (index: number) => {
+    setRuleForm(prev => ({ ...prev, blackoutDates: prev.blackoutDates.filter((_, i) => i !== index) }));
+  };
+
+  const updateRuleBlackout = (index: number, field: 'start' | 'end', value: string) => {
+    setRuleForm(prev => ({
+      ...prev,
+      blackoutDates: prev.blackoutDates.map((b, i) => i === index ? { ...b, [field]: value } : b),
+    }));
   };
 
   // ── Tax handlers ──────────────────────────────────────────
@@ -468,10 +629,10 @@ const PriceManagement: React.FC = () => {
   };
 
   const openEditServicePrice = (sp: ServicePriceRecord) => {
-    const svcId = typeof sp.serviceId === 'object' ? (sp.serviceId as ServiceRecord)._id : sp.serviceId;
-    const svcObj = typeof sp.serviceId === 'object' ? sp.serviceId as ServiceRecord : services.find(s => s._id === sp.serviceId) || null;
-    const compId = typeof sp.companyId === 'object' ? (sp.companyId as any)._id : sp.companyId;
-    const compName = typeof sp.companyId === 'object' ? (sp.companyId as any).name : undefined;
+    const svcId = typeof sp.serviceId === 'object' && sp.serviceId ? (sp.serviceId as ServiceRecord)._id : sp.serviceId;
+    const svcObj = typeof sp.serviceId === 'object' && sp.serviceId ? sp.serviceId as ServiceRecord : services.find(s => s._id === sp.serviceId) || null;
+    const compId = typeof sp.companyId === 'object' && sp.companyId ? (sp.companyId as any)._id : sp.companyId;
+    const compName = typeof sp.companyId === 'object' && sp.companyId ? (sp.companyId as any).name : undefined;
     setServicePriceSelectedService(svcObj);
     setServicePriceSelectedCompany(compId ? { _id: compId, name: compName || compId } as Company : null);
     setServicePriceForm({
@@ -523,11 +684,11 @@ const PriceManagement: React.FC = () => {
   };
 
   const openEditChargePolicy = (rule: ChargeRule) => {
-    const rawTmplId = typeof rule.chargeTemplateId === 'object'
+    const rawTmplId = typeof rule.chargeTemplateId === 'object' && rule.chargeTemplateId
       ? (rule.chargeTemplateId as any)._id
       : rule.chargeTemplateId;
     const tmpl = chargeTemplates.find(tmplItem => tmplItem._id === rawTmplId)
-      || (typeof rule.chargeTemplateId === 'object' ? rule.chargeTemplateId as unknown as ChargeTemplate : undefined);
+      || (typeof rule.chargeTemplateId === 'object' && rule.chargeTemplateId ? rule.chargeTemplateId as unknown as ChargeTemplate : undefined);
     setChargePolicyEditIds({ ruleId: rule._id!, templateId: rawTmplId || null });
     setChargePolicyForm({
       name: rule.name,
@@ -582,7 +743,7 @@ const PriceManagement: React.FC = () => {
   const deleteChargePolicy = async (rule: ChargeRule) => {
     if (!window.confirm(t('admin.pricing.dialog.deletePrompt'))) return;
     try {
-      const rawTmplId = typeof rule.chargeTemplateId === 'object'
+      const rawTmplId = typeof rule.chargeTemplateId === 'object' && rule.chargeTemplateId
         ? (rule.chargeTemplateId as any)._id
         : rule.chargeTemplateId;
       await chargeRulesService.deleteChargeRule(rule._id!);
@@ -624,18 +785,6 @@ const PriceManagement: React.FC = () => {
   };
 
   // ─────────────────────────────────────────────────────────────
-  const adjustmentTypeLabel = {
-    replace: t('admin.pricing.rules.adjustmentTypes.replace'),
-    percent: t('admin.pricing.rules.adjustmentTypes.percent'),
-    fixed: t('admin.pricing.rules.adjustmentTypes.fixed'),
-  };
-
-  const adjustmentScopeLabel = {
-    base: t('admin.pricing.rules.adjustmentScopes.base'),
-    occupancy: t('admin.pricing.rules.adjustmentScopes.occupancy'),
-    subtotal: t('admin.pricing.rules.adjustmentScopes.subtotal'),
-  };
-
   const taxAppliesToLabel = {
     room: t('admin.pricing.taxes.appliesToLabels.room'),
     guest: t('admin.pricing.taxes.appliesToLabels.guest'),
@@ -645,7 +794,7 @@ const PriceManagement: React.FC = () => {
   // ── Helper: resolve room type name from populated data ─
   const getRoomTypeName = (roomTypeId: any): string => {
     if (!roomTypeId) return '';
-    if (typeof roomTypeId === 'object') return roomTypeId.name || '';
+    if (typeof roomTypeId === 'object' && roomTypeId) return roomTypeId.name || '';
     const found = roomTypes.find(rt => rt._id === roomTypeId);
     return found?.name || String(roomTypeId);
   };
@@ -753,10 +902,11 @@ const PriceManagement: React.FC = () => {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>{t('admin.pricing.rules.table.name')}</TableCell>
-                  <TableCell>{t('admin.pricing.rules.table.conditions')}</TableCell>
-                  <TableCell>{t('admin.pricing.rules.table.adjustment')}</TableCell>
-                  <TableCell>{t('admin.pricing.rules.table.priority')}</TableCell>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Target</TableCell>
+                  <TableCell>Rate Plan</TableCell>
+                  <TableCell>Rule</TableCell>
+                  <TableCell>Period</TableCell>
                   <TableCell>{t('admin.pricing.rules.table.active')}</TableCell>
                   <TableCell>{t('admin.pricing.rules.table.actions')}</TableCell>
                 </TableRow>
@@ -764,34 +914,53 @@ const PriceManagement: React.FC = () => {
               <TableBody>
                 {rules.map(rule => {
                   const companyName = typeof rule.companyId === 'object' ? (rule.companyId as any)?.name : rule.companyId;
-                  const ratePlanName = rule.ratePlanId && typeof rule.ratePlanId === 'object'
-                    ? `${getRoomTypeName((rule.ratePlanId as any).roomTypeId)} – ${(rule.ratePlanId as any).name}`
-                    : rule.ratePlanId;
-                  const roomTypeName = getRoomTypeName(rule.roomTypeId);
+                  const ratePlanName = typeof rule.ratePlanId === 'object' && rule.ratePlanId
+                    ? (rule.ratePlanId as any).name
+                    : ratePlans.find(rp => rp._id === rule.ratePlanId)?.name || rule.ratePlanId;
                   return (
                     <TableRow key={rule._id}>
                       <TableCell>{rule.name}</TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                          {rule.dateStart && <Typography variant="caption">{rule.dateStart?.substring(0, 10)} → {rule.dateEnd?.substring(0, 10)}</Typography>}
-                          {roomTypeName && <Chip size="small" label={roomTypeName} variant="outlined" />}
-                          {ratePlanName && <Chip size="small" label={ratePlanName} color="primary" variant="outlined" />}
-                          {companyName && <Chip size="small" label={companyName} color="secondary" variant="outlined" />}
-                          {rule.guestEmail && <Chip size="small" label={rule.guestEmail} variant="outlined" />}
-                          {!rule.dateStart && !rule.roomTypeId && !rule.companyId && !rule.guestEmail && !rule.ratePlanId && (
-                            <Typography variant="caption" color="text.secondary">{t('admin.pricing.rules.anyCondition')}</Typography>
+                          <Chip size="small"
+                            label={rule.ruleTarget}
+                            color={rule.ruleTarget === 'guest' ? 'success' : rule.ruleTarget === 'company' ? 'primary' : 'default'}
+                          />
+                          {rule.ruleTarget === 'company' && companyName && (
+                            <Typography variant="caption">{companyName}</Typography>
+                          )}
+                          {rule.ruleTarget === 'guest' && rule.guestEmail && (
+                            <Typography variant="caption">{rule.guestEmail}</Typography>
                           )}
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Box>
-                          <Typography variant="body2">
-                            {adjustmentTypeLabel[rule.adjustmentType]}: {rule.adjustmentType === 'percent' ? `${rule.adjustmentValue}%` : `$${rule.adjustmentValue}`}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">{t('admin.pricing.rules.on')} {adjustmentScopeLabel[rule.adjustmentScope]}</Typography>
+                        <Typography variant="body2">{ratePlanName || '—'}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        {rule.ruleModel === 'custom' ? (
+                          <Chip size="small" label="Custom" />
+                        ) : (
+                          <Box>
+                            <Typography variant="body2">
+                              {rule.direction === 'surcharge' ? '+' : '−'}
+                              {rule.ruleModel === 'percentage' ? `${rule.value}%` : `$${rule.value}`}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">on {rule.scope}</Typography>
+                          </Box>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                          <Chip size="small" label={(rule.periodPattern || 'all_days').replace('_', ' ')} variant="outlined" />
+                          {rule.dateStart && (
+                            <Typography variant="caption">{rule.dateStart.substring(0, 10)} → {rule.dateEnd?.substring(0, 10)}</Typography>
+                          )}
+                          {rule.minimumNights && (
+                            <Typography variant="caption">{rule.minimumNights}+ nights</Typography>
+                          )}
                         </Box>
                       </TableCell>
-                      <TableCell>{rule.priority}</TableCell>
                       <TableCell>
                         <Chip size="small" label={rule.isActive ? t('common.yes') : t('common.no')} color={rule.isActive ? 'success' : 'default'} />
                       </TableCell>
@@ -803,7 +972,7 @@ const PriceManagement: React.FC = () => {
                   );
                 })}
                 {rules.length === 0 && !rulesLoading && (
-                  <TableRow><TableCell colSpan={6} align="center">{t('admin.pricing.rules.empty')}</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={7} align="center">{t('admin.pricing.rules.empty')}</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
@@ -935,7 +1104,7 @@ const PriceManagement: React.FC = () => {
                 {servicePricesLoading ? (
                   <TableRow><TableCell colSpan={8} align="center"><CircularProgress size={24} /></TableCell></TableRow>
                 ) : servicePrices.map(sp => {
-                  const svcName = typeof sp.serviceId === 'object' ? (sp.serviceId as ServiceRecord).name : services.find(s => s._id === sp.serviceId)?.name || sp.serviceId;
+                  const svcName = typeof sp.serviceId === 'object' && sp.serviceId ? (sp.serviceId as ServiceRecord).name : services.find(s => s._id === sp.serviceId)?.name || sp.serviceId;
                   const dateRange = sp.startDate && sp.endDate ? `${sp.startDate.substring(0,10)} – ${sp.endDate.substring(0,10)}` : '—';
                   return (
                     <TableRow key={sp._id} hover>
@@ -1083,128 +1252,413 @@ const PriceManagement: React.FC = () => {
           </DialogActions>
         </Dialog>
 
-        {/* ── Rule Dialog ──────────────────────────────────── */}
-        <Dialog open={ruleDialog} onClose={() => setRuleDialog(false)} maxWidth="sm" fullWidth>
+        {/* ── Rule Wizard Dialog ───────────────────────────── */}
+        <Dialog open={ruleDialog} onClose={() => { setRuleDialog(false); setError(null); }} maxWidth="md" fullWidth>
           <DialogTitle>
-            {ruleForm._id ? t('admin.pricing.rules.dialog.editTitle') : t('admin.pricing.rules.dialog.newTitle')}
+            {ruleForm._id ? t('admin.pricing.rules.dialog.editTitle', 'Edit Price Rule') : t('admin.pricing.rules.dialog.newTitle', 'New Price Rule')}
           </DialogTitle>
           <DialogContent>
-            <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
-              <TextField
-                label={t('admin.pricing.rules.form.name')}
-                value={ruleForm.name}
-                onChange={e => setRuleForm(p => ({ ...p, name: e.target.value }))}
-                required fullWidth
-              />
+            <Box sx={{ pt: 1 }}>
+              <Stepper activeStep={ruleWizardStep} sx={{ mb: 3 }}>
+                {['Target', 'Rule Model', 'Period', 'Preview'].map(label => (
+                  <Step key={label}><StepLabel>{label}</StepLabel></Step>
+                ))}
+              </Stepper>
 
-              <Typography variant="subtitle2" color="text.secondary">{t('admin.pricing.rules.conditionsSection')}</Typography>
-
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                <TextField
-                  type="date"
-                  label={t('admin.pricing.rules.form.dateStart')}
-                  value={ruleForm.dateStart?.substring(0, 10) || ''}
-                  onChange={e => setRuleForm(p => ({ ...p, dateStart: e.target.value || undefined }))}
-                  InputLabelProps={{ shrink: true }}
-                />
-                <TextField
-                  type="date"
-                  label={t('admin.pricing.rules.form.dateEnd')}
-                  value={ruleForm.dateEnd?.substring(0, 10) || ''}
-                  onChange={e => setRuleForm(p => ({ ...p, dateEnd: e.target.value || undefined }))}
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Box>
-
-              <Autocomplete
-                options={roomTypes}
-                getOptionLabel={o => o.name}
-                value={selectedRuleRoomType}
-                onChange={(_, val) => {
-                  setSelectedRuleRoomType(val);
-                  setRuleForm(p => ({ ...p, roomTypeId: val?._id || undefined }));
-                }}
-                renderInput={params => (
-                  <TextField {...params} label={t('admin.pricing.rules.form.roomType')}
-                    helperText={t('admin.pricing.rules.form.roomTypeHelper')}
+              {/* ── Step 1: Name + Target + Rate Plan ── */}
+              {ruleWizardStep === 0 && (
+                <Box sx={{ display: 'grid', gap: 2 }}>
+                  <TextField
+                    label="Rule Name"
+                    value={ruleForm.name}
+                    onChange={e => setRuleForm(p => ({ ...p, name: e.target.value }))}
+                    required fullWidth
                   />
-                )}
-              />
+                  <FormControl fullWidth>
+                    <InputLabel>Who is this rule for?</InputLabel>
+                    <Select
+                      value={ruleForm.ruleTarget}
+                      label="Who is this rule for?"
+                      onChange={e => setRuleForm(p => ({ ...p, ruleTarget: e.target.value as RuleTarget, companyId: '', guestEmail: '' }))}
+                    >
+                      <MenuItem value="company">Company</MenuItem>
+                      <MenuItem value="guest">Guest</MenuItem>
+                      <MenuItem value="promotional">Promotional</MenuItem>
+                    </Select>
+                  </FormControl>
 
-              <Autocomplete
-                options={ruleCompanyOptions}
-                getOptionLabel={o => o.name}
-                value={selectedRuleCompany}
-                onChange={(_, val) => {
-                  setSelectedRuleCompany(val);
-                  setRuleForm(p => ({ ...p, companyId: val?._id || undefined }));
-                }}
-                onInputChange={(_, v) => setRuleCompanySearch(v)}
-                renderInput={params => (
-                  <TextField {...params} label={t('admin.pricing.rules.form.company')} />
-                )}
-              />
+                  {ruleForm.ruleTarget === 'company' && (
+                    <Autocomplete
+                      options={ruleCompanyOptions}
+                      getOptionLabel={o => o.name}
+                      value={selectedRuleCompany}
+                      onChange={(_, val) => {
+                        setSelectedRuleCompany(val);
+                        setRuleForm(p => ({ ...p, companyId: val?._id || '' }));
+                      }}
+                      onInputChange={(_, v) => setRuleCompanySearch(v)}
+                      renderInput={params => (
+                        <TextField {...params} label="Company" required helperText="Type to search companies" />
+                      )}
+                    />
+                  )}
 
-              <TextField
-                type="email"
-                label={t('admin.pricing.rules.form.guestEmail')}
-                value={ruleForm.guestEmail || ''}
-                onChange={e => setRuleForm(p => ({ ...p, guestEmail: e.target.value || undefined }))}
-                fullWidth
-              />
+                  {ruleForm.ruleTarget === 'guest' && (
+                    <Autocomplete
+                      options={ruleGuestOptions}
+                      getOptionLabel={o => `${o.firstName} ${o.lastName}`}
+                      value={selectedRuleGuest}
+                      onChange={(_, val) => {
+                        setSelectedRuleGuest(val);
+                        setRuleForm(p => ({ ...p, guestEmail: val?.email || '' }));
+                      }}
+                      onInputChange={(_, v) => setRuleGuestSearch(v)}
+                      renderOption={(props, o) => (
+                        <li {...props} key={o._id}>
+                          <Box>
+                            <Typography variant="body2">{o.firstName} {o.lastName}</Typography>
+                            <Typography variant="caption" color="text.secondary">{o.email}</Typography>
+                          </Box>
+                        </li>
+                      )}
+                      renderInput={params => (
+                        <TextField {...params} label="Guest" required helperText="Search by name" />
+                      )}
+                    />
+                  )}
 
-              <Divider />
-              <Typography variant="subtitle2" color="text.secondary">{t('admin.pricing.rules.actionSection')}</Typography>
+                  {ruleForm.ruleTarget === 'guest' && ruleForm.guestEmail && (
+                    <TextField
+                      label="Guest Email"
+                      value={ruleForm.guestEmail}
+                      onChange={e => setRuleForm(p => ({ ...p, guestEmail: e.target.value }))}
+                      size="small"
+                      helperText="You can also type an email directly"
+                    />
+                  )}
 
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                <FormControl fullWidth>
-                  <InputLabel>{t('admin.pricing.rules.form.adjustmentType')}</InputLabel>
-                  <Select
-                    value={ruleForm.adjustmentType}
-                    label={t('admin.pricing.rules.form.adjustmentType')}
-                    onChange={e => setRuleForm(p => ({ ...p, adjustmentType: e.target.value as any }))}
-                  >
-                    <MenuItem value="replace">{adjustmentTypeLabel.replace}</MenuItem>
-                    <MenuItem value="percent">{adjustmentTypeLabel.percent}</MenuItem>
-                    <MenuItem value="fixed">{adjustmentTypeLabel.fixed}</MenuItem>
-                  </Select>
-                </FormControl>
-                <NumberField
-                  label={ruleForm.adjustmentType === 'percent' ? t('admin.pricing.rules.form.adjustmentValuePercent') : t('admin.pricing.rules.form.adjustmentValue')}
-                  value={ruleForm.adjustmentValue}
-                  onChange={val => setRuleForm(p => ({ ...p, adjustmentValue: val ?? 0 }))}
-                  allowDecimal
-                />
-              </Box>
+                  <Autocomplete
+                    options={ratePlans}
+                    getOptionLabel={o => o.name}
+                    value={selectedRuleRatePlan}
+                    onChange={(_, val) => {
+                      setSelectedRuleRatePlan(val);
+                      setRuleForm(p => ({ ...p, ratePlanId: val?._id || '' }));
+                    }}
+                    renderInput={params => (
+                      <TextField {...params} label="Base Rate Plan" required helperText="The rate plan this rule will modify" />
+                    )}
+                  />
+                </Box>
+              )}
 
-              <FormControl fullWidth>
-                <InputLabel>{t('admin.pricing.rules.form.adjustmentScope')}</InputLabel>
-                <Select
-                  value={ruleForm.adjustmentScope}
-                  label={t('admin.pricing.rules.form.adjustmentScope')}
-                  onChange={e => setRuleForm(p => ({ ...p, adjustmentScope: e.target.value as any }))}
-                >
-                  <MenuItem value="base">{adjustmentScopeLabel.base}</MenuItem>
-                  <MenuItem value="occupancy">{adjustmentScopeLabel.occupancy}</MenuItem>
-                  <MenuItem value="subtotal">{adjustmentScopeLabel.subtotal}</MenuItem>
-                </Select>
-              </FormControl>
+              {/* ── Step 2: Rule Model ── */}
+              {ruleWizardStep === 1 && (
+                <Box sx={{ display: 'grid', gap: 2 }}>
+                  <FormControl fullWidth>
+                    <InputLabel>Rule Model</InputLabel>
+                    <Select
+                      value={ruleForm.ruleModel}
+                      label="Rule Model"
+                      onChange={e => setRuleForm(p => ({ ...p, ruleModel: e.target.value as RuleModel }))}
+                    >
+                      <MenuItem value="percentage">Percentage</MenuItem>
+                      <MenuItem value="fixed">Fixed Amount</MenuItem>
+                      <MenuItem value="custom">Custom</MenuItem>
+                    </Select>
+                  </FormControl>
 
-              <NumberField
-                label={t('admin.pricing.rules.form.priority')}
-                value={ruleForm.priority}
-                onChange={val => setRuleForm(p => ({ ...p, priority: val ?? 0 }))}
-              />
+                  {ruleForm.ruleModel === 'custom' && (
+                    <Alert severity="info">Custom rules replace the rate plan entirely with specific prices you define below.</Alert>
+                  )}
 
-              <FormControlLabel
-                control={<Switch checked={ruleForm.isActive ?? true} onChange={e => setRuleForm(p => ({ ...p, isActive: e.target.checked }))} />}
-                label={t('admin.pricing.form.active')}
-              />
+                  {(ruleForm.ruleModel === 'percentage' || ruleForm.ruleModel === 'fixed') && (
+                    <>
+                      {ruleForm.ruleTarget === 'promotional' ? (
+                        <FormControl fullWidth>
+                          <InputLabel>Direction</InputLabel>
+                          <Select
+                            value={ruleForm.direction}
+                            label="Direction"
+                            onChange={e => setRuleForm(p => ({ ...p, direction: e.target.value as RuleDirection }))}
+                          >
+                            <MenuItem value="discount">Discount (reduces price)</MenuItem>
+                            <MenuItem value="surcharge">Surcharge (increases price)</MenuItem>
+                          </Select>
+                        </FormControl>
+                      ) : (
+                        <Alert severity="info">Company and Guest rules always apply as discounts.</Alert>
+                      )}
+                      <NumberField
+                        label={ruleForm.ruleModel === 'percentage' ? 'Amount (%)' : 'Amount ($)'}
+                        value={ruleForm.value}
+                        onChange={val => setRuleForm(p => ({ ...p, value: val ?? 0 }))}
+                        min={0}
+                        allowDecimal
+                      />
+                      <FormControl fullWidth>
+                        <InputLabel>Applies to</InputLabel>
+                        <Select
+                          value={ruleForm.scope}
+                          label="Applies to"
+                          onChange={e => setRuleForm(p => ({ ...p, scope: e.target.value as RuleScope }))}
+                        >
+                          <MenuItem value="base">Base Price only</MenuItem>
+                          <MenuItem value="occupancy">Occupancy charges only</MenuItem>
+                          <MenuItem value="both">Both (base + occupancy)</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </>
+                  )}
+
+                  {ruleForm.ruleModel === 'custom' && (
+                    <>
+                      <NumberField
+                        label="Base Price per night ($)"
+                        value={ruleForm.customBasePrice}
+                        onChange={val => setRuleForm(p => ({ ...p, customBasePrice: val ?? 0 }))}
+                        min={0}
+                        allowDecimal
+                      />
+                      <Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                          <Typography variant="subtitle2">Occupancy Tier Prices</Typography>
+                          <Button size="small" startIcon={<AddIcon />} onClick={addRuleTier}>Add Tier</Button>
+                        </Box>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                          Set price to 0 to include that guest in the base price.
+                        </Typography>
+                        <TableContainer component={Paper} variant="outlined">
+                          <Table size="small">
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>Type</TableCell>
+                                <TableCell>#</TableCell>
+                                <TableCell>Price</TableCell>
+                                <TableCell />
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {ruleForm.customOccupancyTiers.map((tier, idx) => (
+                                <TableRow key={idx}>
+                                  <TableCell>
+                                    <FormControl size="small" fullWidth>
+                                      <Select value={tier.guestType} onChange={e => updateRuleTier(idx, 'guestType', e.target.value)}>
+                                        <MenuItem value="adult">Adult</MenuItem>
+                                        <MenuItem value="child">Child</MenuItem>
+                                      </Select>
+                                    </FormControl>
+                                  </TableCell>
+                                  <TableCell>
+                                    <NumberField size="small" value={tier.guestNumber} onChange={v => updateRuleTier(idx, 'guestNumber', v ?? 1)} min={1} sx={{ width: 70 }} />
+                                  </TableCell>
+                                  <TableCell>
+                                    <NumberField size="small" allowDecimal value={tier.price} onChange={v => updateRuleTier(idx, 'price', v ?? 0)} min={0}
+                                      helperText={tier.price === 0 ? 'Included' : undefined} sx={{ width: 100 }} />
+                                  </TableCell>
+                                  <TableCell>
+                                    <Tooltip title="Remove"><IconButton size="small" onClick={() => removeRuleTier(idx)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                              {ruleForm.customOccupancyTiers.length === 0 && (
+                                <TableRow><TableCell colSpan={4} align="center"><Typography variant="caption" color="text.secondary">No tiers added</Typography></TableCell></TableRow>
+                              )}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                      </Box>
+                    </>
+                  )}
+                </Box>
+              )}
+
+              {/* ── Step 3: Period ── */}
+              {ruleWizardStep === 2 && (
+                <Box sx={{ display: 'grid', gap: 2 }}>
+                  <FormControl fullWidth>
+                    <InputLabel>Period Pattern</InputLabel>
+                    <Select
+                      value={ruleForm.periodPattern}
+                      label="Period Pattern"
+                      onChange={e => setRuleForm(p => ({ ...p, periodPattern: e.target.value as PeriodPattern, specificDays: [] }))}
+                    >
+                      <MenuItem value="all_days">All Days</MenuItem>
+                      <MenuItem value="weekdays">Weekdays Only (Mon–Fri)</MenuItem>
+                      <MenuItem value="weekends">Weekends Only (Sat–Sun)</MenuItem>
+                      <MenuItem value="specific_days">Specific Days</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  {ruleForm.periodPattern === 'specific_days' && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>Select which days apply:</Typography>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
+                          <Chip
+                            key={i}
+                            label={day}
+                            clickable
+                            color={ruleForm.specificDays.includes(i) ? 'primary' : 'default'}
+                            onClick={() => toggleRuleDay(i)}
+                          />
+                        ))}
+                      </Box>
+                    </Box>
+                  )}
+
+                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                    <TextField
+                      type="date"
+                      label="Validity Start"
+                      value={ruleForm.dateStart}
+                      onChange={e => setRuleForm(p => ({ ...p, dateStart: e.target.value }))}
+                      InputLabelProps={{ shrink: true }}
+                      helperText="Leave blank for open-ended"
+                    />
+                    <TextField
+                      type="date"
+                      label="Validity End"
+                      value={ruleForm.dateEnd}
+                      onChange={e => setRuleForm(p => ({ ...p, dateEnd: e.target.value }))}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Box>
+
+                  <TextField
+                    label="Minimum Nights"
+                    type="number"
+                    value={ruleForm.minimumNights}
+                    onChange={e => setRuleForm(p => ({ ...p, minimumNights: e.target.value }))}
+                    inputProps={{ min: 1, step: 1 }}
+                    helperText="Leave blank for no minimum"
+                  />
+
+                  <Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="subtitle2">Blackout Dates</Typography>
+                      <Button size="small" startIcon={<AddIcon />} onClick={addRuleBlackout}>Add Period</Button>
+                    </Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                      Rule never applies during blackout periods, even if they overlap with the validity window.
+                    </Typography>
+                    {ruleForm.blackoutDates.map((bo, i) => (
+                      <Box key={i} sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 1, mb: 1, alignItems: 'center' }}>
+                        <TextField
+                          type="date" label="From" value={bo.start}
+                          onChange={e => updateRuleBlackout(i, 'start', e.target.value)}
+                          InputLabelProps={{ shrink: true }} size="small"
+                        />
+                        <TextField
+                          type="date" label="To" value={bo.end}
+                          onChange={e => updateRuleBlackout(i, 'end', e.target.value)}
+                          InputLabelProps={{ shrink: true }} size="small"
+                        />
+                        <IconButton size="small" onClick={() => removeRuleBlackout(i)}><DeleteIcon /></IconButton>
+                      </Box>
+                    ))}
+                    {ruleForm.blackoutDates.length === 0 && (
+                      <Typography variant="caption" color="text.secondary">No blackout periods configured</Typography>
+                    )}
+                  </Box>
+                </Box>
+              )}
+
+              {/* ── Step 4: Preview ── */}
+              {ruleWizardStep === 3 && (
+                <Box sx={{ display: 'grid', gap: 2 }}>
+                  <Typography variant="h6">{ruleForm.name || '—'}</Typography>
+
+                  <Paper variant="outlined" sx={{ p: 2, display: 'grid', gap: 1 }}>
+                    <Typography variant="subtitle2" color="text.secondary">Target</Typography>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <Chip
+                        label={ruleForm.ruleTarget}
+                        color={ruleForm.ruleTarget === 'guest' ? 'success' : ruleForm.ruleTarget === 'company' ? 'primary' : 'default'}
+                      />
+                      {ruleForm.ruleTarget === 'company' && selectedRuleCompany && (
+                        <Typography variant="body2">{selectedRuleCompany.name}</Typography>
+                      )}
+                      {ruleForm.ruleTarget === 'guest' && ruleForm.guestEmail && (
+                        <Typography variant="body2">{ruleForm.guestEmail}</Typography>
+                      )}
+                    </Box>
+                    {(ruleForm.ruleTarget === 'company' || ruleForm.ruleTarget === 'guest') && (
+                      <Typography variant="caption" color="text.secondary">
+                        Applies only when reservation is created by front desk staff.
+                      </Typography>
+                    )}
+                  </Paper>
+
+                  <Paper variant="outlined" sx={{ p: 2, display: 'grid', gap: 1 }}>
+                    <Typography variant="subtitle2" color="text.secondary">Base Rate Plan</Typography>
+                    <Typography>{selectedRuleRatePlan?.name || ruleForm.ratePlanId || '—'}</Typography>
+                  </Paper>
+
+                  <Paper variant="outlined" sx={{ p: 2, display: 'grid', gap: 1 }}>
+                    <Typography variant="subtitle2" color="text.secondary">Pricing Rule</Typography>
+                    {ruleForm.ruleModel === 'custom' ? (
+                      <Box>
+                        <Chip label="Custom" size="small" />
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>
+                          Replaces rate plan entirely. Base: ${ruleForm.customBasePrice}/night + {ruleForm.customOccupancyTiers.length} occupancy tiers.
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Typography variant="body2">
+                        {ruleForm.ruleTarget !== 'promotional' ? 'Discount' : ruleForm.direction === 'discount' ? 'Discount' : 'Surcharge'} of{' '}
+                        {ruleForm.ruleModel === 'percentage' ? `${ruleForm.value}%` : `$${ruleForm.value}`}
+                        {' '}on{' '}
+                        {ruleForm.scope === 'base' ? 'base price' : ruleForm.scope === 'occupancy' ? 'occupancy charges' : 'base + occupancy'}
+                      </Typography>
+                    )}
+                  </Paper>
+
+                  <Paper variant="outlined" sx={{ p: 2, display: 'grid', gap: 1 }}>
+                    <Typography variant="subtitle2" color="text.secondary">Period</Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                      <Chip size="small" label={(ruleForm.periodPattern || 'all_days').replace(/_/g, ' ')} />
+                      {ruleForm.periodPattern === 'specific_days' && ruleForm.specificDays.length > 0 && (
+                        <Typography variant="body2">
+                          {ruleForm.specificDays.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}
+                        </Typography>
+                      )}
+                    </Box>
+                    {ruleForm.dateStart && (
+                      <Typography variant="body2">Valid: {ruleForm.dateStart} → {ruleForm.dateEnd || 'open-ended'}</Typography>
+                    )}
+                    {ruleForm.minimumNights && (
+                      <Typography variant="body2">Minimum stay: {ruleForm.minimumNights} nights</Typography>
+                    )}
+                    {ruleForm.blackoutDates.length > 0 && (
+                      <Box>
+                        <Typography variant="caption" color="text.secondary">Blackout periods:</Typography>
+                        {ruleForm.blackoutDates.map((b, i) => (
+                          <Typography key={i} variant="caption" display="block">&nbsp;• {b.start} → {b.end}</Typography>
+                        ))}
+                      </Box>
+                    )}
+                  </Paper>
+
+                  <FormControlLabel
+                    control={<Switch checked={ruleForm.isActive} onChange={e => setRuleForm(p => ({ ...p, isActive: e.target.checked }))} />}
+                    label={t('admin.pricing.form.active')}
+                  />
+                </Box>
+              )}
             </Box>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setRuleDialog(false)}>{t('admin.pricing.actions.cancel')}</Button>
-            <Button variant="contained" onClick={saveRule}>{t('admin.pricing.actions.save')}</Button>
+            <Button onClick={() => { setRuleDialog(false); setError(null); }}>{t('admin.pricing.actions.cancel')}</Button>
+            <Box sx={{ flex: 1 }} />
+            {ruleWizardStep > 0 && (
+              <Button onClick={() => { setError(null); setRuleWizardStep(s => s - 1); }}>Back</Button>
+            )}
+            {ruleWizardStep < 3 ? (
+              <Button variant="contained" onClick={handleRuleWizardNext}>Next</Button>
+            ) : (
+              <Button variant="contained" onClick={saveRule}>{t('admin.pricing.actions.save')}</Button>
+            )}
           </DialogActions>
         </Dialog>
 
@@ -1322,6 +1776,19 @@ const PriceManagement: React.FC = () => {
                 control={<Switch checked={serviceForm.isOnlineBookable ?? false} onChange={e => setServiceForm(p => ({ ...p, isOnlineBookable: e.target.checked }))} />}
                 label={t('admin.pricing.services.form.onlineBookable', 'Online Bookable')}
               />
+              {serviceForm.isOnlineBookable && (
+                <FormControl>
+                  <InputLabel>{t('admin.pricing.services.form.reservationMode', 'Reservation Mode')}</InputLabel>
+                  <Select
+                    value={serviceForm.reservationMode || 'dateRange'}
+                    label={t('admin.pricing.services.form.reservationMode', 'Reservation Mode')}
+                    onChange={e => setServiceForm(p => ({ ...p, reservationMode: e.target.value as ReservationMode }))}
+                  >
+                    <MenuItem value="dateRange">{t('admin.pricing.services.form.reservationModeRange', 'Date Range (multi-night)')}</MenuItem>
+                    <MenuItem value="singleDate">{t('admin.pricing.services.form.reservationModeSingle', 'Single Date')}</MenuItem>
+                  </Select>
+                </FormControl>
+              )}
               <FormControlLabel
                 control={<Switch checked={serviceForm.isVisibleInPOS ?? true} onChange={e => setServiceForm(p => ({ ...p, isVisibleInPOS: e.target.checked }))} />}
                 label={t('admin.pricing.services.form.visibleInPOS', 'Visible in POS')}
@@ -1470,8 +1937,8 @@ const PriceManagement: React.FC = () => {
             ) : (
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {chargeRules.map(rule => {
-                  const rawTmplId = typeof rule.chargeTemplateId === 'object' ? (rule.chargeTemplateId as any)._id : rule.chargeTemplateId;
-                  const tmpl = chargeTemplates.find(tmplItem => tmplItem._id === rawTmplId) || (typeof rule.chargeTemplateId === 'object' ? rule.chargeTemplateId as unknown as ChargeTemplate : undefined);
+                  const rawTmplId = typeof rule.chargeTemplateId === 'object' && rule.chargeTemplateId ? (rule.chargeTemplateId as any)._id : rule.chargeTemplateId;
+                  const tmpl = chargeTemplates.find(tmplItem => tmplItem._id === rawTmplId) || (typeof rule.chargeTemplateId === 'object' && rule.chargeTemplateId ? rule.chargeTemplateId as unknown as ChargeTemplate : undefined);
                   const triggerSentence: Record<ChargeTrigger, string> = {
                     checkout_overdue: t('admin.pricing.chargePolicies.triggers.checkout_overdue', 'guest checks out late'),
                     no_show: t('admin.pricing.chargePolicies.triggers.no_show', 'guest never shows up'),
@@ -1616,8 +2083,8 @@ const PriceManagement: React.FC = () => {
                 <TableBody>
                   {auditExecutions.map(ex => (
                     <TableRow key={ex._id}>
-                      <TableCell>{typeof ex.reservationId === 'object' ? (ex.reservationId as any).code ?? ex.reservationId : ex.reservationId}</TableCell>
-                      <TableCell>{typeof ex.chargeRuleId === 'object' ? (ex.chargeRuleId as any).name ?? ex.chargeRuleId : ex.chargeRuleId}</TableCell>
+                      <TableCell>{typeof ex.reservationId === 'object' && ex.reservationId ? (ex.reservationId as any).code ?? ex.reservationId : ex.reservationId}</TableCell>
+                      <TableCell>{typeof ex.chargeRuleId === 'object' && ex.chargeRuleId ? (ex.chargeRuleId as any).name ?? ex.chargeRuleId : ex.chargeRuleId}</TableCell>
                       <TableCell>{ex.businessDate}</TableCell>
                       <TableCell>
                         <Chip label={ex.status} size="small" color={ex.status === 'success' ? 'success' : ex.status === 'error' ? 'error' : 'default'} />

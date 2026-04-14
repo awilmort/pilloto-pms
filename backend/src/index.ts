@@ -31,7 +31,7 @@ import servicePriceRoutes from './routes/servicePrices';
 import chargeTemplateRoutes from './routes/chargeTemplates';
 import chargeRuleRoutes from './routes/chargeRules';
 import auditRoutes from './routes/audit';
-import sesWebhookRoutes from './routes/sesWebhook';
+import resendWebhookRoutes from './routes/resendWebhook';
 import otaRoutes from './routes/ota';
 import otaFeedRoutes from './routes/otaFeed';
 import privacyRoutes from './routes/privacy';
@@ -191,8 +191,8 @@ app.use('/api', resolveTenant);
 // Global rate limiter — applied to all API routes (skips authenticated requests)
 app.use('/api', limiter);
 
-// ── SES / SNS webhook (no tenant context, no JWT) ────────────────────────────
-app.use('/api/webhooks', sesWebhookRoutes);
+// ── Resend webhook (no tenant context, no JWT) ──────────────────────────────
+app.use('/api/webhooks', resendWebhookRoutes);
 
 // Routes
 app.use('/api/platform', platformRoutes);

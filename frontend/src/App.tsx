@@ -43,6 +43,7 @@ import GuestsManagement from './pages/admin/GuestsManagement';
 import CreditAccountsManagement from './pages/admin/CreditAccountsManagement';
 import CashierClosuresPage from './pages/admin/CashierClosuresPage';
 import OtaConflictQueue from './pages/admin/OtaConflictQueue';
+import CorporatePriceActionPage from './pages/admin/CorporatePriceActionPage';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import NotFoundPage from './pages/NotFoundPage';
 import LandingPage from './pages/marketing/LandingPage';
@@ -61,6 +62,7 @@ import CookieConsent from './components/marketing/CookieConsent';
 import BookingPage from './pages/booking/BookingPage';
 import BookingTermsPage from './pages/booking/BookingTermsPage';
 import BookingPrivacyPage from './pages/booking/BookingPrivacyPage';
+import BookingReservationPage from './pages/booking/BookingReservationPage';
 import { BookingProvider } from './contexts/BookingContext';
 
 const globalStyles = (
@@ -283,6 +285,11 @@ function TenantApp() {
                 <BookingPrivacyPage />
               </BookingProvider>
             } />
+            <Route path="/booking/reservation/:code" element={
+              <BookingProvider>
+                <BookingReservationPage />
+              </BookingProvider>
+            } />
 
             {/* All other routes use the main layout */}
             <Route path="/*" element={
@@ -297,6 +304,9 @@ function TenantApp() {
                   {/* Public reservation summary pages */}
                   <Route path="/reservation/:confirmationToken" element={<ReservationSummaryPage />} />
                   <Route path="/reservation/code/:reservationCode" element={<ReservationSummaryPage />} />
+
+                  {/* Public corporate price action pages (approve / decline from email link) */}
+                  <Route path="/reservations/:id/corporate-price/:action" element={<CorporatePriceActionPage />} />
 
                   {/* Protected routes that require authentication */}
                   <Route path="/reservations" element={

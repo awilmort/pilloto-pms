@@ -108,7 +108,7 @@ router.delete('/rate-plans/:id', authenticate, authorize('admin'), async (req: A
 
 router.get('/rules', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const rules = await PricingRule.find({}).sort({ priority: -1, name: 1 }).populate('ratePlanId', 'name roomTypeId').populate('roomTypeId', 'name capacity').populate('companyId', 'name').exec();
+    const rules = await PricingRule.find({}).sort({ name: 1 }).populate('ratePlanId', 'name roomTypeId').populate('companyId', 'name').exec();
     res.status(200).json({ success: true, data: rules });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Failed to retrieve pricing rules' });
@@ -208,6 +208,7 @@ router.post('/calculate', authenticate, async (req: AuthRequest, res: Response) 
       rooms: Number(rooms),
       companyId,
       guestEmail,
+      channel: 'admin',
     });
 
     res.status(200).json({ success: true, data: result });
@@ -326,6 +327,7 @@ router.post('/calculate-rooms', authenticate, async (req: AuthRequest, res: Resp
         rooms: 1,
         companyId: companyId || undefined,
         guestEmail: guestEmail || undefined,
+        channel: 'admin',
       });
 
       grandTotal += result.finalTotal;

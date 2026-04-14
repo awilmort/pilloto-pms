@@ -1,23 +1,18 @@
 /**
- * Email service — Amazon SES (AWS SDK v3)
+ * Email service — Resend
  *
- * Replaces the previous Microsoft Graph / SMTP implementation.
+ * Replaces the previous Amazon SES implementation.
  * Call signatures are backward-compatible.
  *
  * Key behaviours:
- * - Sends via SES with Configuration Set (bounce/complaint tracking)
+ * - Sends via Resend API
  * - Checks the EmailSuppression collection before every send
- * - Retries up to 3 times with exponential backoff on throttle errors
- * - Never retries permanent SES errors
- * - Logs only MessageId, email type, outcome, and internal IDs (no PII)
+ * - Retries up to 3 times with exponential backoff on rate-limit errors (HTTP 429)
+ * - Never retries permanent errors
+ * - Logs only Resend email ID, email type, outcome, and internal IDs (no PII)
  */
 
-import {
-  SESClient,
-  SendEmailCommand,
-  SendEmailCommandInput,
-  SESServiceException,
-} from '@aws-sdk/client-ses';
+import { Resend } from 'resend';
 import mongoose from 'mongoose';
 import EmailSuppression from '../models/EmailSuppression';
 import Tenant from '../models/Tenant';
@@ -28,37 +23,26 @@ import Payment from '../models/Payment';
 import Reservation from '../models/Reservation';
 import { renderReservationConfirmation } from './emailTemplates/reservationConfirmation';
 import { renderInvoice } from './emailTemplates/invoice';
+import { renderCorporatePriceRequest } from './emailTemplates/corporatePriceRequest';
+import { renderEmailVerification } from './emailTemplates/emailVerification';
 import { getTenantId } from '../middleware/tenantContext';
 
-// ── SES client ───────────────────────────────────────────────────────────────
+// ── Resend client ─────────────────────────────────────────────────────────────
 // Lazy initialization: dotenv.config() runs after module imports are hoisted,
-// so we must not read process.env AWS vars at module-load time.
+// so we must not read process.env at module-load time.
 
-let _sesClient: SESClient | null = null;
+let _resendClient: Resend | null = null;
 
-function getSesClient(): SESClient {
-  if (!_sesClient) {
-    _sesClient = new SESClient({
-      region: process.env.AWS_REGION || 'us-east-2',
-      credentials: {
-        accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-      },
-    });
+function getResendClient(): Resend {
+  if (!_resendClient) {
+    _resendClient = new Resend(process.env.RESEND_API_KEY!);
   }
-  return _sesClient;
+  return _resendClient;
 }
 
 function getFromAddress(): string {
-  return process.env.SES_FROM_ADDRESS || 'noreply@pilloto.com';
+  return process.env.RESEND_FROM_ADDRESS || 'noreply@pilloto.com';
 }
-
-function getConfigurationSet(): string {
-  return process.env.SES_CONFIGURATION_SET || '';
-}
-
-// Transient error codes that warrant a retry
-const THROTTLE_CODES = new Set(['Throttling', 'SendingRateExceeded', 'TooManyRequestsException']);
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -109,48 +93,39 @@ export const sendEmail = async (options: EmailOptions): Promise<string> => {
   const FROM_ADDRESS = getFromAddress();
   const source = await buildFromAddress(FROM_ADDRESS);
 
-  const input: SendEmailCommandInput = {
-    Source: source,
-    Destination: { ToAddresses: [options.to] },
-    Message: {
-      Subject: { Data: options.subject, Charset: 'UTF-8' },
-      Body: {
-        Html: { Data: options.html, Charset: 'UTF-8' },
-        Text: {
-          Data: options.text || options.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
-          Charset: 'UTF-8',
-        },
-      },
+  const payload = {
+    from: source,
+    to: [options.to],
+    subject: options.subject,
+    html: options.html,
+    text: options.text || options.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+    ...(options.replyTo && { reply_to: options.replyTo }),
+    headers: {
+      'List-Unsubscribe': `<mailto:${FROM_ADDRESS}?subject=unsubscribe>`,
     },
-    ...(getConfigurationSet() && { ConfigurationSetName: getConfigurationSet() }),
-    ...(options.replyTo && { ReplyToAddresses: [options.replyTo] }),
   };
 
   let attempt = 0;
   const maxRetries = 3;
 
   while (attempt <= maxRetries) {
-    try {
-      const response = await getSesClient().send(new SendEmailCommand(input));
-      const messageId = response.MessageId ?? 'unknown';
-      console.log(JSON.stringify({ emailEvent: 'sent', emailType, referenceId, sesMessageId: messageId }));
+    const { data, error } = await getResendClient().emails.send(payload);
+
+    if (!error) {
+      const messageId = data?.id ?? 'unknown';
+      console.log(JSON.stringify({ emailEvent: 'sent', emailType, referenceId, resendId: messageId }));
       return messageId;
-    } catch (err: any) {
-      const isThrottle = err instanceof SESServiceException && THROTTLE_CODES.has(err.name);
-      if (isThrottle && attempt < maxRetries) {
-        const delay = Math.pow(2, attempt) * 500;
-        attempt++;
-        console.log(JSON.stringify({ emailEvent: 'retry', emailType, attempt, errorCode: err.name, errorMessage: err.message }));
-        await new Promise(resolve => setTimeout(resolve, delay));
-      } else {
-        const errorCode = err instanceof SESServiceException ? err.name : 'UnknownError';
-        const errorMessage = err?.message ?? String(err);
-        console.error(JSON.stringify({ emailEvent: 'failed', emailType, referenceId, errorCode, errorMessage }));
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('SES send error detail:', err);
-        }
-        throw new Error(`Email send failed [${errorCode}]: ${errorMessage}`);
-      }
+    }
+
+    const isRateLimit = error.name === 'rate_limit_exceeded' || (error as any).statusCode === 429;
+    if (isRateLimit && attempt < maxRetries) {
+      const delay = Math.pow(2, attempt) * 500;
+      attempt++;
+      console.log(JSON.stringify({ emailEvent: 'retry', emailType, attempt, errorName: error.name, errorMessage: error.message }));
+      await new Promise(resolve => setTimeout(resolve, delay));
+    } else {
+      console.error(JSON.stringify({ emailEvent: 'failed', emailType, referenceId, errorName: error.name, errorMessage: error.message }));
+      throw new Error(`Email send failed [${error.name}]: ${error.message}`);
     }
   }
 
@@ -175,13 +150,14 @@ async function getTenantEmailConfig(): Promise<TenantEmailConfig> {
   }
 }
 
-async function getTenantInfo(): Promise<{ name: string; logoUrl?: string; currency?: string }> {
+async function getTenantInfo(): Promise<{ name: string; slug?: string; logoUrl?: string; currency?: string }> {
   const tid = getTenantId()?.toString();
   if (!tid) return { name: 'Pilloto' };
   try {
-    const tenant = await Tenant.findById(tid).select('name settings').lean();
+    const tenant = await Tenant.findById(tid).select('name slug settings').lean();
     return {
       name: (tenant as any)?.name ?? 'Pilloto',
+      slug: (tenant as any)?.slug,
       logoUrl: (tenant as any)?.settings?.logoUrl,
       currency: (tenant as any)?.settings?.currency,
     };
@@ -193,43 +169,38 @@ async function getTenantInfo(): Promise<{ name: string; logoUrl?: string; curren
 // ── Public email functions ────────────────────────────────────────────────────
 
 export const sendVerificationEmail = async (user: any, token: string): Promise<void> => {
-  const verifyUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/verify-email?token=${token}`;
-  const year = new Date().getFullYear();
+  const [tenantInfo, emailCfg] = await Promise.all([getTenantInfo(), getTenantEmailConfig()]);
 
-  const html = '<!DOCTYPE html>'
-    + '<html lang="es"><head><meta charset="UTF-8" /><title>Verifica tu correo - Pilloto</title></head>'
-    + '<body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f4f4f4;">'
-    + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background:#f4f4f4;">'
-    + '<tr><td align="center" style="padding:24px 12px;">'
-    + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:#ffffff;border-radius:6px;border:1px solid #e0e0e0;">'
-    + '<tr><td style="background:#2E7D32;padding:24px;text-align:center;border-radius:6px 6px 0 0;">'
-    + '<p style="margin:0;font-size:22px;font-weight:bold;color:#ffffff;">Pilloto</p>'
-    + '<p style="margin:6px 0 0;font-size:13px;color:#c8e6c9;">Verificación de correo electrónico</p>'
-    + '</td></tr>'
-    + '<tr><td style="padding:32px 40px;">'
-    + '<p style="font-size:15px;margin:0 0 12px;">Hola <strong>' + user.firstName + '</strong>,</p>'
-    + '<p style="font-size:14px;color:#555;margin:0 0 24px;">Por favor verifica tu correo haciendo clic en el botón de abajo.</p>'
-    + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">'
-    + '<tr><td align="center">'
-    + '<a href="' + verifyUrl + '" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:12px 32px;background:#2E7D32;color:#ffffff;text-decoration:none;border-radius:4px;font-size:15px;font-weight:bold;">Verificar correo</a>'
-    + '</td></tr></table>'
-    + '<p style="font-size:13px;color:#777;margin:24px 0 6px;">Si el botón no funciona, copia este enlace:</p>'
-    + '<p style="font-size:12px;background:#f5f5f5;padding:10px;border-radius:4px;word-break:break-all;">' + verifyUrl + '</p>'
-    + '<p style="font-size:13px;color:#777;margin:16px 0 0;">Este enlace expira en <strong>24 horas</strong>. Si no solicitaste esto, ignora este correo.</p>'
-    + '</td></tr>'
-    + '<tr><td style="background:#fafafa;border-top:1px solid #eee;padding:16px;text-align:center;">'
-    + '<p style="margin:0;font-size:11px;color:#aaa;">&copy; ' + year + ' Pilloto. Todos los derechos reservados.</p>'
-    + '<p style="margin:4px 0 0;font-size:11px;color:#aaa;">Correo transaccional. <a href="mailto:noreply@pilloto.com?subject=unsubscribe" style="color:#aaa;">Cancelar suscripción</a></p>'
-    + '</td></tr>'
-    + '</table>'
-    + '</td></tr></table>'
-    + '</body></html>';
+  const rawBase = process.env.FRONTEND_URL || 'http://localhost:3000';
+  let tenantBase = rawBase;
+  if (tenantInfo.slug) {
+    try {
+      const parsed = new URL(rawBase);
+      const hostname = parsed.hostname;
+      if (!hostname.startsWith(`${tenantInfo.slug}.`)) {
+        parsed.hostname = `${tenantInfo.slug}.${hostname}`;
+        // Preserve port for dev (e.g. banana-ranch.localhost:3000)
+        tenantBase = `${parsed.protocol}//${parsed.host}`;
+      }
+    } catch {
+      // fallback: use rawBase unchanged
+    }
+  }
 
-  const text = 'Verificación de correo - Pilloto\n\nHola ' + user.firstName + ',\n\nVerifica tu correo visitando:\n' + verifyUrl + '\n\nEste enlace expira en 24 horas. Si no solicitaste esto, ignora este correo.';
+  const verifyUrl = `${tenantBase}/verify-email?token=${token}`;
+
+  const { html, text } = renderEmailVerification({
+    firstName: user.firstName,
+    verifyUrl,
+    tenantName: emailCfg.fromDisplayName || tenantInfo.name,
+    tenantLogoUrl: tenantInfo.logoUrl,
+    customFooterHtml: emailCfg.footerHtml,
+    customFooterText: emailCfg.footerText,
+  });
 
   await sendEmail({
     to: user.pendingEmail || user.email,
-    subject: 'Verifica tu correo electrónico - Pilloto',
+    subject: 'Verifica tu correo electrónico — ' + (emailCfg.fromDisplayName || tenantInfo.name),
     html,
     text,
     _logMeta: { emailType: 'email_verification' },
@@ -385,4 +356,74 @@ export const sendInvoiceEmail = async (folioId: string | mongoose.Types.ObjectId
     replyTo: emailCfg.replyTo,
     _logMeta: { emailType: 'invoice', referenceId: String(folio._id) },
   });
+};
+
+/**
+ * Send corporate price request notification to users with 'admin.reservations.assignCorporatePrice'
+ * permission (or to all admins if no one has that permission).
+ */
+export const sendCorporatePriceRequestEmail = async (
+  reservation: any,
+  recipientEmails: string[],
+): Promise<void> => {
+  if (!recipientEmails.length) return;
+
+  const [tenantInfo, emailCfg] = await Promise.all([getTenantInfo(), getTenantEmailConfig()]);
+
+  const guestName = reservation.guestName
+    ? `${reservation.guestName.firstName || ''} ${reservation.guestName.lastName || ''}`.trim()
+    : 'Guest';
+  const guestEmail = reservation.contactInfo?.email || '';
+  const resId = String(reservation._id);
+
+  const rawBase = process.env.FRONTEND_URL || 'http://localhost:3000';
+  let tenantBase = rawBase;
+  if (tenantInfo.slug) {
+    try {
+      const parsed = new URL(rawBase);
+      const hostname = parsed.hostname;
+      if (!hostname.startsWith(`${tenantInfo.slug}.`)) {
+        parsed.hostname = `${tenantInfo.slug}.${hostname}`;
+        tenantBase = `${parsed.protocol}//${parsed.host}`;
+      }
+    } catch {
+      // fallback: use rawBase unchanged
+    }
+  }
+  const approveUrl = `${tenantBase}/reservations/${resId}/corporate-price/approve`;
+  const declineUrl = `${tenantBase}/reservations/${resId}/corporate-price/decline`;
+
+  // Resolve requested company name (populated or plain ObjectId reference)
+  const requestedCompanyName: string | undefined = reservation.requestedCompany
+    ? (typeof reservation.requestedCompany === 'object' && reservation.requestedCompany.name)
+      ? reservation.requestedCompany.name
+      : undefined
+    : undefined;
+
+  const { html, text } = renderCorporatePriceRequest({
+    reservation,
+    guestName,
+    guestEmail,
+    requestedCompanyName,
+    tenantName: emailCfg.fromDisplayName || tenantInfo.name,
+    tenantLogoUrl: tenantInfo.logoUrl,
+    currency: tenantInfo.currency,
+    approveUrl,
+    declineUrl,
+    customFooterHtml: emailCfg.footerHtml,
+    customFooterText: emailCfg.footerText,
+  });
+
+  const subject = `Solicitud de Precio Corporativo - ${guestName} (${reservation.reservationCode || resId})`;
+
+  for (const to of recipientEmails) {
+    sendEmail({
+      to,
+      subject,
+      html,
+      text,
+      replyTo: emailCfg.replyTo,
+      _logMeta: { emailType: 'corporate_price_request', referenceId: resId },
+    }).catch(err => console.error('Failed to send corporate price request email:', err));
+  }
 };

@@ -20,7 +20,7 @@ router.get('/', authenticate, authorize('admin'), async (req: AuthRequest, res: 
     }
     const skip = (Number(page) - 1) * Number(limit);
     const [guests, total] = await Promise.all([
-      Guest.find(filter).sort({ lastName: 1, firstName: 1 }).skip(skip).limit(Number(limit)),
+      Guest.find(filter).populate('companyId', 'name').sort({ lastName: 1, firstName: 1 }).skip(skip).limit(Number(limit)),
       Guest.countDocuments(filter),
     ]);
     res.status(200).json({ success: true, data: guests, total });
@@ -32,7 +32,7 @@ router.get('/', authenticate, authorize('admin'), async (req: AuthRequest, res: 
 // GET /api/guests/:id — get single guest + reservation history
 router.get('/:id', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
   try {
-    const guest = await Guest.findById(req.params.id);
+    const guest = await Guest.findById(req.params.id).populate('companyId', 'name');
     if (!guest) return res.status(404).json({ success: false, message: 'Guest not found' });
     const reservations = await Reservation.find({ guestRecord: guest._id })
       .populate('room', 'name')

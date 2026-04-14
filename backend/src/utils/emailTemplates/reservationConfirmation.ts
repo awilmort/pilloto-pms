@@ -9,6 +9,8 @@ export interface ReservationConfirmationParams {
   reservation: any;
   /** Tenant name (e.g. "Hotel Banana Ranch") */
   tenantName: string;
+  /** Tenant slug (e.g. "demo") — used to build the correct booking URL */
+  tenantSlug?: string;
   /** Absolute URL for the tenant logo */
   tenantLogoUrl?: string;
   /** Tenant currency code (e.g. "DOP") */
@@ -23,9 +25,29 @@ export interface ReservationConfirmationParams {
 }
 
 export function renderReservationConfirmation(params: ReservationConfirmationParams): { html: string; text: string } {
-  const { reservation, tenantName, tenantLogoUrl, currency = 'DOP', locale = 'es-ES', customFooterHtml, customFooterText } = params;
+  const { reservation, tenantName, tenantSlug, tenantLogoUrl, currency = 'DOP', locale = 'es-DO', customFooterHtml, customFooterText } = params;
 
-  const reservationUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reservation/code/${reservation.reservationCode}`;
+  // Build the base URL for the tenant:
+  //   - Production: inject slug as subdomain  → https://demo.pilloto.com
+  //   - Dev (localhost): keep base URL as-is, the tenant is resolved via header
+  const rawBase = process.env.FRONTEND_URL || 'http://localhost:3000';
+  let tenantBase = rawBase;
+  if (tenantSlug) {
+    try {
+      const parsed = new URL(rawBase);
+      const hostname = parsed.hostname;
+      // Only inject subdomain when it's NOT already subdomain-qualified
+      // and NOT localhost (localhost doesn't support subdomains reliably)
+      if (hostname !== 'localhost' && !hostname.startsWith(`${tenantSlug}.`)) {
+        parsed.hostname = `${tenantSlug}.${hostname}`;
+        tenantBase = parsed.origin;
+      }
+    } catch {
+      // fallback: use rawBase unchanged
+    }
+  }
+
+  const reservationUrl = `${tenantBase}/booking/reservation/${reservation.reservationCode}${reservation.confirmationToken ? `?token=${reservation.confirmationToken}` : ''}`;
 
   const guestName =
     reservation.guestName?.firstName && reservation.guestName?.lastName
@@ -98,7 +120,7 @@ export function renderReservationConfirmation(params: ReservationConfirmationPar
     ].filter(Boolean).join('\n');
   }
 
-  const totalFormatted = formatCurrency(reservation.totalPrice ?? 0, currency, locale);
+  const totalFormatted = formatCurrency((reservation as any).estimatedTotal ?? reservation.totalPrice ?? 0, currency, locale);
   const contactEmail = reservation.contactInfo?.email ?? '';
   const contactPhone = reservation.contactInfo?.phone ?? '';
   const adults = reservation.guestDetails?.adults ?? 0;
@@ -110,17 +132,17 @@ export function renderReservationConfirmation(params: ReservationConfirmationPar
     <p style="margin:0 0 24px;font-size:15px;color:#555555;">Hola <strong>${escapeHtml(firstName)}</strong>, tu reserva ha sido confirmada en <strong>${escapeHtml(tenantName)}</strong>.</p>
 
     <!-- Summary box -->
-    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f9fbe7;border-left:4px solid #2E7D32;border-radius:4px;margin-bottom:24px;">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#fafafa;border-left:4px solid #dddddd;border-radius:4px;margin-bottom:24px;">
       <tr><td style="padding:16px 20px;">
-        <p style="margin:0 0 12px;font-size:15px;font-weight:bold;color:#1b5e20;">${escapeHtml(typeLabel)}</p>
+        <p style="margin:0 0 12px;font-size:15px;font-weight:bold;color:#111111;">${escapeHtml(typeLabel)}</p>
         <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
           ${detailsHtml}
           <tr><td style="padding:4px 0;color:#666666;font-size:14px;">Huésped:</td><td style="padding:4px 0;font-size:14px;">${escapeHtml(guestName)}</td></tr>
           <tr><td style="padding:4px 0;color:#666666;font-size:14px;">Acompañantes:</td><td style="padding:4px 0;font-size:14px;">${adults} adultos, ${children} niños, ${infants} bebés</td></tr>
           ${contactEmail ? `<tr><td style="padding:4px 0;color:#666666;font-size:14px;">Contacto:</td><td style="padding:4px 0;font-size:14px;">${escapeHtml(contactEmail)} | ${escapeHtml(contactPhone)}</td></tr>` : ''}
           ${reservation.specialRequests ? `<tr><td style="padding:4px 0;color:#666666;font-size:14px;">Solicitudes:</td><td style="padding:4px 0;font-size:14px;">${escapeHtml(reservation.specialRequests)}</td></tr>` : ''}
-          <tr><td colspan="2" style="padding:12px 0 4px;border-top:1px solid #dcedc8;"></td></tr>
-          <tr><td style="padding:4px 0;color:#666666;font-size:14px;">Total:</td><td style="padding:4px 0;font-size:18px;font-weight:bold;color:#2E7D32;">${escapeHtml(totalFormatted)}</td></tr>
+          <tr><td colspan="2" style="padding:12px 0 4px;border-top:1px solid #e0e0e0;"></td></tr>
+          <tr><td style="padding:4px 0;color:#666666;font-size:14px;">Total:</td><td style="padding:4px 0;font-size:18px;font-weight:bold;color:#111111;">${escapeHtml(totalFormatted)}</td></tr>
           ${reservation.reservationCode ? `<tr><td style="padding:4px 0;color:#666666;font-size:14px;">Código:</td><td style="padding:4px 0;font-size:14px;font-family:monospace;letter-spacing:1px;">${escapeHtml(reservation.reservationCode)}</td></tr>` : ''}
         </table>
       </td></tr>
@@ -130,7 +152,7 @@ export function renderReservationConfirmation(params: ReservationConfirmationPar
     <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom:24px;">
       <tr><td align="center">
         <a href="${reservationUrl}" target="_blank" rel="noopener noreferrer"
-           style="display:inline-block;padding:12px 32px;background-color:#2E7D32;color:#ffffff;text-decoration:none;border-radius:4px;font-size:15px;font-weight:bold;">
+           style="display:inline-block;padding:12px 32px;background-color:#111111;color:#ffffff;text-decoration:none;border-radius:4px;font-size:15px;font-weight:bold;">
           Ver reserva
         </a>
       </td></tr>

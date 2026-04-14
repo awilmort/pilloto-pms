@@ -283,16 +283,6 @@ const RoomsManagement: React.FC = () => {
 
   // Room type fields removed
 
-  const hasImage = (images?: string[]) => {
-    const img = images?.[0];
-    return img && !img.includes('/api/placeholder');
-  };
-
-  const getImageUrl = (imagePath: string | undefined) => {
-    if (!imagePath || imagePath.includes('/api/placeholder')) return '';
-    return resolveMediaUrl(imagePath);
-  };
-
   /** Get the image from the room's associated room type */
   const getRoomTypeImage = (room: Room): string | undefined => {
     if (typeof room.roomTypeId === 'object' && room.roomTypeId) {

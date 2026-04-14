@@ -20,8 +20,8 @@ export interface LayoutParams {
   locale?: string;
 }
 
-/** Brand primary colour used in the header bar. */
-const BRAND_COLOR = '#2E7D32';
+/** Header background — matches footer pale gray for a clean, unified look. */
+const HEADER_BG = '#fafafa';
 const CURRENT_YEAR = new Date().getFullYear();
 
 /**
@@ -56,13 +56,13 @@ export function applyLayout(params: LayoutParams): { html: string; text: string 
 
           <!-- Header bar -->
           <tr>
-            <td align="center" style="background-color:${BRAND_COLOR};padding:24px 32px;">
+            <td align="center" style="background-color:${HEADER_BG};padding:24px 32px;border-bottom:1px solid #e0e0e0;">
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
                   <td align="center">
                     ${logoBlock}
-                    <p style="margin:${logoUrl ? '12px' : '0'} 0 0;font-size:22px;font-weight:bold;color:#ffffff;letter-spacing:0.5px;">${escapeHtml(hotelName)}</p>
-                    <p style="margin:4px 0 0;font-size:12px;color:#c8e6c9;font-style:italic;">vía Pilloto</p>
+                    <p style="margin:${logoUrl ? '12px' : '0'} 0 0;font-size:22px;font-weight:bold;color:#111111;letter-spacing:0.5px;">${escapeHtml(hotelName)}</p>
+                    <p style="margin:4px 0 0;font-size:12px;color:#888888;font-style:italic;">vía Pilloto</p>
                   </td>
                 </tr>
               </table>

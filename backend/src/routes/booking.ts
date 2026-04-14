@@ -32,6 +32,7 @@ import Room from '../models/Room';
 import RatePlan from '../models/RatePlan';
 import Reservation from '../models/Reservation';
 import Service from '../models/Service';
+import ServicePrice from '../models/ServicePrice';
 import Guest from '../models/Guest';
 import BookingVerification from '../models/BookingVerification';
 import GuestTermsAcceptance from '../models/GuestTermsAcceptance';
@@ -419,11 +420,30 @@ router.get(
         isActive: true,
         isOnlineBookable: true,
       })
-        .select('code name kind chargeBasis')
+        .select('code name kind chargeBasis reservationMode')
         .sort({ name: 1 })
         .lean();
 
-      res.json({ success: true, data: services });
+      // Attach the standard everyday adult price for each service
+      const serviceIds = services.map(s => s._id);
+      const standardPrices = await ServicePrice.find({
+        serviceId: { $in: serviceIds },
+        category: 'standard',
+        validity: 'everyday',
+        isActive: true,
+      }).select('serviceId adultPrice').lean();
+
+      const priceMap: Record<string, number> = {};
+      for (const sp of standardPrices) {
+        priceMap[sp.serviceId.toString()] = sp.adultPrice;
+      }
+
+      const result = services.map(s => ({
+        ...s,
+        basePrice: priceMap[(s._id as any).toString()] ?? null,
+      }));
+
+      res.json({ success: true, data: result });
     } catch (error: any) {
       console.error('Services list error:', error);
       res.status(500).json({ success: false, message: 'Failed to load services.' });
@@ -967,8 +987,9 @@ router.post(
             user: null,
           },
           tenantName: tenant?.name || 'Hotel',
+          tenantSlug: tenant?.slug,
           tenantLogoUrl: tenant?.settings?.logoUrl,
-          currency: tenant?.settings?.currency || 'USD',
+          currency: tenant?.settings?.currency || 'DOP',
           customFooterHtml: emailConfig.footerHtml,
           customFooterText: emailConfig.footerText,
           replyTo: emailConfig.replyTo,
@@ -1200,5 +1221,74 @@ function generateBookingPrivacyPolicy(propertyName: string): string {
 <h2>11. Contact</h2>
 <p><strong>Pilloto (Platform Provider):</strong> privacy@pilloto.com<br/><strong>${p}:</strong> Contact the Property using the information on the booking page.</p>`;
 }
+
+// ── View Reservation (public, token-gated) ───────────────────────────────────
+router.get('/reservation/:code', bookingLimiter, requireBookingEngine, async (req: TenantRequest, res: Response) => {
+  const { code } = req.params;
+  const { token } = req.query as { token?: string };
+
+  if (!token) {
+    res.status(400).json({ success: false, message: 'Missing access token.' });
+    return;
+  }
+
+  try {
+    const reservation = await Reservation.findOne({
+      tenantId: req.tenant!._id,
+      reservationCode: code,
+    }).populate('items.serviceId', 'name category').lean();
+
+    if (!reservation) {
+      res.status(404).json({ success: false, message: 'Reservation not found.' });
+      return;
+    }
+
+    if (reservation.confirmationToken !== token) {
+      res.status(403).json({ success: false, message: 'Invalid access token.' });
+      return;
+    }
+
+    const tenant = req.tenant!;
+    const currency: string = (tenant as any).settings?.currency || 'DOP';
+    const snap = (reservation as any).pricingSnapshot;
+
+    res.json({
+      success: true,
+      data: {
+        reservationCode: reservation.reservationCode,
+        status: reservation.status,
+        type: reservation.type,
+        primaryKind: (reservation as any).primaryKind || null,
+        guestName: {
+          firstName: reservation.guestName?.firstName || '',
+          lastName: reservation.guestName?.lastName || '',
+        },
+        guestDetails: reservation.guestDetails ?? { adults: 1, children: 0, infants: 0 },
+        checkInDate: reservation.checkInDate,
+        checkOutDate: reservation.checkOutDate,
+        totalNights: (reservation as any).totalNights ?? null,
+        estimatedTotal: (reservation as any).estimatedTotal ?? 0,
+        currency,
+        tenantName: (tenant as any).name || '',
+        tenantLogoUrl: (tenant as any).logoUrl || null,
+        roomTypeName: snap?.roomTypeName || null,
+        ratePlanName: snap?.ratePlanName || null,
+        specialRequests: (reservation as any).specialRequests || null,
+        items: (reservation.items ?? []).map((item: any) => ({
+          kind: item.kind,
+          serviceName: item.serviceId?.name || null,
+          date: item.date,
+          checkIn: item.checkIn,
+          checkOut: item.checkOut,
+          quantity: item.quantity,
+          subtotal: item.subtotal,
+        })),
+      },
+    });
+  } catch (err) {
+    console.error('[booking] GET /reservation/:code error:', err);
+    res.status(500).json({ success: false, message: 'Internal server error.' });
+  }
+});
 
 export default router;

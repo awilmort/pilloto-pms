@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Paper, Typography, CircularProgress, Container, Button } from '@mui/material';
-import { CheckCircle, Error, ArrowBack } from '@mui/icons-material';
+import { Box, Paper, Typography, CircularProgress, Container, Button, Divider } from '@mui/material';
+import { CheckCircle, ErrorOutline, EmailOutlined } from '@mui/icons-material';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
@@ -12,7 +12,6 @@ const EmailVerificationPage: React.FC = () => {
   useAuth();
   const { t } = useTranslation();
   const [verificationState, setVerificationState] = useState<'loading' | 'success' | 'error'>('loading');
-  const [message, setMessage] = useState('');
 
   const token = searchParams.get('token');
 
@@ -20,7 +19,6 @@ const EmailVerificationPage: React.FC = () => {
     const verifyEmail = async () => {
       if (!token) {
         setVerificationState('error');
-        setMessage('No verification token provided');
         return;
       }
 
@@ -29,46 +27,43 @@ const EmailVerificationPage: React.FC = () => {
         const data = response.data as any;
         if (data.success) {
           setVerificationState('success');
-          setMessage(data.message);
 
-          // If token and user data are returned, store them manually
+          // Store auth token if returned (user is now logged in)
           if (data.token) {
             localStorage.setItem('token', data.token);
           }
-
-          // Redirect to dashboard after 3 seconds
-          setTimeout(() => {
-            navigate('/rooms');
-          }, 3000);
         } else {
           setVerificationState('error');
-          setMessage(data.message || 'Email verification failed');
         }
       } catch (error) {
         console.error('Email verification error:', error);
         setVerificationState('error');
-        setMessage('An error occurred during email verification');
       }
     };
 
     verifyEmail();
-  }, [token, navigate]);
-
-  const handleBackToLogin = () => {
-    navigate('/login');
-  };
-
-  const handleGoToRooms = () => {
-    navigate('/rooms');
-  };
+  }, [token]);
 
   return (
-    <Container maxWidth="sm" sx={{ mt: 8, mb: 4 }}>
-      <Paper elevation={3} sx={{ p: 4, textAlign: 'center' }}>
+    <Container maxWidth="sm" sx={{ mt: 8, mb: 6 }}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 4, sm: 5 },
+          textAlign: 'center',
+          border: '1px solid',
+          borderColor: 'grey.200',
+          borderRadius: 2,
+          bgcolor: '#ffffff',
+        }}
+      >
         {verificationState === 'loading' && (
           <>
-            <CircularProgress size={80} sx={{ mb: 3 }} />
-            <Typography variant="h5" gutterBottom>
+            <Box sx={{ mb: 3 }}>
+              <EmailOutlined sx={{ fontSize: 56, color: 'grey.400', mb: 2 }} />
+              <CircularProgress size={40} sx={{ color: '#111111' }} />
+            </Box>
+            <Typography variant="h5" fontWeight={700} color="text.primary" gutterBottom>
               {t('pages.emailVerification.verifyingTitle')}
             </Typography>
             <Typography variant="body1" color="text.secondary">
@@ -79,32 +74,42 @@ const EmailVerificationPage: React.FC = () => {
 
         {verificationState === 'success' && (
           <>
-            <CheckCircle sx={{ fontSize: 80, color: 'success.main', mb: 2 }} />
-            <Typography variant="h4" component="h1" gutterBottom color="success.main">
+            <CheckCircle sx={{ fontSize: 72, color: '#2E7D32', mb: 2 }} />
+            <Typography variant="h4" component="h1" fontWeight={700} color="text.primary" gutterBottom>
               {t('pages.emailVerification.successTitle')}
             </Typography>
-            <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+            <Typography variant="h6" fontWeight={500} color="text.secondary" sx={{ mb: 3 }}>
               {t('pages.emailVerification.successWelcome')}
             </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-              {message}
-            </Typography>
 
-            <Box sx={{ mb: 4, p: 3, bgcolor: 'success.light', borderRadius: 2 }}>
-              <Typography variant="body1" color="success.dark">
+            <Box
+              sx={{
+                mb: 4,
+                p: 3,
+                bgcolor: '#fafafa',
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'grey.200',
+              }}
+            >
+              <Typography variant="body1" color="text.primary">
                 {t('pages.emailVerification.successInfo')}
               </Typography>
             </Box>
 
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              {t('pages.emailVerification.redirectInfo')}
-            </Typography>
-
             <Button
               variant="contained"
-              onClick={handleGoToRooms}
+              onClick={() => navigate('/admin')}
               size="large"
               fullWidth
+              sx={{
+                bgcolor: '#111111',
+                color: '#ffffff',
+                fontWeight: 600,
+                py: 1.5,
+                borderRadius: 1,
+                '&:hover': { bgcolor: '#333333' },
+              }}
             >
               {t('pages.emailVerification.exploreRooms')}
             </Button>
@@ -113,19 +118,30 @@ const EmailVerificationPage: React.FC = () => {
 
         {verificationState === 'error' && (
           <>
-            <Error sx={{ fontSize: 80, color: 'error.main', mb: 2 }} />
-            <Typography variant="h4" component="h1" gutterBottom color="error.main">
+            <ErrorOutline sx={{ fontSize: 72, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h4" component="h1" fontWeight={700} color="text.primary" gutterBottom>
               {t('pages.emailVerification.errorTitle')}
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-              {message}
+              {t('pages.emailVerification.errorBody')}
             </Typography>
 
-            <Box sx={{ mb: 4, p: 3, bgcolor: 'error.light', borderRadius: 2 }}>
-              <Typography variant="body2" color="error.dark" sx={{ whiteSpace: 'pre-line' }}>
+            <Box
+              sx={{
+                mb: 4,
+                p: 3,
+                bgcolor: '#fafafa',
+                borderRadius: 1,
+                border: '1px solid',
+                borderColor: 'grey.200',
+              }}
+            >
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line', textAlign: 'left' }}>
                 {t('pages.emailVerification.errorHints')}
               </Typography>
             </Box>
+
+            <Divider sx={{ mb: 3 }} />
 
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               {t('pages.emailVerification.errorNext')}
@@ -133,9 +149,17 @@ const EmailVerificationPage: React.FC = () => {
 
             <Button
               variant="contained"
-              startIcon={<ArrowBack />}
-              onClick={handleBackToLogin}
+              onClick={() => navigate('/login')}
+              size="large"
               fullWidth
+              sx={{
+                bgcolor: '#111111',
+                color: '#ffffff',
+                fontWeight: 600,
+                py: 1.5,
+                borderRadius: 1,
+                '&:hover': { bgcolor: '#333333' },
+              }}
             >
               {t('pages.emailVerification.backToLogin')}
             </Button>

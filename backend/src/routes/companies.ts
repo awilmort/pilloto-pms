@@ -5,8 +5,8 @@ import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
-// GET /api/companies — list companies (admin only)
-router.get('/', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+// GET /api/companies — list companies (any authenticated user, read-only)
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { search, active, page = 1, limit = 50 } = req.query as any;
     const filter: any = {};

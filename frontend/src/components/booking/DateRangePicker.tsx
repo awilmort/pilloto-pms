@@ -30,8 +30,6 @@ interface DateRangePickerProps {
   placeholder?: string;
 }
 
-const DAYS_IN_WEEK = 7;
-
 function getDaysInMonth(year: number, month: number): number {
   return new Date(year, month + 1, 0).getDate();
 }

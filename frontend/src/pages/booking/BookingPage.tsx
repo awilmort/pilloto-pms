@@ -18,17 +18,19 @@
  * 6. Confirmation — booking confirmed
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box, Container, Typography, TextField, Button, Paper, Grid, Card,
   CardContent, CardMedia, CardActions, Chip, Stepper, Step, StepLabel,
   CircularProgress, Alert, Divider, Stack, IconButton, FormControlLabel,
   Checkbox, Link, InputAdornment, useTheme, useMediaQuery, Skeleton,
+  Tabs, Tab, MenuItem, Popover,
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import PersonIcon from '@mui/icons-material/Person';
 import ChildCareIcon from '@mui/icons-material/ChildCare';
 import AddIcon from '@mui/icons-material/Add';
+import RemoveIcon from '@mui/icons-material/Remove';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import EmailIcon from '@mui/icons-material/Email';
@@ -41,6 +43,8 @@ import KitchenIcon from '@mui/icons-material/Kitchen';
 import LocalBarIcon from '@mui/icons-material/LocalBar';
 import LandscapeIcon from '@mui/icons-material/Landscape';
 import StarIcon from '@mui/icons-material/Star';
+import HotelIcon from '@mui/icons-material/Hotel';
+import RoomServiceIcon from '@mui/icons-material/RoomService';
 import { useTranslation } from 'react-i18next';
 import { useBooking, BookingItem } from '../../contexts/BookingContext';
 import { bookingService } from '../../services/api';
@@ -48,6 +52,7 @@ import { resolveMediaUrl } from '../../services/api';
 import BookingLayout from '../../components/booking/BookingLayout';
 import DateRangePicker from '../../components/booking/DateRangePicker';
 import GuestSelector from '../../components/booking/GuestSelector';
+import SingleDatePicker from '../../components/booking/SingleDatePicker';
 import { RoomIllustration, AmenityIllustration, isIllustrationUrl, getIllustrationByKey, getIllustrationKey } from '../../components/illustrations';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
@@ -112,6 +117,14 @@ interface AmenityData {
   order: number;
 }
 
+// ── Charge basis label map (shared across steps) ─────────────────────────────
+const chargeBasisLabelMap: Record<string, string> = {
+  perPerson: 'Por persona',
+  perRoom: 'Por habitación',
+  perStay: 'Por estadía',
+  perEvent: 'Por evento',
+};
+
 // ── Room Type Data for showcase ──────────────────────────────────────────────
 interface RoomTypeShowcase {
   _id: string;
@@ -122,7 +135,7 @@ interface RoomTypeShowcase {
 
 // ── Step 1: Search ───────────────────────────────────────────────────────────
 function SearchStep() {
-  const { config, searchAvailability, searchParams, availabilityLoading, availability, setPreselectedRoomTypeId } = useBooking();
+  const { config, searchAvailability, searchParams, availabilityLoading, availability, setPreselectedRoomTypeId, addItem, setCurrentStep, setPrevStep } = useBooking();
   const { t } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -138,10 +151,28 @@ function SearchStep() {
   const [roomTypesLoading, setRoomTypesLoading] = useState(true);
   const [reviews, setReviews] = useState<Array<{ _id: string; guestName: string; rating: number; comment: string; source: string }>>([]);
 
+  // ── Services tab state ──────────────────────────────────────────────────────
+  const [activeTab, setActiveTab] = useState<'rooms' | 'services'>('rooms');
+  const [svcList, setSvcList] = useState<ServiceData[]>([]);
+  const [selectedSvcId, setSelectedSvcId] = useState('');
+  const [svcDate, setSvcDate] = useState('');
+  const [svcCheckIn, setSvcCheckIn] = useState('');
+  const [svcCheckOut, setSvcCheckOut] = useState('');
+  const [svcAdults, setSvcAdults] = useState(2);
+  const [svcChildren, setSvcChildren] = useState(0);
+  const [svcResult, setSvcResult] = useState<(ServiceData & { quotedPrice?: number; quotedTaxes?: number }) | null>(null);
+  const [svcSearchLoading, setSvcSearchLoading] = useState(false);
+  const [svcError, setSvcError] = useState('');
+  const [svcSelectorOpen, setSvcSelectorOpen] = useState(false);
+  const svcSelectorRef = useRef<HTMLDivElement>(null);
+
+  const selectedSvc = svcList.find(s => s._id === selectedSvcId) || null;
+  const isSingleDate = selectedSvc?.reservationMode === 'singleDate';
+
   const minDate = new Date(Date.now() + (config?.minAdvanceHours || 24) * 3600000);
   const maxDate = new Date(Date.now() + (config?.maxAdvanceDays || 365) * 86400000);
 
-  // Load amenities, room types, and reviews on mount
+  // Load amenities, room types, reviews, and non-addon services on mount
   useEffect(() => {
     bookingService.getAmenities()
       .then(res => setAmenities(res.data?.data || []))
@@ -153,6 +184,12 @@ function SearchStep() {
       .finally(() => setRoomTypesLoading(false));
     bookingService.getReviews()
       .then(res => setReviews(res.data?.data || []))
+      .catch(() => {});
+    bookingService.getServices()
+      .then(res => {
+        const all = res.data?.data || [];
+        setSvcList(all.filter(s => s.kind !== 'roomAddon'));
+      })
       .catch(() => {});
   }, []);
 
@@ -197,92 +234,385 @@ function SearchStep() {
     }
   };
 
+  /** Services tab: search and quote the selected service */
+  const handleServiceSearch = async () => {
+    setSvcError('');
+    setSvcResult(null);
+    if (!selectedSvcId) {
+      setSvcError(t('bookingEngine.search.errorChooseService', 'Please choose a service.'));
+      return;
+    }
+    if (isSingleDate && !svcDate) {
+      setSvcError(t('bookingEngine.search.errorSelectDate', 'Please select a date.'));
+      return;
+    }
+    if (!isSingleDate && (!svcCheckIn || !svcCheckOut)) {
+      setSvcError(t('bookingEngine.search.errorSelectDates'));
+      return;
+    }
+    setSvcSearchLoading(true);
+    try {
+      const dateParam = isSingleDate ? svcDate : svcCheckIn;
+      const res = await bookingService.getServiceQuote({
+        serviceId: selectedSvcId,
+        date: dateParam,
+        adults: svcAdults,
+        children: svcChildren,
+      });
+      const quote = res.data?.data;
+      if (quote) {
+        setSvcResult({
+          ...selectedSvc!,
+          quotedPrice: quote.finalTotal,
+          quotedTaxes: quote.totalTaxes ?? 0,
+        });
+      }
+    } catch {
+      setSvcError(t('bookingEngine.search.errorSearchFailed'));
+    } finally {
+      setSvcSearchLoading(false);
+    }
+  };
+
+  /** Services tab: add the quoted service to cart and go to details */
+  const handleAddServiceFromTab = () => {
+    if (!svcResult?.quotedPrice) return;
+    const dateParam = isSingleDate ? svcDate : svcCheckIn;
+    addItem({
+      kind: 'service',
+      serviceId: svcResult._id,
+      serviceName: svcResult.name,
+      date: dateParam,
+      adults: svcAdults,
+      children: svcChildren,
+      quantity: 1,
+      pricing: {
+        subtotal: svcResult.quotedPrice - (svcResult.quotedTaxes ?? 0),
+        taxes: svcResult.quotedTaxes ?? 0,
+        total: svcResult.quotedPrice,
+      },
+    });
+    setPrevStep('search');
+    setCurrentStep('details');
+  };
+
   return (
     <Box sx={{ pb: 8 }}>
-      {/* ── Search bar section — the hero IS the search bar ── */}
-      <Box sx={{ bgcolor: 'white', py: { xs: 3, md: 5 }, borderBottom: `1px solid ${BORDER}` }}>
+      {/* ── Rooms / Services tab bar + search forms ── */}
+      <Box sx={{ bgcolor: 'white', borderBottom: `1px solid ${BORDER}` }}>
         <Container maxWidth="md">
-          <Typography
-            variant={isMobile ? 'h5' : 'h4'}
-            sx={{
-              fontWeight: 700,
-              fontFamily: FONT,
-              color: TEXT_PRIMARY,
-              mb: 3,
-              textAlign: 'center',
-            }}
+          {/* Tab bar */}
+          <Tabs
+            value={activeTab}
+            onChange={(_, v) => { setActiveTab(v); setSvcResult(null); }}
+            centered
+            TabIndicatorProps={{ style: { backgroundColor: ACCENT } }}
+            sx={{ borderBottom: `1px solid ${BORDER}` }}
           >
-            {t('bookingEngine.search.heroHeadlineDefault', { tenantName: config?.tenantName || '' })}
-          </Typography>
+            <Tab
+              icon={<HotelIcon fontSize="small" />}
+              iconPosition="start"
+              label={t('bookingEngine.search.tabRooms', 'Habitaciones')}
+              value="rooms"
+              sx={{ fontFamily: FONT, fontWeight: 600, textTransform: 'none', minHeight: 52 }}
+            />
+            <Tab
+              icon={<RoomServiceIcon fontSize="small" />}
+              iconPosition="start"
+              label={t('bookingEngine.search.tabServices', 'Servicios')}
+              value="services"
+              sx={{ fontFamily: FONT, fontWeight: 600, textTransform: 'none', minHeight: 52 }}
+            />
+          </Tabs>
 
-          {/* Pill-shaped search form */}
-          <Paper
-            elevation={0}
-            sx={{
-              display: 'flex',
-              alignItems: isMd ? 'stretch' : 'center',
-              justifyContent: 'space-between',
-              flexDirection: isMd ? 'column' : 'row',
-              gap: isMd ? 2 : 1.5,
-              p: isMd ? 2.5 : 1,
-              pl: isMd ? 2.5 : 2,
-              borderRadius: isMd ? CARD_RADIUS : BTN_PILL,
-              border: `1px solid ${BORDER}`,
-              boxShadow: '0 3px 12px rgba(0,0,0,0.08)',
-              bgcolor: 'white',
-            }}
-          >
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <DateRangePicker
-                checkIn={checkIn}
-                checkOut={checkOut}
-                onChange={(ci, co) => { setCheckIn(ci); setCheckOut(co); }}
-                minDate={minDate}
-                maxDate={maxDate}
-              />
-            </Box>
+          <Box sx={{ py: { xs: 3, md: 4 } }}>
+            {/* ── ROOMS TAB ── */}
+            {activeTab === 'rooms' && (
+              <>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    display: 'flex',
+                    alignItems: isMd ? 'stretch' : 'center',
+                    justifyContent: 'space-between',
+                    flexDirection: isMd ? 'column' : 'row',
+                    gap: isMd ? 2 : 1.5,
+                    p: isMd ? 2.5 : 1,
+                    pl: isMd ? 2.5 : 2,
+                    borderRadius: isMd ? CARD_RADIUS : BTN_PILL,
+                    border: `1px solid ${BORDER}`,
+                    boxShadow: '0 3px 12px rgba(0,0,0,0.08)',
+                    bgcolor: 'white',
+                  }}
+                >
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <DateRangePicker
+                      checkIn={checkIn}
+                      checkOut={checkOut}
+                      onChange={(ci, co) => { setCheckIn(ci); setCheckOut(co); }}
+                      minDate={minDate}
+                      maxDate={maxDate}
+                    />
+                  </Box>
 
-            {!isMd && <Divider orientation="vertical" flexItem sx={{ borderColor: BORDER }} />}
+                  {!isMd && <Divider orientation="vertical" flexItem sx={{ borderColor: BORDER }} />}
 
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <GuestSelector
-                adults={adults}
-                children={children}
-                onChange={(a, c) => { setAdults(a); setChildren(c); }}
-              />
-            </Box>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <GuestSelector
+                      adults={adults}
+                      children={children}
+                      onChange={(a, c) => { setAdults(a); setChildren(c); }}
+                    />
+                  </Box>
 
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              <Button
-                variant="contained"
-                onClick={handleSearch}
-                disabled={availabilityLoading}
-                fullWidth
-                startIcon={availabilityLoading ? <CircularProgress size={18} sx={{ color: 'white' }} /> : <SearchIcon />}
-                sx={{
-                  bgcolor: ACCENT,
-                  '&:hover': { bgcolor: ACCENT_HOVER },
-                  height: 48,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontFamily: FONT,
-                  borderRadius: BTN_PILL,
-                  boxShadow: 'none',
-                  fontSize: '0.95rem',
-                  transition: TRANSITION,
-                }}
-              >
-                {t('bookingEngine.search.search')}
-              </Button>
-            </Box>
-          </Paper>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Button
+                      variant="contained"
+                      onClick={handleSearch}
+                      disabled={availabilityLoading}
+                      fullWidth
+                      startIcon={availabilityLoading ? <CircularProgress size={18} sx={{ color: 'white' }} /> : <SearchIcon />}
+                      sx={{
+                        bgcolor: ACCENT,
+                        '&:hover': { bgcolor: ACCENT_HOVER },
+                        height: 48,
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        fontFamily: FONT,
+                        borderRadius: BTN_PILL,
+                        boxShadow: 'none',
+                        fontSize: '0.95rem',
+                        transition: TRANSITION,
+                      }}
+                    >
+                      {t('bookingEngine.search.search')}
+                    </Button>
+                  </Box>
+                </Paper>
+                {error && <Alert severity="error" sx={{ mt: 2, borderRadius: BTN_RADIUS }}>{error}</Alert>}
+              </>
+            )}
 
-          {error && <Alert severity="error" sx={{ mt: 2, borderRadius: BTN_RADIUS }}>{error}</Alert>}
+            {/* ── SERVICES TAB ── */}
+            {activeTab === 'services' && (
+              <>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    display: 'flex',
+                    flexDirection: isMd ? 'column' : 'row',
+                    alignItems: isMd ? 'stretch' : 'center',
+                    gap: isMd ? 2 : 1.5,
+                    p: isMd ? 2.5 : 1.5,
+                    borderRadius: isMd ? CARD_RADIUS : BTN_PILL,
+                    border: `1px solid ${BORDER}`,
+                    boxShadow: '0 3px 12px rgba(0,0,0,0.08)',
+                    bgcolor: 'white',
+                  }}
+                >
+                  {/* Choose Service — pill-styled custom selector */}
+                  <Box sx={{ flex: 1.2, minWidth: 0 }}>
+                    <Box
+                      ref={svcSelectorRef}
+                      onClick={() => setSvcSelectorOpen(true)}
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        height: 44,
+                        px: 2,
+                        borderRadius: '9999px',
+                        border: `1px solid ${svcSelectorOpen ? ACCENT : BORDER}`,
+                        cursor: 'pointer',
+                        fontFamily: FONT,
+                        fontSize: '0.875rem',
+                        color: selectedSvc ? TEXT_PRIMARY : TEXT_SECONDARY,
+                        fontWeight: selectedSvc ? 500 : 400,
+                        bgcolor: 'white',
+                        transition: 'all 0.2s ease-out',
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        '&:hover': { borderColor: TEXT_PRIMARY },
+                      }}
+                    >
+                      {selectedSvc?.name || t('bookingEngine.search.chooseService', 'Elige un servicio')}
+                    </Box>
+                    <Popover
+                      open={svcSelectorOpen}
+                      anchorEl={svcSelectorRef.current}
+                      onClose={() => setSvcSelectorOpen(false)}
+                      anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                      transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                      PaperProps={{
+                        sx: {
+                          borderRadius: '12px',
+                          boxShadow: '0 8px 28px rgba(0,0,0,0.12)',
+                          mt: 1,
+                          minWidth: 240,
+                          py: 1,
+                        },
+                      }}
+                    >
+                      {svcList.length === 0 ? (
+                        <Box sx={{ px: 2, py: 1.5, color: TEXT_SECONDARY, fontFamily: FONT, fontSize: '0.875rem' }}>
+                          {t('bookingEngine.search.noServices', 'No hay servicios disponibles')}
+                        </Box>
+                      ) : svcList.map(svc => (
+                        <Box
+                          key={svc._id}
+                          onClick={() => { setSelectedSvcId(svc._id); setSvcResult(null); setSvcSelectorOpen(false); }}
+                          sx={{
+                            px: 2,
+                            py: 1.25,
+                            cursor: 'pointer',
+                            fontFamily: FONT,
+                            fontSize: '0.9rem',
+                            color: svc._id === selectedSvcId ? ACCENT : TEXT_PRIMARY,
+                            fontWeight: svc._id === selectedSvcId ? 600 : 400,
+                            bgcolor: svc._id === selectedSvcId ? 'rgba(240,101,67,0.06)' : 'transparent',
+                            '&:hover': { bgcolor: 'rgba(240,101,67,0.08)' },
+                            transition: 'background-color 0.15s',
+                          }}
+                        >
+                          {svc.name}
+                        </Box>
+                      ))}
+                    </Popover>
+                  </Box>
+
+                  {!isMd && <Divider orientation="vertical" flexItem sx={{ borderColor: BORDER }} />}
+
+                  {/* Dynamic date picker */}
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    {isSingleDate ? (
+                      <SingleDatePicker
+                        date={svcDate}
+                        onChange={setSvcDate}
+                        minDate={minDate}
+                        maxDate={maxDate}
+                        placeholder={t('bookingEngine.search.serviceDate', 'Fecha')}
+                      />
+                    ) : (
+                      <DateRangePicker
+                        checkIn={svcCheckIn}
+                        checkOut={svcCheckOut}
+                        onChange={(ci, co) => { setSvcCheckIn(ci); setSvcCheckOut(co); }}
+                        minDate={minDate}
+                        maxDate={maxDate}
+                      />
+                    )}
+                  </Box>
+
+                  {!isMd && <Divider orientation="vertical" flexItem sx={{ borderColor: BORDER }} />}
+
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <GuestSelector
+                      adults={svcAdults}
+                      children={svcChildren}
+                      onChange={(a, c) => { setSvcAdults(a); setSvcChildren(c); }}
+                    />
+                  </Box>
+
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Button
+                      variant="contained"
+                      onClick={handleServiceSearch}
+                      disabled={svcSearchLoading}
+                      fullWidth
+                      startIcon={svcSearchLoading ? <CircularProgress size={18} sx={{ color: 'white' }} /> : <SearchIcon />}
+                      sx={{
+                        bgcolor: ACCENT,
+                        '&:hover': { bgcolor: ACCENT_HOVER },
+                        height: 48,
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        fontFamily: FONT,
+                        borderRadius: BTN_PILL,
+                        boxShadow: 'none',
+                        fontSize: '0.95rem',
+                        transition: TRANSITION,
+                      }}
+                    >
+                      {t('bookingEngine.search.search')}
+                    </Button>
+                  </Box>
+                </Paper>
+
+                {svcError && <Alert severity="error" sx={{ mt: 2, borderRadius: BTN_RADIUS }}>{svcError}</Alert>}
+
+                {/* Service quote result card */}
+                {svcResult && (
+                  <Box sx={{ mt: 4, maxWidth: 420, mx: 'auto' }}>
+                    <Card
+                      elevation={0}
+                      sx={{
+                        borderRadius: CARD_RADIUS,
+                        border: `1px solid ${BORDER}`,
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                      }}
+                    >
+                      <CardContent>
+                        <Typography variant="h6" sx={{ fontWeight: 700, fontFamily: FONT }}>{svcResult.name}</Typography>
+                        <Typography variant="body2" sx={{ color: TEXT_SECONDARY, fontFamily: FONT, mb: 1.5 }}>
+                          {chargeBasisLabelMap[svcResult.chargeBasis] || svcResult.chargeBasis}
+                        </Typography>
+                        {/* Unit price */}
+                        {svcResult.basePrice != null && (
+                          <Stack direction="row" alignItems="baseline" spacing={0.5} sx={{ mb: 0.5 }}>
+                            <Typography sx={{ fontWeight: 700, color: TEXT_PRIMARY, fontFamily: FONT, fontSize: '1.2rem' }}>
+                              {formatCurrency(svcResult.basePrice, config?.currency || 'USD')}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>
+                              / {chargeBasisLabelMap[svcResult.chargeBasis] || svcResult.chargeBasis}
+                            </Typography>
+                          </Stack>
+                        )}
+                        {/* Quoted total */}
+                        <Stack direction="row" alignItems="baseline" spacing={1}>
+                          <Typography sx={{ fontWeight: 700, color: ACCENT, fontFamily: FONT, fontSize: '1.4rem' }}>
+                            {formatCurrency(svcResult.quotedPrice!, config?.currency || 'USD')}
+                          </Typography>
+                          {svcResult.basePrice != null && (
+                            <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>
+                              {t('bookingEngine.search.totalEstimate', 'total estimado')}
+                            </Typography>
+                          )}
+                        </Stack>
+                        {(svcResult.quotedTaxes ?? 0) > 0 && (
+                          <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>
+                            {t('bookingEngine.results.taxes', { amount: formatCurrency(svcResult.quotedTaxes!, config?.currency || 'USD') })}
+                          </Typography>
+                        )}
+                      </CardContent>
+                      <CardActions sx={{ px: 2, pb: 2 }}>
+                        <Button
+                          variant="contained"
+                          fullWidth
+                          onClick={handleAddServiceFromTab}
+                          sx={{
+                            bgcolor: ACCENT,
+                            '&:hover': { bgcolor: ACCENT_HOVER },
+                            textTransform: 'none',
+                            fontWeight: 600,
+                            fontFamily: FONT,
+                            borderRadius: BTN_RADIUS,
+                            boxShadow: 'none',
+                          }}
+                        >
+                          {t('bookingEngine.search.bookService', 'Reservar este servicio')}
+                        </Button>
+                      </CardActions>
+                    </Card>
+                  </Box>
+                )}
+              </>
+            )}
+          </Box>
         </Container>
       </Box>
 
       {/* ── Room Type Showcase (all room types, always visible) ── */}
-      {roomTypes.length > 0 && !availability.length && (
+      {activeTab === 'rooms' && roomTypes.length > 0 && !availability.length && (
         <Container maxWidth="lg" sx={{ mt: 6 }}>
           <Typography
             variant="h5"
@@ -376,7 +706,7 @@ function SearchStep() {
       )}
 
       {/* Skeleton loading for room types */}
-      {roomTypesLoading && (
+      {activeTab === 'rooms' && roomTypesLoading && (
         <Container maxWidth="lg" sx={{ mt: 6 }}>
           <Skeleton width={200} height={32} sx={{ mb: 1, mx: 'auto' }} />
           <Skeleton width={300} height={20} sx={{ mb: 4, mx: 'auto' }} />
@@ -390,8 +720,95 @@ function SearchStep() {
         </Container>
       )}
 
+      {/* ── Service Showcase (Services tab, no active result) ── */}
+      {activeTab === 'services' && svcList.length > 0 && !svcResult && (
+        <Container maxWidth="lg" sx={{ mt: 6 }}>
+          <Typography
+            variant="h5"
+            sx={{ fontWeight: 600, fontFamily: FONT, color: TEXT_PRIMARY, mb: 0.5, textAlign: 'center' }}
+          >
+            {t('bookingEngine.services.heading', 'Nuestros Servicios')}
+          </Typography>
+          <Typography
+            variant="body2"
+            sx={{ color: TEXT_SECONDARY, fontFamily: FONT, mb: 4, textAlign: 'center' }}
+          >
+            {t('bookingEngine.services.subtitle', 'Elige un servicio y consulta disponibilidad')}
+          </Typography>
+          <Grid container spacing={3} justifyContent="center">
+            {svcList.map(svc => (
+              <Grid item xs={12} sm={6} md={4} lg={3} key={svc._id}>
+                <Card
+                  elevation={0}
+                  onClick={() => { setSelectedSvcId(svc._id); setSvcResult(null); }}
+                  sx={{
+                    borderRadius: CARD_RADIUS,
+                    border: `1px solid ${selectedSvcId === svc._id ? ACCENT : BORDER}`,
+                    overflow: 'hidden',
+                    transition: TRANSITION,
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
+                      transform: 'translateY(-2px)',
+                      borderColor: ACCENT,
+                    },
+                  }}
+                >
+                  <Box sx={{
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    height: 140,
+                    bgcolor: '#FFF5F2',
+                  }}>
+                    <RoomServiceIcon sx={{ fontSize: 56, color: ACCENT, opacity: 0.8 }} />
+                  </Box>
+                  <CardContent sx={{ p: 2, flex: 1, textAlign: 'center' }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, fontFamily: FONT, color: TEXT_PRIMARY, mb: 0.5 }}>
+                      {svc.name}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: TEXT_SECONDARY, fontFamily: FONT, mb: 1 }}>
+                      {chargeBasisLabelMap[svc.chargeBasis] || svc.chargeBasis}
+                    </Typography>
+                    {svc.basePrice != null && (
+                      <Typography sx={{ fontWeight: 700, color: ACCENT, fontFamily: FONT, fontSize: '1.1rem', mb: 1.5 }}>
+                        {formatCurrency(svc.basePrice, config?.currency || 'USD')}
+                      </Typography>
+                    )}
+                    <Button
+                      variant={selectedSvcId === svc._id ? 'contained' : 'outlined'}
+                      size="small"
+                      sx={{
+                        bgcolor: selectedSvcId === svc._id ? ACCENT : 'transparent',
+                        borderColor: ACCENT,
+                        color: selectedSvcId === svc._id ? 'white' : ACCENT,
+                        '&:hover': { bgcolor: ACCENT_HOVER, color: 'white', borderColor: ACCENT_HOVER },
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        fontFamily: FONT,
+                        borderRadius: BTN_PILL,
+                        boxShadow: 'none',
+                        px: 3,
+                        transition: TRANSITION,
+                      }}
+                    >
+                      {selectedSvcId === svc._id
+                        ? t('bookingEngine.services.selected', 'Seleccionado')
+                        : t('bookingEngine.services.select', 'Seleccionar')}
+                    </Button>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </Container>
+      )}
+
       {/* ── Room Type Showcase Cards (after search) ── */}
-      {availability.length > 0 && (
+      {activeTab === 'rooms' && availability.length > 0 && (
         <Container maxWidth="lg" sx={{ mt: 5 }}>
           <Typography
             variant="h5"
@@ -417,7 +834,7 @@ function SearchStep() {
       )}
 
       {/* ── Amenities Section ── */}
-      {amenities.length > 0 && (
+      {activeTab === 'rooms' && amenities.length > 0 && (
         <Container maxWidth="lg" sx={{ mt: 8 }}>
           <Typography
             variant="h5"
@@ -503,7 +920,7 @@ function SearchStep() {
       )}
 
       {/* Skeleton loading for amenities */}
-      {amenitiesLoading && (
+      {activeTab === 'rooms' && amenitiesLoading && (
         <Container maxWidth="lg" sx={{ mt: 8 }}>
           <Skeleton width={200} height={32} sx={{ mb: 1 }} />
           <Skeleton width={300} height={20} sx={{ mb: 4 }} />
@@ -518,7 +935,7 @@ function SearchStep() {
       )}
 
       {/* ── Trust & Credibility Bar ── */}
-      {reviews.length > 0 && (
+      {activeTab === 'rooms' && reviews.length > 0 && (
         <Box sx={{ bgcolor: SURFACE, py: 6, mt: 8, borderTop: `1px solid ${BORDER}`, borderBottom: `1px solid ${BORDER}` }}>
           <Container maxWidth="lg">
             <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5, justifyContent: 'center' }}>
@@ -700,24 +1117,29 @@ interface ServiceData {
   code: string;
   kind: string;
   chargeBasis: string;
-  prices?: Array<{ adults: number; price: number }>;
+  reservationMode?: 'dateRange' | 'singleDate';
+  basePrice?: number | null;
 }
 
 function ResultsStep() {
   const { config, availability, availabilityLoading, searchParams, addItem, removeItem, items, setCurrentStep, preselectedRoomTypeId, setPreselectedRoomTypeId } = useBooking();
   const { t } = useTranslation();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const currency = config?.currency || 'USD';
 
   const [services, setServices] = useState<ServiceData[]>([]);
   const [servicesLoading, setServicesLoading] = useState(false);
+  const [serviceQty, setServiceQty] = useState<Record<string, number>>({});
 
   const nights = searchParams
     ? Math.max(1, Math.ceil(
         (new Date(searchParams.checkOut).getTime() - new Date(searchParams.checkIn).getTime()) / 86400000
       ))
     : 1;
+
+  const roomItemCount = items.filter(i => i.kind === 'room').length;
+  const hasRoomSelected = roomItemCount > 0;
+  const totalGuests = (searchParams?.adults || 0) + (searchParams?.children || 0);
+  const addonServices = services.filter(s => s.kind === 'roomAddon');
 
   useEffect(() => {
     setServicesLoading(true);
@@ -786,7 +1208,7 @@ function ResultsStep() {
     addItem(item);
   };
 
-  const handleAddService = async (service: ServiceData) => {
+  const handleAddService = async (service: ServiceData, quantity: number) => {
     if (isServiceSelected(service._id)) return;
     try {
       const res = await bookingService.getServiceQuote({
@@ -804,26 +1226,17 @@ function ResultsStep() {
           date: searchParams!.checkIn,
           adults: searchParams!.adults,
           children: searchParams!.children,
-          quantity: 1,
+          quantity,
           pricing: {
-            subtotal: quote.subtotal ?? quote.finalTotal,
-            taxes: quote.totalTaxes ?? 0,
-            total: quote.finalTotal,
+            subtotal: (quote.subtotal ?? quote.finalTotal) * quantity,
+            taxes: (quote.totalTaxes ?? 0) * quantity,
+            total: quote.finalTotal * quantity,
           },
         };
         addItem(item);
       }
     } catch {
       // Silently fail — user can retry
-    }
-  };
-
-  const chargeBasisLabel = (basis: string) => {
-    switch (basis) {
-      case 'perPerson': return t('bookingEngine.results.perPerson');
-      case 'perRoom': return t('bookingEngine.results.perRoom');
-      case 'perStay': return t('bookingEngine.results.perStay');
-      default: return t('bookingEngine.results.perEvent');
     }
   };
 
@@ -1046,8 +1459,28 @@ function ResultsStep() {
             })}
           </Grid>
 
-          {/* Services section */}
-          {services.length > 0 && (
+          {/* Services section — only roomAddon kind, only when a room is in the cart */}
+          {servicesLoading && (
+            <Box sx={{ mt: 3, textAlign: 'center' }}>
+              <CircularProgress size={24} sx={{ color: BRAND }} />
+              <Typography variant="body2" sx={{ color: TEXT_SECONDARY, fontFamily: FONT, mt: 1 }}>
+                {t('bookingEngine.results.loadingServices')}
+              </Typography>
+            </Box>
+          )}
+
+          {!hasRoomSelected && addonServices.length > 0 && (
+            <Box sx={{ mt: 6 }}>
+              <Typography variant="h5" sx={{ fontWeight: 600, fontFamily: FONT, color: TEXT_PRIMARY, mb: 0.5 }}>
+                {t('bookingEngine.results.addOnServices')}
+              </Typography>
+              <Alert severity="info" sx={{ borderRadius: CARD_RADIUS }}>
+                {t('bookingEngine.results.selectRoomFirst', 'Select a room first to add services to your stay.')}
+              </Alert>
+            </Box>
+          )}
+
+          {hasRoomSelected && addonServices.length > 0 && (
             <Box sx={{ mt: 6 }}>
               <Typography variant="h5" sx={{ fontWeight: 600, fontFamily: FONT, color: TEXT_PRIMARY, mb: 0.5 }}>
                 {t('bookingEngine.results.addOnServices')}
@@ -1056,9 +1489,14 @@ function ResultsStep() {
                 {t('bookingEngine.results.addOnServicesSubtitle')}
               </Typography>
               <Grid container spacing={2}>
-                {services.map(service => {
+                {addonServices.map(service => {
                   const selected = isServiceSelected(service._id);
-                  const basePrice = service.prices?.[0]?.price;
+                  const qty = serviceQty[service._id] || 1;
+                  const maxQty = service.chargeBasis === 'perPerson'
+                    ? Math.max(1, totalGuests)
+                    : service.chargeBasis === 'perRoom'
+                      ? Math.max(1, roomItemCount)
+                      : 1;
                   return (
                     <Grid item xs={12} sm={6} md={4} key={service._id}>
                       <Card
@@ -1073,12 +1511,40 @@ function ResultsStep() {
                         <CardContent>
                           <Typography variant="subtitle1" sx={{ fontWeight: 600, fontFamily: FONT }}>{service.name}</Typography>
                           <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>
-                            {chargeBasisLabel(service.chargeBasis)}
+                            {chargeBasisLabelMap[service.chargeBasis] || service.chargeBasis}
                           </Typography>
-                          {basePrice != null && (
-                            <Typography sx={{ fontWeight: 700, color: ACCENT, fontFamily: FONT, fontSize: '1.1rem', mt: 1 }}>
-                              {formatCurrency(basePrice, currency)}
+                          {service.basePrice != null && (
+                            <Typography sx={{ fontWeight: 700, color: ACCENT, fontFamily: FONT, fontSize: '1.1rem', mt: 0.5 }}>
+                              {formatCurrency(service.basePrice, currency)}
+                              <Typography component="span" sx={{ fontWeight: 400, color: TEXT_SECONDARY, fontSize: '0.8rem' }}>
+                                {' '}{t(`bookingEngine.results.${service.chargeBasis}`, `/${service.chargeBasis}`)}
+                              </Typography>
                             </Typography>
+                          )}
+                          {/* Quantity selector */}
+                          {!selected && maxQty > 1 && (
+                            <Stack direction="row" alignItems="center" spacing={1} sx={{ mt: 1.5 }}>
+                              <IconButton
+                                size="small"
+                                onClick={() => setServiceQty(q => ({ ...q, [service._id]: Math.max(1, (q[service._id] || 1) - 1) }))}
+                                disabled={qty <= 1}
+                                sx={{ border: `1px solid ${BORDER}`, borderRadius: '6px', p: 0.5 }}
+                              >
+                                <RemoveIcon fontSize="small" />
+                              </IconButton>
+                              <Typography sx={{ fontWeight: 600, fontFamily: FONT, minWidth: 24, textAlign: 'center' }}>{qty}</Typography>
+                              <IconButton
+                                size="small"
+                                onClick={() => setServiceQty(q => ({ ...q, [service._id]: Math.min(maxQty, (q[service._id] || 1) + 1) }))}
+                                disabled={qty >= maxQty}
+                                sx={{ border: `1px solid ${BORDER}`, borderRadius: '6px', p: 0.5 }}
+                              >
+                                <AddIcon fontSize="small" />
+                              </IconButton>
+                              <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>
+                                {t('bookingEngine.results.maxQty', { count: maxQty })}
+                              </Typography>
+                            </Stack>
                           )}
                         </CardContent>
                         <CardActions sx={{ px: 2, pb: 2 }}>
@@ -1087,7 +1553,7 @@ function ResultsStep() {
                             size="small"
                             fullWidth
                             disabled={selected}
-                            onClick={() => handleAddService(service)}
+                            onClick={() => handleAddService(service, qty)}
                             startIcon={selected ? <CheckCircleIcon /> : <AddIcon />}
                             sx={{
                               bgcolor: selected ? 'transparent' : ACCENT,
@@ -1113,87 +1579,110 @@ function ResultsStep() {
             </Box>
           )}
 
-          {servicesLoading && (
-            <Box sx={{ mt: 3, textAlign: 'center' }}>
-              <CircularProgress size={24} sx={{ color: BRAND }} />
-              <Typography variant="body2" sx={{ color: TEXT_SECONDARY, fontFamily: FONT, mt: 1 }}>
-                {t('bookingEngine.results.loadingServices')}
-              </Typography>
-            </Box>
-          )}
-
           {/* Cart / booking panel */}
           {items.length > 0 && (
-            <Paper
-              elevation={0}
-              sx={{
-                mt: 5,
-                p: { xs: 2.5, md: 3 },
-                borderRadius: CARD_RADIUS,
-                border: `1px solid ${BORDER}`,
-                boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
-              }}
-            >
-              <Typography variant="h6" sx={{ fontWeight: 600, fontFamily: FONT, mb: 2 }}>
-                {t('bookingEngine.results.yourSelection')}
-              </Typography>
-              {items.map((item, i) => (
-                <Stack key={i} direction="row" justifyContent="space-between" alignItems="center" py={1}>
-                  <Stack direction="row" alignItems="center" spacing={1}>
+            <Box sx={{ mt: 5, maxWidth: 560, mx: 'auto' }}>
+              <Paper
+                elevation={0}
+                sx={{
+                  p: { xs: 2.5, md: 3 },
+                  borderRadius: CARD_RADIUS,
+                  border: `1px solid ${BORDER}`,
+                  boxShadow: '0 6px 20px rgba(0,0,0,0.1)',
+                }}
+              >
+                <Typography variant="h6" sx={{ fontWeight: 600, fontFamily: FONT, mb: 1.5 }}>
+                  {t('bookingEngine.results.yourSelection')}
+                </Typography>
+
+                {/* Reservation summary */}
+                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
+                  <Chip
+                    label={t('bookingEngine.results.nightCount', { count: nights })}
+                    size="small"
+                    sx={{ bgcolor: BRAND_LIGHT, color: BRAND, fontFamily: FONT, fontWeight: 600, borderRadius: BTN_PILL }}
+                  />
+                  <Chip
+                    icon={<PersonIcon sx={{ fontSize: 14 }} />}
+                    label={t('bookingEngine.results.adultCount', { count: searchParams?.adults || 0 })}
+                    size="small"
+                    variant="outlined"
+                    sx={{ borderRadius: BTN_PILL, fontFamily: FONT }}
+                  />
+                  {(searchParams?.children || 0) > 0 && (
                     <Chip
-                      label={item.kind === 'room' ? t('bookingEngine.results.room') : t('bookingEngine.results.service')}
+                      icon={<ChildCareIcon sx={{ fontSize: 14 }} />}
+                      label={t('bookingEngine.results.childCount', { count: searchParams?.children || 0 })}
                       size="small"
                       variant="outlined"
-                      sx={{ borderRadius: BTN_PILL, fontFamily: FONT, fontSize: '0.75rem' }}
+                      sx={{ borderRadius: BTN_PILL, fontFamily: FONT }}
                     />
-                    <Typography sx={{ fontFamily: FONT, color: TEXT_PRIMARY }}>{item.roomTypeName || item.serviceName}</Typography>
-                  </Stack>
-                  <Stack direction="row" alignItems="center" spacing={1}>
-                    <Typography sx={{ fontWeight: 600, fontFamily: FONT }}>{formatCurrency(item.pricing.total, currency)}</Typography>
-                    <IconButton
-                      size="small"
-                      onClick={() => removeItem(i)}
-                      sx={{ color: '#E53935', transition: TRANSITION, '&:hover': { bgcolor: '#FFEBEE' } }}
-                      aria-label={`Remove ${item.roomTypeName || item.serviceName}`}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Stack>
+                  )}
                 </Stack>
-              ))}
-              <Divider sx={{ my: 2, borderColor: BORDER }} />
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography variant="h6" sx={{ fontWeight: 700, fontFamily: FONT }}>{t('bookingEngine.results.total')}</Typography>
-                <Typography variant="h6" sx={{ fontWeight: 700, fontFamily: FONT, color: ACCENT }}>
-                  {formatCurrency(items.reduce((s, it) => s + it.pricing.total, 0), currency)}
+
+                <Divider sx={{ borderColor: BORDER, mb: 1 }} />
+
+                {items.map((item, i) => (
+                  <Stack key={i} direction="row" justifyContent="space-between" alignItems="center" py={1}>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <Chip
+                        label={item.kind === 'room' ? t('bookingEngine.results.room') : t('bookingEngine.results.service')}
+                        size="small"
+                        variant="outlined"
+                        sx={{ borderRadius: BTN_PILL, fontFamily: FONT, fontSize: '0.75rem' }}
+                      />
+                      <Typography sx={{ fontFamily: FONT, color: TEXT_PRIMARY }}>{item.roomTypeName || item.serviceName}</Typography>
+                      {item.quantity > 1 && (
+                        <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>x{item.quantity}</Typography>
+                      )}
+                    </Stack>
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <Typography sx={{ fontWeight: 600, fontFamily: FONT }}>{formatCurrency(item.pricing.total, currency)}</Typography>
+                      <IconButton
+                        size="small"
+                        onClick={() => removeItem(i)}
+                        sx={{ color: '#E53935', transition: TRANSITION, '&:hover': { bgcolor: '#FFEBEE' } }}
+                        aria-label={`Remove ${item.roomTypeName || item.serviceName}`}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                  </Stack>
+                ))}
+                <Divider sx={{ my: 2, borderColor: BORDER }} />
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Typography variant="h6" sx={{ fontWeight: 700, fontFamily: FONT }}>{t('bookingEngine.results.total')}</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 700, fontFamily: FONT, color: ACCENT }}>
+                    {formatCurrency(items.reduce((s, it) => s + it.pricing.total, 0), currency)}
+                  </Typography>
+                </Stack>
+
+                <Typography variant="body2" sx={{ color: TEXT_SECONDARY, fontFamily: FONT, mt: 1, textAlign: 'center' }}>
+                  {t('bookingEngine.results.youWontBeCharged')}
                 </Typography>
-              </Stack>
 
-              <Typography variant="body2" sx={{ color: TEXT_SECONDARY, fontFamily: FONT, mt: 1, textAlign: 'center' }}>
-                {t('bookingEngine.results.youWontBeCharged')}
-              </Typography>
-
-              <Button
-                variant="contained"
-                fullWidth
-                sx={{
-                  mt: 2,
-                  bgcolor: ACCENT,
-                  '&:hover': { bgcolor: ACCENT_HOVER },
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontFamily: FONT,
-                  py: 1.5,
-                  borderRadius: BTN_RADIUS,
-                  boxShadow: 'none',
-                  fontSize: '1rem',
-                  transition: TRANSITION,
-                }}
-                onClick={() => setCurrentStep('details')}
-              >
-                {t('bookingEngine.results.continueToDetails')}
-              </Button>
-            </Paper>
+                <Button
+                  variant="contained"
+                  fullWidth
+                  sx={{
+                    mt: 2,
+                    bgcolor: ACCENT,
+                    '&:hover': { bgcolor: ACCENT_HOVER },
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    fontFamily: FONT,
+                    py: 1.5,
+                    borderRadius: BTN_RADIUS,
+                    boxShadow: 'none',
+                    fontSize: '1rem',
+                    transition: TRANSITION,
+                  }}
+                  onClick={() => setCurrentStep('details')}
+                >
+                  {t('bookingEngine.results.continueToDetails')}
+                </Button>
+              </Paper>
+            </Box>
           )}
         </>
       )}
@@ -1203,7 +1692,7 @@ function ResultsStep() {
 
 // ── Step 3: Guest Details ────────────────────────────────────────────────────
 function DetailsStep() {
-  const { config, guestInfo, setGuestInfo, setCurrentStep, totalPrice } = useBooking();
+  const { config, guestInfo, setGuestInfo, setCurrentStep, prevStep, totalPrice } = useBooking();
   const { t } = useTranslation();
   const currency = config?.currency || 'USD';
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -1311,7 +1800,7 @@ function DetailsStep() {
         <Stack direction="row" spacing={2} sx={{ mt: 3 }}>
           <Button
             variant="outlined"
-            onClick={() => setCurrentStep('results')}
+            onClick={() => setCurrentStep(prevStep || 'results')}
             sx={{
               textTransform: 'none',
               fontFamily: FONT,
@@ -1356,6 +1845,8 @@ function VerifyStep() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
   const [attemptsRemaining, setAttemptsRemaining] = useState(5);
+  // Guard against React StrictMode double-invoking the mount effect
+  const sendAttempted = React.useRef(false);
 
   const handleSendCode = async () => {
     setSending(true);
@@ -1396,9 +1887,11 @@ function VerifyStep() {
     }
   };
 
-  // Auto-send on mount
+  // Auto-send on mount — ref guard prevents StrictMode from firing twice
   useEffect(() => {
-    if (!sent && !sending) handleSendCode();
+    if (sendAttempted.current) return;
+    sendAttempted.current = true;
+    handleSendCode();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1521,12 +2014,11 @@ function ReviewStep() {
   const { t } = useTranslation();
   const currency = config?.currency || 'USD';
   const [termsAccepted, setTermsAccepted] = useState(false);
-  const [privacyAccepted, setPrivacyAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   const handleConfirm = async () => {
-    if (!termsAccepted || !privacyAccepted) {
+    if (!termsAccepted) {
       setError(t('bookingEngine.review.acceptTermsError'));
       return;
     }
@@ -1561,7 +2053,7 @@ function ReviewStep() {
         specialRequests: guestInfo.specialRequests || undefined,
         items: bookingItems,
         acceptedTermsVersion: config?.termsVersion || '1.0',
-        acceptedPrivacyVersion: config?.privacyVersion || '1.0',
+        acceptedPrivacyVersion: config?.termsVersion || '1.0',
       });
 
       if (res.data?.data) {
@@ -1679,24 +2171,11 @@ function ReviewStep() {
           }
           label={
             <Typography variant="body2" sx={{ fontFamily: FONT }}>
-              {t('bookingEngine.review.agreeTerms')}{' '}
+              {t('bookingEngine.review.agreeTermsAndPrivacy')}{' '}
               <Link href="/booking/terms" target="_blank" rel="noopener" sx={{ color: BRAND, fontWeight: 600 }}>
                 {t('bookingEngine.review.termsOfService')}
               </Link>
-            </Typography>
-          }
-        />
-        <FormControlLabel
-          control={
-            <Checkbox
-              checked={privacyAccepted}
-              onChange={e => setPrivacyAccepted(e.target.checked)}
-              sx={{ '&.Mui-checked': { color: BRAND } }}
-            />
-          }
-          label={
-            <Typography variant="body2" sx={{ fontFamily: FONT }}>
-              {t('bookingEngine.review.agreePrivacy')}{' '}
+              {' '}{t('bookingEngine.review.and')}{' '}
               <Link href="/booking/privacy" target="_blank" rel="noopener" sx={{ color: BRAND, fontWeight: 600 }}>
                 {t('bookingEngine.review.privacyPolicy')}
               </Link>
@@ -1726,7 +2205,7 @@ function ReviewStep() {
           variant="contained"
           fullWidth
           onClick={handleConfirm}
-          disabled={submitting || !termsAccepted || !privacyAccepted}
+          disabled={submitting || !termsAccepted}
           startIcon={submitting ? <CircularProgress size={18} sx={{ color: 'white' }} /> : <CheckCircleIcon />}
           sx={{
             bgcolor: ACCENT,
@@ -1819,11 +2298,32 @@ function ConfirmationStep() {
         </Typography>
       </Alert>
 
+      {bookingResult?.confirmationToken && (
+        <Button
+          variant="contained"
+          href={`/booking/reservation/${bookingResult.reservationCode}?token=${bookingResult.confirmationToken}`}
+          sx={{
+            mt: 3,
+            textTransform: 'none',
+            fontFamily: FONT,
+            bgcolor: ACCENT,
+            color: '#fff',
+            borderRadius: BTN_RADIUS,
+            fontWeight: 600,
+            width: '100%',
+            py: 1.5,
+            '&:hover': { bgcolor: '#C84E33' },
+          }}
+        >
+          {t('bookingEngine.confirmation.viewReservation')}
+        </Button>
+      )}
+
       <Button
         variant="outlined"
         href="/booking"
         sx={{
-          mt: 3,
+          mt: 2,
           textTransform: 'none',
           fontFamily: FONT,
           borderColor: BRAND,
@@ -1841,7 +2341,7 @@ function ConfirmationStep() {
 
 // ── Main Page ────────────────────────────────────────────────────────────────
 const BookingPage: React.FC = () => {
-  const { config, configLoading, configError, currentStep } = useBooking();
+  const { configLoading, configError, currentStep } = useBooking();
   const { t } = useTranslation();
 
   const STEPS_KEYS = [

@@ -9,7 +9,7 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children }) => {
   const location = useLocation();
-  const hideHeader = location.pathname === '/login';
+  const hideHeader = location.pathname === '/login' || location.pathname === '/verify-email';
 
   return (
     <Box

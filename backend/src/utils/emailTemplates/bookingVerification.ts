@@ -29,38 +29,38 @@ export function renderBookingVerification(params: BookingVerificationEmailParams
   const bodyHtml = `
 <tr>
   <td style="padding:30px 40px 10px 40px;">
-    <h1 style="margin:0 0 10px 0;font-size:22px;color:#2D3748;">Verification Code</h1>
+    <h1 style="margin:0 0 10px 0;font-size:22px;color:#111111;">Código de verificación</h1>
     <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#555555;">
-      You're almost done! Use the code below to verify your email address
-      and confirm your booking at <strong>${escapeHtml(tenantName)}</strong>.
+      ¡Ya casi terminas! Usa el código de abajo para verificar tu correo electrónico
+      y confirmar tu reserva en <strong>${escapeHtml(tenantName)}</strong>.
     </p>
   </td>
 </tr>
 <tr>
   <td align="center" style="padding:10px 40px 10px 40px;">
-    <div style="display:inline-block;background-color:#f0f4f8;border:2px dashed #2E7D32;border-radius:10px;padding:20px 40px;">
-      <span style="font-size:36px;font-weight:bold;letter-spacing:12px;color:#2E7D32;font-family:monospace;">${escapeHtml(code)}</span>
+    <div style="display:inline-block;background-color:#fafafa;border:2px solid #dddddd;border-radius:10px;padding:20px 40px;">
+      <span style="font-size:36px;font-weight:bold;letter-spacing:12px;color:#111111;font-family:monospace;">${escapeHtml(code)}</span>
     </div>
   </td>
 </tr>
 <tr>
   <td style="padding:20px 40px 10px 40px;">
     <p style="margin:0 0 10px 0;font-size:14px;line-height:1.6;color:#777777;">
-      This code is valid for <strong>15 minutes</strong>. Do not share it with anyone.
+      Este código es válido por <strong>15 minutos</strong>. No lo compartas con nadie.
     </p>
     <p style="margin:0 0 10px 0;font-size:14px;line-height:1.6;color:#777777;">
-      If you did not request this, you can safely ignore this email.
+      Si no solicitaste esto, puedes ignorar este correo sin problema.
     </p>
   </td>
 </tr>`;
 
-  const bodyText = `Verification Code: ${code}
+  const bodyText = `Código de verificación: ${code}
 
-Use this code to verify your email and confirm your booking at ${tenantName}.
+Usa este código para verificar tu correo y confirmar tu reserva en ${tenantName}.
 
-This code is valid for 15 minutes. Do not share it with anyone.
+Este código es válido por 15 minutos. No lo compartas con nadie.
 
-If you did not request this, you can safely ignore this email.`;
+Si no solicitaste esto, puedes ignorar este correo sin problema.`;
 
   return applyLayout({
     hotelName: tenantName,

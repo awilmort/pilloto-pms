@@ -15,7 +15,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@aws-sdk/client-ses": "^3.1017.0",
     "@types/nodemailer": "^7.0.1",
     "axios": "^1.14.0",
     "bcryptjs": "^3.0.2",
@@ -37,7 +36,9 @@
     "node-cron": "^4.2.1",
     "node-ical": "^0.25.6",
     "nodemailer": "^7.0.5",
-    "sanitize-html": "^2.17.2"
+    "resend": "^6.10.0",
+    "sanitize-html": "^2.17.2",
+    "svix": "^1.90.0"
   },
   "devDependencies": {
     "@types/bcryptjs": "^3.0.0",

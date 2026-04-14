@@ -66,6 +66,7 @@ export interface Guest {
   email: string;
   phone?: string;
   notes?: string;
+  companyId?: string | Company;
   createdAt: string;
   updatedAt: string;
 }
@@ -183,6 +184,7 @@ export interface Reservation {
   // Corporate booking
   isCorporate?: boolean;
   company?: string | Company;
+  corporatePriceStatus?: 'pending' | 'approved' | 'declined';
   guestRecord?: string | Guest;
 
   createdAt: string;

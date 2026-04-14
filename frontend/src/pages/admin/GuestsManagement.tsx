@@ -3,12 +3,12 @@ import {
   Box, Typography, Button, TextField, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Paper, IconButton, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress,
-  Alert, Tooltip, InputAdornment, Grid,
+  Alert, Tooltip, InputAdornment, Grid, Autocomplete,
 } from '@mui/material';
-import { Edit, Delete, Search, ArrowBack, Email, Phone } from '@mui/icons-material';
+import { Edit, Delete, Search, ArrowBack, Email, Phone, Business } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
-import { guestsService } from '../../services/api';
-import { Guest, Reservation } from '../../types';
+import { guestsService, companiesService } from '../../services/api';
+import { Guest, Reservation, Company } from '../../types';
 import SectionTitle from '../../components/admin/SectionTitle';
 import AdminLayout from '../../components/admin/AdminLayout';
 
@@ -41,6 +41,11 @@ const GuestsManagement: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Company autocomplete
+  const [companyOptions, setCompanyOptions] = useState<Company[]>([]);
+  const [companySearch, setCompanySearch] = useState('');
+  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+
   // Delete confirm
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -63,10 +68,25 @@ const GuestsManagement: React.FC = () => {
 
   useEffect(() => { fetchGuests(); }, [fetchGuests]);
 
+  useEffect(() => {
+    if (companySearch.length < 1) { setCompanyOptions([]); return; }
+    companiesService.getCompanies({ search: companySearch, limit: 20 })
+      .then(res => setCompanyOptions(res.data.data ?? []))
+      .catch(() => {});
+  }, [companySearch]);
+
   const openEdit = (g: Guest, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingId(g._id);
-    setForm({ firstName: g.firstName, lastName: g.lastName, email: g.email, phone: g.phone, notes: g.notes });
+    setForm({ firstName: g.firstName, lastName: g.lastName, email: g.email, phone: g.phone, notes: g.notes, companyId: typeof g.companyId === 'object' && g.companyId ? (g.companyId as Company)._id : (g.companyId as string) || '' });
+    if (typeof g.companyId === 'object' && g.companyId) {
+      const c = g.companyId as Company;
+      setSelectedCompany(c);
+      setCompanyOptions([c]);
+    } else {
+      setSelectedCompany(null);
+      setCompanyOptions([]);
+    }
     setFormError(null);
     setDialogOpen(true);
   };
@@ -77,7 +97,9 @@ const GuestsManagement: React.FC = () => {
     setFormError(null);
     try {
       if (editingId) {
-        await guestsService.updateGuest(editingId, form);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const payload: any = { ...form, companyId: form.companyId || null };
+        await guestsService.updateGuest(editingId, payload);
       }
       setDialogOpen(false);
       fetchGuests();
@@ -141,6 +163,12 @@ const GuestsManagement: React.FC = () => {
               <Grid item xs={12}>
                 <Typography variant="caption" color="text.secondary">{t('common.notes', 'Notes')}</Typography>
                 <Typography>{selectedGuest.notes}</Typography>
+              </Grid>
+            )}
+            {selectedGuest.companyId && (
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">{t('guests.company', 'Company')}</Typography>
+                <Typography><Business fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />{typeof selectedGuest.companyId === 'object' && selectedGuest.companyId ? (selectedGuest.companyId as Company).name : selectedGuest.companyId}</Typography>
               </Grid>
             )}
             <Grid item xs={12} sm={6}>
@@ -284,6 +312,22 @@ const GuestsManagement: React.FC = () => {
                 value={form.phone || ''}
                 onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                 fullWidth
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <Autocomplete
+                options={companyOptions}
+                getOptionLabel={(o: Company) => o.name}
+                value={selectedCompany}
+                onChange={(_, newVal: Company | null) => {
+                  setSelectedCompany(newVal);
+                  setForm(f => ({ ...f, companyId: newVal?._id || '' }));
+                }}
+                onInputChange={(_, v) => setCompanySearch(v)}
+                isOptionEqualToValue={(o, v) => o._id === v._id}
+                renderInput={params => (
+                  <TextField {...params} label={t('guests.company', 'Company')} />
+                )}
               />
             </Grid>
             <Grid item xs={12}>

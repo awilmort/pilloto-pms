@@ -115,8 +115,10 @@ const CreateReservationDialog: React.FC<Props> = ({
   defaultType, defaultCheckIn, defaultCheckOut, defaultRoomId,
 }) => {
   const { t } = useTranslation();
-  const { permissions, discountLimit } = useAuth();
+  const { user, permissions, discountLimit } = useAuth();
   const canDiscount = permissions.includes('admin.reservations.discount') && discountLimit > 0;
+  const isAdmin = user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin';
+  const canAssignCorporatePrice = isAdmin || permissions.includes('admin.reservations.assignCorporatePrice');
 
   const [discountPercent, setDiscountPercent] = useState<number>(0);
 
@@ -143,6 +145,7 @@ const CreateReservationDialog: React.FC<Props> = ({
 
   // Corporate booking
   const [createIsCorporate, setCreateIsCorporate]     = useState(false);
+  const [createRequestCorporatePrice, setCreateRequestCorporatePrice] = useState(false);
   const [createCompanyId, setCreateCompanyId]         = useState('');
   const [createCompanyName, setCreateCompanyName]     = useState('');
   const [createCompanyOptions, setCreateCompanyOptions] = useState<Company[]>([]);
@@ -289,6 +292,7 @@ const CreateReservationDialog: React.FC<Props> = ({
     setCreateGuestPriceApplied(false);
     setCreateCorporatePriceApplied(false);
     setCreateIsCorporate(false);
+    setCreateRequestCorporatePrice(false);
     setCreateCompanyId('');
     setCreateCompanyName('');
     setCreateStep2Error(null);
@@ -335,7 +339,7 @@ const CreateReservationDialog: React.FC<Props> = ({
   };
 
   const handleContinueStep2 = () => {
-    if (createIsCorporate && !createCompanyId) {
+    if (createIsCorporate && canAssignCorporatePrice && !createCompanyId) {
       setCreateStep2Error(t('admin.reservations.create.companyRequired', 'Please select a company for the corporate booking.'));
       return;
     }
@@ -364,6 +368,13 @@ const CreateReservationDialog: React.FC<Props> = ({
       if (createIsCorporate && createCompanyId) {
         payload.isCorporate = true;
         payload.company = createCompanyId;
+      }
+      if (createRequestCorporatePrice && !createCompanyId) {
+        payload.requestCorporatePrice = true;
+      }
+      if (createRequestCorporatePrice && createCompanyId) {
+        payload.requestCorporatePrice = true;
+        payload.requestedCompany = createCompanyId;
       }
       if (createForm.type !== 'room' && selectedServiceId && servicePricePreview) {
         payload.items = [{
@@ -837,9 +848,9 @@ const CreateReservationDialog: React.FC<Props> = ({
             </Box>
             <TextField
               fullWidth size="small" type="number"
-              label={t('admin.reservations.form.totalPrice', 'Total Price')}
+              label={t('admin.reservations.form.estimatedPrice', 'Estimated Price')}
               value={createForm.totalPrice}
-              onChange={e => setCreateForm(f => ({ ...f, totalPrice: parseFloat(e.target.value) || 0 }))}
+              InputProps={{ readOnly: true }}
               inputProps={{ min: 0, step: 0.01 }}
             />
             <TextField
@@ -848,29 +859,62 @@ const CreateReservationDialog: React.FC<Props> = ({
               value={createForm.specialRequests}
               onChange={e => setCreateForm(f => ({ ...f, specialRequests: e.target.value }))}
             />
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={createIsCorporate}
-                  onChange={e => {
-                    setCreateIsCorporate(e.target.checked);
-                    if (!e.target.checked) { setCreateCompanyId(''); setCreateCompanyName(''); }
-                  }}
+            {canAssignCorporatePrice ? (
+              <>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={createIsCorporate}
+                      onChange={e => {
+                        setCreateIsCorporate(e.target.checked);
+                        setCreateRequestCorporatePrice(false);
+                        if (!e.target.checked) { setCreateCompanyId(''); setCreateCompanyName(''); }
+                      }}
+                    />
+                  }
+                  label={t('admin.reservations.create.corporateBooking', 'Corporate Booking')}
                 />
-              }
-              label={t('admin.reservations.create.corporateBooking', 'Corporate Booking')}
-            />
-            {createIsCorporate && (
-              <Autocomplete
-                options={createCompanyOptions}
-                getOptionLabel={(o: Company) => o.name}
-                value={createCompanyOptions.find(c => c._id === createCompanyId) || null}
-                onChange={(_, newVal: Company | null) => { setCreateCompanyId(newVal?._id || ''); setCreateCompanyName(newVal?.name || ''); }}
-                onInputChange={(_, v) => setCreateCompanySearch(v)}
-                renderInput={params => (
-                  <TextField {...params} size="small" label={t('admin.reservations.create.company', 'Company')} required />
+                {createIsCorporate && (
+                  <Autocomplete
+                    options={createCompanyOptions}
+                    getOptionLabel={(o: Company) => o.name}
+                    value={createCompanyOptions.find(c => c._id === createCompanyId) || null}
+                    onChange={(_, newVal: Company | null) => { setCreateCompanyId(newVal?._id || ''); setCreateCompanyName(newVal?.name || ''); }}
+                    onInputChange={(_, v) => setCreateCompanySearch(v)}
+                    renderInput={params => (
+                      <TextField {...params} size="small" label={t('admin.reservations.create.company', 'Company')} required />
+                    )}
+                  />
                 )}
-              />
+              </>
+            ) : (
+              <>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={createRequestCorporatePrice}
+                      onChange={e => {
+                        setCreateRequestCorporatePrice(e.target.checked);
+                        setCreateIsCorporate(false);
+                        if (!e.target.checked) { setCreateCompanyId(''); setCreateCompanyName(''); }
+                      }}
+                    />
+                  }
+                  label={t('admin.reservations.create.requestCorporatePrice', 'Request Corporate Price')}
+                />
+                {createRequestCorporatePrice && (
+                  <Autocomplete
+                    options={createCompanyOptions}
+                    getOptionLabel={(o: Company) => o.name}
+                    value={createCompanyOptions.find(c => c._id === createCompanyId) || null}
+                    onChange={(_, newVal: Company | null) => { setCreateCompanyId(newVal?._id || ''); setCreateCompanyName(newVal?.name || ''); }}
+                    onInputChange={(_, v) => setCreateCompanySearch(v)}
+                    renderInput={params => (
+                      <TextField {...params} size="small" label={t('admin.reservations.create.requestedCompany', 'Requested Company')} />
+                    )}
+                  />
+                )}
+              </>
             )}
           </Box>
         )}
@@ -881,6 +925,11 @@ const CreateReservationDialog: React.FC<Props> = ({
             {createCorporatePriceApplied && (
               <Alert severity="success">
                 {t('admin.reservations.create.corporatePriceApplied', 'A corporate rate has been applied for {{company}}.', { company: createCompanyName })}
+              </Alert>
+            )}
+            {createRequestCorporatePrice && !createCorporatePriceApplied && (
+              <Alert severity="info">
+                {t('admin.reservations.create.corporatePriceRequested', 'Corporate pricing has been requested. An admin will review and approve the corporate rate.')}
               </Alert>
             )}
             {createGuestPriceApplied && (

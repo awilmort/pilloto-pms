@@ -11,6 +11,7 @@ import Payment from '../models/Payment';
 import CreditAccount from '../models/CreditAccount';
 import { authenticate, authorize, authorizePermission } from '../middleware/auth';
 import { getSortObject } from '../utils/helpers';
+import { sendVerificationEmail } from '../utils/email';
 
 const router = express.Router();
 
@@ -1031,6 +1032,16 @@ router.post('/users', authenticate, authorizePermission('admin.users'), async (r
 
     const user = new User({ firstName, lastName, email, phone, role, password });
     await user.save();
+
+    // Generate verification token and send welcome/activation email
+    const verificationToken = user.generateEmailVerificationToken();
+    await user.save();
+    try {
+      await sendVerificationEmail(user, verificationToken);
+    } catch (emailError) {
+      console.error('Verification email error on user create:', emailError);
+      // Do not fail the creation if email sending fails
+    }
 
     const userSafe = await User.findById(user._id).select('-password');
     res.status(201).json({ success: true, message: 'User created successfully', data: userSafe });

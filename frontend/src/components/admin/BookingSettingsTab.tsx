@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Box, Typography, TextField, Button, Switch, FormControlLabel,
-  Alert, CircularProgress, Divider, Stack,
+  CircularProgress, Divider, Stack,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { settingsService } from '../../services/api';

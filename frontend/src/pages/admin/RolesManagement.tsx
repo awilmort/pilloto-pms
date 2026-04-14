@@ -42,6 +42,7 @@ const buildAvailablePermissions = (t: (key: string) => string) => ([
   { key: 'admin.reservations.discount', label: t('admin.roles.permissionLabels.reservationsDiscount') },
   { key: 'admin.reservations.checkin', label: t('admin.roles.permissionLabels.reservationsCheckIn') },
   { key: 'admin.reservations.cancel', label: t('admin.roles.permissionLabels.reservationsCancel') },
+  { key: 'admin.reservations.assignCorporatePrice', label: t('admin.roles.permissionLabels.reservationsAssignCorporatePrice') },
   { key: 'admin.users', label: t('admin.nav.users') },
   { key: 'admin.roles', label: t('admin.nav.roles') },
   { key: 'admin.media', label: t('admin.nav.media') },

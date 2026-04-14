@@ -3,6 +3,7 @@ import { tenantPlugin } from '../plugins/tenantPlugin';
 
 export type ServiceKind = 'daypass' | 'pasatarde' | 'event' | 'roomAddon' | 'generic';
 export type ChargeBasis = 'perPerson' | 'perRoom' | 'perStay' | 'perEvent';
+export type ReservationMode = 'dateRange' | 'singleDate';
 
 export interface IService extends Document {
   /** Unique short code per tenant (e.g. "DAYPASS", "PASATARDE"). Used for look-up. */
@@ -12,6 +13,8 @@ export interface IService extends Document {
   kind: ServiceKind;
   /** How the unit price is multiplied to get the subtotal. */
   chargeBasis: ChargeBasis;
+  /** Whether booking this service online uses a date range or a single date. */
+  reservationMode: ReservationMode;
   isActive: boolean;
   /** Whether the service can appear in the guest-facing online booking flow. */
   isOnlineBookable: boolean;
@@ -44,6 +47,11 @@ const serviceSchema = new Schema<IService>(
       type: String,
       enum: ['perPerson', 'perRoom', 'perStay', 'perEvent'] as ChargeBasis[],
       required: true,
+    },
+    reservationMode: {
+      type: String,
+      enum: ['dateRange', 'singleDate'] as ReservationMode[],
+      default: 'dateRange',
     },
     isActive: { type: Boolean, default: true },
     isOnlineBookable: { type: Boolean, default: false },
