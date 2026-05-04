@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   CircularProgress,
+  Container,
   Dialog,
   DialogActions,
   DialogContent,
@@ -22,7 +23,6 @@ import {
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import AdminLayout from '../../components/admin/AdminLayout';
-import SectionTitle from '../../components/admin/SectionTitle';
 import { cashierClosuresService, CashierClosure } from '../../services/api';
 
 const DEFAULT_DENOMINATIONS = [2000, 1000, 500, 200, 100, 50, 25, 10, 5, 1];
@@ -204,25 +204,18 @@ const CashierClosuresPage: React.FC = () => {
   };
 
   return (
-    <AdminLayout>
-      <Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-          <SectionTitle title={t('admin.cashierClosures.title')} />
-          <Button variant="contained" onClick={openGenerate}>{t('admin.cashierClosures.generate')}</Button>
-        </Box>
+    <AdminLayout title={t('admin.cashierClosures.title')}>
+      <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
 
-        <Paper sx={{ p: 2, mb: 2 }}>
-          <Grid container spacing={2} alignItems="center">
-            <Grid item xs={12} sm={4}>
-              <TextField label={t('admin.cashierClosures.from')} type="date" value={from} onChange={(e) => setFrom(e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <TextField label={t('admin.cashierClosures.to')} type="date" value={to} onChange={(e) => setTo(e.target.value)} fullWidth InputLabelProps={{ shrink: true }} />
-            </Grid>
-            <Grid item xs={12} sm={4}>
-              <Button variant="outlined" onClick={loadClosures}>{t('admin.cashierClosures.applyFilters')}</Button>
-            </Grid>
-          </Grid>
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            <TextField label={t('admin.cashierClosures.from')} type="date" value={from} onChange={(e) => setFrom(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ maxWidth: 200 }} />
+            <TextField label={t('admin.cashierClosures.to')} type="date" value={to} onChange={(e) => setTo(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ maxWidth: 200 }} />
+            <Button variant="outlined" onClick={loadClosures}>{t('admin.cashierClosures.applyFilters')}</Button>
+            <Box sx={{ ml: 'auto' }}>
+              <Button variant="contained" onClick={openGenerate}>{t('admin.cashierClosures.generate')}</Button>
+            </Box>
+          </Box>
         </Paper>
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
@@ -345,7 +338,7 @@ const CashierClosuresPage: React.FC = () => {
             <Button variant="contained" onClick={createClosure} disabled={generating || !preview}>{t('admin.cashierClosures.confirm')}</Button>
           </DialogActions>
         </Dialog>
-      </Box>
+      </Container>
     </AdminLayout>
   );
 };

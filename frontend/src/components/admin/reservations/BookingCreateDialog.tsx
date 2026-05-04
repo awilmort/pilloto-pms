@@ -45,7 +45,7 @@ const DEFAULT_FORM = {
   email:           '',
   phone:           '',
   specialRequests: '',
-  totalPrice:      0,
+  totalPrice:      '',
 };
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -112,7 +112,7 @@ const BookingCreateDialog: React.FC<Props> = ({
       .then(res => {
         const data = res.data.data;
         setPricePreview(data);
-        if (data?.finalTotal != null) setForm(f => ({ ...f, totalPrice: data.finalTotal }));
+        if (data?.finalTotal != null) setForm(f => ({ ...f, totalPrice: String(data.finalTotal) }));
       })
       .catch(() => setPricePreview(null))
       .finally(() => setPriceLoading(false));
@@ -131,7 +131,7 @@ const BookingCreateDialog: React.FC<Props> = ({
         guestName:       { firstName: form.firstName, lastName: form.lastName },
         contactInfo:     { email: form.email, phone: form.phone },
         specialRequests:  form.specialRequests,
-        totalPrice:       form.totalPrice,
+        totalPrice:       parseFloat(form.totalPrice as string) || 0,
       };
       if (ratePlanId) payload.ratePlanId = ratePlanId;
       await reservationsService.createReservation(payload);
@@ -251,7 +251,7 @@ const BookingCreateDialog: React.FC<Props> = ({
               fullWidth size="small" type="number"
               label={t('admin.reservations.form.totalPrice', 'Total Price')}
               value={form.totalPrice}
-              onChange={e => setForm(f => ({ ...f, totalPrice: parseFloat(e.target.value) || 0 }))}
+              onChange={e => setForm(f => ({ ...f, totalPrice: e.target.value }))}
               inputProps={{ min: 0, step: 0.01 }}
             />
             <TextField
@@ -297,7 +297,7 @@ const BookingCreateDialog: React.FC<Props> = ({
               )}
               <Box sx={{ gridColumn: '1 / -1', pt: 1, mt: 0.5, borderTop: 1, borderColor: 'divider' }}>
                 <Typography variant="h6" fontWeight={700} color="primary.main">
-                  {t('admin.reservations.form.totalPrice', 'Total')}: {formatMoney(form.totalPrice)}
+                  {t('admin.reservations.form.totalPrice', 'Total')}: {formatMoney(parseFloat(form.totalPrice as string) || 0)}
                 </Typography>
               </Box>
             </Box>

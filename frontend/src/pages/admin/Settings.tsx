@@ -32,7 +32,6 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AdminLayout from '../../components/admin/AdminLayout';
-import SectionTitle from '../../components/admin/SectionTitle';
 import NumberField from '../../components/common/NumberField';
 import { useTranslation } from 'react-i18next';
 import { settingsService, AppSettings, roomTypeService, resolveMediaUrl } from '../../services/api';
@@ -228,9 +227,8 @@ const Settings: React.FC = () => {
   const isSectionEnabled = (key: string) => settings.sections?.[key] !== false;
 
   return (
-    <AdminLayout>
+    <AdminLayout title={t('admin.settings.title')}>
       <Box sx={{ pb: 4 }}>
-        <SectionTitle title={t('admin.settings.title')} />
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
           {t('admin.settings.subtitle')}
         </Typography>

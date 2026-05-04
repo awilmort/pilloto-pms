@@ -19,6 +19,7 @@ import {
   Container,
   IconButton,
   Paper,
+  Popover,
   Snackbar,
   Tooltip,
   Typography,
@@ -28,8 +29,10 @@ import {
   ChevronRight,
   Today,
 } from '@mui/icons-material';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
 import AdminLayout from '../../components/admin/AdminLayout';
-import SectionTitle from '../../components/admin/SectionTitle';
 import CalendarReservationModal from '../../components/admin/reservations/CalendarReservationModal';
 import CreateReservationDialog from '../../components/admin/reservations/CreateReservationDialog';
 import { roomsService, reservationsService } from '../../services/api';
@@ -96,6 +99,9 @@ const BookingCalendar: React.FC = () => {
   const [createDefaultCheckIn, setCreateDefaultCheckIn]   = useState('');
   const [createDefaultCheckOut, setCreateDefaultCheckOut] = useState('');
   const [createDefaultRoomId, setCreateDefaultRoomId]     = useState('');
+
+  // ── Date-picker popover state ────────────────────────────────────────────
+  const [pickerAnchor, setPickerAnchor] = useState<HTMLElement | null>(null);
 
   // ── Drag-selection state ───────────────────────────────────────────────────
   const [dragRoomId, setDragRoomId]       = useState<string | null>(null);
@@ -395,12 +401,23 @@ const BookingCalendar: React.FC = () => {
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <AdminLayout>
-      <Container maxWidth={false} sx={{ py: 4, px: { xs: 2, md: 3 } }}>
+    <AdminLayout title={t('admin.bookingCalendar.title')}>
+      <Container maxWidth={false} sx={{ pt: 0, pb: 4, px: { xs: 2, md: 3 } }}>
 
-        {/* ── Header bar ── */}
-        <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-          <SectionTitle title={t('admin.bookingCalendar.title')} />
+        {/* ── Legend + Date nav on same row ── */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', mb: 2.5, gap: 2 }}>
+          {/* Status legend */}
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+            {Object.entries(STATUS_COLORS).map(([status, color]) => (
+              <Box key={status} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Box sx={{ width: 12, height: 12, borderRadius: 0.5, bgcolor: color, flexShrink: 0 }} />
+                <Typography variant="caption" color="text.secondary">
+                  {t(`admin.reservations.statusLabels.${status.replace('-', '_')}`, status)}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+          {/* Date navigation */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Button
               size="small"
@@ -414,25 +431,38 @@ const BookingCalendar: React.FC = () => {
             <IconButton size="small" onClick={() => setStartDate(d => d.subtract(7, 'day'))}>
               <ChevronLeft />
             </IconButton>
-            <Typography variant="body2" sx={{ minWidth: 190, textAlign: 'center', fontWeight: 500 }}>
+            <Button
+              size="small"
+              variant="text"
+              onClick={(e) => setPickerAnchor(e.currentTarget)}
+              sx={{ minWidth: 190, fontWeight: 500, fontSize: '0.875rem', textTransform: 'none', color: 'text.primary' }}
+            >
               {startDate.format('MMM D')} – {endDate.format('MMM D, YYYY')}
-            </Typography>
+            </Button>
+            <Popover
+              open={Boolean(pickerAnchor)}
+              anchorEl={pickerAnchor}
+              onClose={() => setPickerAnchor(null)}
+              anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+              transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+              PaperProps={{ sx: { borderRadius: 2, boxShadow: 3, mt: 0.5 } }}
+            >
+              <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <DateCalendar
+                  value={startDate}
+                  onChange={(newDate: Dayjs | null) => {
+                    if (newDate) {
+                      setStartDate(newDate.startOf('day'));
+                      setPickerAnchor(null);
+                    }
+                  }}
+                />
+              </LocalizationProvider>
+            </Popover>
             <IconButton size="small" onClick={() => setStartDate(d => d.add(7, 'day'))}>
               <ChevronRight />
             </IconButton>
           </Box>
-        </Box>
-
-        {/* ── Status legend ── */}
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mb: 2.5 }}>
-          {Object.entries(STATUS_COLORS).map(([status, color]) => (
-            <Box key={status} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-              <Box sx={{ width: 12, height: 12, borderRadius: 0.5, bgcolor: color, flexShrink: 0 }} />
-              <Typography variant="caption" color="text.secondary">
-                {t(`admin.reservations.statusLabels.${status.replace('-', '_')}`, status)}
-              </Typography>
-            </Box>
-          ))}
         </Box>
 
         {/* ── Calendar grid ── */}

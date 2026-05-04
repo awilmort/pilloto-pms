@@ -82,10 +82,10 @@ export const RolesContent: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [editDialog, setEditDialog] = useState<{ open: boolean; role: RoleItem | null }>({ open: false, role: null });
-  const [editForm, setEditForm] = useState<{ name: string; description: string; permissions: string[]; discountLimit: number }>({ name: '', description: '', permissions: [], discountLimit: 0 });
+  const [editForm, setEditForm] = useState<{ name: string; description: string; permissions: string[]; discountLimit: string }>({ name: '', description: '', permissions: [], discountLimit: '' });
 
   const [createDialog, setCreateDialog] = useState<{ open: boolean }>({ open: false });
-  const [createForm, setCreateForm] = useState<{ name: string; description: string; permissions: string[]; discountLimit: number }>({ name: '', description: '', permissions: [], discountLimit: 0 });
+  const [createForm, setCreateForm] = useState<{ name: string; description: string; permissions: string[]; discountLimit: string }>({ name: '', description: '', permissions: [], discountLimit: '' });
 
   const loadRoles = useCallback(async () => {
     try {
@@ -107,7 +107,7 @@ export const RolesContent: React.FC = () => {
 
   const startEdit = (role: RoleItem) => {
     setEditDialog({ open: true, role });
-    setEditForm({ name: role.name, description: role.description || '', permissions: role.permissions || [], discountLimit: role.discountLimit ?? 0 });
+    setEditForm({ name: role.name, description: role.description || '', permissions: role.permissions || [], discountLimit: String(role.discountLimit ?? '') });
   };
 
   const togglePermission = (form: 'edit' | 'create', key: string) => {
@@ -212,7 +212,11 @@ export const RolesContent: React.FC = () => {
                   label={t('admin.roles.form.discountLimit', 'Max Discount (%)')}
                   type="number"
                   value={editForm.discountLimit}
-                  onChange={(e) => setEditForm({ ...editForm, discountLimit: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })}
+                  onChange={(e) => setEditForm({ ...editForm, discountLimit: e.target.value })}
+                  onBlur={() => {
+                    const clamped = Math.min(100, Math.max(0, parseFloat(editForm.discountLimit) || 0));
+                    setEditForm(prev => ({ ...prev, discountLimit: String(clamped) }));
+                  }}
                   inputProps={{ min: 0, max: 100, step: 1 }}
                   helperText={t('admin.roles.form.discountLimitHint', 'Maximum percentage this role can discount (0–100)')}
                 />
@@ -224,7 +228,7 @@ export const RolesContent: React.FC = () => {
             <Button variant="contained" onClick={async () => {
               if (!editDialog.role) return;
               try {
-                const res = await rolesService.updateRole(editDialog.role._id, { name: editForm.name, description: editForm.description, permissions: editForm.permissions, discountLimit: editForm.discountLimit });
+                const res = await rolesService.updateRole(editDialog.role._id, { name: editForm.name, description: editForm.description, permissions: editForm.permissions, discountLimit: parseFloat(editForm.discountLimit) || 0 });
                 const updated = res.data.data as RoleItem;
                 setRoles(prev => prev.map(r => r._id === updated._id ? updated : r));
                 setEditDialog({ open: false, role: null });
@@ -256,7 +260,11 @@ export const RolesContent: React.FC = () => {
                   label={t('admin.roles.form.discountLimit', 'Max Discount (%)')}
                   type="number"
                   value={createForm.discountLimit}
-                  onChange={(e) => setCreateForm({ ...createForm, discountLimit: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })}
+                  onChange={(e) => setCreateForm({ ...createForm, discountLimit: e.target.value })}
+                  onBlur={() => {
+                    const clamped = Math.min(100, Math.max(0, parseFloat(createForm.discountLimit) || 0));
+                    setCreateForm(prev => ({ ...prev, discountLimit: String(clamped) }));
+                  }}
                   inputProps={{ min: 0, max: 100, step: 1 }}
                   helperText={t('admin.roles.form.discountLimitHint', 'Maximum percentage this role can discount (0–100)')}
                 />
@@ -267,11 +275,11 @@ export const RolesContent: React.FC = () => {
             <Button onClick={() => setCreateDialog({ open: false })}>{t('admin.roles.actions.cancel')}</Button>
             <Button variant="contained" onClick={async () => {
               try {
-                const res = await rolesService.createRole({ name: createForm.name, description: createForm.description, permissions: createForm.permissions, discountLimit: createForm.discountLimit });
+                const res = await rolesService.createRole({ name: createForm.name, description: createForm.description, permissions: createForm.permissions, discountLimit: parseFloat(createForm.discountLimit) || 0 });
                 const created = res.data.data as RoleItem;
                 setRoles(prev => [created, ...prev]);
                 setCreateDialog({ open: false });
-                setCreateForm({ name: '', description: '', permissions: [], discountLimit: 0 });
+                setCreateForm({ name: '', description: '', permissions: [], discountLimit: '' });
               } catch (e: any) {
                 setError(e.response?.data?.message || t('admin.roles.messages.createFailed'));
               }

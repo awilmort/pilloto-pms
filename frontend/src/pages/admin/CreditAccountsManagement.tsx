@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Chip,
+  Container,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -29,7 +30,6 @@ import {
 import { Add, Delete, Edit, Search } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import AdminLayout from '../../components/admin/AdminLayout';
-import SectionTitle from '../../components/admin/SectionTitle';
 import { companiesService, creditAccountsService, guestsService } from '../../services/api';
 import { Company, CreditAccount, Guest } from '../../types';
 
@@ -39,16 +39,16 @@ type CreditStatus = 'active' | 'suspended';
 interface CreditAccountForm {
   scope: Scope;
   referenceId: string;
-  creditLimit: number;
-  currentExposure: number;
+  creditLimit: string;
+  currentExposure: string;
   status: CreditStatus;
 }
 
 const emptyForm: CreditAccountForm = {
   scope: 'guest',
   referenceId: '',
-  creditLimit: 0,
-  currentExposure: 0,
+  creditLimit: '',
+  currentExposure: '',
   status: 'active',
 };
 
@@ -151,8 +151,8 @@ const CreditAccountsManagement: React.FC = () => {
     setForm({
       scope: account.scope,
       referenceId: account.referenceId,
-      creditLimit: Number(account.creditLimit || 0),
-      currentExposure: Number(account.currentExposure || 0),
+      creditLimit: String(account.creditLimit ?? 0),
+      currentExposure: String(account.currentExposure ?? 0),
       status: account.status,
     });
     setFormError(null);
@@ -164,7 +164,7 @@ const CreditAccountsManagement: React.FC = () => {
       setFormError(t('creditAccounts.referenceRequired', 'Reference is required'));
       return;
     }
-    if (form.creditLimit < 0 || form.currentExposure < 0) {
+    if (parseFloat(form.creditLimit) < 0 || parseFloat(form.currentExposure) < 0) {
       setFormError(t('creditAccounts.invalidAmounts', 'Amounts must be zero or greater'));
       return;
     }
@@ -174,16 +174,16 @@ const CreditAccountsManagement: React.FC = () => {
     try {
       if (editingId) {
         await creditAccountsService.updateCreditAccount(editingId, {
-          creditLimit: form.creditLimit,
-          currentExposure: form.currentExposure,
+          creditLimit: parseFloat(form.creditLimit) || 0,
+          currentExposure: parseFloat(form.currentExposure) || 0,
           status: form.status,
         });
       } else {
         await creditAccountsService.createCreditAccount({
           scope: form.scope,
           referenceId: form.referenceId,
-          creditLimit: form.creditLimit,
-          currentExposure: form.currentExposure,
+          creditLimit: parseFloat(form.creditLimit) || 0,
+          currentExposure: parseFloat(form.currentExposure) || 0,
           status: form.status,
         });
       }
@@ -211,57 +211,59 @@ const CreditAccountsManagement: React.FC = () => {
   };
 
   return (
-    <AdminLayout>
-      <Box>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-          <SectionTitle title={t('admin.nav.creditAccounts', 'Credit Accounts')} />
-          <Button variant="contained" startIcon={<Add />} onClick={openCreate}>
-            {t('creditAccounts.addAccount', 'Add Credit Account')}
-          </Button>
-        </Box>
+    <AdminLayout title={t('admin.nav.creditAccounts', 'Credit Accounts')}>
+      <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
 
-        <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-          <TextField
-            size="small"
-            placeholder={t('common.search', 'Search...')}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search fontSize="small" />
-                </InputAdornment>
-              )
-            }}
-            sx={{ minWidth: 250 }}
-          />
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            <TextField
+              size="small"
+              placeholder={t('common.search', 'Search...')}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search fontSize="small" />
+                  </InputAdornment>
+                )
+              }}
+              sx={{ minWidth: 250 }}
+            />
 
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>{t('creditAccounts.scope', 'Scope')}</InputLabel>
-            <Select
-              label={t('creditAccounts.scope', 'Scope')}
-              value={scopeFilter}
-              onChange={e => setScopeFilter(e.target.value as 'all' | Scope)}
-            >
-              <MenuItem value="all">{t('common.all', 'All')}</MenuItem>
-              <MenuItem value="guest">{t('creditAccounts.scopeGuest', 'Guest')}</MenuItem>
-              <MenuItem value="company">{t('creditAccounts.scopeCompany', 'Company')}</MenuItem>
-            </Select>
-          </FormControl>
+            <FormControl size="small" sx={{ minWidth: 150 }}>
+              <InputLabel>{t('creditAccounts.scope', 'Scope')}</InputLabel>
+              <Select
+                label={t('creditAccounts.scope', 'Scope')}
+                value={scopeFilter}
+                onChange={e => setScopeFilter(e.target.value as 'all' | Scope)}
+              >
+                <MenuItem value="all">{t('common.all', 'All')}</MenuItem>
+                <MenuItem value="guest">{t('creditAccounts.scopeGuest', 'Guest')}</MenuItem>
+                <MenuItem value="company">{t('creditAccounts.scopeCompany', 'Company')}</MenuItem>
+              </Select>
+            </FormControl>
 
-          <FormControl size="small" sx={{ minWidth: 170 }}>
-            <InputLabel>{t('common.status', 'Status')}</InputLabel>
-            <Select
-              label={t('common.status', 'Status')}
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value as 'all' | CreditStatus)}
-            >
-              <MenuItem value="all">{t('common.all', 'All')}</MenuItem>
-              <MenuItem value="active">{t('common.active', 'Active')}</MenuItem>
-              <MenuItem value="suspended">{t('common.inactive', 'Suspended')}</MenuItem>
-            </Select>
-          </FormControl>
-        </Box>
+            <FormControl size="small" sx={{ minWidth: 170 }}>
+              <InputLabel>{t('common.status', 'Status')}</InputLabel>
+              <Select
+                label={t('common.status', 'Status')}
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value as 'all' | CreditStatus)}
+              >
+                <MenuItem value="all">{t('common.all', 'All')}</MenuItem>
+                <MenuItem value="active">{t('common.active', 'Active')}</MenuItem>
+                <MenuItem value="suspended">{t('common.inactive', 'Suspended')}</MenuItem>
+              </Select>
+            </FormControl>
+
+            <Box sx={{ ml: 'auto' }}>
+              <Button variant="contained" startIcon={<Add />} onClick={openCreate}>
+                {t('creditAccounts.addAccount', 'Add Credit Account')}
+              </Button>
+            </Box>
+          </Box>
+        </Paper>
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -371,7 +373,7 @@ const CreditAccountsManagement: React.FC = () => {
                 label={t('creditAccounts.creditLimit', 'Credit Limit')}
                 type="number"
                 value={form.creditLimit}
-                onChange={e => setForm(prev => ({ ...prev, creditLimit: Number(e.target.value) }))}
+                onChange={e => setForm(prev => ({ ...prev, creditLimit: e.target.value }))}
                 inputProps={{ min: 0, step: 0.01 }}
                 fullWidth
               />
@@ -380,7 +382,7 @@ const CreditAccountsManagement: React.FC = () => {
                 label={t('creditAccounts.currentExposure', 'Current Exposure')}
                 type="number"
                 value={form.currentExposure}
-                onChange={e => setForm(prev => ({ ...prev, currentExposure: Number(e.target.value) }))}
+                onChange={e => setForm(prev => ({ ...prev, currentExposure: e.target.value }))}
                 inputProps={{ min: 0, step: 0.01 }}
                 fullWidth
               />
@@ -418,7 +420,7 @@ const CreditAccountsManagement: React.FC = () => {
             </Button>
           </DialogActions>
         </Dialog>
-      </Box>
+      </Container>
     </AdminLayout>
   );
 };

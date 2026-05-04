@@ -4,7 +4,6 @@ import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import AdminLayout from '../../components/admin/AdminLayout';
-import SectionTitle from '../../components/admin/SectionTitle';
 import NumberField from '../../components/common/NumberField';
 import { wristbandsService, servicesService } from '../../services/api';
 import { Edit, Delete } from '@mui/icons-material';
@@ -260,9 +259,8 @@ const WristbandControl: React.FC = () => {
   );
 
   return (
-    <AdminLayout>
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <SectionTitle title={t('admin.wristbands.title')} right={hasManagePermission() ? <Button variant="contained" onClick={openCreate} sx={{ alignSelf: 'flex-start' }}>{t('admin.wristbands.actions.addDelivery')}</Button> : undefined} />
+    <AdminLayout title={t('admin.wristbands.title')}>
+      <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
 
         {/* Alerts */}
         {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
@@ -292,7 +290,7 @@ const WristbandControl: React.FC = () => {
               InputLabelProps={{ shrink: true }}
             />
             <Button
-              variant="contained"
+              variant="outlined"
               onClick={async () => {
                 await loadDeliveries();
                 try {
@@ -313,6 +311,11 @@ const WristbandControl: React.FC = () => {
             >
               {t('admin.revenue.filters.apply')}
             </Button>
+            {hasManagePermission() && (
+              <Box sx={{ ml: 'auto' }}>
+                <Button variant="contained" onClick={openCreate} sx={{ alignSelf: 'flex-start' }}>{t('admin.wristbands.actions.addDelivery')}</Button>
+              </Box>
+            )}
           </Box>
         </Paper>
 

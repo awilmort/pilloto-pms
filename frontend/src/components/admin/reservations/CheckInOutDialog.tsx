@@ -124,7 +124,7 @@ const CheckInOutDialog: React.FC<Props> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
         {mode === 'checkin'
           ? t('admin.reservations.checkin.title')

@@ -8,12 +8,12 @@
 import React from 'react';
 import {
   Box, Container, Typography, Link, Stack, AppBar, Toolbar,
-  useTheme, useMediaQuery, Divider, IconButton, Menu, MenuItem,
+  useTheme, useMediaQuery, Divider,
 } from '@mui/material';
-import LanguageIcon from '@mui/icons-material/Language';
 import { useTranslation } from 'react-i18next';
 import { useBooking } from '../../contexts/BookingContext';
 import { resolveMediaUrl } from '../../services/api';
+import LanguageSwitcher from '../common/LanguageSwitcher';
 
 const FONT = '"Inter", "Plus Jakarta Sans", "Helvetica", sans-serif';
 const TEXT_PRIMARY = '#222222';
@@ -27,17 +27,9 @@ interface BookingLayoutProps {
 
 const BookingLayout: React.FC<BookingLayoutProps> = ({ children }) => {
   const { config } = useBooking();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-
-  const [langAnchor, setLangAnchor] = React.useState<null | HTMLElement>(null);
-  const langOpen = Boolean(langAnchor);
-
-  const handleLangChange = (lang: string) => {
-    i18n.changeLanguage(lang);
-    setLangAnchor(null);
-  };
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: '#FFFFFF' }}>
@@ -107,54 +99,7 @@ const BookingLayout: React.FC<BookingLayoutProps> = ({ children }) => {
               </Typography>
             )}
 
-            <IconButton
-              size="small"
-              onClick={e => setLangAnchor(e.currentTarget)}
-              sx={{
-                color: TEXT_PRIMARY,
-                border: `1px solid ${BORDER}`,
-                borderRadius: '9999px',
-                px: 1.5,
-                py: 0.5,
-                transition: 'all 0.2s ease-out',
-                '&:hover': { bgcolor: '#F7F7F7', borderColor: TEXT_PRIMARY },
-              }}
-            >
-              <LanguageIcon sx={{ fontSize: 18, mr: 0.5 }} />
-              <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.8rem', textTransform: 'uppercase' }}>
-                {i18n.language?.substring(0, 2) || 'es'}
-              </Typography>
-            </IconButton>
-            <Menu
-              anchorEl={langAnchor}
-              open={langOpen}
-              onClose={() => setLangAnchor(null)}
-              PaperProps={{
-                sx: {
-                  borderRadius: '12px',
-                  boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-                  mt: 1,
-                  minWidth: 140,
-                },
-              }}
-              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-            >
-              <MenuItem
-                onClick={() => handleLangChange('es')}
-                selected={i18n.language === 'es'}
-                sx={{ fontFamily: FONT, fontSize: '0.9rem', borderRadius: '8px', mx: 0.5 }}
-              >
-                {t('common.spanish')}
-              </MenuItem>
-              <MenuItem
-                onClick={() => handleLangChange('en')}
-                selected={i18n.language === 'en'}
-                sx={{ fontFamily: FONT, fontSize: '0.9rem', borderRadius: '8px', mx: 0.5 }}
-              >
-                {t('common.english')}
-              </MenuItem>
-            </Menu>
+            <LanguageSwitcher />
           </Stack>
         </Toolbar>
       </AppBar>

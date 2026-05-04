@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline, GlobalStyles, CircularProgress, Box } from '@mui/material';
 import { ToastContainer } from 'react-toastify';
-import { HelmetProvider } from 'react-helmet-async';
+import { HelmetProvider, Helmet } from 'react-helmet-async';
 import 'react-toastify/dist/ReactToastify.css';
 
 import theme from './theme';
@@ -15,6 +15,7 @@ import Layout from './components/layout/Layout';
 // Platform portal pages (admin.pilloto.com)
 import TenantsPage from './pages/platform/TenantsPage';
 import OtaSyncPage from './pages/platform/OtaSyncPage';
+import SuperAdminProfilePage from './pages/platform/SuperAdminProfilePage';
 import TenantNotFoundPage from './pages/TenantNotFoundPage';
 
 // Pages
@@ -164,6 +165,11 @@ function PlatformApp() {
           <Route path="/platform/ota" element={
             <ProtectedRoute>
               <OtaSyncPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/platform/profile" element={
+            <ProtectedRoute>
+              <SuperAdminProfilePage />
             </ProtectedRoute>
           } />
           <Route path="*" element={<Navigate to="/platform/tenants" replace />} />
@@ -376,6 +382,12 @@ function AppContent() {
 function App() {
   return (
     <HelmetProvider>
+      <Helmet>
+        <link rel="icon" href="/favicon/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16-light.png" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32-light.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/favicon/favicon-180x180-light.png" />
+      </Helmet>
       <ThemeProvider theme={theme}>
         <CssBaseline />
         {globalStyles}

@@ -25,7 +25,6 @@ import {
   MenuItem,
 } from '@mui/material';
 import AdminLayout from '../../components/admin/AdminLayout';
-import SectionTitle from '../../components/admin/SectionTitle';
 import { adminService, rolesService } from '../../services/api';
 import { User } from '../../types';
   import { useTranslation } from 'react-i18next';
@@ -92,16 +91,13 @@ const UsersManagement: React.FC = () => {
   }
 
   return (
-    <AdminLayout>
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Box sx={{ mb: 2 }}>
-          <SectionTitle
-            title={t('admin.users.title')}
-            right={<Button variant="contained" onClick={() => setCreateDialog({ open: true })}>{t('admin.users.actions.createUser')}</Button>}
-          />
+    <AdminLayout title={t('admin.users.title')}>
+      <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
           <Typography variant="body1" color="text.secondary">
               {t('admin.users.subtitle')}
           </Typography>
+          <Button variant="contained" onClick={() => setCreateDialog({ open: true })}>{t('admin.users.actions.createUser')}</Button>
         </Box>
 
         {error && (

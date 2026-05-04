@@ -8,11 +8,9 @@ import {
   Snackbar,
   Typography,
 } from '@mui/material';
-import { Add } from '@mui/icons-material';
 import { Reservation, Room } from '../../types';
 import { reservationsService, roomsService, servicesService } from '../../services/api';
 import AdminLayout from '../../components/admin/AdminLayout';
-import SectionTitle from '../../components/admin/SectionTitle';
 import ReservationDetails from '../../components/admin/ReservationDetails';
 import EditReservationDialog from '../../components/admin/reservations/EditReservationDialog';
 import CheckInOutDialog from '../../components/admin/reservations/CheckInOutDialog';
@@ -220,24 +218,8 @@ const ReservationManagement: React.FC = () => {
   }
 
   return (
-    <AdminLayout>
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-
-        {/* ── Header ── */}
-        <Box sx={{ mb: 2, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-          <Box>
-            <SectionTitle title={t('admin.reservations.title')} />
-            <Typography variant="body1" color="text.secondary">{t('admin.reservations.subtitle')}</Typography>
-          </Box>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => setCreateDialog(true)}
-            sx={{ mt: 1 }}
-          >
-            {t('admin.reservations.actions.newReservation', 'New Reservation')}
-          </Button>
-        </Box>
+    <AdminLayout title={t('admin.reservations.title')}>
+      <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
 
         {showDetails && selectedReservation ? (
           <ReservationDetails
@@ -269,6 +251,7 @@ const ReservationManagement: React.FC = () => {
               onFilterDateToChange={setFilterDateTo}
               onFilterToday={handleFilterToday}
               onClear={handleClearFilters}
+              onCreateNew={() => setCreateDialog(true)}
             />
 
             {/* ── Table ── */}

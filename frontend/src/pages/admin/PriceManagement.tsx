@@ -9,7 +9,6 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AdminLayout from '../../components/admin/AdminLayout';
-import SectionTitle from '../../components/admin/SectionTitle';
 import NumberField from '../../components/common/NumberField';
 import { pricingService, companiesService, roomTypeService, servicesService, servicePricesService, chargeTemplatesService, chargeRulesService, auditService, guestsService } from '../../services/api';
 import type { ServiceRecord, ServicePriceRecord, ServiceKind, ChargeBasis, ReservationMode, ServicePriceCategory, ServicePriceValidity, AuditSummary } from '../../services/api';
@@ -800,9 +799,8 @@ const PriceManagement: React.FC = () => {
   };
 
   return (
-    <AdminLayout>
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <SectionTitle title={t('admin.pricing.title')} />
+    <AdminLayout title={t('admin.pricing.title')}>
+      <Container maxWidth="lg" sx={{ pt: 0, pb: 4 }}>
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>

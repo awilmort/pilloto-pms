@@ -39,6 +39,8 @@ const BookingSettingsTab: React.FC<BookingSettingsTabProps> = ({ showSnackbar })
   const [settings, setSettings] = useState<BookingSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [minAdvanceHoursStr, setMinAdvanceHoursStr] = useState(String(DEFAULT_SETTINGS.minAdvanceHours));
+  const [maxAdvanceDaysStr, setMaxAdvanceDaysStr] = useState(String(DEFAULT_SETTINGS.maxAdvanceDays));
 
   useEffect(() => {
     settingsService.getSettings()
@@ -50,6 +52,8 @@ const BookingSettingsTab: React.FC<BookingSettingsTabProps> = ({ showSnackbar })
             ...prev,
             ...bs,
           }));
+          if (bs.minAdvanceHours != null) setMinAdvanceHoursStr(String(bs.minAdvanceHours));
+          if (bs.maxAdvanceDays != null) setMaxAdvanceDaysStr(String(bs.maxAdvanceDays));
         }
       })
       .catch(() => showSnackbar(t('admin.settings.booking.errors.loadFailed', 'Failed to load booking settings'), 'error'))
@@ -141,8 +145,13 @@ const BookingSettingsTab: React.FC<BookingSettingsTabProps> = ({ showSnackbar })
         <TextField
           label={t('admin.settings.booking.rules.minAdvanceHours', 'Minimum advance hours')}
           type="number"
-          value={settings?.minAdvanceHours ?? 24}
-          onChange={e => setSettings(prev => ({ ...prev!, minAdvanceHours: Math.max(0, parseInt(e.target.value) || 0) }))}
+          value={minAdvanceHoursStr}
+          onChange={e => setMinAdvanceHoursStr(e.target.value)}
+          onBlur={() => {
+            const parsed = Math.max(0, parseInt(minAdvanceHoursStr) || 0);
+            setMinAdvanceHoursStr(String(parsed));
+            setSettings(prev => ({ ...prev!, minAdvanceHours: parsed }));
+          }}
           size="small"
           inputProps={{ min: 0 }}
           helperText={t('admin.settings.booking.rules.minAdvanceHoursHint', 'Minimum hours before check-in a booking can be made.')}
@@ -150,8 +159,13 @@ const BookingSettingsTab: React.FC<BookingSettingsTabProps> = ({ showSnackbar })
         <TextField
           label={t('admin.settings.booking.rules.maxAdvanceDays', 'Maximum advance days')}
           type="number"
-          value={settings?.maxAdvanceDays ?? 365}
-          onChange={e => setSettings(prev => ({ ...prev!, maxAdvanceDays: Math.max(1, parseInt(e.target.value) || 1) }))}
+          value={maxAdvanceDaysStr}
+          onChange={e => setMaxAdvanceDaysStr(e.target.value)}
+          onBlur={() => {
+            const parsed = Math.max(1, parseInt(maxAdvanceDaysStr) || 1);
+            setMaxAdvanceDaysStr(String(parsed));
+            setSettings(prev => ({ ...prev!, maxAdvanceDays: parsed }));
+          }}
           size="small"
           inputProps={{ min: 1 }}
           helperText={t('admin.settings.booking.rules.maxAdvanceDaysHint', 'Maximum number of days into the future a booking can be made.')}

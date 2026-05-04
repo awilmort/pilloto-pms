@@ -5,6 +5,7 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Container,
   Dialog,
   DialogActions,
   DialogContent,
@@ -28,39 +29,52 @@ import {
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import AdminLayout from '../../components/admin/AdminLayout';
-import SectionTitle from '../../components/admin/SectionTitle';
 import {
   otaService,
   OtaConflict,
   OtaConflictStatus,
 } from '../../services/api';
 
-const STATUS_OPTIONS: { value: OtaConflictStatus | ''; label: string; color: 'warning' | 'success' | 'error' | 'default' | 'info' }[] = [
-  { value: '', label: 'All', color: 'default' },
-  { value: 'pending_review', label: 'Pending Review', color: 'warning' },
-  { value: 'resolved_keep_pilloto', label: 'Keep Pilloto', color: 'success' },
-  { value: 'resolved_accept_ota', label: 'Accept OTA', color: 'info' },
-  { value: 'resolved_outside_system', label: 'Resolved Outside', color: 'default' },
-  { value: 'ignored_false_positive', label: 'False Positive', color: 'default' },
-];
-
-const RESOLUTION_OPTIONS: { value: OtaConflictStatus; label: string }[] = [
-  { value: 'resolved_keep_pilloto', label: 'Keep Pilloto reservation (OTA block is a false duplicate)' },
-  { value: 'resolved_accept_ota', label: 'Accept OTA booking (will need manual reservation creation)' },
-  { value: 'resolved_outside_system', label: 'Resolved outside this system' },
-  { value: 'ignored_false_positive', label: 'Ignore — false positive, same block from both sides' },
-];
-
-const statusChip = (status: OtaConflictStatus) => {
-  const opt = STATUS_OPTIONS.find(s => s.value === status);
-  if (!opt || !opt.value) return null;
-  return <Chip size="small" label={opt.label} color={opt.color} />;
+const STATUS_COLORS: Record<string, 'warning' | 'success' | 'error' | 'default' | 'info'> = {
+  '': 'default',
+  pending_review: 'warning',
+  resolved_keep_pilloto: 'success',
+  resolved_accept_ota: 'info',
+  resolved_outside_system: 'default',
+  ignored_false_positive: 'default',
 };
+
+const RESOLUTION_VALUES: OtaConflictStatus[] = [
+  'resolved_keep_pilloto',
+  'resolved_accept_ota',
+  'resolved_outside_system',
+  'ignored_false_positive',
+];
+
+const STATUS_VALUES: (OtaConflictStatus | '')[] = [
+  '',
+  'pending_review',
+  'resolved_keep_pilloto',
+  'resolved_accept_ota',
+  'resolved_outside_system',
+  'ignored_false_positive',
+];
 
 interface SnackbarState { open: boolean; message: string; severity: 'success' | 'error' | 'info' }
 
 const OtaConflictQueue: React.FC = () => {
   const { t } = useTranslation();
+
+  const statusLabel = (value: OtaConflictStatus | '') =>
+    t(`admin.ota.conflicts.statusLabels.${value || 'all'}`, value || 'All');
+
+  const resolutionLabel = (value: OtaConflictStatus) =>
+    t(`admin.ota.conflicts.resolutionLabels.${value}`, value);
+
+  const statusChip = (status: OtaConflictStatus) => {
+    if (!status) return null;
+    return <Chip size="small" label={statusLabel(status)} color={STATUS_COLORS[status] ?? 'default'} />;
+  };
   const [conflicts, setConflicts] = useState<OtaConflict[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<OtaConflictStatus | ''>('pending_review');
@@ -137,40 +151,40 @@ const OtaConflictQueue: React.FC = () => {
   const formatDate = (iso?: string) => iso ? new Date(iso).toLocaleDateString() : '—';
 
   return (
-    <AdminLayout>
-      <Box sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-          <SectionTitle title={t('admin.ota.conflicts.heading', 'OTA Conflict Queue')} />
-          {pendingCount !== null && pendingCount > 0 && (
-            <Chip
-              label={t('admin.ota.conflicts.pendingBadge', '{{count}} pending', { count: pendingCount })}
-              color="warning"
-              size="small"
-            />
-          )}
-        </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          {t('admin.ota.conflicts.description', 'OTA calendar blocks that overlap with existing Pilloto reservations. Review and resolve each conflict before the next sync run.')}
-        </Typography>
+    <AdminLayout title={
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {t('admin.ota.conflicts.heading', 'OTA Conflict Queue')}
+        {pendingCount !== null && pendingCount > 0 && (
+          <Chip
+            label={t('admin.ota.conflicts.pendingBadge', '{{count}} pending', { count: pendingCount })}
+            color="warning"
+            size="small"
+          />
+        )}
+      </Box>
+    }>
+      <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
 
         {/* Filter */}
-        <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-          <FormControl size="small" sx={{ minWidth: 200 }}>
-            <InputLabel>{t('admin.ota.conflicts.statusFilter', 'Status')}</InputLabel>
-            <Select
-              value={statusFilter}
-              label={t('admin.ota.conflicts.statusFilter', 'Status')}
-              onChange={e => { setStatusFilter(e.target.value as OtaConflictStatus | ''); setPage(1); }}
-            >
-              {STATUS_OPTIONS.map(s => (
-                <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          <Button variant="outlined" size="small" onClick={() => { setPage(1); loadConflicts(); }}>
-            {t('common.refresh', 'Refresh')}
-          </Button>
-        </Box>
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            <FormControl size="small" sx={{ minWidth: 200 }}>
+              <InputLabel>{t('admin.ota.conflicts.statusFilter', 'Status')}</InputLabel>
+              <Select
+                value={statusFilter}
+                label={t('admin.ota.conflicts.statusFilter', 'Status')}
+                onChange={e => { setStatusFilter(e.target.value as OtaConflictStatus | ''); setPage(1); }}
+              >
+                {STATUS_VALUES.map(s => (
+                  <MenuItem key={s} value={s}>{statusLabel(s)}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <Button variant="outlined" size="small" onClick={() => { setPage(1); loadConflicts(); }}>
+              {t('common.refresh', 'Refresh')}
+            </Button>
+          </Box>
+        </Paper>
 
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
@@ -283,7 +297,6 @@ const OtaConflictQueue: React.FC = () => {
             )}
           </>
         )}
-      </Box>
 
       {/* ── Resolve Dialog ─────────────────────────────────────── */}
       <Dialog open={resolveDialog.open} onClose={closeResolve} maxWidth="sm" fullWidth>
@@ -316,8 +329,8 @@ const OtaConflictQueue: React.FC = () => {
                   label={t('admin.ota.conflicts.resolution', 'Resolution')}
                   onChange={e => setResolveStatus(e.target.value as OtaConflictStatus)}
                 >
-                  {RESOLUTION_OPTIONS.map(r => (
-                    <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>
+                  {RESOLUTION_VALUES.map(r => (
+                    <MenuItem key={r} value={r}>{resolutionLabel(r)}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -358,6 +371,7 @@ const OtaConflictQueue: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+      </Container>
     </AdminLayout>
   );
 };

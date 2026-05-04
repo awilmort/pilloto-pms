@@ -49,7 +49,6 @@ import { roomsService, adminService, roomTypeService } from '../../services/api'
 import { Room, RoomType } from '../../types';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { RoomIllustration, isIllustrationUrl, getIllustrationByKey, getIllustrationKey } from '../../components/illustrations';
-import SectionTitle from '../../components/admin/SectionTitle';
 import { resolveMediaUrl } from '../../services/api';
 import { useTranslation } from 'react-i18next';
 import Autocomplete from '@mui/material/Autocomplete';
@@ -104,7 +103,7 @@ const RoomsManagement: React.FC = () => {
   const [formData, setFormData] = useState<RoomFormData>(initialFormData);
   const [formLoading, setFormLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
   const [searchTerm, setSearchTerm] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -306,24 +305,10 @@ const RoomsManagement: React.FC = () => {
   }
 
   return (
-    <AdminLayout>
-      <Container maxWidth="xl" sx={{ py: 0 }}>
-        {/* Header */}
-        <Box sx={{ mb: 2 }}>
-          <SectionTitle
-            title={t('admin.rooms.title')}
-            right={canFullEdit ? (
-              <Button variant="contained" startIcon={<Add />} onClick={handleCreateRoom} size="large">
-                {t('admin.rooms.actions.addNewRoom')}
-              </Button>
-            ) : undefined}
-          />
-          <Typography variant="h6" color="text.secondary">
-            {t('admin.rooms.subtitle')}
-          </Typography>
-        </Box>
+    <AdminLayout title={t('admin.rooms.title')}>
+      <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
 
-        {/* Filters and Search */}
+        {/* Filters, Search and Actions */}
         <Paper sx={{ p: 3, mb: 4 }}>
           <Grid container spacing={3} alignItems="center">
             <Grid item xs={12} md={4}>
@@ -353,11 +338,18 @@ const RoomsManagement: React.FC = () => {
                 </Button>
               </Box>
             </Grid>
-            <Grid item xs={12} md={2}>
+            <Grid item xs={12} md={3}>
               <Typography variant="body2" color="text.secondary">
                 {t('admin.rooms.roomsFound', { count: filteredRooms.length })}
               </Typography>
             </Grid>
+            {canFullEdit && (
+              <Grid item xs={12} md={2} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button variant="contained" startIcon={<Add />} onClick={handleCreateRoom}>
+                  {t('admin.rooms.actions.addNewRoom')}
+                </Button>
+              </Grid>
+            )}
           </Grid>
         </Paper>
 

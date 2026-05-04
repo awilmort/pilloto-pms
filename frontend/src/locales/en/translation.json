@@ -8,11 +8,37 @@
     "guestDistribution": "Guest Distribution",
     "saving": "Saving...",
     "back": "Back",
-    "continue": "Continue"
+    "continue": "Continue",
+    "actions": "Actions",
+    "active": "Active",
+    "all": "All",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "confirmDelete": "Confirm Delete",
+    "delete": "Delete",
+    "deleting": "Deleting...",
+    "edit": "Edit",
+    "email": "Email",
+    "emailRequired": "Email is required",
+    "errorDeleting": "Error deleting record",
+    "errorLoading": "Error loading records",
+    "errorSaving": "Error saving record",
+    "firstName": "First Name",
+    "inactive": "Inactive",
+    "lastName": "Last Name",
+    "loading": "Loading...",
+    "noData": "No records found",
+    "notes": "Notes",
+    "phone": "Phone",
+    "processing": "Processing...",
+    "refresh": "Refresh",
+    "save": "Save",
+    "search": "Search...",
+    "status": "Status"
   },
   "nav": {
     "home": "Home",
-        "checkinCancelledGuard": "Cannot check-in a cancelled reservation",
+    "checkinCancelledGuard": "Cannot check-in a cancelled reservation",
     "rooms": "Rooms",
     "daypass": "Day Pass",
     "events": "Events"
@@ -69,8 +95,8 @@
       "selectDate": "Please select a visit date",
       "nameRequired": "Please enter your first and last name",
       "emailRequired": "Please enter your email address",
-        "emailInvalid": "Please enter a valid email address",
-        "phoneRequired": "Please enter your phone number",
+      "emailInvalid": "Please enter a valid email address",
+      "phoneRequired": "Please enter your phone number",
       "adultsRequired": "At least one adult is required",
       "bookingFailed": "Failed to book day pass"
     }
@@ -100,8 +126,7 @@
     "privacyPolicy": "Privacy Policy",
     "termsOfService": "Terms of Service",
     "copyright": "© {{year}} Pilloto. All rights reserved."
-  }
-  ,
+  },
   "admin": {
     "title": "Admin",
     "panelTitle": "Admin Panel",
@@ -285,8 +310,7 @@
         "deleteFailed": "Failed to delete room",
         "loadFailed": "Failed to load rooms"
       }
-    }
-    ,
+    },
     "roles": {
       "title": "Roles Management",
       "subtitle": "Create, edit, delete roles and assign permissions",
@@ -344,22 +368,21 @@
       }
     },
     "commissions": {
-          "title": "Commissions",
-          "filters": {
-            "from": "From",
-            "to": "To",
-            "name": "Name",
-            "email": "Email",
-            "apply": "Apply"
-          },
-          "table": {
-            "name": "Name",
-            "email": "Email",
-            "totalGuests": "Total Guests",
-            "bookings": "Bookings"
-          }
-        }
-    ,
+      "title": "Commissions",
+      "filters": {
+        "from": "From",
+        "to": "To",
+        "name": "Name",
+        "email": "Email",
+        "apply": "Apply"
+      },
+      "table": {
+        "name": "Name",
+        "email": "Email",
+        "totalGuests": "Total Guests",
+        "bookings": "Bookings"
+      }
+    },
     "eventTypes": {
       "title": "Event Types",
       "actions": {
@@ -400,8 +423,7 @@
         "saveFailed": "Failed to save event type",
         "deleteFailed": "Failed to delete event type"
       }
-    }
-    ,
+    },
     "wristbands": {
       "title": "Wristband Control",
       "deliveryDate": "Delivery Date",
@@ -432,8 +454,7 @@
         "deleteFailed": "Failed to delete wristband delivery",
         "confirmDelete": "Delete this wristband delivery?"
       }
-    }
-    ,
+    },
     "amenities": {
       "title": "Amenities Management",
       "subtitle": "Manage resort amenities and features",
@@ -488,8 +509,7 @@
         "nameDescriptionRequired": "Name and description are required",
         "imageRequired": "Image is required for new amenities"
       }
-    }
-    ,
+    },
     "accommodations": {
       "title": "Accommodations Management",
       "subtitle": "Manage accommodations inventory and assignments",
@@ -540,8 +560,7 @@
         "deleteSuccess": "Accommodation deleted successfully",
         "operationFailed": "Operation failed"
       }
-    }
-    ,
+    },
     "users": {
       "title": "User Management",
       "subtitle": "View and manage registered users",
@@ -581,8 +600,7 @@
         "createFailed": "Failed to create user",
         "noUsers": "No users found."
       }
-    }
-    ,
+    },
     "media": {
       "title": "Media Library",
       "loading": "Loading media...",
@@ -634,8 +652,7 @@
       "confirm": {
         "deleteItem": "Delete this media item?"
       }
-    }
-    ,
+    },
     "reservations": {
       "title": "Reservation Management",
       "subtitle": "Manage guest reservations and room assignments",
@@ -1318,7 +1335,9 @@
       "roomTypes": {
         "title": "Room Types",
         "empty": "No room types yet. Add a room type to get started.",
-        "actions": { "new": "Add Room Type" },
+        "actions": {
+          "new": "Add Room Type"
+        },
         "dialog": {
           "newTitle": "New Room Type",
           "editTitle": "Edit Room Type"
@@ -1469,7 +1488,9 @@
       },
       "services": {
         "empty": "No services configured.",
-        "actions": { "new": "New Service" },
+        "actions": {
+          "new": "New Service"
+        },
         "dialog": {
           "newTitle": "New Service",
           "editTitle": "Edit Service"
@@ -1497,7 +1518,9 @@
       },
       "servicePrices": {
         "empty": "No service prices configured.",
-        "actions": { "new": "New Price" },
+        "actions": {
+          "new": "New Price"
+        },
         "dialog": {
           "newTitle": "New Service Price",
           "editTitle": "Edit Service Price"
@@ -1520,9 +1543,16 @@
         "description": "Define automatic charges that apply when specific events occur, such as late checkouts or no-shows.",
         "empty": "No automatic charge policies configured.",
         "emptyHint": "Policies automatically charge guests for late checkouts, no-shows, and early departures.",
-        "actions": { "new": "New Policy" },
-        "dialog": { "new": "New Charge Policy", "edit": "Edit Charge Policy" },
-        "errors": { "nameRequired": "Policy name is required" },
+        "actions": {
+          "new": "New Policy"
+        },
+        "dialog": {
+          "new": "New Charge Policy",
+          "edit": "Edit Charge Policy"
+        },
+        "errors": {
+          "nameRequired": "Policy name is required"
+        },
         "triggers": {
           "checkout_overdue": "guest checks out late",
           "no_show": "guest never shows up",
@@ -1559,7 +1589,10 @@
         }
       },
       "auditLog": {
-        "actions": { "run": "Run Audit Now", "refresh": "Refresh" },
+        "actions": {
+          "run": "Run Audit Now",
+          "refresh": "Refresh"
+        },
         "summary": "Tenant {{id}}: {{chargesPosted}} charged, {{errors}} errors",
         "columns": {
           "reservation": "Reservation",
@@ -1577,6 +1610,48 @@
       "room": "Room",
       "unassigned": "Unassigned",
       "noRooms": "No active rooms found."
+    },
+    "ota": {
+      "conflicts": {
+        "heading": "OTA Conflict Queue",
+        "pendingBadge": "{{count}} pending",
+        "statusFilter": "Status",
+        "empty": "No conflicts found for this filter.",
+        "loadFailed": "Failed to load conflicts",
+        "resolve": "Resolve",
+        "resolveTitle": "Resolve Conflict",
+        "resolved": "Conflict resolved",
+        "resolveFailed": "Failed to resolve conflict",
+        "otaBlock": "OTA block",
+        "pillotoBlock": "Pilloto reservation",
+        "notes": "Notes (optional)",
+        "notesHint": "Add any context for the audit trail.",
+        "submitResolve": "Submit Resolution",
+        "exactMatch": "Exact match",
+        "overlap": "Overlap",
+        "table": {
+          "provider": "Provider / Listing",
+          "otaBlock": "OTA Block",
+          "pillotoReservation": "Pilloto Reservation",
+          "type": "Type",
+          "status": "Status",
+          "detected": "Detected"
+        },
+        "statusLabels": {
+          "all": "All",
+          "pending_review": "Pending Review",
+          "resolved_keep_pilloto": "Keep Pilloto",
+          "resolved_accept_ota": "Accept OTA",
+          "resolved_outside_system": "Resolved Outside",
+          "ignored_false_positive": "False Positive"
+        },
+        "resolutionLabels": {
+          "resolved_keep_pilloto": "Keep Pilloto reservation (OTA block is a false duplicate)",
+          "resolved_accept_ota": "Accept OTA booking (will need manual reservation creation)",
+          "resolved_outside_system": "Resolved outside this system",
+          "ignored_false_positive": "Ignore — false positive, same block from both sides"
+        }
+      }
     }
   },
   "pages": {
@@ -1695,8 +1770,7 @@
         "confirmRequired": "Please confirm your password",
         "passwordsMustMatch": "Passwords must match"
       }
-    }
-    ,
+    },
     "emailVerification": {
       "verifyingTitle": "Verifying your email...",
       "verifyingBody": "Please wait while we verify your email address.",
@@ -1710,8 +1784,7 @@
       "errorHints": "Possible reasons:\n• The verification link has expired (links expire after 24 hours)\n• The link has already been used\n• The link is invalid or corrupted",
       "errorNext": "Please request a new link or contact support if the problem persists.",
       "backToLogin": "Back to Login"
-    }
-    ,
+    },
     "forgotPassword": {
       "title": "Forgot Password?",
       "subtitle": "Enter your email address and we'll send you a link to reset your password.",
@@ -1731,8 +1804,7 @@
         "sendFailed": "Failed to send password reset email",
         "sendError": "An error occurred while sending the password reset email"
       }
-    }
-    ,
+    },
     "passwordReset": {
       "title": "Reset Your Password",
       "subtitle": "Enter your new password below",
@@ -1754,8 +1826,7 @@
         "resetFailed": "Password reset failed",
         "resetError": "An error occurred while resetting your password"
       }
-    }
-    ,
+    },
     "reservationSummary": {
       "loading": "Loading reservation...",
       "notFound": "Reservation not found",
@@ -1803,8 +1874,7 @@
         "cancelButton": "Cancel Reservation",
         "cancelling": "Cancelling..."
       }
-    }
-    ,
+    },
     "registrationSuccess": {
       "title": "Registration Successful!",
       "checkEmail": "Please check your email to verify your account",
@@ -1818,8 +1888,7 @@
       "backToLogin": "Back to Login",
       "nextStepsTitle": "Next Steps:",
       "nextStepsList": "1. Check your email inbox (and spam folder)\n2. Click the verification link in the email\n3. You'll be automatically logged in and can start booking!"
-    }
-    ,
+    },
     "roomBooking": {
       "modalTitle": "Book Room",
       "modalTitleWithRoom": "Book {{name}}",
@@ -1885,8 +1954,7 @@
         "emailInvalid": "Please provide a valid email address",
         "createFailed": "Failed to create reservation"
       }
-    }
-    ,
+    },
     "eventBooking": {
       "successTitle": "Event Booked Successfully!",
       "successBody": "Your event reservation has been submitted and is pending approval. We'll contact you within 24 hours to confirm the details.",
@@ -1987,7 +2055,8 @@
     "editCompany": "Edit Company",
     "deleteConfirm": "Are you sure you want to delete this company?",
     "reservationHistory": "Reservation History",
-    "total": "companies"
+    "total": "companies",
+    "nameRequired": "Company name is required"
   },
   "guests": {
     "name": "Name",
@@ -2043,11 +2112,35 @@
       "ctaContactSales": "Contact Sales",
       "trialNotice": "All plans include a 14-day free trial. No credit card required.",
       "basic_desc": "Everything a small property needs to run daily operations.",
-      "basic_features": ["Up to 20 rooms", "Reservations & booking calendar", "Guest profiles", "Room & rate management", "Media library", "Email notifications", "Basic reporting"],
+      "basic_features": [
+        "Up to 20 rooms",
+        "Reservations & booking calendar",
+        "Guest profiles",
+        "Room & rate management",
+        "Media library",
+        "Email notifications",
+        "Basic reporting"
+      ],
       "pro_desc": "For growing resorts that sell day passes and manage events.",
-      "pro_features": ["Everything in Basic", "Up to 50 rooms", "Day-pass & evening-pass sales", "Events module", "Wristband tracking", "Charge rules & folios", "Revenue dashboard"],
+      "pro_features": [
+        "Everything in Basic",
+        "Up to 50 rooms",
+        "Day-pass & evening-pass sales",
+        "Events module",
+        "Wristband tracking",
+        "Charge rules & folios",
+        "Revenue dashboard"
+      ],
       "enterprise_desc": "Full operations suite for large resorts and hotel groups.",
-      "enterprise_features": ["Everything in Pro", "Up to 200 rooms", "Agent commissions", "Corporate credit accounts", "Night audit", "Custom roles & permissions", "Dedicated onboarding"]
+      "enterprise_features": [
+        "Everything in Pro",
+        "Up to 200 rooms",
+        "Agent commissions",
+        "Corporate credit accounts",
+        "Night audit",
+        "Custom roles & permissions",
+        "Dedicated onboarding"
+      ]
     },
     "cta": {
       "heading": "Ready to modernize your property?",
@@ -2738,5 +2831,27 @@
       "subtitle": "Discover our rooms and start your stay",
       "bookNow": "Book Now"
     }
+  },
+  "creditAccounts": {
+    "scope": "Scope",
+    "scopeGuest": "Guest",
+    "scopeCompany": "Company",
+    "reference": "Reference",
+    "creditLimit": "Credit Limit",
+    "currentExposure": "Current Exposure",
+    "available": "Available",
+    "addAccount": "Add Credit Account",
+    "editAccount": "Edit Credit Account",
+    "deleteConfirm": "Are you sure you want to delete this credit account?",
+    "total": "credit accounts",
+    "referenceRequired": "Reference is required",
+    "invalidAmounts": "Amounts must be zero or greater"
+  },
+  "reservations": {
+    "code": "Code",
+    "type": "Type",
+    "checkIn": "Check-In",
+    "status": "Status",
+    "total": "Total"
   }
 }

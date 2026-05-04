@@ -17,7 +17,6 @@ import {
   Divider,
 } from '@mui/material';
 import AdminLayout from '../../components/admin/AdminLayout';
-import SectionTitle from '../../components/admin/SectionTitle';
 import { reservationsService, servicesService } from '../../services/api';
 import { Reservation } from '../../types';
 import dayjs from 'dayjs';
@@ -116,21 +115,18 @@ const ScheduleSummary: React.FC = () => {
   const formatDate = (d: Date) => d.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
-    <AdminLayout>
-      <Container maxWidth="lg" sx={{ py: 4 }}>
-        <SectionTitle
-          title={t('admin.schedule.title')}
-          right={
-            <ToggleButtonGroup value={period} exclusive onChange={(_, val) => val && setPeriod(val)}>
-              <ToggleButton value="today">{t('admin.schedule.today')}</ToggleButton>
-              <ToggleButton value="tomorrow">{t('admin.schedule.tomorrow')}</ToggleButton>
-            </ToggleButtonGroup>
-          }
-        />
+    <AdminLayout title={t('admin.schedule.title')}>
+      <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
 
-        <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 2 }}>
-          {formatDate(selectedDate.toDate())}
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="subtitle1" color="text.secondary">
+            {formatDate(selectedDate.toDate())}
+          </Typography>
+          <ToggleButtonGroup value={period} exclusive onChange={(_, val) => val && setPeriod(val)}>
+            <ToggleButton value="today">{t('admin.schedule.today')}</ToggleButton>
+            <ToggleButton value="tomorrow">{t('admin.schedule.tomorrow')}</ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
 
         <Grid container spacing={3} sx={{ mb: 3 }}>
           <Grid item xs={12} md={4}>

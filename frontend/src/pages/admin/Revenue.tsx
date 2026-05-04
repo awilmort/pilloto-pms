@@ -198,11 +198,8 @@ const Revenue: React.FC = () => {
   };
 
   return (
-    <AdminLayout>
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        <Typography variant="h3" component="h1" gutterBottom>
-          {t('admin.revenue.title')}
-        </Typography>
+    <AdminLayout title={t('admin.revenue.title')}>
+      <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
 
         {/* Filters */}
         <Paper sx={{ p: 3, mb: 3 }}>

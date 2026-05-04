@@ -3,7 +3,7 @@ import {
   Box, Typography, Button, TextField, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Paper, IconButton, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress,
-  Alert, Tooltip, FormControlLabel, Switch, InputAdornment, Grid,
+  Alert, Tooltip, FormControlLabel, Switch, InputAdornment, Grid, Container,
 } from '@mui/material';
 import {
   Add, Edit, Delete, Search, ArrowBack, Email, Phone,
@@ -11,7 +11,6 @@ import {
 import { useTranslation } from 'react-i18next';
 import { companiesService } from '../../services/api';
 import { Company, Reservation } from '../../types';
-import SectionTitle from '../../components/admin/SectionTitle';
 import AdminLayout from '../../components/admin/AdminLayout';
 
 const emptyForm: Partial<Company> = {
@@ -134,12 +133,11 @@ const CompaniesManagement: React.FC = () => {
 
   if (selectedCompany) {
     return (
-      <AdminLayout>
-      <Box>
+      <AdminLayout title={selectedCompany.name}>
+      <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
         <Button startIcon={<ArrowBack />} onClick={() => setSelectedCompany(null)} sx={{ mb: 2 }}>
           {t('common.back', 'Back')}
         </Button>
-        <SectionTitle title={selectedCompany.name} />
         <Paper sx={{ p: 3, mb: 3 }}>
           <Grid container spacing={2}>
             {selectedCompany.contactName && (
@@ -193,32 +191,26 @@ const CompaniesManagement: React.FC = () => {
             </Table>
           </TableContainer>
         )}
-      </Box>
+      </Container>
       </AdminLayout>
     );
   }
 
   return (
-    <AdminLayout>
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
-        <SectionTitle title={t('admin.nav.companies', 'Companies')} />
-        <Button variant="contained" startIcon={<Add />} onClick={openCreate}>
-          {t('companies.addCompany', 'Add Company')}
-        </Button>
-      </Box>
+    <AdminLayout title={t('admin.nav.companies', 'Companies')}>
+    <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
 
-      {/* Filters */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap' }}>
-        <TextField
-          size="small"
-          placeholder={t('common.search', 'Search...')}
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
-          sx={{ minWidth: 220 }}
-        />
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      {/* Filter card */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField
+            size="small"
+            placeholder={t('common.search', 'Search...')}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
+            sx={{ minWidth: 220 }}
+          />
           <Button
             size="small"
             variant={activeFilter === undefined ? 'contained' : 'outlined'}
@@ -236,8 +228,13 @@ const CompaniesManagement: React.FC = () => {
             color="inherit"
             onClick={() => setActiveFilter(false)}
           >{t('common.inactive', 'Inactive')}</Button>
+          <Box sx={{ ml: 'auto' }}>
+            <Button variant="contained" startIcon={<Add />} onClick={openCreate}>
+              {t('companies.addCompany', 'Add Company')}
+            </Button>
+          </Box>
         </Box>
-      </Box>
+      </Paper>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -375,7 +372,7 @@ const CompaniesManagement: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Container>
     </AdminLayout>
   );
 };

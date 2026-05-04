@@ -3,7 +3,6 @@ import {
   Box, Typography, Button, Container, Grid, Card, CardContent,
   AppBar, Toolbar, Chip, List, ListItem, ListItemIcon, ListItemText,
   Divider, Link, Stack, IconButton, Drawer, useMediaQuery, useTheme,
-  Select, MenuItem,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import CheckIcon from '@mui/icons-material/Check';
@@ -13,6 +12,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import HotelIcon from '@mui/icons-material/Hotel';
 import PillotoLogo from '../../components/marketing/PillotoLogo';
 import MarketingFooter from '../../components/marketing/MarketingFooter';
+import LanguageSwitcher from '../../components/common/LanguageSwitcher';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import GroupIcon from '@mui/icons-material/Group';
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
@@ -48,7 +48,7 @@ const NAV = ['Features', 'Pricing', 'Contact'];
 
 // ── NavBar ────────────────────────────────────────────────────────────────────
 function NavBar() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -80,16 +80,9 @@ function NavBar() {
                 ))}
                 <Button fullWidth variant="contained" sx={{ mt: 3, backgroundColor: BRAND }}
                   href="https://login.pilloto.com">{t('marketing.nav.signIn')}</Button>
-                <Select
-                  size="small"
-                  value={i18n.language.startsWith('en') ? 'en' : 'es'}
-                  onChange={e => i18n.changeLanguage(e.target.value as string)}
-                  fullWidth
-                  sx={{ mt: 2, '& .MuiSelect-select': { py: 0.75, fontSize: '0.875rem' } }}
-                >
-                  <MenuItem value="en">EN</MenuItem>
-                  <MenuItem value="es">ES</MenuItem>
-                </Select>
+                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'center' }}>
+                  <LanguageSwitcher />
+                </Box>
               </Box>
             </Drawer>
           </>
@@ -101,15 +94,7 @@ function NavBar() {
                 {t(`marketing.nav.${l.toLowerCase()}`)}
               </Link>
             ))}
-            <Select
-              size="small"
-              value={i18n.language.startsWith('en') ? 'en' : 'es'}
-              onChange={e => i18n.changeLanguage(e.target.value as string)}
-              sx={{ minWidth: 64, '& .MuiSelect-select': { py: 0.75, fontSize: '0.875rem' } }}
-            >
-              <MenuItem value="en">EN</MenuItem>
-              <MenuItem value="es">ES</MenuItem>
-            </Select>
+            <LanguageSwitcher />
             <Button variant="outlined" size="small" href="https://login.pilloto.com"
               sx={{ borderColor: BRAND, color: BRAND, '&:hover': { borderColor: BRAND, backgroundColor: BRAND_LIGHT } }}>
               {t('marketing.nav.signIn')}

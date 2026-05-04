@@ -13,6 +13,9 @@ import {
   useTheme,
   useMediaQuery,
   Tooltip,
+  Avatar,
+  Menu as MuiMenu,
+  MenuItem as MuiMenuItem,
 } from '@mui/material';
 import {
   Dashboard,
@@ -36,18 +39,19 @@ import {
 import { ConfirmationNumber } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
-import Header from '../layout/Header';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../../contexts/SettingsContext';
+import LanguageSwitcher from '../common/LanguageSwitcher';
 
 const drawerWidth = 240;
 const collapsedWidth = 72;
 
 interface AdminLayoutProps {
   children: React.ReactNode;
+  title?: React.ReactNode;
 }
 
-const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
+const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
   const theme = useTheme();
   const isDesktop = useMediaQuery(theme.breakpoints.up('md'));
   const [mobileOpen, setMobileOpen] = React.useState(false);
@@ -60,6 +64,22 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const location = useLocation();
   const { logout, user } = useAuth();
   const { t } = useTranslation();
+
+  const [userMenuAnchor, setUserMenuAnchor] = React.useState<null | HTMLElement>(null);
+  const navListRef = React.useRef<HTMLUListElement>(null);
+
+  React.useEffect(() => {
+    const active = navListRef.current?.querySelector<HTMLElement>('.Mui-selected');
+    if (active) active.scrollIntoView({ block: 'nearest' });
+  }, [location.pathname]);
+
+  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
+    setUserMenuAnchor(event.currentTarget);
+  };
+
+  const handleUserMenuClose = () => {
+    setUserMenuAnchor(null);
+  };
 
   // Persist sidebar state so navigation doesn't reset it
   const handleDrawerToggle = () => {
@@ -87,20 +107,20 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   const menuItems = React.useMemo(() => {
     const items = [
       { text: t('admin.nav.dashboard'), icon: <Dashboard />, path: '/admin', key: 'dashboard', perm: 'admin.dashboard' },
+      { text: t('admin.nav.bookingCalendar'), icon: <CalendarMonth />, path: '/admin/booking-calendar', key: 'booking-calendar', perm: 'admin.schedule' },
+      { text: t('admin.nav.reservations'), icon: <BookOnline />, path: '/admin/reservations', key: 'reservations', perm: 'admin.reservations' },
+      { text: t('admin.nav.schedule'), icon: <Analytics />, path: '/admin/schedule', key: 'schedule', perm: 'admin.schedule' },
+      { text: t('admin.nav.accommodations'), icon: <Hotel />, path: '/admin/accommodations', key: 'accommodations', perm: 'admin.accommodations' },
+      { text: t('admin.nav.wristbands'), icon: <ConfirmationNumber />, path: '/admin/wristbands', key: 'wristbands', perm: 'admin.wristbands' },
+      { text: t('admin.nav.cashierClosures', 'Cashier Closures'), icon: <PointOfSale />, path: '/admin/cashier-closures', key: 'cashier-closures', perm: 'cashier' },
       { text: t('admin.nav.revenue'), icon: <AttachMoney />, path: '/admin/revenue', key: 'revenue', perm: 'admin.revenue' },
       { text: t('admin.nav.commissions'), icon: <AttachMoney />, path: '/admin/commissions', key: 'commissions', perm: 'admin.commissions' },
-      { text: t('admin.nav.schedule'), icon: <Analytics />, path: '/admin/schedule', key: 'schedule', perm: 'admin.schedule' },
-      { text: t('admin.nav.bookingCalendar'), icon: <CalendarMonth />, path: '/admin/booking-calendar', key: 'booking-calendar', perm: 'admin.schedule' },
-      { text: t('admin.nav.accommodations'), icon: <Hotel />, path: '/admin/accommodations', key: 'accommodations', perm: 'admin.accommodations' },
-      { text: t('admin.nav.rooms'), icon: <Hotel />, path: '/admin/rooms', key: 'rooms', perm: 'admin.rooms' },
-      { text: t('admin.nav.wristbands'), icon: <ConfirmationNumber />, path: '/admin/wristbands', key: 'wristbands', perm: 'admin.wristbands' },
-      { text: t('admin.nav.pricing'), icon: <Settings />, path: '/admin/pricing', key: 'pricing', perm: 'admin.pricing' },
-      { text: t('admin.nav.reservations'), icon: <BookOnline />, path: '/admin/reservations', key: 'reservations', perm: 'admin.reservations' },
-      { text: t('admin.nav.users'), icon: <People />, path: '/admin/users', key: 'users', perm: 'admin.users' },
-      { text: t('admin.nav.companies'), icon: <Business />, path: '/admin/companies', key: 'companies', perm: 'admin.companies' },
       { text: t('admin.nav.guests'), icon: <PersonPin />, path: '/admin/guests', key: 'guests', perm: 'admin.guests' },
+      { text: t('admin.nav.companies'), icon: <Business />, path: '/admin/companies', key: 'companies', perm: 'admin.companies' },
       { text: t('admin.nav.creditAccounts'), icon: <AccountBalanceWallet />, path: '/admin/credit-accounts', key: 'credit-accounts', perm: 'admin.creditAccounts' },
-      { text: t('admin.nav.cashierClosures', 'Cashier Closures'), icon: <PointOfSale />, path: '/admin/cashier-closures', key: 'cashier-closures', perm: 'cashier' },
+      { text: t('admin.nav.users'), icon: <People />, path: '/admin/users', key: 'users', perm: 'admin.users' },
+      { text: t('admin.nav.rooms'), icon: <Hotel />, path: '/admin/rooms', key: 'rooms', perm: 'admin.rooms' },
+      { text: t('admin.nav.pricing'), icon: <Settings />, path: '/admin/pricing', key: 'pricing', perm: 'admin.pricing' },
       { text: t('admin.nav.otaConflicts', 'OTA Conflicts'), icon: <SyncAlt />, path: '/admin/ota-conflicts', key: 'ota-conflicts', perm: 'admin.ota.view' },
       { text: t('admin.nav.settings'), icon: <Settings />, path: '/admin/settings', key: 'settings', perm: 'admin.settings' },
     ];
@@ -180,7 +200,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
       <Divider sx={{ display: 'none' }} />
 
       {/* Nav items */}
-      <List sx={{ flexGrow: 1, py: 0.5 }}>
+      <List ref={navListRef} sx={{ flexGrow: 1, py: 0.5, overflowY: 'auto' }}>
         {menuItems.map((item) => (
           <ListItem key={item.key} disablePadding>
             <Tooltip title={!sidebarOpen ? item.text : ''} placement="right">
@@ -257,51 +277,108 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children }) => {
   });
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Desktop: permanent sidebar that collapses to icon-only */}
-      {isDesktop && (
-        <Drawer variant="permanent" sx={drawerSx(sidebarOpen ? drawerWidth : collapsedWidth)}>
-          {drawerContent}
-        </Drawer>
-      )}
+    <>
+      <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+        {/* Desktop: permanent sidebar that collapses to icon-only */}
+        {isDesktop && (
+          <Drawer variant="permanent" sx={drawerSx(sidebarOpen ? drawerWidth : collapsedWidth)}>
+            {drawerContent}
+          </Drawer>
+        )}
 
-      {/* Mobile: temporary sidebar (full open/close) */}
-      {!isDesktop && (
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{ keepMounted: true }}
-          sx={{
-            '& .MuiDrawer-paper': {
-              width: drawerWidth,
-              boxSizing: 'border-box',
-              bgcolor: '#2D3748',
-              color: '#E2E8F0',
-            },
-          }}
-        >
-          {drawerContent}
-        </Drawer>
-      )}
+        {/* Mobile: temporary sidebar (full open/close) */}
+        {!isDesktop && (
+          <Drawer
+            variant="temporary"
+            open={mobileOpen}
+            onClose={handleDrawerToggle}
+            ModalProps={{ keepMounted: true }}
+            sx={{
+              '& .MuiDrawer-paper': {
+                width: drawerWidth,
+                boxSizing: 'border-box',
+                bgcolor: '#2D3748',
+                color: '#E2E8F0',
+              },
+            }}
+          >
+            {drawerContent}
+          </Drawer>
+        )}
 
-      {/* Right panel: header + content */}
-      <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        <Header />
-        <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
-          {/* Mobile hamburger at top of content */}
-          <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', mb: 2 }}>
-            <IconButton aria-label="open menu" onClick={handleDrawerToggle}>
-              <Menu />
-            </IconButton>
-            <Typography variant="h6" sx={{ ml: 1 }}>
-              {t('admin.title')}
-            </Typography>
+        {/* Right panel: content */}
+        <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          {/* Top bar: page title (desktop) | hamburger (mobile) + pill */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, pt: 1.5, pb: 0 }}>
+            {/* Mobile: hamburger + "Admin" label */}
+            <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center' }}>
+              <IconButton aria-label="open menu" onClick={handleDrawerToggle}>
+                <Menu />
+              </IconButton>
+              <Typography variant="h6" sx={{ ml: 1 }}>
+                {t('admin.title')}
+              </Typography>
+            </Box>
+            {/* Desktop: page title */}
+            <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}>
+              {title && (
+                <Typography variant="h3" component="h1" fontWeight={700} sx={{ lineHeight: 1, color: 'text.primary' }}>
+                  {title}
+                </Typography>
+              )}
+            </Box>
+            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)', borderRadius: '40px', px: 1.5, py: 0.75, boxShadow: '0 1px 8px rgba(0,0,0,0.10)', border: '1px solid rgba(0,0,0,0.06)' }}>
+              <LanguageSwitcher />
+              <IconButton
+                size="small"
+                onClick={handleUserMenuOpen}
+                aria-label="account menu"
+                sx={{ p: 0.5 }}
+              >
+                {user?.avatar ? (
+                  <Avatar src={user.avatar} alt={user.firstName} sx={{ width: 30, height: 30 }} />
+                ) : (
+                  <Avatar sx={{ width: 30, height: 30, bgcolor: 'secondary.main', fontSize: '0.8rem', fontWeight: 700 }}>
+                    {user?.firstName?.[0]?.toUpperCase()}
+                  </Avatar>
+                )}
+              </IconButton>
+            </Box>
           </Box>
-          {children}
+          <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+            {children}
+          </Box>
         </Box>
       </Box>
-    </Box>
+
+      <MuiMenu
+        anchorEl={userMenuAnchor}
+        open={Boolean(userMenuAnchor)}
+        onClose={handleUserMenuClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        PaperProps={{
+          sx: {
+            borderRadius: '12px',
+            boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
+            mt: 1,
+            minWidth: 160,
+          },
+        }}
+      >
+        <MuiMenuItem disabled sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>
+          {user?.firstName} {user?.lastName}
+        </MuiMenuItem>
+        <Divider />
+        <MuiMenuItem onClick={() => { handleUserMenuClose(); navigate('/profile'); }} sx={{ fontSize: '0.9rem', borderRadius: '8px', mx: 0.5 }}>
+          {t('auth.profile')}
+        </MuiMenuItem>
+        <Divider />
+        <MuiMenuItem onClick={() => { handleUserMenuClose(); handleLogout(); }} sx={{ fontSize: '0.9rem', borderRadius: '8px', mx: 0.5 }}>
+          {t('auth.logout')}
+        </MuiMenuItem>
+      </MuiMenu>
+    </>
   );
 };
 

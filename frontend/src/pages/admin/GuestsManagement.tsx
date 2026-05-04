@@ -3,13 +3,12 @@ import {
   Box, Typography, Button, TextField, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Paper, IconButton, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress,
-  Alert, Tooltip, InputAdornment, Grid, Autocomplete,
+  Alert, Tooltip, InputAdornment, Grid, Autocomplete, Container,
 } from '@mui/material';
 import { Edit, Delete, Search, ArrowBack, Email, Phone, Business } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { guestsService, companiesService } from '../../services/api';
 import { Guest, Reservation, Company } from '../../types';
-import SectionTitle from '../../components/admin/SectionTitle';
 import AdminLayout from '../../components/admin/AdminLayout';
 
 const emptyForm: Partial<Guest> = {
@@ -141,12 +140,11 @@ const GuestsManagement: React.FC = () => {
 
   if (selectedGuest) {
     return (
-      <AdminLayout>
-      <Box>
+      <AdminLayout title={`${selectedGuest.firstName} ${selectedGuest.lastName}`}>
+      <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
         <Button startIcon={<ArrowBack />} onClick={() => setSelectedGuest(null)} sx={{ mb: 2 }}>
           {t('common.back', 'Back')}
         </Button>
-        <SectionTitle title={`${selectedGuest.firstName} ${selectedGuest.lastName}`} />
         <Paper sx={{ p: 3, mb: 3 }}>
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
@@ -207,27 +205,28 @@ const GuestsManagement: React.FC = () => {
             </Table>
           </TableContainer>
         )}
-      </Box>
+      </Container>
       </AdminLayout>
     );
   }
 
   return (
-    <AdminLayout>
-    <Box>
-      <SectionTitle title={t('admin.nav.guests', 'Guests')} />
+    <AdminLayout title={t('admin.nav.guests', 'Guests')}>
+    <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
 
       {/* Filters */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 2, mt: 2, flexWrap: 'wrap' }}>
-        <TextField
-          size="small"
-          placeholder={t('common.search', 'Search...')}
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
-          sx={{ minWidth: 250 }}
-        />
-      </Box>
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField
+            size="small"
+            placeholder={t('common.search', 'Search...')}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
+            sx={{ minWidth: 250 }}
+          />
+        </Box>
+      </Paper>
 
       {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -363,7 +362,7 @@ const GuestsManagement: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Container>
     </AdminLayout>
   );
 };

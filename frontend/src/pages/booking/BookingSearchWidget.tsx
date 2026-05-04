@@ -21,8 +21,8 @@ import { bookingService } from '../../services/api';
 const BookingSearchWidget: React.FC = () => {
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
-  const [adults, setAdults] = useState(2);
-  const [children, setChildren] = useState(0);
+  const [adults, setAdults] = useState<string>('2');
+  const [children, setChildren] = useState<string>('0');
   const [config, setConfig] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -47,15 +47,15 @@ const BookingSearchWidget: React.FC = () => {
   const handleSearch = () => {
     const params = new URLSearchParams({
       checkIn, checkOut,
-      adults: String(adults),
-      children: String(children),
+      adults: String(Math.max(1, parseInt(adults) || 1)),
+      children: String(Math.max(0, parseInt(children) || 0)),
     });
 
     // Try postMessage to parent (for iframe communication)
     if (window.parent !== window) {
       window.parent.postMessage({
         type: 'pilloto-booking-search',
-        payload: { checkIn, checkOut, adults, children },
+        payload: { checkIn, checkOut, adults: Math.max(1, parseInt(adults) || 1), children: Math.max(0, parseInt(children) || 0) },
       }, '*');
     }
 
@@ -109,7 +109,8 @@ const BookingSearchWidget: React.FC = () => {
               label="Adults"
               type="number"
               value={adults}
-              onChange={e => setAdults(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
+              onChange={e => setAdults(e.target.value)}
+              onBlur={() => setAdults(String(Math.max(1, parseInt(adults) || 1)))}
               InputProps={{
                 startAdornment: <InputAdornment position="start"><PersonIcon fontSize="small" /></InputAdornment>,
                 inputProps: { min: 1, max: 50 },
@@ -121,7 +122,8 @@ const BookingSearchWidget: React.FC = () => {
               label="Children"
               type="number"
               value={children}
-              onChange={e => setChildren(Math.max(0, Math.min(50, parseInt(e.target.value) || 0)))}
+              onChange={e => setChildren(e.target.value)}
+              onBlur={() => setChildren(String(Math.max(0, parseInt(children) || 0)))}
               InputProps={{
                 startAdornment: <InputAdornment position="start"><ChildCareIcon fontSize="small" /></InputAdornment>,
                 inputProps: { min: 0, max: 50 },

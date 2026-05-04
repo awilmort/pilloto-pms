@@ -120,7 +120,7 @@ const CreateReservationDialog: React.FC<Props> = ({
   const isAdmin = user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin';
   const canAssignCorporatePrice = isAdmin || permissions.includes('admin.reservations.assignCorporatePrice');
 
-  const [discountPercent, setDiscountPercent] = useState<number>(0);
+  const [discountPercent, setDiscountPercent] = useState<string>('0');
 
   const [createStep, setCreateStep]     = useState<0 | 1 | 2 | 3>(0);
   const [createForm, setCreateForm]     = useState(DEFAULT_FORM);
@@ -300,7 +300,7 @@ const CreateReservationDialog: React.FC<Props> = ({
     setServiceOptions([]);
     setSelectedServiceId('');
     setServicePricePreview(null);
-    setDiscountPercent(0);
+    setDiscountPercent('0');
     setDefaultRoomApplied(false);
   };
 
@@ -312,8 +312,8 @@ const CreateReservationDialog: React.FC<Props> = ({
   // Capacity helpers
   const totalBillableGuests = createForm.adults + createForm.children;
   // Discount computation (service/daypass reservations)
-  const discountAmount = (canDiscount && discountPercent > 0 && servicePricePreview)
-    ? Math.round((discountPercent / 100) * servicePricePreview.finalTotal * 100) / 100
+  const discountAmount = (canDiscount && parseFloat(discountPercent) > 0 && servicePricePreview)
+    ? Math.round((parseFloat(discountPercent) / 100) * servicePricePreview.finalTotal * 100) / 100
     : 0;
   const effectiveTotal = servicePricePreview
     ? Math.max(0, servicePricePreview.finalTotal - discountAmount)
@@ -393,7 +393,7 @@ const CreateReservationDialog: React.FC<Props> = ({
         }];
         if (discountAmount > 0) {
           payload.discountAmount  = discountAmount;
-          payload.discountPercent = discountPercent;
+          payload.discountPercent = parseFloat(discountPercent) || 0;
         }
       }
       const res = await reservationsService.createReservation(payload);
@@ -801,7 +801,11 @@ const CreateReservationDialog: React.FC<Props> = ({
                               max={discountLimit}
                               step={0.5}
                               value={discountPercent}
-                              onChange={e => setDiscountPercent(Math.min(discountLimit, Math.max(0, Number(e.target.value) || 0)))}
+                              onChange={e => setDiscountPercent(e.target.value)}
+                              onBlur={e => {
+                                const clamped = Math.min(discountLimit, Math.max(0, parseFloat(e.target.value) || 0));
+                                setDiscountPercent(String(clamped));
+                              }}
                               style={{ width: 60, fontSize: 13, padding: '2px 4px', borderRadius: 4, border: '1px solid #ccc' }}
                             />
                             <Typography variant="caption">%</Typography>

@@ -28,7 +28,6 @@ import {
   Chip,
 } from '@mui/material';
 import AdminLayout from '../../components/admin/AdminLayout';
-import SectionTitle from '../../components/admin/SectionTitle';
 import { reservationsService, roomsService, adminService } from '../../services/api';
 import { Reservation, Room } from '../../types';
 import dayjs from 'dayjs';
@@ -218,18 +217,16 @@ const Accommodations: React.FC = () => {
   }
 
   return (
-    <AdminLayout>
-      <Container maxWidth="xl" sx={{ py: 2 }}>
-        <SectionTitle
-          title={t('admin.accommodations.title')}
-          right={
-            <ToggleButtonGroup value={period} exclusive onChange={(_, val) => val && setPeriod(val)}>
-              <ToggleButton value="today">{t('admin.schedule.today')}</ToggleButton>
-              <ToggleButton value="tomorrow">{t('admin.schedule.tomorrow')}</ToggleButton>
-            </ToggleButtonGroup>
-          }
-        />
-        <Typography variant="subtitle1" color="text.secondary" sx={{ mb: 2 }}>{dateLabel}</Typography>
+    <AdminLayout title={t('admin.accommodations.title')}>
+      <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
+
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Typography variant="subtitle1" color="text.secondary">{dateLabel}</Typography>
+          <ToggleButtonGroup value={period} exclusive onChange={(_, val) => val && setPeriod(val)}>
+            <ToggleButton value="today">{t('admin.schedule.today')}</ToggleButton>
+            <ToggleButton value="tomorrow">{t('admin.schedule.tomorrow')}</ToggleButton>
+          </ToggleButtonGroup>
+        </Box>
 
         {/* Reservations for selected day (room type) */}
         <Paper sx={{ p: 2, mb: 3 }}>

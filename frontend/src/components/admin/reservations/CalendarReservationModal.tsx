@@ -112,7 +112,7 @@ const CalendarReservationModal: React.FC<Props> = ({
   };
 
   const [paymentOpen, setPaymentOpen] = useState(false);
-  const [payAmount, setPayAmount] = useState(0);
+  const [payAmount, setPayAmount] = useState<string>('');
   const [payMethod, setPayMethod] = useState<'cash' | 'card' | 'transfer' | 'credit' | 'check' | ''>('');
   const [payNote, setPayNote] = useState('');
   const [payIsDeposit, setPayIsDeposit] = useState(false);
@@ -345,7 +345,7 @@ const CalendarReservationModal: React.FC<Props> = ({
                   onClick={() => {
                     const isPreArrival = financial?.summary.stage === 'pre_arrival';
                     setPayIsDeposit(isPreArrival);
-                    setPayAmount(isPreArrival ? (financial?.summary.balanceOnArrival ?? 0) : (financial?.summary.balance ?? 0));
+                    setPayAmount(String(isPreArrival ? (financial?.summary.balanceOnArrival ?? 0) : (financial?.summary.balance ?? 0)));
                     setPayMethod('');
                     setPayNote('');
                     setPaymentOpen(true);
@@ -522,7 +522,7 @@ const CalendarReservationModal: React.FC<Props> = ({
               label={t('admin.reservations.form.amount', 'Amount')}
               type="number"
               value={payAmount}
-              onChange={e => setPayAmount(parseFloat(e.target.value) || 0)}
+              onChange={e => setPayAmount(e.target.value)}
               inputProps={{ min: 0, step: 0.01 }}
               required
             />
@@ -551,13 +551,13 @@ const CalendarReservationModal: React.FC<Props> = ({
           <Button onClick={() => setPaymentOpen(false)}>{t('admin.reservations.actions.cancel', 'Cancel')}</Button>
           <Button
             variant="contained"
-            disabled={payAmount <= 0 || !payMethod || paySubmitting}
+            disabled={parseFloat(payAmount) <= 0 || !payMethod || paySubmitting}
             onClick={async () => {
               if (!payMethod) return;
               try {
                 setPaySubmitting(true);
                 await reservationsService.addReservationPayment(reservation._id as string, {
-                  amount: payAmount,
+                  amount: parseFloat(payAmount) || 0,
                   method: payMethod,
                   note:   payNote || undefined,
                   paymentStage: payIsDeposit ? 'deposit' : 'in_house',

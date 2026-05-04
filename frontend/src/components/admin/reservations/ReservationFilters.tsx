@@ -5,7 +5,8 @@
  * Purely presentational — all state and callbacks come from the parent.
  */
 import React from 'react';
-import { Box, Button, FormControl, InputLabel, MenuItem, Select, TextField } from '@mui/material';
+import { Box, Button, FormControl, InputLabel, MenuItem, Paper, Select, TextField } from '@mui/material';
+import { Add } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 
 interface ReservationServices {
@@ -29,6 +30,7 @@ interface Props {
   onFilterDateToChange: (v: string) => void;
   onFilterToday: () => void;
   onClear: () => void;
+  onCreateNew?: () => void;
 }
 
 const ReservationFilters: React.FC<Props> = ({
@@ -45,11 +47,13 @@ const ReservationFilters: React.FC<Props> = ({
   onFilterDateToChange,
   onFilterToday,
   onClear,
+  onCreateNew,
 }) => {
   const { t } = useTranslation();
 
   return (
-    <Box sx={{ mb: 4, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+    <Paper sx={{ p: 3, mb: 3 }}>
+      <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
       <FormControl size="small" sx={{ minWidth: 200 }}>
         <InputLabel>{t('admin.reservations.filters.statusLabel')}</InputLabel>
         <Select
@@ -108,7 +112,16 @@ const ReservationFilters: React.FC<Props> = ({
       <Button color="error" variant="outlined" onClick={onClear}>
         {t('admin.reservations.filters.clear')}
       </Button>
+
+      {onCreateNew && (
+        <Box sx={{ ml: 'auto' }}>
+          <Button variant="contained" size="large" startIcon={<Add />} onClick={onCreateNew}>
+            {t('admin.reservations.actions.newReservation', 'New Reservation')}
+          </Button>
+        </Box>
+      )}
     </Box>
+    </Paper>
   );
 };
 

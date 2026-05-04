@@ -8,7 +8,33 @@
     "guestDistribution": "Distribución de invitados",
     "saving": "Guardando...",
     "back": "Atrás",
-    "continue": "Continuar"
+    "continue": "Continuar",
+    "actions": "Acciones",
+    "active": "Activo",
+    "all": "Todos",
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "confirmDelete": "Confirmar eliminación",
+    "delete": "Eliminar",
+    "deleting": "Eliminando...",
+    "edit": "Editar",
+    "email": "Correo electrónico",
+    "emailRequired": "El correo electrónico es obligatorio",
+    "errorDeleting": "Error al eliminar el registro",
+    "errorLoading": "Error al cargar los registros",
+    "errorSaving": "Error al guardar el registro",
+    "firstName": "Nombre",
+    "inactive": "Inactivo",
+    "lastName": "Apellido",
+    "loading": "Cargando...",
+    "noData": "No se encontraron registros",
+    "notes": "Notas",
+    "phone": "Teléfono",
+    "processing": "Procesando...",
+    "refresh": "Actualizar",
+    "save": "Guardar",
+    "search": "Buscar...",
+    "status": "Estado"
   },
   "nav": {
     "home": "Inicio",
@@ -100,8 +126,7 @@
     "privacyPolicy": "Política de privacidad",
     "termsOfService": "Términos del servicio",
     "copyright": "© {{year}} Pilloto. Todos los derechos reservados."
-  }
-  ,
+  },
   "admin": {
     "title": "Administración",
     "panelTitle": "Panel de administración",
@@ -342,7 +367,6 @@
         "otaResolve": "Sync OTA: Resolver conflictos"
       }
     },
-    
     "commissions": {
       "title": "Comisiones",
       "filters": {
@@ -485,8 +509,7 @@
         "nameDescriptionRequired": "El nombre y la descripción son obligatorios",
         "imageRequired": "La imagen es obligatoria para nuevas amenidades"
       }
-    }
-    ,
+    },
     "accommodations": {
       "title": "Gestión de alojamientos",
       "subtitle": "Gestiona el inventario y las asignaciones de alojamientos",
@@ -537,8 +560,7 @@
         "deleteSuccess": "Alojamiento eliminado exitosamente",
         "operationFailed": "La operación falló"
       }
-    }
-    ,
+    },
     "users": {
       "title": "Gestión de usuarios",
       "subtitle": "Ver y administrar usuarios registrados",
@@ -578,8 +600,7 @@
         "createFailed": "No se pudo crear el usuario",
         "noUsers": "No se encontraron usuarios."
       }
-    }
-    ,
+    },
     "media": {
       "title": "Biblioteca de medios",
       "loading": "Cargando medios...",
@@ -631,8 +652,7 @@
       "confirm": {
         "deleteItem": "¿Eliminar este elemento de medios?"
       }
-    }
-    ,
+    },
     "reservations": {
       "title": "Gestión de reservas",
       "subtitle": "Administra las reservas y asignaciones de habitaciones",
@@ -1315,7 +1335,9 @@
       "roomTypes": {
         "title": "Tipos de habitación",
         "empty": "No hay tipos de habitación aún. Agrega uno para comenzar.",
-        "actions": { "new": "Agregar tipo de habitación" },
+        "actions": {
+          "new": "Agregar tipo de habitación"
+        },
         "dialog": {
           "newTitle": "Nuevo tipo de habitación",
           "editTitle": "Editar tipo de habitación"
@@ -1466,7 +1488,9 @@
       },
       "services": {
         "empty": "No hay servicios configurados.",
-        "actions": { "new": "Nuevo servicio" },
+        "actions": {
+          "new": "Nuevo servicio"
+        },
         "dialog": {
           "newTitle": "Nuevo servicio",
           "editTitle": "Editar servicio"
@@ -1494,7 +1518,9 @@
       },
       "servicePrices": {
         "empty": "No hay precios de servicio configurados.",
-        "actions": { "new": "Nuevo precio" },
+        "actions": {
+          "new": "Nuevo precio"
+        },
         "dialog": {
           "newTitle": "Nuevo precio de servicio",
           "editTitle": "Editar precio de servicio"
@@ -1517,9 +1543,16 @@
         "description": "Define cargos automáticos que aplican cuando ocurren eventos específicos, como salidas tardías o no-shows.",
         "empty": "No hay políticas de cargo automático configuradas.",
         "emptyHint": "Las políticas cargan automáticamente a los huéspedes por salidas tardías, no-shows y salidas anticipadas.",
-        "actions": { "new": "Nueva política" },
-        "dialog": { "new": "Nueva política de cargo", "edit": "Editar política de cargo" },
-        "errors": { "nameRequired": "El nombre de la política es requerido" },
+        "actions": {
+          "new": "Nueva política"
+        },
+        "dialog": {
+          "new": "Nueva política de cargo",
+          "edit": "Editar política de cargo"
+        },
+        "errors": {
+          "nameRequired": "El nombre de la política es requerido"
+        },
         "triggers": {
           "checkout_overdue": "el huésped sale tarde",
           "no_show": "el huésped no se presenta",
@@ -1556,7 +1589,10 @@
         }
       },
       "auditLog": {
-        "actions": { "run": "Ejecutar auditoría ahora", "refresh": "Actualizar" },
+        "actions": {
+          "run": "Ejecutar auditoría ahora",
+          "refresh": "Actualizar"
+        },
         "summary": "Tenant {{id}}: {{chargesPosted}} cobrados, {{errors}} errores",
         "columns": {
           "reservation": "Reservación",
@@ -1574,6 +1610,48 @@
       "room": "Habitación",
       "unassigned": "Sin asignar",
       "noRooms": "No se encontraron habitaciones activas."
+    },
+    "ota": {
+      "conflicts": {
+        "heading": "Cola de conflictos OTA",
+        "pendingBadge": "{{count}} pendientes",
+        "statusFilter": "Estado",
+        "empty": "No se encontraron conflictos para este filtro.",
+        "loadFailed": "Error al cargar los conflictos",
+        "resolve": "Resolver",
+        "resolveTitle": "Resolver conflicto",
+        "resolved": "Conflicto resuelto",
+        "resolveFailed": "Error al resolver el conflicto",
+        "otaBlock": "Bloqueo OTA",
+        "pillotoBlock": "Reserva de Pilloto",
+        "notes": "Notas (opcional)",
+        "notesHint": "Añade contexto para el registro de auditoría.",
+        "submitResolve": "Enviar resolución",
+        "exactMatch": "Coincidencia exacta",
+        "overlap": "Superposición",
+        "table": {
+          "provider": "Proveedor / Listado",
+          "otaBlock": "Bloqueo OTA",
+          "pillotoReservation": "Reserva Pilloto",
+          "type": "Tipo",
+          "status": "Estado",
+          "detected": "Detectado"
+        },
+        "statusLabels": {
+          "all": "Todos",
+          "pending_review": "Pendiente de revisión",
+          "resolved_keep_pilloto": "Mantener Pilloto",
+          "resolved_accept_ota": "Aceptar OTA",
+          "resolved_outside_system": "Resuelto externamente",
+          "ignored_false_positive": "Falso positivo"
+        },
+        "resolutionLabels": {
+          "resolved_keep_pilloto": "Mantener reserva de Pilloto (el bloqueo OTA es un duplicado falso)",
+          "resolved_accept_ota": "Aceptar reserva OTA (se requerirá creación manual de reserva)",
+          "resolved_outside_system": "Resuelto fuera del sistema",
+          "ignored_false_positive": "Ignorar — falso positivo, mismo bloqueo de ambos lados"
+        }
+      }
     }
   },
   "pages": {
@@ -1692,8 +1770,7 @@
         "confirmRequired": "Confirma tu contraseña",
         "passwordsMustMatch": "Las contraseñas deben coincidir"
       }
-    }
-    ,
+    },
     "emailVerification": {
       "verifyingTitle": "Verificando tu correo...",
       "verifyingBody": "Por favor espera mientras verificamos tu dirección de correo.",
@@ -1707,8 +1784,7 @@
       "errorHints": "Posibles causas:\n• El enlace de verificación ha expirado (los enlaces expiran después de 24 horas)\n• El enlace ya fue utilizado\n• El enlace es inválido o está dañado",
       "errorNext": "Intenta solicitar un nuevo enlace o contacta al soporte si el problema persiste.",
       "backToLogin": "Volver al inicio de sesión"
-    }
-    ,
+    },
     "forgotPassword": {
       "title": "¿Olvidaste tu contraseña?",
       "subtitle": "Ingresa tu correo electrónico y te enviaremos un enlace para restablecer tu contraseña.",
@@ -1728,8 +1804,7 @@
         "sendFailed": "No se pudo enviar el correo de restablecimiento",
         "sendError": "Ocurrió un error al enviar el correo de restablecimiento de contraseña"
       }
-    }
-    ,
+    },
     "passwordReset": {
       "title": "Restablece tu contraseña",
       "subtitle": "Ingresa tu nueva contraseña",
@@ -1751,8 +1826,7 @@
         "resetFailed": "No se pudo restablecer la contraseña",
         "resetError": "Ocurrió un error al restablecer tu contraseña"
       }
-    }
-    ,
+    },
     "reservationSummary": {
       "loading": "Cargando reserva...",
       "notFound": "Reserva no encontrada",
@@ -1814,8 +1888,7 @@
       "backToLogin": "Volver al inicio de sesión",
       "nextStepsTitle": "Próximos pasos:",
       "nextStepsList": "1. Revisa tu bandeja de entrada (y spam)\n2. Haz clic en el enlace de verificación del correo\n3. Se iniciará sesión automáticamente y podrás comenzar a reservar"
-    }
-    ,
+    },
     "roomBooking": {
       "modalTitle": "Reservar habitación",
       "modalTitleWithRoom": "Reservar {{name}}",
@@ -1881,8 +1954,7 @@
         "emailInvalid": "Por favor ingresa un correo electrónico válido",
         "createFailed": "No se pudo crear la reserva"
       }
-    }
-    ,
+    },
     "eventBooking": {
       "successTitle": "¡Evento reservado con éxito!",
       "successBody": "Tu reserva de evento ha sido enviada y está pendiente de aprobación. Nos comunicaremos contigo dentro de 24 horas para confirmar los detalles.",
@@ -1983,7 +2055,8 @@
     "editCompany": "Editar empresa",
     "deleteConfirm": "¿Estás seguro de que deseas eliminar esta empresa?",
     "reservationHistory": "Historial de reservas",
-    "total": "empresas"
+    "total": "empresas",
+    "nameRequired": "El nombre de la empresa es obligatorio"
   },
   "guests": {
     "name": "Nombre",
@@ -2039,11 +2112,35 @@
       "ctaContactSales": "Contactar ventas",
       "trialNotice": "Todos los planes incluyen 14 días de prueba gratis. No se requiere tarjeta de crédito.",
       "basic_desc": "Todo lo que una pequeña propiedad necesita para sus operaciones diarias.",
-      "basic_features": ["Hasta 20 habitaciones", "Reservas y calendario de reservas", "Perfiles de huéspedes", "Gestión de habitaciones y tarifas", "Biblioteca de medios", "Notificaciones por correo", "Reportes básicos"],
+      "basic_features": [
+        "Hasta 20 habitaciones",
+        "Reservas y calendario de reservas",
+        "Perfiles de huéspedes",
+        "Gestión de habitaciones y tarifas",
+        "Biblioteca de medios",
+        "Notificaciones por correo",
+        "Reportes básicos"
+      ],
       "pro_desc": "Para resorts en crecimiento que venden pases de día y gestionan eventos.",
-      "pro_features": ["Todo lo del plan Basic", "Hasta 50 habitaciones", "Venta de pases de día y tarde", "Módulo de eventos", "Seguimiento de pulseras", "Reglas de cargos y folios", "Panel de ingresos"],
+      "pro_features": [
+        "Todo lo del plan Basic",
+        "Hasta 50 habitaciones",
+        "Venta de pases de día y tarde",
+        "Módulo de eventos",
+        "Seguimiento de pulseras",
+        "Reglas de cargos y folios",
+        "Panel de ingresos"
+      ],
       "enterprise_desc": "Suite operativa completa para grandes resorts y grupos hoteleros.",
-      "enterprise_features": ["Todo lo del plan Pro", "Hasta 200 habitaciones", "Comisiones de agentes", "Cuentas de crédito corporativas", "Auditoría nocturna", "Roles y permisos personalizados", "Incorporación dedicada"]
+      "enterprise_features": [
+        "Todo lo del plan Pro",
+        "Hasta 200 habitaciones",
+        "Comisiones de agentes",
+        "Cuentas de crédito corporativas",
+        "Auditoría nocturna",
+        "Roles y permisos personalizados",
+        "Incorporación dedicada"
+      ]
     },
     "cta": {
       "heading": "¿Listo para modernizar tu propiedad?",
@@ -2734,5 +2831,27 @@
       "subtitle": "Descubre nuestras habitaciones y comienza tu estadía",
       "bookNow": "Reservar Ahora"
     }
+  },
+  "creditAccounts": {
+    "scope": "Ámbito",
+    "scopeGuest": "Huésped",
+    "scopeCompany": "Empresa",
+    "reference": "Referencia",
+    "creditLimit": "Límite de crédito",
+    "currentExposure": "Exposición actual",
+    "available": "Disponible",
+    "addAccount": "Agregar cuenta de crédito",
+    "editAccount": "Editar cuenta de crédito",
+    "deleteConfirm": "¿Estás seguro de que deseas eliminar esta cuenta de crédito?",
+    "total": "cuentas de crédito",
+    "referenceRequired": "La referencia es obligatoria",
+    "invalidAmounts": "Los montos deben ser cero o mayores"
+  },
+  "reservations": {
+    "code": "Código",
+    "type": "Tipo",
+    "checkIn": "Check-In",
+    "status": "Estado",
+    "total": "Total"
   }
 }

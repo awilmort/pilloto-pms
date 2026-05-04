@@ -126,11 +126,8 @@ const AdminDashboard: React.FC = () => {
   }
 
   return (
-    <AdminLayout>
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Typography variant="h3" component="h1" gutterBottom>
-        {t('admin.dashboard.title')}
-      </Typography>
+    <AdminLayout title={t('admin.dashboard.title')}>
+    <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
       <Typography variant="h6" color="text.secondary" sx={{ mb: 4 }}>
         {t('admin.dashboard.welcome', { name: user?.firstName || 'Admin' })}
       </Typography>
