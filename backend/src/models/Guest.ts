@@ -1,16 +1,30 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { tenantPlugin } from '../plugins/tenantPlugin';
 
+export interface IGuestCompanyLink {
+  companyId: mongoose.Types.ObjectId;
+  autoApproveCorporateRate: boolean;
+}
+
 export interface IGuest extends Document {
   firstName: string;
   lastName: string;
   email: string;
   phone?: string;
   notes?: string;
-  companyId?: mongoose.Types.ObjectId;
+  /** Multi-company links replacing the legacy single companyId */
+  companyLinks: IGuestCompanyLink[];
   createdAt: Date;
   updatedAt: Date;
 }
+
+const guestCompanyLinkSchema = new Schema<IGuestCompanyLink>(
+  {
+    companyId: { type: Schema.Types.ObjectId, ref: 'Company', required: true },
+    autoApproveCorporateRate: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
 
 const guestSchema = new Schema<IGuest>(
   {
@@ -20,7 +34,7 @@ const guestSchema = new Schema<IGuest>(
     email: { type: String, required: true, trim: true, lowercase: true },
     phone: { type: String, trim: true },
     notes: { type: String, maxlength: 1000 },
-    companyId: { type: Schema.Types.ObjectId, ref: 'Company', required: false },
+    companyLinks: { type: [guestCompanyLinkSchema], default: [] },
   },
   { timestamps: true }
 );

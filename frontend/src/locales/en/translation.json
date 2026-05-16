@@ -2063,9 +2063,18 @@
     "company": "Company",
     "memberSince": "Member Since",
     "reservationHistory": "Reservation History",
+    "addGuest": "Add Guest",
     "editGuest": "Edit Guest",
     "deleteConfirm": "Are you sure you want to delete this guest record?",
-    "total": "guests"
+    "total": "guests",
+    "linkedCompanies": "Linked Companies",
+    "linkCompany": "Link Company",
+    "noCompanyLinks": "No companies linked yet",
+    "companyRequired": "Please select a company",
+    "companyAlreadyLinked": "Company already linked to this guest",
+    "autoApproveCorporateRate": "Auto-Approve Corporate Rate",
+    "autoApproveHint": "When enabled, reservations requesting a corporate rate for this company will be automatically approved for this guest.",
+    "removeLink": "Remove link"
   },
   "marketing": {
     "nav": {

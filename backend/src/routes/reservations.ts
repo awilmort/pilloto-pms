@@ -752,14 +752,18 @@ router.post('/', async (req: Request, res: Response) => {
       if (requestedCompany) {
         reservationData.requestedCompany = requestedCompany;
       }
-      // Check if guest already has a company association (auto-approve)
-      if (guestRecordId) {
+      // Check if guest has auto-approval for the requested company
+      if (guestRecordId && requestedCompany) {
         const guestDoc = await Guest.findById(guestRecordId).lean();
-        if (guestDoc && (guestDoc as any).companyId) {
-          reservationData.company = (guestDoc as any).companyId;
+        const companyLinks: any[] = (guestDoc as any)?.companyLinks ?? [];
+        const matchingLink = companyLinks.find(
+          (l: any) => l.companyId?.toString() === String(requestedCompany) && l.autoApproveCorporateRate === true
+        );
+        if (matchingLink) {
+          // Guest has auto-approval — approve immediately without sending request email
+          reservationData.company = requestedCompany;
           reservationData.corporatePriceStatus = 'approved';
         } else {
-          // Guest has no company — mark as pending, normal pricing applied
           reservationData.corporatePriceStatus = 'pending';
         }
       } else {
@@ -807,6 +811,15 @@ router.post('/', async (req: Request, res: Response) => {
 
     // Create reservation
     const reservation = await Reservation.create(reservationData);
+
+    // If corporate rate was approved, ensure the company is linked to the guest record
+    // (auto-approve remains false unless the admin explicitly enables it later)
+    if (guestRecordId && reservationData.company && reservationData.corporatePriceStatus === 'approved') {
+      Guest.updateOne(
+        { _id: guestRecordId, 'companyLinks.companyId': { $ne: reservationData.company } },
+        { $push: { companyLinks: { companyId: reservationData.company, autoApproveCorporateRate: false } } }
+      ).catch((err: any) => console.warn('Failed to auto-link company to guest:', err));
+    }
 
     // Create empty folio at reservation creation
     await ensureFolio(reservation._id);

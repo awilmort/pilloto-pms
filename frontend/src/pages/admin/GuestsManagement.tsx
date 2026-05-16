@@ -4,14 +4,22 @@ import {
   TableContainer, TableHead, TableRow, Paper, IconButton, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress,
   Alert, Tooltip, InputAdornment, Grid, Autocomplete, Container,
+  Switch, FormControlLabel, Divider, List, ListItem, ListItemText,
+  ListItemSecondaryAction,
 } from '@mui/material';
-import { Edit, Delete, Search, ArrowBack, Email, Phone, Business } from '@mui/icons-material';
+import { Edit, Delete, Search, ArrowBack, Email, Phone, Business, Add, LinkOff } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { guestsService, companiesService } from '../../services/api';
-import { Guest, Reservation, Company } from '../../types';
+import { Guest, GuestCompanyLink, Reservation, Company } from '../../types';
 import AdminLayout from '../../components/admin/AdminLayout';
 
-const emptyForm: Partial<Guest> = {
+interface PendingCompanyLink {
+  companyId: string;
+  companyName: string;
+  autoApproveCorporateRate: boolean;
+}
+
+const emptyForm: { firstName: string; lastName: string; email: string; phone: string; notes: string } = {
   firstName: '',
   lastName: '',
   email: '',
@@ -33,17 +41,27 @@ const GuestsManagement: React.FC = () => {
   const [guestReservations, setGuestReservations] = useState<Reservation[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  // Edit dialog
+  // Add / Edit dialog
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<Partial<Guest>>(emptyForm);
+  const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Company autocomplete
+  // Company links within Add/Edit dialog
+  const [dialogCompanyLinks, setDialogCompanyLinks] = useState<PendingCompanyLink[]>([]);
+
+  // Link Company sub-dialog
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [linkCompany, setLinkCompany] = useState<Company | null>(null);
+  const [linkAutoApprove, setLinkAutoApprove] = useState(false);
+  const [linkCompanyOptions, setLinkCompanyOptions] = useState<Company[]>([]);
+  const [linkCompanySearch, setLinkCompanySearch] = useState('');
+  const [linkError, setLinkError] = useState<string | null>(null);
+
+  // Company autocomplete for list view filter (shared search)
   const [companyOptions, setCompanyOptions] = useState<Company[]>([]);
   const [companySearch, setCompanySearch] = useState('');
-  const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
 
   // Delete confirm
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -74,31 +92,55 @@ const GuestsManagement: React.FC = () => {
       .catch(() => {});
   }, [companySearch]);
 
-  const openEdit = (g: Guest, e: React.MouseEvent) => {
-    e.stopPropagation();
+  useEffect(() => {
+    if (linkCompanySearch.length < 1) { setLinkCompanyOptions([]); return; }
+    companiesService.getCompanies({ search: linkCompanySearch, limit: 20 })
+      .then(res => setLinkCompanyOptions(res.data.data ?? []))
+      .catch(() => {});
+  }, [linkCompanySearch]);
+
+  // ── Dialog open helpers ─────────────────────────────────────
+
+  const openAdd = () => {
+    setEditingId(null);
+    setForm(emptyForm);
+    setDialogCompanyLinks([]);
+    setFormError(null);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (g: Guest) => {
     setEditingId(g._id);
-    setForm({ firstName: g.firstName, lastName: g.lastName, email: g.email, phone: g.phone, notes: g.notes, companyId: typeof g.companyId === 'object' && g.companyId ? (g.companyId as Company)._id : (g.companyId as string) || '' });
-    if (typeof g.companyId === 'object' && g.companyId) {
-      const c = g.companyId as Company;
-      setSelectedCompany(c);
-      setCompanyOptions([c]);
-    } else {
-      setSelectedCompany(null);
-      setCompanyOptions([]);
-    }
+    setForm({ firstName: g.firstName, lastName: g.lastName, email: g.email, phone: g.phone || '', notes: g.notes || '' });
+    // Load existing company links into pending state
+    const links: PendingCompanyLink[] = (g.companyLinks || []).map((l: GuestCompanyLink) => {
+      const co = typeof l.companyId === 'object' ? (l.companyId as Company) : null;
+      return {
+        companyId: co ? co._id : String(l.companyId),
+        companyName: co ? co.name : String(l.companyId),
+        autoApproveCorporateRate: !!l.autoApproveCorporateRate,
+      };
+    });
+    setDialogCompanyLinks(links);
     setFormError(null);
     setDialogOpen(true);
   };
 
   const handleSave = async () => {
     if (!form.email?.trim()) { setFormError(t('common.emailRequired', 'Email is required')); return; }
+    if (!form.firstName?.trim()) { setFormError(t('common.firstNameRequired', 'First name is required')); return; }
+    if (!form.lastName?.trim()) { setFormError(t('common.lastNameRequired', 'Last name is required')); return; }
     setSaving(true);
     setFormError(null);
     try {
+      const companyLinksPayload = dialogCompanyLinks.map(l => ({
+        companyId: l.companyId,
+        autoApproveCorporateRate: l.autoApproveCorporateRate,
+      }));
       if (editingId) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const payload: any = { ...form, companyId: form.companyId || null };
-        await guestsService.updateGuest(editingId, payload);
+        await guestsService.updateGuest(editingId, { ...form, companyLinks: companyLinksPayload });
+      } else {
+        await guestsService.createGuest({ ...form, companyLinks: companyLinksPayload });
       }
       setDialogOpen(false);
       fetchGuests();
@@ -108,6 +150,40 @@ const GuestsManagement: React.FC = () => {
       setSaving(false);
     }
   };
+
+  // ── Link Company sub-dialog ──────────────────────────────────
+
+  const openLinkDialog = () => {
+    setLinkCompany(null);
+    setLinkAutoApprove(false);
+    setLinkCompanyOptions([]);
+    setLinkCompanySearch('');
+    setLinkError(null);
+    setLinkDialogOpen(true);
+  };
+
+  const handleAddLink = () => {
+    if (!linkCompany) { setLinkError(t('guests.companyRequired', 'Please select a company')); return; }
+    const alreadyAdded = dialogCompanyLinks.some(l => l.companyId === linkCompany._id);
+    if (alreadyAdded) { setLinkError(t('guests.companyAlreadyLinked', 'Company already linked')); return; }
+    setDialogCompanyLinks(prev => [
+      ...prev,
+      { companyId: linkCompany._id, companyName: linkCompany.name, autoApproveCorporateRate: linkAutoApprove },
+    ]);
+    setLinkDialogOpen(false);
+  };
+
+  const handleRemoveLink = (companyId: string) => {
+    setDialogCompanyLinks(prev => prev.filter(l => l.companyId !== companyId));
+  };
+
+  const handleToggleAutoApprove = (companyId: string, value: boolean) => {
+    setDialogCompanyLinks(prev =>
+      prev.map(l => l.companyId === companyId ? { ...l, autoApproveCorporateRate: value } : l)
+    );
+  };
+
+  // ── Delete ───────────────────────────────────────────────────
 
   const handleDelete = async () => {
     if (!deleteId) return;
@@ -122,6 +198,8 @@ const GuestsManagement: React.FC = () => {
       setDeleting(false);
     }
   };
+
+  // ── Detail view ──────────────────────────────────────────────
 
   const openDetail = async (g: Guest) => {
     setSelectedGuest(g);
@@ -138,168 +216,217 @@ const GuestsManagement: React.FC = () => {
     }
   };
 
-  if (selectedGuest) {
-    return (
-      <AdminLayout title={`${selectedGuest.firstName} ${selectedGuest.lastName}`}>
-      <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
-        <Button startIcon={<ArrowBack />} onClick={() => setSelectedGuest(null)} sx={{ mb: 2 }}>
-          {t('common.back', 'Back')}
-        </Button>
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12} sm={6}>
-              <Typography variant="caption" color="text.secondary">{t('common.email', 'Email')}</Typography>
-              <Typography><Email fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />{selectedGuest.email}</Typography>
-            </Grid>
-            {selectedGuest.phone && (
-              <Grid item xs={12} sm={6}>
-                <Typography variant="caption" color="text.secondary">{t('common.phone', 'Phone')}</Typography>
-                <Typography><Phone fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />{selectedGuest.phone}</Typography>
-              </Grid>
-            )}
-            {selectedGuest.notes && (
-              <Grid item xs={12}>
-                <Typography variant="caption" color="text.secondary">{t('common.notes', 'Notes')}</Typography>
-                <Typography>{selectedGuest.notes}</Typography>
-              </Grid>
-            )}
-            {selectedGuest.companyId && (
-              <Grid item xs={12} sm={6}>
-                <Typography variant="caption" color="text.secondary">{t('guests.company', 'Company')}</Typography>
-                <Typography><Business fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />{typeof selectedGuest.companyId === 'object' && selectedGuest.companyId ? (selectedGuest.companyId as Company).name : selectedGuest.companyId}</Typography>
-              </Grid>
-            )}
-            <Grid item xs={12} sm={6}>
-              <Typography variant="caption" color="text.secondary">{t('guests.memberSince', 'Member Since')}</Typography>
-              <Typography>{new Date(selectedGuest.createdAt).toLocaleDateString()}</Typography>
-            </Grid>
-          </Grid>
-        </Paper>
+  // ── Detail page / List page ──────────────────────────────────
 
-        <Typography variant="h6" sx={{ mb: 2 }}>{t('guests.reservationHistory', 'Reservation History')}</Typography>
-        {detailLoading ? <CircularProgress size={24} /> : (
+  return (
+    <AdminLayout title={selectedGuest ? `${selectedGuest.firstName} ${selectedGuest.lastName}` : t('admin.nav.guests', 'Guests')}>
+    <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
+
+      {selectedGuest ? (
+        <>
+          {/* Header: Back on left, Edit Guest on right */}
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Button startIcon={<ArrowBack />} onClick={() => setSelectedGuest(null)}>
+              {t('common.back', 'Back')}
+            </Button>
+            <Button variant="outlined" startIcon={<Edit />} onClick={() => openEdit(selectedGuest)}>
+              {t('guests.editGuest', 'Edit Guest')}
+            </Button>
+          </Box>
+
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">{t('common.email', 'Email')}</Typography>
+                <Typography><Email fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />{selectedGuest.email}</Typography>
+              </Grid>
+              {selectedGuest.phone && (
+                <Grid item xs={12} sm={6}>
+                  <Typography variant="caption" color="text.secondary">{t('common.phone', 'Phone')}</Typography>
+                  <Typography><Phone fontSize="small" sx={{ mr: 0.5, verticalAlign: 'middle' }} />{selectedGuest.phone}</Typography>
+                </Grid>
+              )}
+              {selectedGuest.notes && (
+                <Grid item xs={12}>
+                  <Typography variant="caption" color="text.secondary">{t('common.notes', 'Notes')}</Typography>
+                  <Typography>{selectedGuest.notes}</Typography>
+                </Grid>
+              )}
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary">{t('guests.memberSince', 'Member Since')}</Typography>
+                <Typography>{new Date(selectedGuest.createdAt).toLocaleDateString()}</Typography>
+              </Grid>
+            </Grid>
+          </Paper>
+
+          {/* Linked Companies */}
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Typography variant="h6" sx={{ mb: 2 }}>{t('guests.linkedCompanies', 'Linked Companies')}</Typography>
+            {(selectedGuest.companyLinks || []).length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                {t('guests.noCompanyLinks', 'No companies linked yet')}
+              </Typography>
+            ) : (
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>{t('guests.company', 'Company')}</TableCell>
+                    <TableCell>{t('guests.autoApproveCorporateRate', 'Auto-Approve Corporate Rate')}</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {(selectedGuest.companyLinks || []).map((l: GuestCompanyLink) => {
+                    const co = typeof l.companyId === 'object' ? (l.companyId as Company) : null;
+                    const name = co ? co.name : String(l.companyId);
+                    const key = co ? co._id : String(l.companyId);
+                    return (
+                      <TableRow key={key}>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Business fontSize="small" color="action" />
+                            <Typography variant="body2" fontWeight={600}>{name}</Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={l.autoApproveCorporateRate ? t('common.yes', 'Yes') : t('common.no', 'No')}
+                            color={l.autoApproveCorporateRate ? 'success' : 'default'}
+                            size="small"
+                          />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </Paper>
+
+          <Typography variant="h6" sx={{ mb: 2 }}>{t('guests.reservationHistory', 'Reservation History')}</Typography>
+          {detailLoading ? <CircularProgress size={24} /> : (
+            <TableContainer component={Paper}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>{t('reservations.code', 'Code')}</TableCell>
+                    <TableCell>{t('reservations.type', 'Type')}</TableCell>
+                    <TableCell>{t('reservations.checkIn', 'Check-In')}</TableCell>
+                    <TableCell>{t('reservations.status', 'Status')}</TableCell>
+                    <TableCell align="right">{t('reservations.total', 'Total')}</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {guestReservations.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} align="center">{t('common.noData', 'No reservations found')}</TableCell></TableRow>
+                  ) : guestReservations.map(r => (
+                    <TableRow key={r._id}>
+                      <TableCell>{r.reservationCode || r._id.slice(-6)}</TableCell>
+                      <TableCell>{r.type}</TableCell>
+                      <TableCell>{new Date(r.checkInDate).toLocaleDateString()}</TableCell>
+                      <TableCell><Chip size="small" label={r.status} /></TableCell>
+                      <TableCell align="right">${(r.estimatedTotal ?? r.totalPrice ?? 0).toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Filters */}
+          <Paper sx={{ p: 3, mb: 3 }}>
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+              <TextField
+                size="small"
+                placeholder={t('common.search', 'Search...')}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
+                sx={{ minWidth: 250 }}
+              />
+              <Button variant="contained" startIcon={<Add />} onClick={openAdd}>
+                {t('guests.addGuest', 'Add Guest')}
+              </Button>
+            </Box>
+          </Paper>
+
+          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+
           <TableContainer component={Paper}>
-            <Table size="small">
+            <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>{t('reservations.code', 'Code')}</TableCell>
-                  <TableCell>{t('reservations.type', 'Type')}</TableCell>
-                  <TableCell>{t('reservations.checkIn', 'Check-In')}</TableCell>
-                  <TableCell>{t('reservations.status', 'Status')}</TableCell>
-                  <TableCell align="right">{t('reservations.total', 'Total')}</TableCell>
+                  <TableCell>{t('guests.name', 'Name')}</TableCell>
+                  <TableCell>{t('common.email', 'Email')}</TableCell>
+                  <TableCell>{t('common.phone', 'Phone')}</TableCell>
+                  <TableCell>{t('guests.memberSince', 'Since')}</TableCell>
+                  <TableCell align="right">{t('common.actions', 'Actions')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {guestReservations.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} align="center">{t('common.noData', 'No reservations found')}</TableCell></TableRow>
-                ) : guestReservations.map(r => (
-                  <TableRow key={r._id}>
-                    <TableCell>{r.reservationCode || r._id.slice(-6)}</TableCell>
-                    <TableCell>{r.type}</TableCell>
-                    <TableCell>{new Date(r.checkInDate).toLocaleDateString()}</TableCell>
-                    <TableCell><Chip size="small" label={r.status} /></TableCell>
-                    <TableCell align="right">${(r.estimatedTotal ?? r.totalPrice ?? 0).toFixed(2)}</TableCell>
+                {loading ? (
+                  <TableRow><TableCell colSpan={5} align="center"><CircularProgress size={24} /></TableCell></TableRow>
+                ) : guests.length === 0 ? (
+                  <TableRow><TableCell colSpan={5} align="center">{t('common.noData', 'No guests found')}</TableCell></TableRow>
+                ) : guests.map(g => (
+                  <TableRow
+                    key={g._id}
+                    hover
+                    sx={{ cursor: 'pointer' }}
+                    onClick={() => openDetail(g)}
+                  >
+                    <TableCell><Typography fontWeight={600}>{g.firstName} {g.lastName}</Typography></TableCell>
+                    <TableCell>{g.email}</TableCell>
+                    <TableCell>{g.phone || '—'}</TableCell>
+                    <TableCell>{new Date(g.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell align="right">
+                      <Tooltip title={t('common.edit', 'Edit')}>
+                        <IconButton size="small" onClick={e => { e.stopPropagation(); openEdit(g); }}><Edit fontSize="small" /></IconButton>
+                      </Tooltip>
+                      <Tooltip title={t('common.delete', 'Delete')}>
+                        <IconButton size="small" color="error" onClick={e => { e.stopPropagation(); setDeleteId(g._id); }}><Delete fontSize="small" /></IconButton>
+                      </Tooltip>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
-        )}
-      </Container>
-      </AdminLayout>
-    );
-  }
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+            {total} {t('guests.total', 'guests')}
+          </Typography>
+        </>
+      )}
 
-  return (
-    <AdminLayout title={t('admin.nav.guests', 'Guests')}>
-    <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
-
-      {/* Filters */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-          <TextField
-            size="small"
-            placeholder={t('common.search', 'Search...')}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
-            sx={{ minWidth: 250 }}
-          />
-        </Box>
-      </Paper>
-
-      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>{t('guests.name', 'Name')}</TableCell>
-              <TableCell>{t('common.email', 'Email')}</TableCell>
-              <TableCell>{t('common.phone', 'Phone')}</TableCell>
-              <TableCell>{t('guests.memberSince', 'Since')}</TableCell>
-              <TableCell align="right">{t('common.actions', 'Actions')}</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {loading ? (
-              <TableRow><TableCell colSpan={5} align="center"><CircularProgress size={24} /></TableCell></TableRow>
-            ) : guests.length === 0 ? (
-              <TableRow><TableCell colSpan={5} align="center">{t('common.noData', 'No guests found')}</TableCell></TableRow>
-            ) : guests.map(g => (
-              <TableRow
-                key={g._id}
-                hover
-                sx={{ cursor: 'pointer' }}
-                onClick={() => openDetail(g)}
-              >
-                <TableCell><Typography fontWeight={600}>{g.firstName} {g.lastName}</Typography></TableCell>
-                <TableCell>{g.email}</TableCell>
-                <TableCell>{g.phone || '—'}</TableCell>
-                <TableCell>{new Date(g.createdAt).toLocaleDateString()}</TableCell>
-                <TableCell align="right">
-                  <Tooltip title={t('common.edit', 'Edit')}>
-                    <IconButton size="small" onClick={e => openEdit(g, e)}><Edit fontSize="small" /></IconButton>
-                  </Tooltip>
-                  <Tooltip title={t('common.delete', 'Delete')}>
-                    <IconButton size="small" color="error" onClick={e => { e.stopPropagation(); setDeleteId(g._id); }}><Delete fontSize="small" /></IconButton>
-                  </Tooltip>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
-      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-        {total} {t('guests.total', 'guests')}
-      </Typography>
-
-      {/* Edit Dialog */}
+      {/* Add / Edit Dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{t('guests.editGuest', 'Edit Guest')}</DialogTitle>
+        <DialogTitle>{editingId ? t('guests.editGuest', 'Edit Guest') : t('guests.addGuest', 'Add Guest')}</DialogTitle>
         <DialogContent>
           {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
           <Grid container spacing={2} sx={{ mt: 0.5 }}>
             <Grid item xs={12} sm={6}>
               <TextField
                 label={t('common.firstName', 'First Name')}
-                value={form.firstName || ''}
+                value={form.firstName}
                 onChange={e => setForm(f => ({ ...f, firstName: e.target.value }))}
                 fullWidth
+                required
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 label={t('common.lastName', 'Last Name')}
-                value={form.lastName || ''}
+                value={form.lastName}
                 onChange={e => setForm(f => ({ ...f, lastName: e.target.value }))}
                 fullWidth
+                required
               />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 label={t('common.email', 'Email')}
-                value={form.email || ''}
+                value={form.email}
                 onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
                 fullWidth
                 required
@@ -308,36 +435,66 @@ const GuestsManagement: React.FC = () => {
             <Grid item xs={12} sm={6}>
               <TextField
                 label={t('common.phone', 'Phone')}
-                value={form.phone || ''}
+                value={form.phone}
                 onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                 fullWidth
-              />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <Autocomplete
-                options={companyOptions}
-                getOptionLabel={(o: Company) => o.name}
-                value={selectedCompany}
-                onChange={(_, newVal: Company | null) => {
-                  setSelectedCompany(newVal);
-                  setForm(f => ({ ...f, companyId: newVal?._id || '' }));
-                }}
-                onInputChange={(_, v) => setCompanySearch(v)}
-                isOptionEqualToValue={(o, v) => o._id === v._id}
-                renderInput={params => (
-                  <TextField {...params} label={t('guests.company', 'Company')} />
-                )}
               />
             </Grid>
             <Grid item xs={12}>
               <TextField
                 label={t('common.notes', 'Notes')}
-                value={form.notes || ''}
+                value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                 fullWidth
                 multiline
                 rows={3}
               />
+            </Grid>
+
+            {/* Company Links section */}
+            <Grid item xs={12}>
+              <Divider sx={{ mb: 1.5 }} />
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="subtitle2">{t('guests.linkedCompanies', 'Linked Companies')}</Typography>
+                <Button size="small" startIcon={<Business />} onClick={openLinkDialog}>
+                  {t('guests.linkCompany', 'Link Company')}
+                </Button>
+              </Box>
+              {dialogCompanyLinks.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  {t('guests.noCompanyLinks', 'No companies linked yet')}
+                </Typography>
+              ) : (
+                <List dense disablePadding>
+                  {dialogCompanyLinks.map(l => (
+                    <ListItem key={l.companyId} disableGutters sx={{ py: 0.25 }}>
+                      <ListItemText
+                        primary={l.companyName}
+                        secondary={
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                size="small"
+                                checked={l.autoApproveCorporateRate}
+                                onChange={(_, v) => handleToggleAutoApprove(l.companyId, v)}
+                              />
+                            }
+                            label={<Typography variant="caption">{t('guests.autoApproveCorporateRate', 'Auto-Approve Corporate Rate')}</Typography>}
+                            sx={{ ml: 0 }}
+                          />
+                        }
+                      />
+                      <ListItemSecondaryAction>
+                        <Tooltip title={t('guests.removeLink', 'Remove link')}>
+                          <IconButton size="small" edge="end" onClick={() => handleRemoveLink(l.companyId)}>
+                            <LinkOff fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                  ))}
+                </List>
+              )}
             </Grid>
           </Grid>
         </DialogContent>
@@ -346,6 +503,46 @@ const GuestsManagement: React.FC = () => {
           <Button variant="contained" onClick={handleSave} disabled={saving}>
             {saving ? <CircularProgress size={18} /> : t('common.save', 'Save')}
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Link Company sub-dialog */}
+      <Dialog open={linkDialogOpen} onClose={() => setLinkDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>{t('guests.linkCompany', 'Link Company')}</DialogTitle>
+        <DialogContent>
+          {linkError && <Alert severity="error" sx={{ mb: 2 }}>{linkError}</Alert>}
+          <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <Autocomplete
+              options={linkCompanyOptions}
+              getOptionLabel={(o: Company) => o.name}
+              value={linkCompany}
+              onChange={(_, newVal: Company | null) => {
+                setLinkCompany(newVal);
+                setLinkError(null);
+              }}
+              onInputChange={(_, v) => setLinkCompanySearch(v)}
+              isOptionEqualToValue={(o, v) => o._id === v._id}
+              renderInput={params => (
+                <TextField {...params} label={t('guests.company', 'Company')} required />
+              )}
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={linkAutoApprove}
+                  onChange={(_, v) => setLinkAutoApprove(v)}
+                />
+              }
+              label={t('guests.autoApproveCorporateRate', 'Auto-Approve Corporate Rate')}
+            />
+            <Typography variant="caption" color="text.secondary">
+              {t('guests.autoApproveHint', 'When enabled, reservations requesting a corporate rate for this company will be automatically approved for this guest.')}
+            </Typography>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setLinkDialogOpen(false)}>{t('common.cancel', 'Cancel')}</Button>
+          <Button variant="contained" onClick={handleAddLink}>{t('common.add', 'Add')}</Button>
         </DialogActions>
       </Dialog>
 

@@ -59,6 +59,11 @@ export interface RoomType {
   updatedAt: string;
 }
 
+export interface GuestCompanyLink {
+  companyId: string | Company;
+  autoApproveCorporateRate: boolean;
+}
+
 export interface Guest {
   _id: string;
   firstName: string;
@@ -66,7 +71,7 @@ export interface Guest {
   email: string;
   phone?: string;
   notes?: string;
-  companyId?: string | Company;
+  companyLinks: GuestCompanyLink[];
   createdAt: string;
   updatedAt: string;
 }

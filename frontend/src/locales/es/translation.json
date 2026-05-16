@@ -2063,9 +2063,18 @@
     "company": "Empresa",
     "memberSince": "Miembro desde",
     "reservationHistory": "Historial de reservas",
+    "addGuest": "Agregar huésped",
     "editGuest": "Editar huésped",
     "deleteConfirm": "¿Estás seguro de que deseas eliminar este registro de huésped?",
-    "total": "huéspedes"
+    "total": "huéspedes",
+    "linkedCompanies": "Empresas vinculadas",
+    "linkCompany": "Vincular empresa",
+    "noCompanyLinks": "Sin empresas vinculadas aún",
+    "companyRequired": "Por favor selecciona una empresa",
+    "companyAlreadyLinked": "Esta empresa ya está vinculada al huésped",
+    "autoApproveCorporateRate": "Auto-aprobar tarifa corporativa",
+    "autoApproveHint": "Cuando está habilitado, las reservas que soliciten una tarifa corporativa para esta empresa se aprobarán automáticamente para este huésped.",
+    "removeLink": "Eliminar vínculo"
   },
   "marketing": {
     "nav": {

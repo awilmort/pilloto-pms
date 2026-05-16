@@ -1123,12 +1123,18 @@ export const guestsService = {
     apiClient.get('/guests', { params }),
   getGuest: (id: string): Promise<AxiosResponse<ApiResponse<{ guest: Guest; reservations: Reservation[] }>>> =>
     apiClient.get(`/guests/${id}`),
-  createGuest: (data: Partial<Guest>): Promise<AxiosResponse<ApiResponse<Guest>>> =>
+  createGuest: (data: Omit<Partial<Guest>, 'companyLinks'> & { companyLinks?: { companyId: string; autoApproveCorporateRate: boolean }[] }): Promise<AxiosResponse<ApiResponse<Guest>>> =>
     apiClient.post('/guests', data),
-  updateGuest: (id: string, data: Partial<Guest>): Promise<AxiosResponse<ApiResponse<Guest>>> =>
+  updateGuest: (id: string, data: Omit<Partial<Guest>, 'companyLinks'> & { companyLinks?: { companyId: string; autoApproveCorporateRate: boolean }[] }): Promise<AxiosResponse<ApiResponse<Guest>>> =>
     apiClient.put(`/guests/${id}`, data),
   deleteGuest: (id: string): Promise<AxiosResponse<ApiResponse>> =>
     apiClient.delete(`/guests/${id}`),
+  addCompanyLink: (guestId: string, data: { companyId: string; autoApproveCorporateRate: boolean }): Promise<AxiosResponse<ApiResponse<Guest>>> =>
+    apiClient.post(`/guests/${guestId}/company-links`, data),
+  updateCompanyLink: (guestId: string, companyId: string, data: { autoApproveCorporateRate: boolean }): Promise<AxiosResponse<ApiResponse<Guest>>> =>
+    apiClient.put(`/guests/${guestId}/company-links/${companyId}`, data),
+  removeCompanyLink: (guestId: string, companyId: string): Promise<AxiosResponse<ApiResponse<Guest>>> =>
+    apiClient.delete(`/guests/${guestId}/company-links/${companyId}`),
 };
 
 // Credit Accounts Service
