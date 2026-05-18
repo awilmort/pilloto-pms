@@ -2122,7 +2122,8 @@
       "trialNotice": "Todos los planes incluyen 14 días de prueba gratis. No se requiere tarjeta de crédito.",
       "basic_desc": "Todo lo que una pequeña propiedad necesita para sus operaciones diarias.",
       "basic_features": [
-        "Hasta 20 habitaciones",
+        "Hasta 15 habitaciones",
+        "2 Usuarios",
         "Reservas y calendario de reservas",
         "Perfiles de huéspedes",
         "Gestión de habitaciones y tarifas",
@@ -2134,6 +2135,7 @@
       "pro_features": [
         "Todo lo del plan Basic",
         "Hasta 50 habitaciones",
+        "Usuarios ilimitados",
         "Venta de pases de día y tarde",
         "Módulo de eventos",
         "Seguimiento de pulseras",
@@ -2143,7 +2145,8 @@
       "enterprise_desc": "Suite operativa completa para grandes resorts y grupos hoteleros.",
       "enterprise_features": [
         "Todo lo del plan Pro",
-        "Hasta 200 habitaciones",
+        "Hasta 100 habitaciones",
+        "Usuarios ilimitados",
         "Comisiones de agentes",
         "Cuentas de crédito corporativas",
         "Auditoría nocturna",

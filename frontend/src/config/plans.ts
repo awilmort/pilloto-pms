@@ -34,8 +34,8 @@ export const PLANS: Record<PlanSlug, PlanConfig> = {
   basic: {
     slug: 'basic',
     name: 'Basic',
-    priceUsd: 4900,
-    displayPrice: '$49',
+    priceUsd: 3900,
+    displayPrice: '$39',
     features: {
       media: true,
       daypass: false,
@@ -54,8 +54,8 @@ export const PLANS: Record<PlanSlug, PlanConfig> = {
   pro: {
     slug: 'pro',
     name: 'Pro',
-    priceUsd: 9900,
-    displayPrice: '$99',
+    priceUsd: 8900,
+    displayPrice: '$89',
     features: {
       media: true,
       daypass: true,
@@ -74,8 +74,8 @@ export const PLANS: Record<PlanSlug, PlanConfig> = {
   enterprise: {
     slug: 'enterprise',
     name: 'Enterprise',
-    priceUsd: 18900,
-    displayPrice: '$189',
+    priceUsd: 14900,
+    displayPrice: '$149',
     features: {
       media: true,
       daypass: true,

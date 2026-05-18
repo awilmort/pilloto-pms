@@ -2122,7 +2122,8 @@
       "trialNotice": "All plans include a 14-day free trial. No credit card required.",
       "basic_desc": "Everything a small property needs to run daily operations.",
       "basic_features": [
-        "Up to 20 rooms",
+        "Up to 15 rooms",
+        "2 Users",
         "Reservations & booking calendar",
         "Guest profiles",
         "Room & rate management",
@@ -2134,6 +2135,7 @@
       "pro_features": [
         "Everything in Basic",
         "Up to 50 rooms",
+        "Unlimited Users",
         "Day-pass & evening-pass sales",
         "Events module",
         "Wristband tracking",
@@ -2143,7 +2145,8 @@
       "enterprise_desc": "Full operations suite for large resorts and hotel groups.",
       "enterprise_features": [
         "Everything in Pro",
-        "Up to 200 rooms",
+        "Up to 100 rooms",
+        "Unlimited Users",
         "Agent commissions",
         "Corporate credit accounts",
         "Night audit",
