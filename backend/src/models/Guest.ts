@@ -6,6 +6,15 @@ export interface IGuestCompanyLink {
   autoApproveCorporateRate: boolean;
 }
 
+export type GuestTipoId = 'RNC' | 'Cedula' | 'Pasaporte' | 'Otro';
+
+export interface IGuestFiscalInfo {
+  rnc?: string;
+  cedula?: string;
+  tipoId?: GuestTipoId;
+  razonSocial?: string;
+}
+
 export interface IGuest extends Document {
   firstName: string;
   lastName: string;
@@ -14,6 +23,8 @@ export interface IGuest extends Document {
   notes?: string;
   /** Multi-company links replacing the legacy single companyId */
   companyLinks: IGuestCompanyLink[];
+  /** Fiscal identification for e-CF invoicing */
+  fiscalInfo?: IGuestFiscalInfo;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,6 +46,12 @@ const guestSchema = new Schema<IGuest>(
     phone: { type: String, trim: true },
     notes: { type: String, maxlength: 1000 },
     companyLinks: { type: [guestCompanyLinkSchema], default: [] },
+    fiscalInfo: {
+      rnc: { type: String, trim: true },
+      cedula: { type: String, trim: true },
+      tipoId: { type: String, enum: ['RNC', 'Cedula', 'Pasaporte', 'Otro'], trim: true },
+      razonSocial: { type: String, trim: true },
+    },
   },
   { timestamps: true }
 );

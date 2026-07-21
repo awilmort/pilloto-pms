@@ -52,6 +52,12 @@ export interface EmailOptions {
   html: string;
   text?: string;
   replyTo?: string;
+  attachments?: Array<{
+    filename: string;
+    content?: string | Buffer;
+    path?: string;
+    contentType?: string;
+  }>;
   /** Used only for structured logging. Not emitted in plain text. */
   _logMeta?: { emailType: string; referenceId?: string };
 }
@@ -99,6 +105,7 @@ export const sendEmail = async (options: EmailOptions): Promise<string> => {
     subject: options.subject,
     html: options.html,
     text: options.text || options.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(),
+    ...(options.attachments?.length ? { attachments: options.attachments } : {}),
     ...(options.replyTo && { reply_to: options.replyTo }),
     headers: {
       'List-Unsubscribe': `<mailto:${FROM_ADDRESS}?subject=unsubscribe>`,

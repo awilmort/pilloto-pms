@@ -10,6 +10,25 @@ export interface ITenantSettings {
   primaryColor?: string;
 }
 
+export type EcfAmbiente =
+  | 'Simulacion'
+  | 'Pruebas'
+  | 'Certificacion'
+  | 'Produccion';
+
+export interface ITenantEcfConfig {
+  /** AES-256-GCM encrypted Citrus API token — NEVER expose to frontend */
+  citrusToken?: string;
+  rnc: string;          // Dominican Tax ID: 9 or 11 digits
+  razonSocial: string;  // Legal business name
+  nombreComercial?: string;
+  phone?: string;       // Business contact phone (shown on printed invoice)
+  ambiente: EcfAmbiente;
+  isActive: boolean;
+  sucursal?: string;
+  citrusBaseUrl: string;
+}
+
 export interface ITenant extends Document {
   name: string;
   slug: string;        // URL-safe unique identifier used for subdomain routing
@@ -17,9 +36,42 @@ export interface ITenant extends Document {
   isActive: boolean;
   ownerEmail: string;  // Primary admin contact for this tenant
   settings: ITenantSettings;
+  ecfConfig?: ITenantEcfConfig;
   createdAt: Date;
   updatedAt: Date;
 }
+
+const ecfConfigSchema = new Schema<ITenantEcfConfig>(
+  {
+    citrusToken: { type: String }, // stored encrypted; never expose raw value
+    rnc: {
+      type: String,
+      required: true,
+      trim: true,
+      validate: {
+        validator: (v: string) => /^\d{9}$|^\d{11}$/.test(v),
+        message: 'RNC must be 9 or 11 digits',
+      },
+    },
+    razonSocial: { type: String, required: true, trim: true },
+    nombreComercial: { type: String, trim: true },
+    phone: { type: String, trim: true },
+    ambiente: {
+      type: String,
+      enum: ['Simulacion', 'Pruebas', 'Certificacion', 'Produccion'],
+      default: 'Simulacion',
+    },
+    isActive: { type: Boolean, default: false },
+    sucursal: { type: String, trim: true },
+    citrusBaseUrl: {
+      type: String,
+      required: true,
+      trim: true,
+      default: 'https://test.ecf.citrus.com.do',
+    },
+  },
+  { _id: false }
+);
 
 const tenantSchema = new Schema<ITenant>(
   {
@@ -60,6 +112,7 @@ const tenantSchema = new Schema<ITenant>(
       logoUrl:      { type: String, trim: true },
       primaryColor: { type: String, trim: true },
     },
+    ecfConfig: { type: ecfConfigSchema },
   },
   { timestamps: true }
 );

@@ -32,7 +32,7 @@ const auditRunSummarySchema = new Schema<IAuditRunSummary>(
     skipped:            { type: Number, default: 0 },
     errors:             { type: Number, default: 0 },
   },
-  { _id: false }
+  { _id: false, suppressReservedKeysWarning: true }
 );
 
 const auditRunSchema = new Schema<IAuditRun>(

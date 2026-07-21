@@ -4,6 +4,7 @@ import {
   TableContainer, TableHead, TableRow, Paper, IconButton, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress,
   Alert, Tooltip, FormControlLabel, Switch, InputAdornment, Grid, Container,
+  Divider,
 } from '@mui/material';
 import {
   Add, Edit, Delete, Search, ArrowBack, Email, Phone,
@@ -21,6 +22,8 @@ const emptyForm: Partial<Company> = {
   address: '',
   notes: '',
   isActive: true,
+  rnc: '',
+  razonSocial: '',
 };
 
 const CompaniesManagement: React.FC = () => {
@@ -78,7 +81,7 @@ const CompaniesManagement: React.FC = () => {
   const openEdit = (c: Company, e: React.MouseEvent) => {
     e.stopPropagation();
     setEditingId(c._id);
-    setForm({ name: c.name, contactName: c.contactName, email: c.email, phone: c.phone, address: c.address, notes: c.notes, isActive: c.isActive });
+    setForm({ name: c.name, contactName: c.contactName, email: c.email, phone: c.phone, address: c.address, notes: c.notes, isActive: c.isActive, rnc: c.rnc || '', razonSocial: c.razonSocial || '' });
     setFormError(null);
     setDialogOpen(true);
   };
@@ -341,6 +344,30 @@ const CompaniesManagement: React.FC = () => {
                 fullWidth
                 multiline
                 rows={3}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Divider sx={{ mt: 1 }} />
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
+                {t('companies.fiscalInfo.title', 'Información fiscal (e-CF)')}
+              </Typography>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label={t('companies.fiscalInfo.rnc', 'RNC')}
+                value={form.rnc || ''}
+                onChange={e => setForm(f => ({ ...f, rnc: e.target.value }))}
+                fullWidth
+                inputProps={{ maxLength: 11 }}
+                helperText={t('companies.fiscalInfo.rncHelp', '9 o 11 dígitos')}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label={t('companies.fiscalInfo.razonSocial', 'Razón Social')}
+                value={form.razonSocial || ''}
+                onChange={e => setForm(f => ({ ...f, razonSocial: e.target.value }))}
+                fullWidth
               />
             </Grid>
             <Grid item xs={12}>

@@ -9,6 +9,9 @@ export interface ICompany extends Document {
   address?: string;
   notes?: string;
   isActive: boolean;
+  /** RNC for B2B e-CF (Factura de Crédito Fiscal E31) */
+  rnc?: string;
+  razonSocial?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,6 +25,8 @@ const companySchema = new Schema<ICompany>(
     address: { type: String, trim: true },
     notes: { type: String, maxlength: 1000 },
     isActive: { type: Boolean, default: true },
+    rnc: { type: String, trim: true },
+    razonSocial: { type: String, trim: true },
   },
   { timestamps: true }
 );

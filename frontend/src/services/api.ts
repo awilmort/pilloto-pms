@@ -1,6 +1,7 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { User, Room, Reservation, MediaItem, Amenity, EventType, Company, Guest, CreditAccount } from '../types';
 import type { ChargeTemplate, ChargeRule, ChargeRuleExecution, AuditRun } from '../types';
+import type { TenantEcfConfig, ElectronicInvoice, EcfMonthlyTaxRow, EcfSequenceInfo } from '../types';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 // Prefer the explicit public backend URL env var; fall back to deriving from API_BASE_URL.
@@ -1434,5 +1435,206 @@ export const otaService = {
 
   resolveConflict: (id: string, data: { status: OtaConflictStatus; notes?: string }): Promise<AxiosResponse<ApiResponse<OtaConflict>>> =>
     apiClient.put(`/ota/conflicts/${id}/resolve`, data),
+};
+
+// ─── e-CF (Electronic Fiscal Invoicing) ──────────────────────────────────────
+
+export const ecfService = {
+  /** Get tenant's ECF config (token is masked — only hasToken flag is returned) */
+  getConfig: (): Promise<AxiosResponse<ApiResponse<TenantEcfConfig | null>>> =>
+    apiClient.get('/ecf/config'),
+
+  /** Save/update ECF configuration (pass citrusToken only when rotating) */
+  saveConfig: (data: Partial<TenantEcfConfig & { citrusToken?: string }>): Promise<AxiosResponse<ApiResponse<null>>> =>
+    apiClient.put('/ecf/config', data),
+
+  /** Revoke the stored Citrus API token */
+  revokeToken: (): Promise<AxiosResponse<ApiResponse<null>>> =>
+    apiClient.delete('/ecf/config/token'),
+
+  /** Test the Citrus connection with the stored token */
+  testConnection: (): Promise<AxiosResponse<ApiResponse<null>>> =>
+    apiClient.post('/ecf/config/test'),
+
+  /** List electronic invoices with optional filters */
+  getInvoices: (params?: {
+    folioId?: string;
+    paymentId?: string;
+    estadoECF?: string;
+    tipo?: string;
+    fechaInicio?: string;
+    fechaFin?: string;
+    eNCF?: string;
+    buyerRnc?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<AxiosResponse<ApiResponse<ElectronicInvoice[]>>> =>
+    apiClient.get('/ecf/invoices', { params }),
+
+  /** Get a single invoice by ID */
+  getInvoice: (id: string): Promise<AxiosResponse<ApiResponse<ElectronicInvoice>>> =>
+    apiClient.get(`/ecf/invoices/${id}`),
+
+  /** Generate an invoice from a folio/payment */
+  generateInvoice: (data: {
+    folioId: string;
+    paymentId?: string;
+    tipoECF?: string;
+    buyerRnc?: string;
+    buyerName?: string;
+    buyerEmail?: string;
+    buyerRazonSocial?: string;
+  }): Promise<AxiosResponse<ApiResponse<ElectronicInvoice>>> =>
+    apiClient.post('/ecf/invoices', data),
+
+  /** Re-check invoice status with Citrus */
+  refreshStatus: (id: string): Promise<AxiosResponse<ApiResponse<ElectronicInvoice>>> =>
+    apiClient.post(`/ecf/invoices/${id}/refresh-status`),
+
+  /** Send the representación impresa (PDF) by email for an invoice */
+  sendInvoiceEmail: (id: string, email?: string): Promise<AxiosResponse<ApiResponse<null>>> =>
+    apiClient.post(`/ecf/invoices/${id}/send-email`, email ? { email } : undefined),
+
+  /** Fetch invoice PDF as blob (auth-aware, avoids direct window navigation issues) */
+  getInvoicePdfBlob: (id: string): Promise<AxiosResponse<Blob>> =>
+    apiClient.get(`/ecf/invoices/${id}/pdf`, { responseType: 'blob' }),
+
+  /** Fetch invoice XML as blob (auth-aware, avoids direct window navigation issues) */
+  getInvoiceXmlBlob: (id: string): Promise<AxiosResponse<Blob>> =>
+    apiClient.get(`/ecf/invoices/${id}/xml`, { responseType: 'blob' }),
+
+  /** Create a credit note (E34) for an accepted invoice */
+  createCreditNote: (data: {
+    originalEcfId: string;
+    codigoModificacion: '1' | '2' | '3' | '4' | '5';
+    razonModificacion: string;
+    items?: Array<{ description: string; amount: number }>;
+    totalAmount?: number;
+  }): Promise<AxiosResponse<ApiResponse<ElectronicInvoice>>> =>
+    apiClient.post('/ecf/credit-notes', data),
+
+  /** Create a debit note (E33) for an accepted invoice */
+  createDebitNote: (data: {
+    originalEcfId: string;
+    reason: string;
+    items?: Array<{ description: string; amount: number }>;
+    totalAmount?: number;
+  }): Promise<AxiosResponse<ApiResponse<ElectronicInvoice>>> =>
+    apiClient.post('/ecf/debit-notes', data),
+
+  // ─── Phase 4: Reporting & Operational Tools ────────────────────────────────
+
+  /** Monthly tax report — totals by year-month and tipo */
+  getMonthlyTaxReport: (params?: {
+    year?: number;
+    limit?: number;
+  }): Promise<AxiosResponse<ApiResponse<EcfMonthlyTaxRow[]>>> =>
+    apiClient.get('/ecf/reports/monthly-tax', { params }),
+
+  /** Sequence info derived from stored invoices (per tipo) */
+  getSequences: (): Promise<AxiosResponse<ApiResponse<EcfSequenceInfo[]>>> =>
+    apiClient.get('/ecf/sequences'),
+
+  /** Submit sequence annulment to Citrus */
+  annulSequences: (data: {
+    tipo: string;
+    secuencias: string[];
+  }): Promise<AxiosResponse<ApiResponse<null>>> =>
+    apiClient.post('/ecf/sequences/annul', data),
+
+  /** Bulk refresh all En Proceso / Contingencia invoices */
+  bulkRefreshPending: (): Promise<AxiosResponse<ApiResponse<{
+    total: number;
+    refreshed: number;
+    failed: number;
+  }>>> =>
+    apiClient.post('/ecf/invoices/bulk-refresh'),
+
+  // ─── Phase 5: Received invoices, other types, health, directory, alerts ───
+
+  /** List received invoices (Comprobantes Recibidos) from Citrus */
+  getReceivedInvoices: (params?: {
+    fechaDesde?: string;
+    fechaHasta?: string;
+    rnc?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<AxiosResponse<ApiResponse<unknown>>> =>
+    apiClient.get('/ecf/received-invoices', { params }),
+
+  /** Submit commercial approval (approve/reject) for a received invoice */
+  submitCommercialApproval: (data: {
+    trackId: string;
+    aprobado: boolean;
+    motivoRechazo?: string;
+  }): Promise<AxiosResponse<ApiResponse<unknown>>> =>
+    apiClient.post('/ecf/commercial-approval', data),
+
+  /** Generate an other invoice type (E41/E43/E44/E45/E46/E47) */
+  generateOtherInvoice: (data: {
+    tipo: string;
+    items: Array<{ description: string; amount: number; exempt?: boolean }>;
+    buyer?: {
+      rnc?: string;
+      razonSocial?: string;
+      name?: string;
+      email?: string;
+      country?: string;
+    };
+    tipoPago?: number;
+    refNumber?: string;
+  }): Promise<AxiosResponse<ApiResponse<ElectronicInvoice>>> =>
+    apiClient.post('/ecf/invoices/other', data),
+
+  /** Check Citrus connectivity */
+  checkHealth: (): Promise<AxiosResponse<ApiResponse<{ online: boolean; reason?: string; checkedAt: string }>>> =>
+    apiClient.get('/ecf/health'),
+
+  /** Get the electronic billers directory (cached 24h server-side) */
+  getDirectory: (params?: { refresh?: boolean }): Promise<AxiosResponse<ApiResponse<unknown>>> =>
+    apiClient.get('/ecf/directory', { params }),
+
+  /** Get current alerts: rejected invoices, stale pending, token/sequence expiry */
+  getAlerts: (): Promise<AxiosResponse<ApiResponse<Array<{
+    type: string;
+    severity: 'info' | 'warning' | 'error';
+    message: string;
+    count?: number;
+  }>>>> =>
+    apiClient.get('/ecf/alerts'),
+};
+
+// ─── Reports Service ──────────────────────────────────────────────────────────
+
+export interface OccupancyParams {
+  from?: string;
+  to?: string;
+  groupBy?: 'day' | 'week' | 'month';
+  compareTo?: 'prev_period' | 'prev_year';
+}
+
+export const reportsService = {
+  /** GET /admin/reports/occupancy — ADR, RevPAR, Occupancy % metrics */
+  getOccupancy: (params?: OccupancyParams): Promise<AxiosResponse<ApiResponse<any>>> =>
+    apiClient.get('/admin/reports/occupancy', { params }),
+
+  /** GET /admin/reports/night-audit — full Night Audit for a single date */
+  getNightAudit: (params?: { date?: string }): Promise<AxiosResponse<ApiResponse<any>>> =>
+    apiClient.get('/admin/reports/night-audit', { params }),
+
+  /** GET /admin/reports/night-audit/range — summary table for a date range */
+  getNightAuditRange: (params?: {
+    from?: string;
+    to?: string;
+  }): Promise<AxiosResponse<ApiResponse<any>>> =>
+    apiClient.get('/admin/reports/night-audit/range', { params }),
+
+  /** GET /admin/reports/arrivals — arrivals list for a given date */
+  getArrivals: (params?: { date?: string }): Promise<AxiosResponse<ApiResponse<any>>> =>
+    apiClient.get('/admin/reports/arrivals', { params }),
+
+  /** GET /admin/reports/departures — departures list for a given date */
+  getDepartures: (params?: { date?: string }): Promise<AxiosResponse<ApiResponse<any>>> =>
+    apiClient.get('/admin/reports/departures', { params }),
 };
 

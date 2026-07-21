@@ -25,7 +25,6 @@ import EmailVerificationPage from './pages/customer/EmailVerificationPage';
 import ForgotPasswordPage from './pages/customer/ForgotPasswordPage';
 import PasswordResetPage from './pages/customer/PasswordResetPage';
 import ReservationsPage from './pages/customer/ReservationsPage';
-import ProfilePage from './pages/customer/ProfilePage';
 import ReservationSummaryPage from './pages/customer/ReservationSummaryPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import RoomsManagement from './pages/admin/RoomsManagement';
@@ -44,7 +43,10 @@ import GuestsManagement from './pages/admin/GuestsManagement';
 import CreditAccountsManagement from './pages/admin/CreditAccountsManagement';
 import CashierClosuresPage from './pages/admin/CashierClosuresPage';
 import OtaConflictQueue from './pages/admin/OtaConflictQueue';
+import EcfInvoicesPage from './pages/admin/EcfInvoicesPage';
+import ReportsPage from './pages/admin/ReportsPage';
 import CorporatePriceActionPage from './pages/admin/CorporatePriceActionPage';
+import AdminProfilePage from './pages/admin/AdminProfilePage';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import NotFoundPage from './pages/NotFoundPage';
 import LandingPage from './pages/marketing/LandingPage';
@@ -275,6 +277,30 @@ function TenantApp() {
               </ProtectedRoute>
             } />
 
+            <Route path="/admin/invoices/ecf" element={
+              <ProtectedRoute requiredPermission="admin.ecf.view">
+                <EcfInvoicesPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin/reports" element={
+              <ProtectedRoute requiredPermission="admin.ecf.view">
+                <ReportsPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin/reports/:reportId" element={
+              <ProtectedRoute requiredPermission="admin.ecf.view">
+                <ReportsPage />
+              </ProtectedRoute>
+            } />
+
+            <Route path="/admin/profile" element={
+              <ProtectedRoute>
+                <AdminProfilePage />
+              </ProtectedRoute>
+            } />
+
             {/* Public booking engine routes (no auth required, own layout) */}
             <Route path="/booking" element={
               <BookingProvider>
@@ -320,12 +346,6 @@ function TenantApp() {
                       <ReservationsPage />
                     </ProtectedRoute>
                   } />
-                  <Route path="/profile" element={
-                    <ProtectedRoute>
-                      <ProfilePage />
-                    </ProtectedRoute>
-                  } />
-
                   {/* Auth pages (redirect if already logged in) */}
                   <Route path="/login" element={
                     <ProtectedRoute requireAuth={false}>

@@ -5,7 +5,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress,
   Alert, Tooltip, InputAdornment, Grid, Autocomplete, Container,
   Switch, FormControlLabel, Divider, List, ListItem, ListItemText,
-  ListItemSecondaryAction,
+  ListItemSecondaryAction, MenuItem,
 } from '@mui/material';
 import { Edit, Delete, Search, ArrowBack, Email, Phone, Business, Add, LinkOff } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
@@ -19,12 +19,13 @@ interface PendingCompanyLink {
   autoApproveCorporateRate: boolean;
 }
 
-const emptyForm: { firstName: string; lastName: string; email: string; phone: string; notes: string } = {
+const emptyForm: { firstName: string; lastName: string; email: string; phone: string; notes: string; fiscalInfo: { tipoId: string; rnc: string; cedula: string; razonSocial: string } } = {
   firstName: '',
   lastName: '',
   email: '',
   phone: '',
   notes: '',
+  fiscalInfo: { tipoId: '', rnc: '', cedula: '', razonSocial: '' },
 };
 
 const GuestsManagement: React.FC = () => {
@@ -111,7 +112,14 @@ const GuestsManagement: React.FC = () => {
 
   const openEdit = (g: Guest) => {
     setEditingId(g._id);
-    setForm({ firstName: g.firstName, lastName: g.lastName, email: g.email, phone: g.phone || '', notes: g.notes || '' });
+    setForm({ firstName: g.firstName, lastName: g.lastName, email: g.email, phone: g.phone || '', notes: g.notes || '',
+      fiscalInfo: {
+        tipoId: g.fiscalInfo?.tipoId || '',
+        rnc: g.fiscalInfo?.rnc || '',
+        cedula: g.fiscalInfo?.cedula || '',
+        razonSocial: g.fiscalInfo?.razonSocial || '',
+      },
+    });
     // Load existing company links into pending state
     const links: PendingCompanyLink[] = (g.companyLinks || []).map((l: GuestCompanyLink) => {
       const co = typeof l.companyId === 'object' ? (l.companyId as Company) : null;
@@ -137,10 +145,20 @@ const GuestsManagement: React.FC = () => {
         companyId: l.companyId,
         autoApproveCorporateRate: l.autoApproveCorporateRate,
       }));
+      // Build fiscalInfo — only include if tipoId selected
+      const fiscalInfo = form.fiscalInfo.tipoId
+        ? {
+            tipoId: (form.fiscalInfo.tipoId || undefined) as 'RNC' | 'Cedula' | 'Pasaporte' | 'Otro' | undefined,
+            rnc: form.fiscalInfo.rnc || undefined,
+            cedula: form.fiscalInfo.cedula || undefined,
+            razonSocial: form.fiscalInfo.razonSocial || undefined,
+          }
+        : undefined;
+      const guestPayload = { ...form, companyLinks: companyLinksPayload, fiscalInfo };
       if (editingId) {
-        await guestsService.updateGuest(editingId, { ...form, companyLinks: companyLinksPayload });
+        await guestsService.updateGuest(editingId, guestPayload);
       } else {
-        await guestsService.createGuest({ ...form, companyLinks: companyLinksPayload });
+        await guestsService.createGuest(guestPayload);
       }
       setDialogOpen(false);
       fetchGuests();
@@ -450,6 +468,67 @@ const GuestsManagement: React.FC = () => {
                 rows={3}
               />
             </Grid>
+
+            {/* Fiscal information */}
+            <Grid item xs={12}>
+              <Divider sx={{ mb: 1.5 }} />
+              <Typography variant="subtitle2" gutterBottom>
+                {t('guests.fiscalInfo.title', 'Información fiscal')}
+              </Typography>
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label={t('guests.fiscalInfo.tipoId', 'Tipo de identificación')}
+                value={form.fiscalInfo.tipoId}
+                onChange={e => setForm(f => ({ ...f, fiscalInfo: { ...f.fiscalInfo, tipoId: e.target.value } }))}
+                fullWidth
+                size="small"
+              >
+                <MenuItem value="">{t('common.none', '—')}</MenuItem>
+                <MenuItem value="RNC">{t('guests.fiscalInfo.tipoIdOptions.RNC', 'RNC (empresa)')}</MenuItem>
+                <MenuItem value="Cedula">{t('guests.fiscalInfo.tipoIdOptions.Cedula', 'Cédula')}</MenuItem>
+                <MenuItem value="Pasaporte">{t('guests.fiscalInfo.tipoIdOptions.Pasaporte', 'Pasaporte')}</MenuItem>
+                <MenuItem value="Otro">{t('guests.fiscalInfo.tipoIdOptions.Otro', 'Otro')}</MenuItem>
+              </TextField>
+            </Grid>
+            {form.fiscalInfo.tipoId === 'RNC' && (
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label={t('guests.fiscalInfo.rnc', 'RNC')}
+                  value={form.fiscalInfo.rnc}
+                  onChange={e => setForm(f => ({ ...f, fiscalInfo: { ...f.fiscalInfo, rnc: e.target.value } }))}
+                  helperText={t('guests.fiscalInfo.rncHelp', '9 dígitos')}
+                  fullWidth
+                  size="small"
+                  inputProps={{ maxLength: 9, pattern: '\\d*' }}
+                />
+              </Grid>
+            )}
+            {form.fiscalInfo.tipoId === 'Cedula' && (
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label={t('guests.fiscalInfo.cedula', 'Cédula')}
+                  value={form.fiscalInfo.cedula}
+                  onChange={e => setForm(f => ({ ...f, fiscalInfo: { ...f.fiscalInfo, cedula: e.target.value } }))}
+                  helperText={t('guests.fiscalInfo.cedulaHelp', '11 dígitos')}
+                  fullWidth
+                  size="small"
+                  inputProps={{ maxLength: 11, pattern: '\\d*' }}
+                />
+              </Grid>
+            )}
+            {(form.fiscalInfo.tipoId === 'RNC') && (
+              <Grid item xs={12}>
+                <TextField
+                  label={t('guests.fiscalInfo.razonSocial', 'Razón social')}
+                  value={form.fiscalInfo.razonSocial}
+                  onChange={e => setForm(f => ({ ...f, fiscalInfo: { ...f.fiscalInfo, razonSocial: e.target.value } }))}
+                  fullWidth
+                  size="small"
+                />
+              </Grid>
+            )}
 
             {/* Company Links section */}
             <Grid item xs={12}>

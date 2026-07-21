@@ -35,6 +35,8 @@ import {
   PointOfSale,
   CalendarMonth,
   SyncAlt,
+  Receipt,
+  Assessment,
 } from '@mui/icons-material';
 import { ConfirmationNumber } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -122,6 +124,8 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
       { text: t('admin.nav.rooms'), icon: <Hotel />, path: '/admin/rooms', key: 'rooms', perm: 'admin.rooms' },
       { text: t('admin.nav.pricing'), icon: <Settings />, path: '/admin/pricing', key: 'pricing', perm: 'admin.pricing' },
       { text: t('admin.nav.otaConflicts', 'OTA Conflicts'), icon: <SyncAlt />, path: '/admin/ota-conflicts', key: 'ota-conflicts', perm: 'admin.ota.view' },
+      { text: t('admin.nav.ecfInvoices'), icon: <Receipt />, path: '/admin/invoices/ecf', key: 'ecf-invoices', perm: 'admin.ecf.view' },
+      { text: t('admin.nav.reports'), icon: <Assessment />, path: '/admin/reports', key: 'reports', perm: 'admin.ecf.view' },
       { text: t('admin.nav.settings'), icon: <Settings />, path: '/admin/settings', key: 'settings', perm: 'admin.settings' },
     ];
     const role = user?.role || 'customer';
@@ -370,7 +374,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
           {user?.firstName} {user?.lastName}
         </MuiMenuItem>
         <Divider />
-        <MuiMenuItem onClick={() => { handleUserMenuClose(); navigate('/profile'); }} sx={{ fontSize: '0.9rem', borderRadius: '8px', mx: 0.5 }}>
+        <MuiMenuItem onClick={() => { handleUserMenuClose(); navigate('/admin/profile'); }} sx={{ fontSize: '0.9rem', borderRadius: '8px', mx: 0.5 }}>
           {t('auth.profile')}
         </MuiMenuItem>
         <Divider />

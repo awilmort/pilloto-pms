@@ -1,13 +1,17 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, Button, Chip, Container, Divider, Grid, Paper, Typography, TextField, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Dialog, DialogTitle, DialogContent, DialogActions, IconButton, Tooltip, Tabs, Tab, Alert } from '@mui/material';
+import ReceiptIcon from '@mui/icons-material/Receipt';
 import { Edit as EditIcon, Delete as DeleteIcon, Print as PrintIcon } from '@mui/icons-material';
-import { Reservation, Payment, Charge } from '../../types';
+import { Reservation, Payment, Charge, ElectronicInvoice } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { printConfirmation, printFolio, printPaymentReceipt, printPaymentSummary } from '../../utils/print';
-import { reservationsService } from '../../services/api';
+import { reservationsService, ecfService } from '../../services/api';
 import { useTranslation } from 'react-i18next';
 import NumberField from '../../components/common/NumberField';
+import InvoiceGenerationModal from './InvoiceGenerationModal';
+import EcfInvoicesSection from './EcfInvoicesSection';
+import EcfStatusBadge from './EcfStatusBadge';
 
 type Props = {
   reservation: Reservation;
@@ -20,8 +24,21 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
   const [charges, setCharges] = useState<Charge[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [folioStatus, setFolioStatus] = useState<'open' | 'in_ar' | 'closed'>('open');
+  const [folioId, setFolioId] = useState<string | null>(null);
   const [summary, setSummary] = useState<{ stage: 'pre_arrival' | 'in_house' | 'checked_out'; estimatedTotal: number; totalCharges: number; totalPayments: number; depositTotal: number; balance: number; balanceOnArrival: number; creditAvailability: number }>({ stage: 'pre_arrival', estimatedTotal: 0, totalCharges: 0, totalPayments: 0, depositTotal: 0, balance: 0, balanceOnArrival: 0, creditAvailability: 0 });
   const [activeTab, setActiveTab] = useState(0);
+
+  // ECF state
+  const [ecfInvoices, setEcfInvoices] = useState<ElectronicInvoice[]>([]);
+  const [ecfIsActive, setEcfIsActive] = useState(false);
+  const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [selectedPaymentId, setSelectedPaymentId] = useState<string | undefined>(undefined);
+
+  const fetchEcfInvoices = useCallback((fId: string) => {
+    ecfService.getInvoices({ folioId: fId }).then((res) => {
+      setEcfInvoices(res.data.data ?? []);
+    }).catch(() => {});
+  }, []);
 
   // Fetch the fully-populated reservation (payments.createdBy, etc.) on mount and whenever the ID changes.
   // The list endpoint omits nested population for performance; the single-resource endpoint provides the full object.
@@ -38,12 +55,20 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
         setPayments(res.data.data.payments || []);
         setSummary(res.data.data.summary || { stage: 'pre_arrival' as const, estimatedTotal: 0, totalCharges: 0, totalPayments: 0, depositTotal: 0, balance: 0, balanceOnArrival: 0, creditAvailability: 0 });
         setFolioStatus(res.data.data.folio?.status || 'open');
+        const fId = res.data.data.folio?._id ? String(res.data.data.folio._id) : null;
+        setFolioId(fId);
+        if (fId) fetchEcfInvoices(fId);
       }
     }).catch(() => {
       // keep defaults when financial endpoint fails
     });
+    // Check if ECF is active for this tenant
+    ecfService.getConfig().then((res) => {
+      const cfg = res.data.data;
+      if (!cancelled) setEcfIsActive(Boolean(cfg?.isActive && cfg?.hasToken));
+    }).catch(() => {});
     return () => { cancelled = true; };
-  }, [reservation._id]);
+  }, [reservation._id, fetchEcfInvoices]);
 
   // Keep in sync with external updates from the parent (e.g. after a status change)
   useEffect(() => { setCurrent(reservation); }, [reservation]);
@@ -310,6 +335,7 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
             <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mt: 2 }}>
               <Tab label={t('admin.reservations.details.section.charges', 'Charges')} />
               <Tab label={t('admin.reservations.details.section.payments')} />
+              {ecfIsActive && <Tab label={t('admin.settings.ecfInvoices.tabLabel')} />}
             </Tabs>
 
             {activeTab === 0 && (
@@ -377,6 +403,9 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
                     <TableCell align="right">{t('admin.reservations.details.table.amount')}</TableCell>
                     <TableCell>{t('admin.reservations.details.table.receptionist', 'Receptionist')}</TableCell>
                     <TableCell>{t('admin.reservations.details.table.note')}</TableCell>
+                    {ecfIsActive && (
+                      <TableCell>{t('admin.settings.ecfInvoices.table.comprobante')}</TableCell>
+                    )}
                     {canManagePayments && (
                       <TableCell align="right">{t('admin.reservations.details.table.actions')}</TableCell>
                     )}
@@ -398,6 +427,60 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
                             : '-'}
                         </TableCell>
                         <TableCell>{p.note || '-'}</TableCell>
+                        {ecfIsActive && (
+                          <TableCell>
+                            {(() => {
+                              const paymentInvoices = ecfInvoices
+                                .filter((inv) => (inv as any).paymentId === (p as any)._id)
+                                .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
+                              const latestInvoice = paymentInvoices[0];
+                              const hasBlockingInvoice = paymentInvoices.some((inv) =>
+                                ['Aceptado', 'Aceptado Condicional', 'En Proceso', 'Emitido Contingencia']
+                                  .includes(inv.estadoECF)
+                              );
+
+                              if (latestInvoice && hasBlockingInvoice) {
+                                return <EcfStatusBadge status={latestInvoice.estadoECF} />;
+                              }
+
+                              if (latestInvoice && ['Rechazado', 'Error', 'Pendiente'].includes(latestInvoice.estadoECF)) {
+                                return (
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                    <EcfStatusBadge status={latestInvoice.estadoECF} />
+                                    <Button
+                                      variant="outlined"
+                                      size="small"
+                                      startIcon={<ReceiptIcon />}
+                                      onClick={() => {
+                                        setSelectedPaymentId((p as any)._id);
+                                        setInvoiceModalOpen(true);
+                                      }}
+                                    >
+                                      {t('admin.settings.ecfInvoices.actions.retryIssue')}
+                                    </Button>
+                                  </Box>
+                                );
+                              }
+
+                              if ((p.status === 'completed' || !p.status) && folioId) {
+                                return (
+                                  <Button
+                                    variant="outlined"
+                                    size="small"
+                                    startIcon={<ReceiptIcon />}
+                                    onClick={() => {
+                                      setSelectedPaymentId((p as any)._id);
+                                      setInvoiceModalOpen(true);
+                                    }}
+                                  >
+                                    {t('admin.settings.ecfInvoices.emitirButton')}
+                                  </Button>
+                                );
+                              }
+                              return null;
+                            })()}
+                          </TableCell>
+                        )}
                         {canManagePayments && (
                           <TableCell align="right">
                                 <Tooltip title={t('admin.printing.printReceipt', 'Print Receipt')}>
@@ -457,12 +540,19 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={canManagePayments ? 7 : 6} align="center">{t('admin.reservations.details.table.noPayments')}</TableCell>
+                      <TableCell colSpan={canManagePayments && ecfIsActive ? 8 : canManagePayments || ecfIsActive ? 7 : 6} align="center">{t('admin.reservations.details.table.noPayments')}</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
             </TableContainer>
+            )}
+            {activeTab === 2 && ecfIsActive && folioId && (
+              <EcfInvoicesSection
+                invoices={ecfInvoices}
+                onRefresh={() => fetchEcfInvoices(folioId)}
+                formatCurrency={formatCurrency}
+              />
             )}
           </Grid>
         </Grid>
@@ -650,6 +740,23 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
         </Button>
       </DialogActions>
     </Dialog>
+
+    {/* ECF Invoice Generation Modal */}
+    {ecfIsActive && folioId && (
+      <InvoiceGenerationModal
+        open={invoiceModalOpen}
+        onClose={() => { setInvoiceModalOpen(false); setSelectedPaymentId(undefined); }}
+        folioId={folioId}
+        paymentId={selectedPaymentId}
+        totalAmount={summary.totalCharges}
+        prefillBuyerName={guestName !== 'Guest' ? guestName : undefined}
+        prefillBuyerEmail={guestEmail !== '-' ? guestEmail : undefined}
+        prefillBuyerRnc={(linkedGuest as any)?.fiscalInfo?.rnc}
+        prefillBuyerRazonSocial={(linkedGuest as any)?.fiscalInfo?.razonSocial}
+        onInvoiceGenerated={() => { if (folioId) fetchEcfInvoices(folioId); }}
+        formatCurrency={formatCurrency}
+      />
+    )}
     </>
   );
 };

@@ -45,6 +45,7 @@ import BookingSettingsTab from '../../components/admin/BookingSettingsTab';
 import MediaPicker from '../../components/admin/MediaPicker';
 import { RoomIllustration, isIllustrationUrl, getIllustrationByKey, getIllustrationKey } from '../../components/illustrations';
 import ReviewsContent from '../../components/admin/ReviewsContent';
+import EcfSettingsTab from '../../components/admin/EcfSettingsTab';
 
 export type { AppSettings };
 
@@ -262,6 +263,7 @@ const Settings: React.FC = () => {
                 <Tab label={t('admin.settings.tabs.ota', 'OTA Sync')} id="settings-tab-9" />
                 <Tab label={t('admin.settings.tabs.booking', 'Booking Engine')} id="settings-tab-10" />
                 <Tab label={t('admin.settings.tabs.reviews', 'Reviews')} id="settings-tab-11" />
+                <Tab label={t('admin.settings.tabs.ecf', 'Facturación Electrónica')} id="settings-tab-12" />
               </Tabs>
             </Box>
 
@@ -629,6 +631,11 @@ const Settings: React.FC = () => {
             <TabPanel value={activeTab} index={11}>
               <Box sx={{ px: 3, pb: 3 }}>
                 <ReviewsContent />
+              </Box>
+            </TabPanel>
+            <TabPanel value={activeTab} index={12}>
+              <Box sx={{ px: 3, pb: 3 }}>
+                <EcfSettingsTab />
               </Box>
             </TabPanel>
           </Paper>

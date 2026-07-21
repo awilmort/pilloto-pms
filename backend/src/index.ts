@@ -37,6 +37,8 @@ import otaFeedRoutes from './routes/otaFeed';
 import privacyRoutes from './routes/privacy';
 import bookingRoutes from './routes/booking';
 import reviewRoutes from './routes/reviews';
+import ecfRoutes from './routes/ecf';
+import reportsRoutes from './routes/reports';
 import { syncUploadsToMedia } from './utils/mediaSync';
 import { migrateReservationStatuses } from './models/Reservation';
 import { runAudit } from './utils/chargeWorker';
@@ -219,6 +221,8 @@ app.use('/api/ota', otaRoutes);
 app.use('/api/privacy', privacyRoutes);
 app.use('/api/booking', bookingRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/ecf', ecfRoutes);
+app.use('/api/admin/reports', reportsRoutes);
 // (outbound iCal feed is registered before resolveTenant above)
 
 // Public endpoint: returns tenant info from the Host/X-Tenant-Slug header (no auth required)

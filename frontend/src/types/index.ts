@@ -45,6 +45,9 @@ export interface Company {
   address?: string;
   notes?: string;
   isActive: boolean;
+  /** RNC for B2B e-CF (Factura de Crédito Fiscal E31) */
+  rnc?: string;
+  razonSocial?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -72,6 +75,12 @@ export interface Guest {
   phone?: string;
   notes?: string;
   companyLinks: GuestCompanyLink[];
+  fiscalInfo?: {
+    rnc?: string;
+    cedula?: string;
+    tipoId?: 'RNC' | 'Cedula' | 'Pasaporte' | 'Otro';
+    razonSocial?: string;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -410,3 +419,105 @@ export interface BookingData {
   guests: number;
   specialRequests?: string;
 }
+
+// ─── e-CF (Electronic Fiscal Invoicing) ──────────────────────────────────────
+
+export type EcfAmbiente = 'Simulacion' | 'Pruebas' | 'Certificacion' | 'Produccion';
+
+export type EcfTipo =
+  | 'E31' | 'E32' | 'E33' | 'E34'
+  | 'E41' | 'E43' | 'E44' | 'E45'
+  | 'E46' | 'E47';
+
+export type EcfEstadoECF =
+  | 'Aceptado'
+  | 'Aceptado Condicional'
+  | 'Rechazado'
+  | 'Error'
+  | 'En Proceso'
+  | 'Emitido Contingencia'
+  | 'Pendiente';
+
+export interface TenantEcfConfig {
+  rnc: string;
+  razonSocial: string;
+  nombreComercial?: string;
+  phone?: string;
+  ambiente: EcfAmbiente;
+  isActive: boolean;
+  sucursal?: string;
+  citrusBaseUrl: string;
+  /** Never contains the actual token — backend returns this flag instead */
+  hasToken: boolean;
+}
+
+export interface ElectronicInvoice {
+  _id: string;
+  tenantId: string;
+  folioId?: string;
+  paymentId?: string;
+  reservationId?: string;
+  tipo: EcfTipo;
+  eNCF: string;
+  transaccionId: number;
+  trackId: string;
+  numeroFacturaInterna?: string;
+  estadoECF: EcfEstadoECF;
+  estatus: string;
+  mensaje?: string;
+  totalFactura: number;
+  totalImpuestos: number;
+  currency: string;
+  buyerRnc?: string;
+  buyerName?: string;
+  buyerEmail?: string;
+  lineItems?: Array<{
+    description: string;
+    qty: number;
+    netPrice: number;
+    itbisRate: number;
+    itbisAmount: number;
+    grossAmount: number;
+  }>;
+  tipoPago?: string;
+  originalENCF?: string;
+  codigoModificacion?: string;
+  urlCodigoQr?: string;
+  codigoSeguridad?: string;
+  fechaFirmaDigital?: string;
+  fechaVencimientoSecuencia?: string;
+  generationSource: 'payment_screen' | 'manual' | 'credit_note' | 'debit_note';
+  issuedAt: string;
+  retryCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Phase 4: Reporting types ─────────────────────────────────────────────────
+
+export interface EcfMonthlyTaxByTipo {
+  tipo: EcfTipo;
+  totalFactura: number;
+  totalImpuestos: number;
+  count: number;
+}
+
+export interface EcfMonthlyTaxRow {
+  year: number;
+  month: number;
+  byTipo: EcfMonthlyTaxByTipo[];
+  totalFactura: number;
+  totalImpuestos: number;
+  totalInvoices: number;
+}
+
+export interface EcfSequenceInfo {
+  tipo: EcfTipo;
+  latestENCF: string;
+  latestIssuedAt: string;
+  latestExpiry?: string;
+  totalIssued: number;
+  issuedThisMonth: number;
+  lastEstadoECF: EcfEstadoECF;
+}
+

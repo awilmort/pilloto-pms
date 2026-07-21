@@ -16,11 +16,15 @@ import { getTenantId } from '../middleware/tenantContext';
 
 export function tenantPlugin(schema: Schema): void {
   // ── Field definition ────────────────────────────────────────
+  // Note: index is intentionally NOT set here. Each model defines its own
+  // compound indexes with tenantId as the leading key, which is more efficient
+  // than a separate single-field {tenantId:1} index. Models that need a
+  // standalone {tenantId:1} index (e.g. AppSettings unique) declare it
+  // explicitly via schema.index() without creating a duplicate.
   schema.add({
     tenantId: {
       type: Schema.Types.ObjectId,
       ref: 'Tenant',
-      index: true,
     },
   });
 
