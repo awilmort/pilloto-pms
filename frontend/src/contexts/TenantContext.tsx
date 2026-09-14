@@ -13,6 +13,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import axios from 'axios';
 import { getPlanFeatures, PlanFeatures } from '../config/plans';
+import { AppCode } from '../types';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
@@ -22,6 +23,8 @@ export interface TenantInfo {
   slug: string;
   plan: string;
   isActive: boolean;
+  /** Products this tenant has bought (`'pms'`, `'accounting'`) — gates the AppShell switcher. */
+  products: AppCode[];
   settings: {
     language?: string;
     currency?: string;

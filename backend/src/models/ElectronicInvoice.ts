@@ -33,7 +33,8 @@ export type EcfGenerationSource =
   | 'payment_screen'
   | 'manual'
   | 'credit_note'
-  | 'debit_note';
+  | 'debit_note'
+  | 'accounting_invoice';
 
 export interface IElectronicInvoice extends Document {
   // Pilloto references
@@ -41,6 +42,8 @@ export interface IElectronicInvoice extends Document {
   folioId?: mongoose.Types.ObjectId;
   paymentId?: mongoose.Types.ObjectId;
   reservationId?: mongoose.Types.ObjectId;
+  /** Set when generationSource is 'accounting_invoice' — the standalone AR Invoice this e-CF was issued for (Phase 5.1). */
+  invoiceId?: mongoose.Types.ObjectId;
 
   // Invoice identity
   tipo: EcfTipo;
@@ -108,6 +111,7 @@ const electronicInvoiceSchema = new Schema<IElectronicInvoice>(
     folioId: { type: Schema.Types.ObjectId, ref: 'Folio', index: true },
     paymentId: { type: Schema.Types.ObjectId, ref: 'Payment', index: true },
     reservationId: { type: Schema.Types.ObjectId, ref: 'Reservation' },
+    invoiceId: { type: Schema.Types.ObjectId, ref: 'Invoice', index: true },
 
     tipo: {
       type: String,
@@ -153,7 +157,7 @@ const electronicInvoiceSchema = new Schema<IElectronicInvoice>(
     generationSource: {
       type: String,
       required: true,
-      enum: ['payment_screen', 'manual', 'credit_note', 'debit_note'],
+      enum: ['payment_screen', 'manual', 'credit_note', 'debit_note', 'accounting_invoice'],
     },
     issuedAt: { type: Date, required: true, default: () => new Date(), index: true },
     lastStatusCheck: { type: Date },

@@ -328,7 +328,7 @@ router.get('/:id', async (req, res) => {
 // @route   POST /api/rooms
 // @desc    Create a new room
 // @access  Private (Admin only)
-router.post('/', authenticate, authorizePermission('admin.rooms'), validateRoom, async (req: Request, res: Response) => {
+router.post('/', authenticate, authorizePermission('pms', 'admin.rooms'), validateRoom, async (req: Request, res: Response) => {
   try {
     const room = new Room(req.body);
     await room.save();
@@ -350,7 +350,7 @@ router.post('/', authenticate, authorizePermission('admin.rooms'), validateRoom,
 // @route   PUT /api/rooms/:id
 // @desc    Update a room
 // @access  Private (Admin only)
-router.put('/:id', authenticate, authorizePermission('admin.rooms'), validateRoom, async (req: Request, res: Response) => {
+router.put('/:id', authenticate, authorizePermission('pms', 'admin.rooms'), validateRoom, async (req: Request, res: Response) => {
   try {
     const room = await Room.findByIdAndUpdate(
       req.params.id,
@@ -390,7 +390,7 @@ router.put('/:id', authenticate, authorizePermission('admin.rooms'), validateRoo
 // @route   PATCH /api/rooms/:id/ops
 // @desc    Update status, condition, and comment only
 // @access  Private (Admin or Maintenance)
-router.patch('/:id/ops', authenticate, authorizePermission('admin.accommodations', 'accommodations.manage', 'admin.rooms'), async (req: Request, res: Response) => {
+router.patch('/:id/ops', authenticate, authorizePermission('pms', 'admin.accommodations', 'accommodations.manage', 'admin.rooms'), async (req: Request, res: Response) => {
   try {
     const { status, condition, comment } = req.body as {
       status?: 'active' | 'inactive';

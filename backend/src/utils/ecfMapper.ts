@@ -795,6 +795,244 @@ export function mapToExportacion(
   };
 }
 
+// ─── Phase 5.1 — Accounting product `Invoice` → e-CF (E31/E32) ───────────────
+//
+// Unlike the Folio-based mappers above (which back a net price out of a single
+// gross, ITBIS-inclusive charge amount, per this file's header comment), an
+// Accounting `Invoice` line already carries its own tax-exclusive `unitPrice`
+// and its own `taxRate` (PILLOTO_ACCOUNTING_ARCHITECTURE.md §9.1/§9.2) — the
+// discount is already folded into `lineTotal` server-side by Invoice's
+// pre-validate hook. So this mapper adds tax on top of an already-known net
+// amount per line, rather than reusing `buildItems`'s gross-backed-out math,
+// which would silently misapply to a fundamentally different tax convention.
+
+export interface AccountingInvoiceLineInput {
+  description: string;
+  quantity: number;
+  taxRate: number; // percent, e.g. 18 or 0 — 0/exempt maps to IndicadorExento, not TasaITBIS: 0
+  lineTotal: number; // net amount for this line, after discount, before tax
+}
+
+function buildAccountingInvoiceItems(lines: AccountingInvoiceLineInput[]): {
+  citrusItems: CitrusItem[];
+  grossTotal: number;
+  itbisTotal: number;
+} {
+  let grossTotal = 0;
+  let itbisTotal = 0;
+
+  const citrusItems: CitrusItem[] = lines.map((line, idx) => {
+    const net = round2(line.lineTotal);
+    const rate = line.taxRate || 0;
+    const itbis = round2(net * rate / 100);
+    grossTotal += net + itbis;
+    itbisTotal += itbis;
+
+    const unitNet = line.quantity > 0 ? round2(net / line.quantity) : net;
+
+    return {
+      NumeroLinea: idx + 1,
+      IndicadorFacturacion: 1,
+      NombreItem: line.description.slice(0, 200),
+      IndicadorBienoServicio: '2',
+      CantidadItem: line.quantity,
+      UnidadMedida: 4,
+      PrecioUnitarioItem: unitNet,
+      DescuentoMonto: 0.00,
+      MontoItem: net,
+      ...(rate > 0 ? { TasaITBIS: rate } : { IndicadorExento: 1 }),
+    };
+  });
+
+  return { citrusItems, grossTotal: round2(grossTotal), itbisTotal: round2(itbisTotal) };
+}
+
+/**
+ * Map a standalone Accounting `Invoice`'s line items to a Citrus E31/E32 payload.
+ * `tipo` is decided by the caller the same way the Folio-driven `/api/ecf/invoices`
+ * route decides it — E31 when the buyer has an RNC, E32 otherwise — passed in
+ * rather than re-derived here so the caller's decision is the single source of truth.
+ */
+export function mapToAccountingInvoice(
+  tipo: 'E31' | 'E32',
+  lines: AccountingInvoiceLineInput[],
+  buyer: EcfBuyerInfo,
+  tenant: ITenant,
+  refNumber?: string,
+): CitrusE31Payload | CitrusE32Payload {
+  if (!tenant.ecfConfig) {
+    throw new EcfMapperError('Tenant has no e-CF configuration');
+  }
+  if (!tenant.ecfConfig.citrusToken) {
+    throw new EcfMapperError('Tenant e-CF token is not configured');
+  }
+  if (!tenant.ecfConfig.isActive) {
+    throw new EcfMapperError('e-CF invoicing is disabled for this tenant');
+  }
+  if (lines.length === 0) {
+    throw new EcfMapperError('Invoice must have at least one line item to be sent');
+  }
+  if (tipo === 'E31' && !buyer.rnc) {
+    throw new EcfMapperError("E31 (Factura de Crédito Fiscal) requires the buyer's RNC");
+  }
+
+  const { citrusItems, grossTotal, itbisTotal } = buildAccountingInvoiceItems(lines);
+  if (grossTotal <= 0) {
+    throw new EcfMapperError('Total amount must be greater than zero');
+  }
+
+  const comprador: CitrusFlatEncabezado['Comprador'] = {};
+  if (buyer.rnc) comprador.RNCComprador = buyer.rnc;
+  if (buyer.razonSocial) comprador.RazonSocialComprador = buyer.razonSocial;
+  if (buyer.name) comprador.NombreComprador = buyer.name;
+  if (buyer.email) comprador.CorreoComprador = buyer.email;
+
+  return {
+    Fecha: getTodayFecha(),
+    NumeroFacturaInterna: refNumber,
+    Encabezado: {
+      ...(tipo === 'E31' ? { TipoeCF: '31' } : {}),
+      TipoIngresos: '01',
+      IndicadorMontoGravado: '0',
+      // AR invoices are issued before a specific payment method is known — DGII's
+      // "Crédito" code is the correct default for a sale-on-account document.
+      TipoPago: '2',
+      ...(Object.keys(comprador).length > 0 ? { Comprador: comprador } : {}),
+    },
+    DetalleBienesOServicios: citrusItems,
+    totalFactura: grossTotal,
+    totalImpuestos: itbisTotal,
+  };
+}
+
+/**
+ * Map a standalone Accounting `CreditNote`'s line items to a Citrus E34 payload
+ * (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md Phase 8.1). Unlike `mapToNotaCredito`
+ * above (which backs a net price out of a single gross, ITBIS-inclusive amount at a
+ * hardcoded 18% — correct for the Folio-driven legacy path it serves), a `CreditNote`
+ * line already carries its own tax-exclusive `lineTotal` and its own `taxRate`
+ * (PILLOTO_ACCOUNTING_ARCHITECTURE.md §9.1), exactly like `Invoice`'s lines — so this
+ * reuses `buildAccountingInvoiceItems`'s per-line-rate math, not `buildNoteItems`'s,
+ * and adds the `InformacionReferencia` block `mapToNotaCredito` already knows how to
+ * build, referencing the original invoice's own e-CF.
+ */
+export function mapToAccountingCreditNote(
+  originalInvoice: OriginalInvoiceRef,
+  codigoModificacion: CodigoModificacion,
+  razonModificacion: string,
+  lines: AccountingInvoiceLineInput[],
+  tenant: ITenant,
+): CitrusE34Payload {
+  if (!tenant.ecfConfig) {
+    throw new EcfMapperError('Tenant has no e-CF configuration');
+  }
+  if (!tenant.ecfConfig.citrusToken) {
+    throw new EcfMapperError('Tenant e-CF token is not configured');
+  }
+  if (!tenant.ecfConfig.isActive) {
+    throw new EcfMapperError('e-CF invoicing is disabled for this tenant');
+  }
+  if (lines.length === 0) {
+    throw new EcfMapperError('Credit note must have at least one line item to be issued');
+  }
+  if (!razonModificacion?.trim()) {
+    throw new EcfMapperError('Reason (razonModificacion) is required for a credit note');
+  }
+
+  const { citrusItems, grossTotal, itbisTotal } = buildAccountingInvoiceItems(lines);
+  if (grossTotal <= 0) {
+    throw new EcfMapperError('Total amount must be greater than zero');
+  }
+
+  const comprador: CitrusFlatEncabezado['Comprador'] = {};
+  if (originalInvoice.buyerRnc) comprador.RNCComprador = originalInvoice.buyerRnc;
+  if (originalInvoice.buyerName) comprador.NombreComprador = originalInvoice.buyerName;
+  if (originalInvoice.buyerEmail) comprador.CorreoComprador = originalInvoice.buyerEmail;
+
+  return {
+    Fecha: getTodayFecha(),
+    Encabezado: {
+      TipoIngresos: '01',
+      IndicadorMontoGravado: '0',
+      TipoPago: '1',
+      IndicadorNotaCredito: '0',
+      ...(Object.keys(comprador).length > 0 ? { Comprador: comprador } : {}),
+    },
+    DetalleBienesOServicios: citrusItems,
+    InformacionReferencia: {
+      NCFModificado: originalInvoice.eNCF,
+      ...(originalInvoice.buyerRnc ? { RNCOtroContribuyente: originalInvoice.buyerRnc } : {}),
+      ...(originalInvoice.issuedAt ? { FechaNCFModificado: new Date(originalInvoice.issuedAt).toISOString().slice(0, 10) } : {}),
+      CodigoModificacion: codigoModificacion,
+      RazonModificacion: razonModificacion.trim().slice(0, 500),
+    },
+    totalFactura: grossTotal,
+    totalImpuestos: itbisTotal,
+  };
+}
+
+/**
+ * Map a standalone Accounting `DebitNote`'s line items to a Citrus E33 payload
+ * (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md Phase 8.3). The mirror of
+ * `mapToAccountingCreditNote()` above — same per-line-rate math via
+ * `buildAccountingInvoiceItems()`, same `InformacionReferencia` block referencing
+ * the original invoice's real `eNCF` — but omits `IndicadorNotaCredito` (E34-only,
+ * matching the legacy `mapToNotaDebito()`'s own Encabezado shape for E33).
+ */
+export function mapToAccountingDebitNote(
+  originalInvoice: OriginalInvoiceRef,
+  codigoModificacion: CodigoModificacion,
+  razonModificacion: string,
+  lines: AccountingInvoiceLineInput[],
+  tenant: ITenant,
+): CitrusE33Payload {
+  if (!tenant.ecfConfig) {
+    throw new EcfMapperError('Tenant has no e-CF configuration');
+  }
+  if (!tenant.ecfConfig.citrusToken) {
+    throw new EcfMapperError('Tenant e-CF token is not configured');
+  }
+  if (!tenant.ecfConfig.isActive) {
+    throw new EcfMapperError('e-CF invoicing is disabled for this tenant');
+  }
+  if (lines.length === 0) {
+    throw new EcfMapperError('Debit note must have at least one line item to be issued');
+  }
+  if (!razonModificacion?.trim()) {
+    throw new EcfMapperError('Reason (razonModificacion) is required for a debit note');
+  }
+
+  const { citrusItems, grossTotal, itbisTotal } = buildAccountingInvoiceItems(lines);
+  if (grossTotal <= 0) {
+    throw new EcfMapperError('Total amount must be greater than zero');
+  }
+
+  const comprador: CitrusFlatEncabezado['Comprador'] = {};
+  if (originalInvoice.buyerRnc) comprador.RNCComprador = originalInvoice.buyerRnc;
+  if (originalInvoice.buyerName) comprador.NombreComprador = originalInvoice.buyerName;
+  if (originalInvoice.buyerEmail) comprador.CorreoComprador = originalInvoice.buyerEmail;
+
+  return {
+    Fecha: getTodayFecha(),
+    Encabezado: {
+      TipoIngresos: '01',
+      IndicadorMontoGravado: '0',
+      TipoPago: '1',
+      ...(Object.keys(comprador).length > 0 ? { Comprador: comprador } : {}),
+    },
+    DetalleBienesOServicios: citrusItems,
+    InformacionReferencia: {
+      NCFModificado: originalInvoice.eNCF,
+      ...(originalInvoice.buyerRnc ? { RNCOtroContribuyente: originalInvoice.buyerRnc } : {}),
+      ...(originalInvoice.issuedAt ? { FechaNCFModificado: new Date(originalInvoice.issuedAt).toISOString().slice(0, 10) } : {}),
+      CodigoModificacion: codigoModificacion,
+      RazonModificacion: razonModificacion.trim().slice(0, 500),
+    },
+    totalFactura: grossTotal,
+    totalImpuestos: itbisTotal,
+  };
+}
+
 // ─── E47 — Pagos al Exterior ──────────────────────────────────────────────────
 
 /**

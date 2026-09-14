@@ -52,6 +52,7 @@ import {
 } from '../utils/ecfMapper';
 import type { EcfAmbiente } from '../models/Tenant';
 import { generateFallbackPdf } from '../utils/ecfPdfFallback';
+import { postFolioCreditNoteEntry, postFolioDebitNoteEntry } from '../services/accounting/pmsLedgerHooks';
 
 const router = express.Router();
 
@@ -1445,6 +1446,8 @@ router.post(
         startStatusPolling(String(creditNoteDoc._id), tenant);
       }
 
+      await postFolioCreditNoteEntry(tenant, creditNoteDoc, req.user!._id as any);
+
       return res.status(201).json({ success: true, data: creditNoteDoc });
     } catch (error: any) {
       console.error('[ECF] POST /credit-notes error:', error.message);
@@ -1625,6 +1628,8 @@ router.post(
       if (debitNoteDoc.estadoECF === 'En Proceso') {
         startStatusPolling(String(debitNoteDoc._id), tenant);
       }
+
+      await postFolioDebitNoteEntry(tenant, debitNoteDoc, req.user!._id as any);
 
       return res.status(201).json({ success: true, data: debitNoteDoc });
     } catch (error: any) {

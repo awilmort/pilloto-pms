@@ -2,6 +2,12 @@ import mongoose, { Document, Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { tenantPlugin } from '../plugins/tenantPlugin';
+import { APP_CODES, AppCode } from '../constants/apps';
+
+export interface IUserAppRole {
+  app: AppCode;
+  role: mongoose.Types.ObjectId;
+}
 
 export interface IUser extends Document {
   tenantId?: mongoose.Types.ObjectId;
@@ -12,6 +18,10 @@ export interface IUser extends Document {
   password: string;
   phone?: string;
   role: string; // e.g., 'customer', 'admin', 'maintenance', 'staff', or custom role name
+  /** Per-app role assignments. At most one entry per app (enforced by pre-save validator). */
+  appRoles: IUserAppRole[];
+  /** Tenant-level owner bypass across this tenant's own apps. Distinct from the platform-level `isPlatformRequest`/`role:'superadmin'` concept. */
+  isSuperAdmin: boolean;
   isActive: boolean;
   emailVerified: boolean;
   emailVerificationToken?: string;
@@ -72,6 +82,15 @@ const userSchema = new Schema<IUser>({
     type: String,
     default: 'customer'
   },
+  appRoles: [{
+    _id: false,
+    app: { type: String, enum: APP_CODES, required: true },
+    role: { type: Schema.Types.ObjectId, ref: 'Role', required: true },
+  }],
+  isSuperAdmin: {
+    type: Boolean,
+    default: false
+  },
   isActive: {
     type: Boolean,
     default: true
@@ -104,6 +123,16 @@ const userSchema = new Schema<IUser>({
   }
 }, {
   timestamps: true
+});
+
+// Enforce at most one appRoles entry per app
+userSchema.pre('save', function (next) {
+  if (!this.isModified('appRoles')) return next();
+  const apps = this.appRoles.map((ar) => ar.app);
+  if (new Set(apps).size !== apps.length) {
+    return next(new Error('A user may only have one role per app'));
+  }
+  next();
 });
 
 // Hash password before saving

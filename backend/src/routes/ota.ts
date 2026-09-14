@@ -50,7 +50,7 @@ function generateOpaqueToken(): string {
 router.get(
   '/mappings',
   authenticate,
-  authorizePermission('admin.ota.view'),
+  authorizePermission('pms', 'admin.ota.view'),
   async (req: AuthRequest, res: Response) => {
     try {
       const backendPublicUrl = (process.env.BACKEND_PUBLIC_URL || '').replace(/\/$/, '');
@@ -75,7 +75,7 @@ router.get(
 router.post(
   '/mappings',
   authenticate,
-  authorizePermission('admin.ota.manage'),
+  authorizePermission('pms', 'admin.ota.manage'),
   async (req: AuthRequest, res: Response) => {
     try {
       const {
@@ -114,7 +114,7 @@ router.post(
 router.put(
   '/mappings/:id',
   authenticate,
-  authorizePermission('admin.ota.manage'),
+  authorizePermission('pms', 'admin.ota.manage'),
   async (req: AuthRequest, res: Response) => {
     try {
       const { provider, providerLabel, externalListingId, inboundFeedUrl, roomId, isActive } =
@@ -148,7 +148,7 @@ router.put(
 router.delete(
   '/mappings/:id',
   authenticate,
-  authorizePermission('admin.ota.manage'),
+  authorizePermission('pms', 'admin.ota.manage'),
   async (req: AuthRequest, res: Response) => {
     try {
       const mapping = await OtaListingMapping.findByIdAndDelete(req.params.id);
@@ -164,7 +164,7 @@ router.delete(
 router.post(
   '/mappings/:id/rotate-token',
   authenticate,
-  authorizePermission('admin.ota.manage'),
+  authorizePermission('pms', 'admin.ota.manage'),
   async (req: AuthRequest, res: Response) => {
     try {
       const outboundToken = generateOpaqueToken();
@@ -193,7 +193,7 @@ router.post(
 router.post(
   '/sync',
   authenticate,
-  authorizePermission('admin.ota.manage'),
+  authorizePermission('pms', 'admin.ota.manage'),
   async (req: AuthRequest, res: Response) => {
     try {
       const tenantId = getTenantId();
@@ -218,7 +218,7 @@ router.post(
 router.get(
   '/sync-runs',
   authenticate,
-  authorizePermission('admin.ota.view'),
+  authorizePermission('pms', 'admin.ota.view'),
   async (req: AuthRequest, res: Response) => {
     try {
       const limit = Math.min(Number(req.query.limit) || 50, 200);
@@ -241,7 +241,7 @@ router.get(
 router.get(
   '/conflicts',
   authenticate,
-  authorizePermission('admin.ota.view'),
+  authorizePermission('pms', 'admin.ota.view'),
   async (req: AuthRequest, res: Response) => {
     try {
       const { status, page = 1, limit = 25 } = req.query;
@@ -285,7 +285,7 @@ router.get(
 router.get(
   '/conflicts/count',
   authenticate,
-  authorizePermission('admin.ota.view'),
+  authorizePermission('pms', 'admin.ota.view'),
   async (_req: AuthRequest, res: Response) => {
     try {
       const count = await OtaConflict.countDocuments({ status: 'pending_review' });
@@ -300,7 +300,7 @@ router.get(
 router.put(
   '/conflicts/:id/resolve',
   authenticate,
-  authorizePermission('admin.ota.resolve'),
+  authorizePermission('pms', 'admin.ota.resolve'),
   async (req: AuthRequest, res: Response) => {
     try {
       const validStatuses = [

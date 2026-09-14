@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
 import mongoose from 'mongoose';
-import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import { authenticate, authorize, authorizeAppAccess, AuthRequest } from '../middleware/auth';
 import RatePlan from '../models/RatePlan';
 import PricingRule from '../models/PricingRule';
 import RoomType from '../models/RoomType';
@@ -15,7 +15,7 @@ const router = express.Router();
 // Room Types
 // ─────────────────────────────────────────────────────────────
 
-router.get('/room-types', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/room-types', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const { active } = req.query as { active?: string };
     const filter: any = {};
@@ -60,7 +60,7 @@ router.delete('/room-types/:id', authenticate, authorize('admin'), async (req: A
 // Rate Plans
 // ─────────────────────────────────────────────────────────────
 
-router.get('/rate-plans', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/rate-plans', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const { roomTypeId, active } = req.query as { roomTypeId?: string; active?: string };
     const filter: any = {};
@@ -106,7 +106,7 @@ router.delete('/rate-plans/:id', authenticate, authorize('admin'), async (req: A
 // Pricing Rules (adjustments)
 // ─────────────────────────────────────────────────────────────
 
-router.get('/rules', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/rules', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const rules = await PricingRule.find({}).sort({ name: 1 }).populate('ratePlanId', 'name roomTypeId').populate('companyId', 'name').exec();
     res.status(200).json({ success: true, data: rules });
@@ -148,7 +148,7 @@ router.delete('/rules/:id', authenticate, authorize('admin'), async (req: AuthRe
 // Taxes
 // ─────────────────────────────────────────────────────────────
 
-router.get('/taxes', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/taxes', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const taxes = await Tax.find({}).sort({ priority: -1, name: 1 }).exec();
     res.status(200).json({ success: true, data: taxes });
@@ -190,7 +190,7 @@ router.delete('/taxes/:id', authenticate, authorize('admin'), async (req: AuthRe
 // Price Calculation endpoint
 // ─────────────────────────────────────────────────────────────
 
-router.post('/calculate', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/calculate', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const { ratePlanId, roomTypeId, adults = 1, children = 0, date, nights = 1, rooms = 1, companyId, guestEmail } = req.body;
 
@@ -221,7 +221,7 @@ router.post('/calculate', authenticate, async (req: AuthRequest, res: Response) 
 // Service Price Calculation endpoint
 // ─────────────────────────────────────────────────────────────
 
-router.post('/calculate-service', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/calculate-service', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const {
       serviceId,
@@ -260,7 +260,7 @@ router.post('/calculate-service', authenticate, async (req: AuthRequest, res: Re
 // Guests are distributed across rooms in capacity order.
 // ─────────────────────────────────────────────────────────────
 
-router.post('/calculate-rooms', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/calculate-rooms', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const { roomIds, checkInDate, checkOutDate, adults = 1, children = 0, companyId, guestEmail } = req.body;
 

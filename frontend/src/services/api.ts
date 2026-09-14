@@ -1,7 +1,19 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
-import { User, Room, Reservation, MediaItem, Amenity, EventType, Company, Guest, CreditAccount } from '../types';
+import { User, Room, Reservation, MediaItem, Amenity, EventType, Company, Guest, CreditAccount, AppCode } from '../types';
+import type { Customer } from '../types';
 import type { ChargeTemplate, ChargeRule, ChargeRuleExecution, AuditRun } from '../types';
 import type { TenantEcfConfig, ElectronicInvoice, EcfMonthlyTaxRow, EcfSequenceInfo } from '../types';
+import type { Warehouse, Product, InventoryTransaction, InventoryAdjustmentReason } from '../types';
+import type { Invoice, InvoicePaymentMethod, Quote } from '../types';
+import type { Account, Supplier, Bill, BillPaymentMethod } from '../types';
+import type { CreditNote, CreditNoteReason, CreditNoteFiscalModificationCode, CreditNoteRefundMethod } from '../types';
+import type { DebitNote, DebitNoteReason, DebitNoteFiscalModificationCode, DebitNotePaymentMethod } from '../types';
+import type { JournalEntry, JournalEntrySource } from '../types';
+import type {
+  TrialBalanceReport, ProfitAndLossReport, BalanceSheetReport,
+  ApAgingReport, ArAgingReport, GeneralLedgerReport,
+  SupplierStatementReport, CustomerStatementReport,
+} from '../types';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 // Prefer the explicit public backend URL env var; fall back to deriving from API_BASE_URL.
@@ -518,11 +530,17 @@ export const adminService = {
     page?: number;
     limit?: number;
     role?: string;
+    app?: AppCode;
   }): Promise<AxiosResponse<ApiResponse<{ users: User[]; totalPages: number; currentPage: number }>>> =>
     apiClient.get('/admin/users', { params }),
 
-  updateUserRole: (id: string, role: string): Promise<AxiosResponse<ApiResponse<User>>> =>
-    apiClient.patch(`/admin/users/${id}/role`, { role }),
+  /** Assigns `roleId` for `app` (inferred server-side from the role if `app` omitted), or removes that app's assignment when `roleId` is `null` (requires `app`). */
+  updateUserRole: (id: string, roleId: string | null, app?: AppCode): Promise<AxiosResponse<ApiResponse<User>>> =>
+    apiClient.patch(`/admin/users/${id}/role`, { roleId, app }),
+
+  // Permission catalog for the given app (canonical, backend-verified list).
+  getPermissions: (app: AppCode): Promise<AxiosResponse<ApiResponse<string[]>>> =>
+    apiClient.get('/admin/permissions', { params: { app } }),
 };
 
 // Wristbands Service
@@ -556,9 +574,9 @@ export const wristbandsService = {
 };
 // Roles Service
 export const rolesService = {
-  getRoles: (): Promise<AxiosResponse<ApiResponse<any[]>>> =>
-    apiClient.get('/roles'),
-  createRole: (data: { name: string; description?: string; permissions: string[]; discountLimit?: number }): Promise<AxiosResponse<ApiResponse<any>>> =>
+  getRoles: (app?: AppCode): Promise<AxiosResponse<ApiResponse<any[]>>> =>
+    apiClient.get('/roles', { params: { app } }),
+  createRole: (data: { name: string; description?: string; permissions: string[]; discountLimit?: number; app?: AppCode }): Promise<AxiosResponse<ApiResponse<any>>> =>
     apiClient.post('/roles', data),
   updateRole: (id: string, data: Partial<{ name: string; description?: string; permissions: string[]; discountLimit?: number }>): Promise<AxiosResponse<ApiResponse<any>>> =>
     apiClient.put(`/roles/${id}`, data),
@@ -1163,11 +1181,16 @@ export const creditAccountsService = {
 };
 
 // ── Platform Service (superadmin only – admin.pilloto.com) ────────────────────
+export type TenantProduct = 'pms' | 'accounting';
+export type AccountingPlanSlug = 'starter' | 'pro' | 'plus';
+
 export interface TenantRecord {
   _id: string;
   name: string;
   slug: string;
   plan: string;
+  products: TenantProduct[];
+  plans: { accounting?: AccountingPlanSlug };
   isActive: boolean;
   ownerEmail: string;
   settings: Record<string, any>;
@@ -1184,6 +1207,8 @@ export interface ProvisionTenantPayload {
   adminLastName: string;
   adminPassword: string;
   settings?: Record<string, any>;
+  products?: TenantProduct[];
+  plans?: { accounting?: AccountingPlanSlug };
 }
 
 export const platformService = {
@@ -1196,7 +1221,7 @@ export const platformService = {
   createTenant: (data: ProvisionTenantPayload): Promise<AxiosResponse<ApiResponse<{ tenant: TenantRecord; adminUser: any; loginUrl: string }>>> =>
     apiClient.post('/platform/tenants', data),
 
-  updateTenant: (id: string, data: Partial<{ name: string; plan: string; isActive: boolean; ownerEmail: string; settings: any }>): Promise<AxiosResponse<ApiResponse<TenantRecord>>> =>
+  updateTenant: (id: string, data: Partial<{ name: string; plan: string; isActive: boolean; ownerEmail: string; settings: any; products: TenantProduct[]; plans: { accounting?: AccountingPlanSlug } }>): Promise<AxiosResponse<ApiResponse<TenantRecord>>> =>
     apiClient.patch(`/platform/tenants/${id}`, data),
 
   deactivateTenant: (id: string): Promise<AxiosResponse<ApiResponse<TenantRecord>>> =>
@@ -1636,5 +1661,443 @@ export const reportsService = {
   /** GET /admin/reports/departures — departures list for a given date */
   getDepartures: (params?: { date?: string }): Promise<AxiosResponse<ApiResponse<any>>> =>
     apiClient.get('/admin/reports/departures', { params }),
+};
+
+// ─── Accounting: Warehouses Service ───────────────────────────────────────────
+
+export const warehousesService = {
+  getWarehouses: (params?: { active?: boolean | 'all'; search?: string }): Promise<AxiosResponse<ApiResponse<Warehouse[]>>> =>
+    apiClient.get('/accounting/warehouses', { params }),
+
+  getWarehouse: (id: string): Promise<AxiosResponse<ApiResponse<Warehouse>>> =>
+    apiClient.get(`/accounting/warehouses/${id}`),
+
+  getWarehouseStock: (id: string): Promise<AxiosResponse<ApiResponse<Array<{ product: any; onHandQty: number }>>>> =>
+    apiClient.get(`/accounting/warehouses/${id}/stock`),
+
+  createWarehouse: (data: { name: string; code: string; address?: string; notes?: string; isDefault?: boolean }): Promise<AxiosResponse<ApiResponse<Warehouse>>> =>
+    apiClient.post('/accounting/warehouses', data),
+
+  updateWarehouse: (id: string, data: Partial<{ name: string; code: string; address: string; notes: string; isActive: boolean; isDefault: boolean }>): Promise<AxiosResponse<ApiResponse<Warehouse>>> =>
+    apiClient.put(`/accounting/warehouses/${id}`, data),
+
+  archiveWarehouse: (id: string): Promise<AxiosResponse<ApiResponse<Warehouse>>> =>
+    apiClient.delete(`/accounting/warehouses/${id}`),
+};
+
+// ─── Accounting: Products (Inventory) Service ─────────────────────────────────
+
+export const productsService = {
+  getProducts: (params?: { active?: boolean | 'all'; category?: string; search?: string; lowStock?: boolean; sellable?: boolean; purchasable?: boolean }): Promise<AxiosResponse<ApiResponse<Product[]>>> =>
+    apiClient.get('/accounting/products', { params }),
+
+  getProduct: (id: string): Promise<AxiosResponse<ApiResponse<Product>>> =>
+    apiClient.get(`/accounting/products/${id}`),
+
+  getProductTransactions: (id: string, params?: { page?: number; limit?: number }): Promise<AxiosResponse<ApiResponse<InventoryTransaction[]>>> =>
+    apiClient.get(`/accounting/products/${id}/transactions`, { params }),
+
+  getProductStockByWarehouse: (id: string): Promise<AxiosResponse<ApiResponse<Array<{ warehouse: Warehouse; onHandQty: number }>>>> =>
+    apiClient.get(`/accounting/products/${id}/stock`),
+
+  createProduct: (data: {
+    name: string; sku: string; category?: string; unitOfMeasure: string; defaultUnitPrice?: number;
+    reorderPoint?: number; description?: string; isSellable?: boolean; isPurchasable?: boolean; notes?: string;
+    initialQuantity?: number; initialUnitCost?: number; warehouseId?: string;
+  }): Promise<AxiosResponse<ApiResponse<Product>>> =>
+    apiClient.post('/accounting/products', data),
+
+  updateProduct: (id: string, data: Partial<{
+    name: string; sku: string; category: string; unitOfMeasure: string; defaultUnitPrice: number;
+    reorderPoint: number; description: string; isSellable: boolean; isPurchasable: boolean; notes: string; isActive: boolean;
+  }>): Promise<AxiosResponse<ApiResponse<Product>>> =>
+    apiClient.put(`/accounting/products/${id}`, data),
+
+  archiveProduct: (id: string): Promise<AxiosResponse<ApiResponse<Product>>> =>
+    apiClient.delete(`/accounting/products/${id}`),
+
+  purchaseProduct: (id: string, data: { quantity: number; unitCost: number; notes?: string; warehouseId?: string }): Promise<AxiosResponse<ApiResponse<{ product: Product; transaction: InventoryTransaction }>>> =>
+    apiClient.post(`/accounting/products/${id}/purchase`, data),
+
+  adjustProduct: (id: string, data: { quantityDelta?: number; countedQuantity?: number; reason?: InventoryAdjustmentReason; notes?: string; warehouseId?: string }): Promise<AxiosResponse<ApiResponse<{ product: Product; transaction: InventoryTransaction }>>> =>
+    apiClient.post(`/accounting/products/${id}/adjust`, data),
+};
+
+// Accounting-scoped Customer CRUD (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md Phase 5.2,
+// re-pointed at a dedicated `Customer` model by the Phase 10.3 / architecture §11 split —
+// no longer the PMS-side `Company` model) through `accounting.customers.manage`-gated
+// `/api/accounting/customers` endpoints so an accounting-only user (no PMS admin role) can
+// manage AR customers. `linkedCompanyId` optionally bridges a customer to a real PMS
+// `Company` (a pre-approved direct-bill account) — validated server-side against `Company`.
+export const accountingCustomersService = {
+  getCustomers: (params?: { search?: string; active?: boolean | 'all'; page?: number; limit?: number }): Promise<AxiosResponse<ApiResponse<Customer[]>>> =>
+    apiClient.get('/accounting/customers', { params }),
+
+  getCustomer: (id: string): Promise<AxiosResponse<ApiResponse<Customer>>> =>
+    apiClient.get(`/accounting/customers/${id}`),
+
+  createCustomer: (data: Omit<Partial<Customer>, 'linkedCompanyId'> & { linkedCompanyId?: string | null }): Promise<AxiosResponse<ApiResponse<Customer>>> =>
+    apiClient.post('/accounting/customers', data),
+
+  updateCustomer: (id: string, data: Omit<Partial<Customer>, 'linkedCompanyId'> & { linkedCompanyId?: string | null }): Promise<AxiosResponse<ApiResponse<Customer>>> =>
+    apiClient.put(`/accounting/customers/${id}`, data),
+
+  archiveCustomer: (id: string): Promise<AxiosResponse<ApiResponse<Customer>>> =>
+    apiClient.delete(`/accounting/customers/${id}`),
+};
+
+export interface InvoiceLineItemInput {
+  description: string;
+  product?: string;
+  quantity: number;
+  unitPrice: number;
+  discountPercent?: number;
+  taxRate?: number;
+}
+
+export const invoicesService = {
+  getInvoices: (params?: { status?: string; customer?: string; page?: number; limit?: number }): Promise<AxiosResponse<ApiResponse<Invoice[]> & { meta?: { total: number; page: number; limit: number; pages: number } }>> =>
+    apiClient.get('/accounting/invoices', { params }),
+
+  getInvoice: (id: string): Promise<AxiosResponse<ApiResponse<Invoice>>> =>
+    apiClient.get(`/accounting/invoices/${id}`),
+
+  createInvoice: (data: {
+    customer?: string;
+    isIndividual?: boolean;
+    individualCustomer?: { name: string; email?: string; phone?: string };
+    dueDate?: string;
+    notes?: string;
+    lineItems: InvoiceLineItemInput[];
+  }): Promise<AxiosResponse<ApiResponse<Invoice>>> =>
+    apiClient.post('/accounting/invoices', data),
+
+  updateInvoice: (id: string, data: {
+    customer?: string;
+    isIndividual?: boolean;
+    individualCustomer?: { name: string; email?: string; phone?: string };
+    dueDate?: string;
+    notes?: string;
+    lineItems?: InvoiceLineItemInput[];
+  }): Promise<AxiosResponse<ApiResponse<Invoice>>> =>
+    apiClient.put(`/accounting/invoices/${id}`, data),
+
+  sendInvoice: (id: string, data?: { lineItemWarehouses?: Record<string, string> }): Promise<AxiosResponse<ApiResponse<{ invoice: Invoice; electronicInvoice: ElectronicInvoice }>>> =>
+    apiClient.post(`/accounting/invoices/${id}/send`, data || {}),
+
+  recordPayment: (id: string, data: { amount: number; method: InvoicePaymentMethod; date?: string; reference?: string }): Promise<AxiosResponse<ApiResponse<Invoice>>> =>
+    apiClient.post(`/accounting/invoices/${id}/payments`, data),
+
+  voidInvoice: (id: string): Promise<AxiosResponse<ApiResponse<Invoice>>> =>
+    apiClient.post(`/accounting/invoices/${id}/void`),
+};
+
+export const cityLedgerService = {
+  getPending: (params?: { page?: number; limit?: number }): Promise<AxiosResponse<ApiResponse<Invoice[]> & { meta?: { total: number; page: number; limit: number; pages: number } }>> =>
+    apiClient.get('/accounting/city-ledger', { params }),
+
+  getPendingCount: (): Promise<AxiosResponse<ApiResponse<{ count: number }>>> =>
+    apiClient.get('/accounting/city-ledger/pending-count'),
+
+  authorize: (id: string): Promise<AxiosResponse<ApiResponse<Invoice>>> =>
+    apiClient.post(`/accounting/city-ledger/${id}/authorize`),
+
+  decline: (id: string, reason: string): Promise<AxiosResponse<ApiResponse<Invoice>>> =>
+    apiClient.post(`/accounting/city-ledger/${id}/decline`, { reason }),
+};
+
+export const quotesService = {
+  getQuotes: (params?: { status?: string; customer?: string; page?: number; limit?: number }): Promise<AxiosResponse<ApiResponse<Quote[]> & { meta?: { total: number; page: number; limit: number; pages: number } }>> =>
+    apiClient.get('/accounting/quotes', { params }),
+
+  getQuote: (id: string): Promise<AxiosResponse<ApiResponse<Quote>>> =>
+    apiClient.get(`/accounting/quotes/${id}`),
+
+  createQuote: (data: {
+    customer?: string;
+    isIndividual?: boolean;
+    individualCustomer?: { name: string; email?: string; phone?: string };
+    expiryDate?: string;
+    notes?: string;
+    lineItems: InvoiceLineItemInput[];
+  }): Promise<AxiosResponse<ApiResponse<Quote>>> =>
+    apiClient.post('/accounting/quotes', data),
+
+  updateQuote: (id: string, data: {
+    customer?: string;
+    isIndividual?: boolean;
+    individualCustomer?: { name: string; email?: string; phone?: string };
+    expiryDate?: string;
+    notes?: string;
+    lineItems?: InvoiceLineItemInput[];
+  }): Promise<AxiosResponse<ApiResponse<Quote>>> =>
+    apiClient.put(`/accounting/quotes/${id}`, data),
+
+  sendQuote: (id: string): Promise<AxiosResponse<ApiResponse<Quote>>> =>
+    apiClient.post(`/accounting/quotes/${id}/send`),
+
+  acceptQuote: (id: string): Promise<AxiosResponse<ApiResponse<Quote>>> =>
+    apiClient.post(`/accounting/quotes/${id}/accept`),
+
+  rejectQuote: (id: string): Promise<AxiosResponse<ApiResponse<Quote>>> =>
+    apiClient.post(`/accounting/quotes/${id}/reject`),
+
+  convertQuote: (id: string): Promise<AxiosResponse<ApiResponse<{ quote: Quote; invoice: Invoice }>>> =>
+    apiClient.post(`/accounting/quotes/${id}/convert`),
+};
+
+// ─── Accounting: Credit Notes (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md Phase 8) ─────────
+// AR mirror of invoicesService's write shape, but 'issue' stands in for 'send' (issues a real
+// E34 e-CF against the originating invoice) and there are two post-issue actions instead of one
+// payment action: 'apply' (subsidiary-ledger allocation onto a target invoice, no new
+// JournalEntry) and 'refund' (real cash-out, does post a JournalEntry) — see creditNotes.controller.ts.
+
+export interface CreditNoteLineItemInput {
+  lineType: 'return' | 'allowance';
+  description: string;
+  taxRate?: number;
+  // 'return' lines only:
+  product?: string;
+  quantity?: number;
+  unitPrice?: number;
+  // 'allowance' lines only:
+  lineTotal?: number;
+}
+
+export const creditNotesService = {
+  getCreditNotes: (params?: { status?: string; invoice?: string; customer?: string; page?: number; limit?: number }): Promise<AxiosResponse<ApiResponse<CreditNote[]> & { meta?: { total: number; page: number; limit: number; pages: number } }>> =>
+    apiClient.get('/accounting/credit-notes', { params }),
+
+  getCreditNote: (id: string): Promise<AxiosResponse<ApiResponse<CreditNote>>> =>
+    apiClient.get(`/accounting/credit-notes/${id}`),
+
+  createCreditNote: (data: {
+    invoice: string;
+    warehouse?: string;
+    reason: CreditNoteReason;
+    fiscalModificationCode: CreditNoteFiscalModificationCode;
+    notes?: string;
+    lineItems: CreditNoteLineItemInput[];
+  }): Promise<AxiosResponse<ApiResponse<CreditNote>>> =>
+    apiClient.post('/accounting/credit-notes', data),
+
+  updateCreditNote: (id: string, data: {
+    warehouse?: string;
+    reason?: CreditNoteReason;
+    fiscalModificationCode?: CreditNoteFiscalModificationCode;
+    notes?: string;
+    lineItems?: CreditNoteLineItemInput[];
+  }): Promise<AxiosResponse<ApiResponse<CreditNote>>> =>
+    apiClient.put(`/accounting/credit-notes/${id}`, data),
+
+  issueCreditNote: (id: string): Promise<AxiosResponse<ApiResponse<{ creditNote: CreditNote; electronicInvoice: ElectronicInvoice }>>> =>
+    apiClient.post(`/accounting/credit-notes/${id}/issue`),
+
+  applyCreditNote: (id: string, data: { invoice?: string; amount: number; note?: string }): Promise<AxiosResponse<ApiResponse<{ creditNote: CreditNote; invoice: Invoice }>>> =>
+    apiClient.post(`/accounting/credit-notes/${id}/apply`, data),
+
+  refundCreditNote: (id: string, data: { amount: number; method: CreditNoteRefundMethod; reference?: string; note?: string }): Promise<AxiosResponse<ApiResponse<CreditNote>>> =>
+    apiClient.post(`/accounting/credit-notes/${id}/refund`, data),
+
+  voidCreditNote: (id: string, data?: { reason?: string }): Promise<AxiosResponse<ApiResponse<CreditNote>>> =>
+    apiClient.post(`/accounting/credit-notes/${id}/void`, data || {}),
+};
+
+// ─── Accounting: Debit Notes (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md Phase 8.3/8.4) ────
+// AR mirror of invoicesService's write shape — 'issue' stands in for 'send' (issues a real
+// E33 e-CF against the originating invoice), 'payments' stands in for the same recordPayment
+// action Invoice/Bill use. No apply/refund here — a debit note is new AR to collect, not a
+// pool of credit to allocate (see creditNotesService for that shape). See debitNotes.controller.ts.
+
+export interface DebitNoteLineItemInput {
+  description: string;
+  taxRate?: number;
+  lineTotal: number;
+  product?: string;
+}
+
+export const debitNotesService = {
+  getDebitNotes: (params?: { status?: string; invoice?: string; customer?: string; page?: number; limit?: number }): Promise<AxiosResponse<ApiResponse<DebitNote[]> & { meta?: { total: number; page: number; limit: number; pages: number } }>> =>
+    apiClient.get('/accounting/debit-notes', { params }),
+
+  getDebitNote: (id: string): Promise<AxiosResponse<ApiResponse<DebitNote>>> =>
+    apiClient.get(`/accounting/debit-notes/${id}`),
+
+  createDebitNote: (data: {
+    invoice: string;
+    reason: DebitNoteReason;
+    fiscalModificationCode: DebitNoteFiscalModificationCode;
+    dueDate?: string;
+    notes?: string;
+    lineItems: DebitNoteLineItemInput[];
+  }): Promise<AxiosResponse<ApiResponse<DebitNote>>> =>
+    apiClient.post('/accounting/debit-notes', data),
+
+  updateDebitNote: (id: string, data: {
+    reason?: DebitNoteReason;
+    fiscalModificationCode?: DebitNoteFiscalModificationCode;
+    dueDate?: string;
+    notes?: string;
+    lineItems?: DebitNoteLineItemInput[];
+  }): Promise<AxiosResponse<ApiResponse<DebitNote>>> =>
+    apiClient.put(`/accounting/debit-notes/${id}`, data),
+
+  issueDebitNote: (id: string): Promise<AxiosResponse<ApiResponse<{ debitNote: DebitNote; electronicInvoice: ElectronicInvoice }>>> =>
+    apiClient.post(`/accounting/debit-notes/${id}/issue`),
+
+  recordPayment: (id: string, data: { amount: number; method: DebitNotePaymentMethod; date?: string; reference?: string }): Promise<AxiosResponse<ApiResponse<DebitNote>>> =>
+    apiClient.post(`/accounting/debit-notes/${id}/payments`, data),
+
+  voidDebitNote: (id: string, data?: { reason?: string }): Promise<AxiosResponse<ApiResponse<DebitNote>>> =>
+    apiClient.post(`/accounting/debit-notes/${id}/void`, data || {}),
+};
+
+// ─── Accounting: Chart of Accounts (read-only here — full CRUD UI lands in Phase 9.2) ─────
+// Bill expense lines code straight to an Account, so the picker needs a list now even
+// though Chart of Accounts management itself isn't built yet.
+
+export const accountsService = {
+  getAccounts: (params?: { active?: boolean | 'all'; type?: string }): Promise<AxiosResponse<ApiResponse<Account[]>>> =>
+    apiClient.get('/accounting/accounts', { params }),
+};
+
+// ─── Accounting: Manual Journal Entries (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md Phase 9.1) ─
+// Every auto-posting hook (Phase 7/8) writes through the same `postJournalEntry` primitive
+// server-side; this is the one place a human posts directly, for adjustments/corrections
+// nothing else in the app produces. `voidJournalEntry` only accepts `source: 'manual'`
+// entries — an auto-posted entry is voided through its owning Invoice/Bill/CreditNote/
+// DebitNote action instead, so that document's status stays in sync with the ledger.
+
+export interface JournalEntryLineInput {
+  account: string;
+  debit?: number;
+  credit?: number;
+  memo?: string;
+}
+
+export const journalEntriesService = {
+  getJournalEntries: (params?: { source?: JournalEntrySource; isVoid?: boolean; from?: string; to?: string; page?: number; limit?: number }): Promise<AxiosResponse<ApiResponse<JournalEntry[]> & { meta?: { total: number; page: number; limit: number; pages: number } }>> =>
+    apiClient.get('/accounting/journal-entries', { params }),
+
+  getJournalEntry: (id: string): Promise<AxiosResponse<ApiResponse<JournalEntry>>> =>
+    apiClient.get(`/accounting/journal-entries/${id}`),
+
+  createJournalEntry: (data: { date?: string; memo: string; lines: JournalEntryLineInput[] }): Promise<AxiosResponse<ApiResponse<JournalEntry>>> =>
+    apiClient.post('/accounting/journal-entries', data),
+
+  voidJournalEntry: (id: string, data?: { reason?: string }): Promise<AxiosResponse<ApiResponse<{ journalEntry: JournalEntry; reversal: JournalEntry }>>> =>
+    apiClient.post(`/accounting/journal-entries/${id}/void`, data || {}),
+};
+
+// ─── Accounting: Financial Reports (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md Phase 9.2) ──
+// Named `accountingReportsService` (not `reportsService`, already taken by the pre-existing
+// PMS-side hotel reports at `/api/reports/*`) — every call here hits `/api/accounting/reports/*`,
+// computed live server-side on each request, no cached tables.
+
+export const accountingReportsService = {
+  getTrialBalance: (params?: { asOf?: string }): Promise<AxiosResponse<ApiResponse<TrialBalanceReport>>> =>
+    apiClient.get('/accounting/reports/trial-balance', { params }),
+
+  getProfitAndLoss: (params?: { from?: string; to?: string }): Promise<AxiosResponse<ApiResponse<ProfitAndLossReport>>> =>
+    apiClient.get('/accounting/reports/profit-and-loss', { params }),
+
+  getBalanceSheet: (params?: { asOf?: string }): Promise<AxiosResponse<ApiResponse<BalanceSheetReport>>> =>
+    apiClient.get('/accounting/reports/balance-sheet', { params }),
+
+  getApAging: (params?: { asOf?: string }): Promise<AxiosResponse<ApiResponse<ApAgingReport>>> =>
+    apiClient.get('/accounting/reports/ap-aging', { params }),
+
+  getArAging: (params?: { asOf?: string }): Promise<AxiosResponse<ApiResponse<ArAgingReport>>> =>
+    apiClient.get('/accounting/reports/ar-aging', { params }),
+
+  getGeneralLedger: (params: { accountId: string; from?: string; to?: string }): Promise<AxiosResponse<ApiResponse<GeneralLedgerReport>>> =>
+    apiClient.get('/accounting/reports/general-ledger', { params }),
+
+  getSupplierStatement: (id: string, params?: { from?: string; to?: string }): Promise<AxiosResponse<ApiResponse<SupplierStatementReport>>> =>
+    apiClient.get(`/accounting/reports/supplier-statement/${id}`, { params }),
+
+  getCustomerStatement: (id: string, params?: { from?: string; to?: string }): Promise<AxiosResponse<ApiResponse<CustomerStatementReport>>> =>
+    apiClient.get(`/accounting/reports/customer-statement/${id}`, { params }),
+};
+
+// ─── Accounting: Suppliers (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md Phase 6.1/6.2) ──────
+// AP mirror of accountingCustomersService — a real new model (locked-in decision #5), so
+// this is plain CRUD directly against `/api/accounting/suppliers`, guarded by
+// `accounting.suppliers.manage`.
+
+export const suppliersService = {
+  getSuppliers: (params?: { search?: string; active?: boolean | 'all'; page?: number; limit?: number }): Promise<AxiosResponse<ApiResponse<Supplier[]>>> =>
+    apiClient.get('/accounting/suppliers', { params }),
+
+  getSupplier: (id: string): Promise<AxiosResponse<ApiResponse<Supplier>>> =>
+    apiClient.get(`/accounting/suppliers/${id}`),
+
+  createSupplier: (data: Partial<Supplier>): Promise<AxiosResponse<ApiResponse<Supplier>>> =>
+    apiClient.post('/accounting/suppliers', data),
+
+  updateSupplier: (id: string, data: Partial<Supplier>): Promise<AxiosResponse<ApiResponse<Supplier>>> =>
+    apiClient.put(`/accounting/suppliers/${id}`, data),
+
+  archiveSupplier: (id: string): Promise<AxiosResponse<ApiResponse<Supplier>>> =>
+    apiClient.delete(`/accounting/suppliers/${id}`),
+};
+
+// ─── Accounting: Bills (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md Phase 6.1/6.2) ──────────
+// AP mirror of invoicesService — 'receive' is Bill's equivalent of Invoice's 'send'
+// (draft -> received, deducts nothing but instead adds stock for inventory lines).
+
+export interface BillLineItemInput {
+  lineType: 'inventory' | 'expense';
+  description?: string;
+  taxRate?: number;
+  // inventory lines only:
+  product?: string;
+  purchaseUnitOfMeasure?: string;
+  purchaseQuantity?: number;
+  purchaseUnitCost?: number;
+  stockUnitOfMeasure?: string;
+  stockQuantity?: number;
+  // expense lines only:
+  account?: string;
+  lineTotal?: number;
+}
+
+export const billsService = {
+  getBills: (params?: { status?: string; supplier?: string; search?: string; page?: number; limit?: number }): Promise<AxiosResponse<ApiResponse<Bill[]> & { meta?: { total: number; page: number; limit: number; pages: number } }>> =>
+    apiClient.get('/accounting/bills', { params }),
+
+  getBill: (id: string): Promise<AxiosResponse<ApiResponse<Bill>>> =>
+    apiClient.get(`/accounting/bills/${id}`),
+
+  createBill: (data: {
+    supplier: string;
+    warehouse?: string;
+    vendorInvoiceNumber?: string;
+    issueDate?: string;
+    dueDate?: string;
+    notes?: string;
+    lineItems: BillLineItemInput[];
+  }): Promise<AxiosResponse<ApiResponse<Bill>>> =>
+    apiClient.post('/accounting/bills', data),
+
+  updateBill: (id: string, data: {
+    supplier?: string;
+    warehouse?: string;
+    vendorInvoiceNumber?: string;
+    issueDate?: string;
+    dueDate?: string;
+    notes?: string;
+    lineItems?: BillLineItemInput[];
+  }): Promise<AxiosResponse<ApiResponse<Bill>>> =>
+    apiClient.put(`/accounting/bills/${id}`, data),
+
+  receiveBill: (id: string): Promise<AxiosResponse<ApiResponse<Bill>>> =>
+    apiClient.post(`/accounting/bills/${id}/receive`),
+
+  recordPayment: (id: string, data: { amount: number; method: BillPaymentMethod; date?: string; reference?: string }): Promise<AxiosResponse<ApiResponse<Bill>>> =>
+    apiClient.post(`/accounting/bills/${id}/payments`, data),
+
+  voidBill: (id: string, data?: { reason?: string }): Promise<AxiosResponse<ApiResponse<Bill>>> =>
+    apiClient.post(`/accounting/bills/${id}/void`, data || {}),
 };
 

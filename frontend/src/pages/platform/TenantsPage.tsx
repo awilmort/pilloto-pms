@@ -4,6 +4,7 @@ import {
   TableContainer, TableHead, TableRow, Paper, Chip,
   IconButton, Tooltip, CircularProgress, Dialog, DialogTitle,
   DialogContent, DialogActions, TextField, MenuItem, Alert,
+  FormGroup, FormControlLabel, Checkbox, Stack,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -11,7 +12,7 @@ import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import EditIcon from '@mui/icons-material/Edit';
-import { platformService, TenantRecord, ProvisionTenantPayload } from '../../services/api';
+import { platformService, TenantRecord, ProvisionTenantPayload, TenantProduct, AccountingPlanSlug } from '../../services/api';
 import PlatformLayout from './PlatformLayout';
 import { toast } from 'react-toastify';
 
@@ -21,9 +22,16 @@ const PLAN_COLORS: Record<string, 'default' | 'primary' | 'secondary'> = {
   enterprise: 'secondary',
 };
 
+const ACCOUNTING_PLAN_COLORS: Record<string, 'default' | 'primary' | 'secondary'> = {
+  starter: 'default',
+  pro: 'primary',
+  plus: 'secondary',
+};
+
 const defaultForm: ProvisionTenantPayload = {
   name: '', slug: '', plan: 'basic',
   ownerEmail: '', adminFirstName: '', adminLastName: '', adminPassword: '',
+  products: ['pms'],
 };
 
 const TenantsPage: React.FC = () => {
@@ -38,24 +46,43 @@ const TenantsPage: React.FC = () => {
   const [statsOpen, setStatsOpen] = useState(false);
   const [stats, setStats] = useState<{ tenant: TenantRecord; stats: any } | null>(null);
 
-  // Edit plan dialog
+  // Edit plan/products dialog
   const [editPlanOpen, setEditPlanOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<TenantRecord | null>(null);
   const [editPlanValue, setEditPlanValue] = useState('basic');
+  const [editProducts, setEditProducts] = useState<TenantProduct[]>(['pms']);
+  const [editAccountingPlan, setEditAccountingPlan] = useState<AccountingPlanSlug>('starter');
   const [editPlanSaving, setEditPlanSaving] = useState(false);
 
   const handleOpenEditPlan = (t: TenantRecord) => {
     setEditingTenant(t);
     setEditPlanValue(t.plan);
+    setEditProducts(t.products?.length ? t.products : ['pms']);
+    setEditAccountingPlan(t.plans?.accounting ?? 'starter');
     setEditPlanOpen(true);
+  };
+
+  const toggleEditProduct = (product: TenantProduct) => {
+    setEditProducts((prev) =>
+      prev.includes(product) ? prev.filter((p) => p !== product) : [...prev, product]
+    );
   };
 
   const handleSavePlan = async () => {
     if (!editingTenant) return;
     setEditPlanSaving(true);
     try {
-      await platformService.updateTenant(editingTenant._id, { plan: editPlanValue });
-      toast.success(`Plan updated to "${editPlanValue}" for ${editingTenant.name}`);
+      const addingAccounting = editProducts.includes('accounting') && !editingTenant.products?.includes('accounting');
+      await platformService.updateTenant(editingTenant._id, {
+        plan: editPlanValue,
+        products: editProducts,
+        plans: editProducts.includes('accounting') ? { accounting: editAccountingPlan } : {},
+      });
+      toast.success(
+        addingAccounting
+          ? `Accounting (${editAccountingPlan}) added to ${editingTenant.name} — Chart of Accounts and roles provisioned.`
+          : `Plan updated for ${editingTenant.name}`
+      );
       setEditPlanOpen(false);
       setEditingTenant(null);
       load();
@@ -102,6 +129,10 @@ const TenantsPage: React.FC = () => {
 
   const handleCreate = async () => {
     setCreateError('');
+    if (!form.products?.length) {
+      setCreateError('Select at least one product (PMS and/or Accounting).');
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await platformService.createTenant(form);
@@ -138,6 +169,7 @@ const TenantsPage: React.FC = () => {
                 <TableCell>Name</TableCell>
                 <TableCell>Slug</TableCell>
                 <TableCell>Plan</TableCell>
+                <TableCell>Products</TableCell>
                 <TableCell>Owner</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell>Created</TableCell>
@@ -153,6 +185,20 @@ const TenantsPage: React.FC = () => {
                   </TableCell>
                   <TableCell>
                     <Chip label={t.plan} color={PLAN_COLORS[t.plan] ?? 'default'} size="small" />
+                  </TableCell>
+                  <TableCell>
+                    <Stack direction="row" spacing={0.5}>
+                      {(t.products?.length ? t.products : ['pms']).map((p) => (
+                        <Tooltip key={p} title={p === 'accounting' && t.plans?.accounting ? `Accounting — ${t.plans.accounting}` : undefined}>
+                          <Chip
+                            label={p === 'accounting' ? `Accounting (${t.plans?.accounting ?? 'starter'})` : 'PMS'}
+                            color={p === 'accounting' ? (ACCOUNTING_PLAN_COLORS[t.plans?.accounting ?? 'starter'] ?? 'default') : 'default'}
+                            size="small"
+                            variant={p === 'accounting' ? 'filled' : 'outlined'}
+                          />
+                        </Tooltip>
+                      ))}
+                    </Stack>
                   </TableCell>
                   <TableCell>{t.ownerEmail}</TableCell>
                   <TableCell>
@@ -192,7 +238,7 @@ const TenantsPage: React.FC = () => {
               ))}
               {tenants.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} align="center">No tenants yet. Create your first one!</TableCell>
+                  <TableCell colSpan={8} align="center">No tenants yet. Create your first one!</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -213,11 +259,57 @@ const TenantsPage: React.FC = () => {
             helperText="Used as subdomain: {slug}.pilloto.com — lowercase letters, numbers, hyphens only"
             required fullWidth
           />
-          <TextField select label="Plan" value={form.plan} onChange={fieldChange('plan')} fullWidth>
+          <TextField select label="PMS Plan" value={form.plan} onChange={fieldChange('plan')} fullWidth>
             {['basic', 'pro', 'enterprise'].map(p => (
               <MenuItem key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</MenuItem>
             ))}
           </TextField>
+          <Box>
+            <Typography variant="body2" color="text.secondary" gutterBottom>Products</Typography>
+            <FormGroup row>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={!!form.products?.includes('pms')}
+                    onChange={() => setForm(f => ({
+                      ...f,
+                      products: f.products?.includes('pms')
+                        ? f.products.filter(p => p !== 'pms')
+                        : [...(f.products ?? []), 'pms'],
+                    }))}
+                  />
+                }
+                label="PMS"
+              />
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={!!form.products?.includes('accounting')}
+                    onChange={() => setForm(f => ({
+                      ...f,
+                      products: f.products?.includes('accounting')
+                        ? f.products.filter(p => p !== 'accounting')
+                        : [...(f.products ?? []), 'accounting'],
+                    }))}
+                  />
+                }
+                label="Accounting"
+              />
+            </FormGroup>
+          </Box>
+          {form.products?.includes('accounting') && (
+            <TextField
+              select
+              label="Accounting Plan"
+              value={form.plans?.accounting ?? 'starter'}
+              onChange={(e) => setForm(f => ({ ...f, plans: { ...f.plans, accounting: e.target.value as AccountingPlanSlug } }))}
+              fullWidth
+            >
+              {['starter', 'pro', 'plus'].map(p => (
+                <MenuItem key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</MenuItem>
+              ))}
+            </TextField>
+          )}
           <TextField label="Owner Email" type="email" value={form.ownerEmail} onChange={fieldChange('ownerEmail')} required fullWidth />
           <Box display="flex" gap={2}>
             <TextField label="Admin First Name" value={form.adminFirstName} onChange={fieldChange('adminFirstName')} required fullWidth />
@@ -245,13 +337,13 @@ const TenantsPage: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Edit Plan Dialog */}
+      {/* Edit Plan & Products Dialog */}
       <Dialog open={editPlanOpen} onClose={() => setEditPlanOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Change Plan — {editingTenant?.name}</DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
+        <DialogTitle>Change Plan & Products — {editingTenant?.name}</DialogTitle>
+        <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TextField
             select
-            label="Plan"
+            label="PMS Plan"
             value={editPlanValue}
             onChange={(e) => setEditPlanValue(e.target.value)}
             fullWidth
@@ -260,13 +352,49 @@ const TenantsPage: React.FC = () => {
               <MenuItem key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</MenuItem>
             ))}
           </TextField>
+          <Box>
+            <Typography variant="body2" color="text.secondary" gutterBottom>Products</Typography>
+            <FormGroup row>
+              <FormControlLabel
+                control={<Checkbox checked={editProducts.includes('pms')} onChange={() => toggleEditProduct('pms')} />}
+                label="PMS"
+              />
+              <FormControlLabel
+                control={<Checkbox checked={editProducts.includes('accounting')} onChange={() => toggleEditProduct('accounting')} />}
+                label="Accounting"
+              />
+            </FormGroup>
+          </Box>
+          {editProducts.includes('accounting') && (
+            <>
+              <TextField
+                select
+                label="Accounting Plan"
+                value={editAccountingPlan}
+                onChange={(e) => setEditAccountingPlan(e.target.value as AccountingPlanSlug)}
+                fullWidth
+              >
+                {['starter', 'pro', 'plus'].map(p => (
+                  <MenuItem key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</MenuItem>
+                ))}
+              </TextField>
+              {!editingTenant?.products?.includes('accounting') && (
+                <Alert severity="info">
+                  Saving will provision the Chart of Accounts and default Accounting roles for this tenant.
+                </Alert>
+              )}
+            </>
+          )}
+          {!editProducts.length && (
+            <Alert severity="warning">A tenant needs at least one product.</Alert>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setEditPlanOpen(false)}>Cancel</Button>
           <Button
             variant="contained"
             onClick={handleSavePlan}
-            disabled={editPlanSaving}
+            disabled={editPlanSaving || !editProducts.length}
             startIcon={editPlanSaving ? <CircularProgress size={16} /> : undefined}
           >
             Save

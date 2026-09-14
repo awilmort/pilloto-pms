@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline, GlobalStyles, CircularProgress, Box } from '@mui/material';
 import { ToastContainer } from 'react-toastify';
@@ -7,6 +7,7 @@ import { HelmetProvider, Helmet } from 'react-helmet-async';
 import 'react-toastify/dist/ReactToastify.css';
 
 import theme from './theme';
+import accountingTheme from './accountingTheme';
 import { AuthProvider } from './contexts/AuthContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { TenantProvider, useTenant } from './contexts/TenantContext';
@@ -47,6 +48,22 @@ import EcfInvoicesPage from './pages/admin/EcfInvoicesPage';
 import ReportsPage from './pages/admin/ReportsPage';
 import CorporatePriceActionPage from './pages/admin/CorporatePriceActionPage';
 import AdminProfilePage from './pages/admin/AdminProfilePage';
+import AccountingDashboard from './pages/accounting/AccountingDashboard';
+import AccountingProfilePage from './pages/accounting/AccountingProfilePage';
+import AccountingSettingsPage from './pages/accounting/AccountingSettingsPage';
+import InventoryProductsPage from './pages/accounting/InventoryProductsPage';
+import InventoryWarehousesPage from './pages/accounting/InventoryWarehousesPage';
+import InvoicesPage from './pages/accounting/InvoicesPage';
+import QuotesPage from './pages/accounting/QuotesPage';
+import CreditNotesPage from './pages/accounting/CreditNotesPage';
+import DebitNotesPage from './pages/accounting/DebitNotesPage';
+import JournalEntriesPage from './pages/accounting/JournalEntriesPage';
+import AccountingReportsPage from './pages/accounting/ReportsPage';
+import CustomersPage from './pages/accounting/CustomersPage';
+import CityLedgerPage from './pages/accounting/CityLedgerPage';
+import BillsPage from './pages/accounting/BillsPage';
+import SuppliersPage from './pages/accounting/SuppliersPage';
+import AccountingRoute from './components/accounting/AccountingRoute';
 import ProtectedRoute from './components/common/ProtectedRoute';
 import NotFoundPage from './pages/NotFoundPage';
 import LandingPage from './pages/marketing/LandingPage';
@@ -182,13 +199,104 @@ function PlatformApp() {
   );
 }
 
+// Switches to the emerald accounting theme under `/accounting/*`, replacing (not
+// merging with) the outer pms theme for that subtree — both themes are complete
+// MUI theme objects, per Phase 2.1's "distinct theme accent" requirement.
+function AppThemeSwitcher({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  const isAccounting = location.pathname.startsWith('/accounting');
+  return (
+    <ThemeProvider theme={isAccounting ? accountingTheme : theme}>
+      {children}
+    </ThemeProvider>
+  );
+}
+
 // ─── Regular tenant app ────────────────────────────────────────────────────────
 function TenantApp() {
   return (
     <AuthProvider>
       <Router>
+        <AppThemeSwitcher>
         <SettingsProvider>
           <Routes>
+            {/* Accounting routes — sibling app tree to /admin/*, gated by AccountingRoute */}
+            <Route path="/accounting" element={
+              <AccountingRoute>
+                <AccountingDashboard />
+              </AccountingRoute>
+            } />
+            <Route path="/accounting/profile" element={
+              <AccountingRoute>
+                <AccountingProfilePage />
+              </AccountingRoute>
+            } />
+            <Route path="/accounting/settings" element={
+              <AccountingRoute requiredPermission="accounting.settings.manage">
+                <AccountingSettingsPage />
+              </AccountingRoute>
+            } />
+            <Route path="/accounting/products" element={
+              <AccountingRoute requiredPermission={['accounting.inventory.view', 'accounting.inventory.manage']}>
+                <InventoryProductsPage />
+              </AccountingRoute>
+            } />
+            <Route path="/accounting/warehouses" element={
+              <AccountingRoute requiredPermission={['accounting.inventory.view', 'accounting.inventory.manage']}>
+                <InventoryWarehousesPage />
+              </AccountingRoute>
+            } />
+            <Route path="/accounting/invoices" element={
+              <AccountingRoute requiredPermission={['accounting.invoices.view', 'accounting.invoices.manage']}>
+                <InvoicesPage />
+              </AccountingRoute>
+            } />
+            <Route path="/accounting/quotes" element={
+              <AccountingRoute requiredPermission={['accounting.quotes.view', 'accounting.quotes.manage']}>
+                <QuotesPage />
+              </AccountingRoute>
+            } />
+            <Route path="/accounting/credit-notes" element={
+              <AccountingRoute requiredPermission={['accounting.creditNotes.view', 'accounting.creditNotes.manage']}>
+                <CreditNotesPage />
+              </AccountingRoute>
+            } />
+            <Route path="/accounting/debit-notes" element={
+              <AccountingRoute requiredPermission={['accounting.debitNotes.view', 'accounting.debitNotes.manage']}>
+                <DebitNotesPage />
+              </AccountingRoute>
+            } />
+            <Route path="/accounting/customers" element={
+              <AccountingRoute requiredPermission="accounting.customers.manage">
+                <CustomersPage />
+              </AccountingRoute>
+            } />
+            <Route path="/accounting/city-ledger" element={
+              <AccountingRoute requiredPermission={['accounting.cityLedger.view', 'accounting.cityLedger.authorize']}>
+                <CityLedgerPage />
+              </AccountingRoute>
+            } />
+            <Route path="/accounting/bills" element={
+              <AccountingRoute requiredPermission={['accounting.bills.view', 'accounting.bills.manage']}>
+                <BillsPage />
+              </AccountingRoute>
+            } />
+            <Route path="/accounting/suppliers" element={
+              <AccountingRoute requiredPermission="accounting.suppliers.manage">
+                <SuppliersPage />
+              </AccountingRoute>
+            } />
+            <Route path="/accounting/journal-entries" element={
+              <AccountingRoute requiredPermission={['accounting.journal.view', 'accounting.journal.manage']}>
+                <JournalEntriesPage />
+              </AccountingRoute>
+            } />
+            <Route path="/accounting/reports" element={
+              <AccountingRoute requiredPermission="accounting.reports.view">
+                <AccountingReportsPage />
+              </AccountingRoute>
+            } />
+
             {/* Admin routes without main layout (they use AdminLayout internally) */}
             <Route path="/admin" element={
               <ProtectedRoute>
@@ -372,6 +480,7 @@ function TenantApp() {
           </Routes>
           {toastConfig}
         </SettingsProvider>
+        </AppThemeSwitcher>
       </Router>
     </AuthProvider>
   );

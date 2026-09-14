@@ -9,6 +9,10 @@
     "build": "tsc",
     "seed": "ts-node src/scripts/seed.ts",
     "create-superadmin": "ts-node src/scripts/create-superadmin.ts",
+    "migrate:tenant-products": "ts-node src/scripts/migrate-tenant-products.ts",
+    "migrate:role-app": "ts-node src/scripts/migrate-role-app.ts",
+    "migrate:app-roles": "ts-node src/scripts/migrate-app-roles.ts",
+    "migrate:account-names-to-spanish": "ts-node src/scripts/migrate-account-names-to-spanish.ts",
     "test": "jest --verbose --forceExit --detectOpenHandles"
   },
   "keywords": [],

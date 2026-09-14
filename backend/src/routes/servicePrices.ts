@@ -1,11 +1,11 @@
 import express, { Response } from 'express';
-import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import { authenticate, authorize, authorizeAppAccess, AuthRequest } from '../middleware/auth';
 import ServicePrice from '../models/ServicePrice';
 
 const router = express.Router();
 
 // ── GET /service-prices ───────────────────────────────────────
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const { serviceId, active, category } = req.query as {
       serviceId?: string;
@@ -29,7 +29,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // ── GET /service-prices/:id ───────────────────────────────────
-router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/:id', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const price = await ServicePrice.findById(req.params.id)
       .populate('serviceId', 'name kind code')

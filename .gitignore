@@ -14,3 +14,8 @@ frontend/node_modules
 frontend/build
 frontend/.env
 
+# Local planning/design docs (not part of the shipped repo)
+*_PLAN.md
+*_ARCHITECTURE.md
+*_STRATEGY.md
+

@@ -1,6 +1,19 @@
 import mongoose, { Document, Schema } from 'mongoose';
+import { APP_CODES, AppCode } from '../constants/apps';
+import { AccountingPlanSlug } from '../config/accountingPlans';
 
 export type TenantPlan = 'basic' | 'pro' | 'enterprise';
+
+/**
+ * Per-product plan ladder. `plan` above remains the `pms` plan slug (kept as
+ * a top-level field rather than renamed to `plans.pms`, to avoid touching
+ * every existing `req.tenant.plan` call site). `plans.accounting` is the
+ * independent ladder from `config/accountingPlans.ts`, only meaningful once
+ * `'accounting'` is in `products`.
+ */
+export interface ITenantPlans {
+  accounting?: AccountingPlanSlug;
+}
 
 export interface ITenantSettings {
   language?: string;   // e.g. 'es', 'en'
@@ -27,12 +40,18 @@ export interface ITenantEcfConfig {
   isActive: boolean;
   sucursal?: string;
   citrusBaseUrl: string;
+  /** Default ITBIS rate (percent) for new Accounting-product invoice/quote/bill lines. Per §9.1. */
+  defaultItbisRate: number;
 }
 
 export interface ITenant extends Document {
   name: string;
   slug: string;        // URL-safe unique identifier used for subdomain routing
   plan: TenantPlan;
+  /** Which apps this tenant has bought. Gates access alongside User.appRoles. */
+  products: AppCode[];
+  /** Per-product plan tier, independent of `plan` (the pms tier). */
+  plans: ITenantPlans;
   isActive: boolean;
   ownerEmail: string;  // Primary admin contact for this tenant
   settings: ITenantSettings;
@@ -69,6 +88,7 @@ const ecfConfigSchema = new Schema<ITenantEcfConfig>(
       trim: true,
       default: 'https://test.ecf.citrus.com.do',
     },
+    defaultItbisRate: { type: Number, required: true, min: 0, max: 100, default: 18 },
   },
   { _id: false }
 );
@@ -94,6 +114,19 @@ const tenantSchema = new Schema<ITenant>(
       type: String,
       enum: ['basic', 'pro', 'enterprise'],
       default: 'basic',
+    },
+    products: {
+      type: [{ type: String, enum: APP_CODES }],
+      default: ['pms'],
+    },
+    plans: {
+      type: new Schema<ITenantPlans>(
+        {
+          accounting: { type: String, enum: ['starter', 'pro', 'plus'] },
+        },
+        { _id: false }
+      ),
+      default: () => ({}),
     },
     isActive: {
       type: Boolean,

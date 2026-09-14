@@ -19,7 +19,8 @@ import Tenant from '../models/Tenant';
 import User from '../models/User';
 import Reservation from '../models/Reservation';
 import Room from '../models/Room';
-import { provisionTenant } from '../utils/provisionTenant';
+import { provisionTenant, ensureAccountingProvisioned } from '../utils/provisionTenant';
+import { AppCode } from '../constants/apps';
 import { tenantLocalStorage } from '../middleware/tenantContext';
 import PlatformSettings from '../models/PlatformSettings';
 import AppSettings from '../models/AppSettings';
@@ -63,7 +64,7 @@ router.post('/tenants', async (req: AuthRequest, res: Response) => {
     const {
       name, slug, plan, ownerEmail,
       adminFirstName, adminLastName, adminPassword,
-      settings,
+      settings, products, plans,
     } = req.body;
 
     if (!name || !slug || !ownerEmail || !adminFirstName || !adminLastName || !adminPassword) {
@@ -82,7 +83,7 @@ router.post('/tenants', async (req: AuthRequest, res: Response) => {
     const { tenant, adminUser } = await provisionTenant({
       name, slug, plan, ownerEmail,
       adminFirstName, adminLastName, adminPassword,
-      settings,
+      settings, products, plans,
     });
 
     res.status(201).json({
@@ -106,10 +107,27 @@ router.post('/tenants', async (req: AuthRequest, res: Response) => {
 // ── Update tenant metadata ─────────────────────────────────────────────────────
 router.patch('/tenants/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const allowed = ['name', 'plan', 'isActive', 'ownerEmail', 'settings'];
+    const existing = await Tenant.findById(req.params.id).lean();
+    if (!existing) return res.status(404).json({ success: false, message: 'Tenant not found.' });
+
+    const allowed = ['name', 'plan', 'isActive', 'ownerEmail', 'settings', 'products', 'plans'];
     const updates: Record<string, any> = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
+    }
+
+    // Standalone-sale rollout (Phase 10.2): adding 'accounting' to an existing tenant's
+    // products is more than a flag flip — it needs the same Chart of Accounts /
+    // accounting-role seeding a brand-new accounting tenant gets from `provisionTenant`.
+    // Detect that transition here (not just "products includes accounting", so this
+    // stays a no-op — and doesn't re-touch `plans` — on every other tenant edit).
+    const addingAccounting =
+      Array.isArray(updates.products) &&
+      (updates.products as AppCode[]).includes('accounting') &&
+      !existing.products.includes('accounting');
+
+    if (addingAccounting && !updates.plans?.accounting) {
+      updates.plans = { ...(updates.plans ?? existing.plans ?? {}), accounting: 'starter' };
     }
 
     const tenant = await Tenant.findByIdAndUpdate(
@@ -119,6 +137,10 @@ router.patch('/tenants/:id', async (req: AuthRequest, res: Response) => {
     ).lean();
 
     if (!tenant) return res.status(404).json({ success: false, message: 'Tenant not found.' });
+
+    if (addingAccounting) {
+      await ensureAccountingProvisioned(req.params.id);
+    }
 
     res.status(200).json({ success: true, data: tenant });
   } catch (error: any) {

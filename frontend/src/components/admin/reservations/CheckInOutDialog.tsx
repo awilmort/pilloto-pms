@@ -90,7 +90,18 @@ const CheckInOutDialog: React.FC<Props> = ({
       } else {
         const res = await reservationsService.checkOutReservation(reservation._id, {});
         onSuccess(res.data.data as Reservation);
-        onSnackbar(t('admin.reservations.messages.checkoutSuccess'), 'success');
+        const cityLedger = (res.data as any)?.cityLedger as
+          { transferred: boolean; preApproved: boolean; invoiceNumber: string; authorizationStatus: string } | undefined;
+        if (cityLedger?.transferred) {
+          onSnackbar(
+            cityLedger.preApproved
+              ? t('admin.reservations.messages.checkoutCityLedgerPreApproved', 'Checked out. Balance posted to the direct-bill account ({{invoiceNumber}}).', { invoiceNumber: cityLedger.invoiceNumber })
+              : t('admin.reservations.messages.checkoutCityLedgerPending', 'Checked out. Balance sent to City Ledger, pending manager authorization ({{invoiceNumber}}).', { invoiceNumber: cityLedger.invoiceNumber }),
+            'success',
+          );
+        } else {
+          onSnackbar(t('admin.reservations.messages.checkoutSuccess'), 'success');
+        }
         onRoomsRefresh?.();
         onClose();
       }
@@ -188,7 +199,11 @@ const CheckInOutDialog: React.FC<Props> = ({
                   ${checkoutFinancial.creditAvailability.toFixed(2)}
                 </Typography>
                 {checkoutFinancial.balance > 0 && (
-                  <Alert severity="info">{t('admin.reservations.checkout.pendingHint')}</Alert>
+                  <Alert severity="info">
+                    {checkoutFinancial.creditAvailability >= checkoutFinancial.balance
+                      ? t('admin.reservations.checkout.pendingHintPreApproved', 'This balance will post automatically to the guest’s direct-bill account on checkout — no extra step needed.')
+                      : t('admin.reservations.checkout.pendingHintCityLedger', 'This balance will be sent to City Ledger automatically on checkout, pending manager authorization. You can still collect payment or use credit manually below.')}
+                  </Alert>
                 )}
               </Box>
             ) : null}

@@ -37,7 +37,8 @@
     "status": "Estado",
     "rowsPerPage": "Filas por página",
     "reset": "Restablecer",
-    "errorOccurred": "Ocurrió un error"
+    "errorOccurred": "Ocurrió un error",
+    "close": "Cerrar"
   },
   "nav": {
     "home": "Inicio",
@@ -342,6 +343,7 @@
       "form": {
         "name": "Nombre",
         "description": "Descripción",
+        "app": "Aplicación",
         "discountLimit": "Descuento máximo (%)",
         "discountLimitHint": "Porcentaje máximo que este rol puede descontar (0–100)"
       },
@@ -350,6 +352,9 @@
         "deleteFailed": "No se pudo eliminar el rol",
         "updateFailed": "No se pudo actualizar el rol",
         "createFailed": "No se pudo crear el rol"
+      },
+      "permissionGroups": {
+        "general": "General"
       },
       "permissionLabels": {
         "adminAccess": "Acceso de administración (general)",
@@ -590,7 +595,9 @@
         "email": "Correo",
         "phone": "Teléfono",
         "role": "Rol",
-        "password": "Contraseña"
+        "password": "Contraseña",
+        "app": "Aplicación",
+        "appAccess": "Acceso a la app"
       },
       "dialog": {
         "editTitle": "Editar usuario",
@@ -602,6 +609,7 @@
         "loadFailed": "No se pudieron cargar los usuarios",
         "deleteFailed": "No se pudo eliminar el usuario",
         "updateFailed": "No se pudo actualizar el usuario",
+        "roleRequiredForApp": "Selecciona un rol para cada app marcada.",
         "createFailed": "No se pudo crear el usuario",
         "noUsers": "No se encontraron usuarios."
       }
@@ -797,6 +805,8 @@
         "checkinLateConfirm": "La fecha de checkout de esta reserva ya pasó. ¿Registrar check-in de todas formas?",
         "checkinSuccess": "Check-In realizado exitosamente",
         "checkoutSuccess": "Check-Out realizado exitosamente",
+        "checkoutCityLedgerPreApproved": "Check-out realizado. Saldo aplicado a la cuenta de facturación directa ({{invoiceNumber}}).",
+        "checkoutCityLedgerPending": "Check-out realizado. Saldo enviado a Cuenta de Ciudad (City Ledger), pendiente de autorización gerencial ({{invoiceNumber}}).",
         "operationFailed": "La operación falló"
       },
       "empty": {
@@ -827,7 +837,9 @@
         "availableCredit": "Crédito disponible",
         "addPayment": "Agregar Pago",
         "useCredit": "Usar Crédito y Hacer Check-Out",
-        "pendingHint": "Hay un saldo pendiente. Por favor cobra el pago o aplica el crédito disponible antes de hacer check-out."
+        "pendingHint": "Hay un saldo pendiente. Por favor cobra el pago o aplica el crédito disponible antes de hacer check-out.",
+        "pendingHintPreApproved": "Este saldo se aplicará automáticamente a la cuenta de facturación directa del huésped al hacer check-out — no se requiere ningún paso adicional.",
+        "pendingHintCityLedger": "Este saldo se enviará automáticamente a Cuenta de Ciudad (City Ledger) al hacer check-out, pendiente de autorización gerencial. Aún puedes cobrar el pago o usar crédito manualmente abajo."
       },
       "financial": {
         "estimatedTotal": "Total Estimado",
@@ -2217,6 +2229,866 @@
       }
     }
   },
+  "accounting": {
+    "title": "Pilloto Contabilidad",
+    "nav": {
+      "dashboard": "Panel",
+      "settings": "Configuración",
+      "inventory": "Inventario",
+      "products": "Productos",
+      "warehouses": "Almacenes",
+      "invoicing": "Facturación",
+      "invoices": "Facturas",
+      "creditNotes": "Notas de Crédito",
+      "debitNotes": "Notas de Débito",
+      "customers": "Clientes",
+      "cityLedger": "Cuenta de Ciudad",
+      "quotes": "Cotizaciones",
+      "purchasing": "Facturas de Compra",
+      "bills": "Facturas de Compra",
+      "suppliers": "Proveedores",
+      "accounting": "Contabilidad",
+      "journalEntries": "Asientos Contables",
+      "reports": "Reportes"
+    },
+    "dashboard": {
+      "title": "Panel de Contabilidad",
+      "welcomeTitle": "Bienvenido a Pilloto Contabilidad",
+      "comingSoon": "Esta aplicación se está construyendo módulo por módulo. Facturas, cuentas por pagar, inventario y el libro mayor estarán disponibles próximamente — por ahora, usa Configuración para administrar roles y usuarios de Contabilidad."
+    },
+    "settings": {
+      "title": "Configuración",
+      "subtitle": "Administra los roles y usuarios de Contabilidad.",
+      "tabs": {
+        "roles": "Roles",
+        "users": "Usuarios"
+      }
+    },
+    "inventory": {
+      "title": "Productos",
+      "loading": "Cargando productos...",
+      "empty": "Aún no hay productos.",
+      "actions": {
+        "hideArchived": "Ocultar Archivados",
+        "showArchived": "Mostrar Archivados",
+        "lowStockOnly": "Solo Bajo Stock",
+        "showAll": "Mostrar Todos",
+        "createProduct": "Nuevo Producto",
+        "cancel": "Cancelar",
+        "create": "Crear",
+        "save": "Guardar",
+        "edit": "Editar",
+        "archive": "Archivar",
+        "history": "Historial",
+        "receive": "Recibir Mercancía",
+        "adjust": "Ajustar Inventario",
+        "close": "Cerrar"
+      },
+      "table": {
+        "name": "Nombre",
+        "sku": "SKU",
+        "onHand": "Disponible",
+        "cost": "Costo",
+        "price": "Precio",
+        "actions": "Acciones"
+      },
+      "status": {
+        "lowStock": "Bajo Stock"
+      },
+      "stockByWarehouse": {
+        "title": "Existencias por Almacén",
+        "empty": "Sin existencias en ningún almacén."
+      },
+      "dialog": {
+        "editTitle": "Editar Producto",
+        "createTitle": "Nuevo Producto",
+        "receiveTitle": "Recibir Mercancía — {{name}}",
+        "adjustTitle": "Ajustar Inventario — {{name}}",
+        "historyTitle": "Historial de Transacciones — {{name}}"
+      },
+      "form": {
+        "name": "Nombre",
+        "sku": "SKU",
+        "category": "Categoría",
+        "unitOfMeasure": "Unidad de Medida",
+        "defaultUnitPrice": "Precio de Venta",
+        "reorderPoint": "Punto de Reorden",
+        "reorderPointHelp": "Los productos en o por debajo de esta cantidad se marcan como bajo stock.",
+        "description": "Descripción",
+        "isSellable": "Vendible (puede agregarse a facturas)",
+        "isPurchasable": "Comprable (puede agregarse a facturas de proveedor)",
+        "notes": "Notas",
+        "currentCost": "Costo actual",
+        "currentOnHand": "Disponible actual",
+        "initialStockSection": "Existencia Inicial (opcional)",
+        "initialStockHelp": "Asigna un saldo inicial a este producto — se registra como una transacción de inventario real.",
+        "initialQuantity": "Cantidad Inicial",
+        "initialUnitCost": "Costo Unitario Inicial",
+        "warehouse": "Almacén",
+        "quantity": "Cantidad",
+        "unitCost": "Costo Unitario",
+        "adjustModeAmount": "Monto",
+        "adjustModeCount": "Conteo Físico",
+        "directionIncrease": "Aumentar",
+        "directionDecrease": "Disminuir",
+        "quantityToRemove": "Cantidad a remover",
+        "quantityToAdd": "Cantidad a agregar",
+        "countedQuantity": "Cantidad Contada",
+        "countedQuantityHelp": "Ingresa el conteo físico — el sistema calcula la diferencia.",
+        "countedQuantityDeltaPreview": "Cambio: {{delta}}",
+        "reason": "Motivo"
+      },
+      "reason": {
+        "countCorrection": "Corrección de Conteo",
+        "damaged": "Dañado",
+        "lost": "Perdido",
+        "theft": "Robo",
+        "other": "Otro"
+      },
+      "uom": {
+        "unit": "Unidad",
+        "box": "Caja",
+        "pack": "Paquete",
+        "dozen": "Docena",
+        "kg": "Kilogramo",
+        "g": "Gramo",
+        "lb": "Libra",
+        "oz": "Onza",
+        "l": "Litro",
+        "ml": "Mililitro",
+        "gal": "Galón",
+        "m": "Metro",
+        "cm": "Centímetro"
+      },
+      "history": {
+        "date": "Fecha",
+        "type": "Tipo",
+        "warehouse": "Almacén",
+        "delta": "Cambio",
+        "balance": "Saldo",
+        "unitCost": "Costo Unitario",
+        "notes": "Notas",
+        "empty": "Aún no hay transacciones.",
+        "types": {
+          "purchase": "Compra",
+          "adjustment": "Ajuste",
+          "sale-deduction": "Venta",
+          "opening-balance": "Saldo Inicial"
+        }
+      },
+      "messages": {
+        "loadFailed": "Error al cargar el inventario.",
+        "createFailed": "Error al crear el producto.",
+        "updateFailed": "Error al actualizar el producto.",
+        "archiveFailed": "Error al archivar el producto.",
+        "purchaseFailed": "Error al registrar la compra.",
+        "adjustFailed": "Error al ajustar el inventario."
+      }
+    },
+    "warehouses": {
+      "title": "Almacenes",
+      "loading": "Cargando almacenes...",
+      "empty": "Aún no hay almacenes.",
+      "actions": {
+        "hideArchived": "Ocultar Archivados",
+        "showArchived": "Mostrar Archivados",
+        "create": "Nuevo Almacén",
+        "cancel": "Cancelar",
+        "save": "Guardar",
+        "edit": "Editar",
+        "archive": "Archivar",
+        "setDefault": "Marcar como Predeterminado"
+      },
+      "table": {
+        "name": "Nombre",
+        "code": "Código",
+        "address": "Dirección",
+        "status": "Estado",
+        "actions": "Acciones"
+      },
+      "status": {
+        "default": "Predeterminado",
+        "active": "Activo",
+        "archived": "Archivado"
+      },
+      "dialog": {
+        "editTitle": "Editar Almacén",
+        "createTitle": "Nuevo Almacén"
+      },
+      "form": {
+        "name": "Nombre",
+        "code": "Código",
+        "codeHelp": "Un código corto y único, ej. MAIN.",
+        "address": "Dirección",
+        "notes": "Notas"
+      },
+      "messages": {
+        "loadFailed": "Error al cargar los almacenes.",
+        "createFailed": "Error al crear el almacén.",
+        "updateFailed": "Error al actualizar el almacén.",
+        "archiveFailed": "Error al archivar el almacén.",
+        "setDefaultFailed": "Error al establecer el almacén predeterminado.",
+        "cannotArchiveDefault": "Establece otro almacén como predeterminado antes de archivar este."
+      }
+    },
+    "invoices": {
+      "title": "Facturas",
+      "loading": "Cargando facturas...",
+      "empty": "No se encontraron facturas",
+      "table": {
+        "number": "Número",
+        "customer": "Cliente",
+        "issueDate": "Fecha de Emisión",
+        "subtotal": "Subtotal",
+        "tax": "Impuesto",
+        "total": "Total",
+        "amountPaid": "Monto Pagado",
+        "balanceDue": "Saldo Pendiente",
+        "status": "Estado",
+        "actions": "Acciones"
+      },
+      "status": {
+        "draft": "Borrador",
+        "sent": "Enviada",
+        "partial": "Parcialmente Pagada",
+        "paid": "Pagada",
+        "void": "Anulada",
+        "overdue": "Vencida"
+      },
+      "paymentMethod": {
+        "cash": "Efectivo",
+        "card": "Tarjeta",
+        "transfer": "Transferencia",
+        "check": "Cheque",
+        "credit": "Crédito"
+      },
+      "actions": {
+        "create": "Nueva Factura",
+        "edit": "Editar",
+        "view": "Ver",
+        "send": "Enviar",
+        "recordPayment": "Registrar Pago",
+        "issueCreditNote": "Emitir Nota de Crédito",
+        "issueDebitNote": "Emitir Nota de Débito",
+        "void": "Anular"
+      },
+      "dialog": {
+        "createTitle": "Nueva Factura",
+        "editTitle": "Editar Factura {{number}}",
+        "paymentsTitle": "Pagos",
+        "ecfTitle": "Factura Electrónica (e-CF)",
+        "ecfStatus": "Estado",
+        "sendConfirmTitle": "Enviar Factura",
+        "sendConfirmBody": "¿Enviar la factura {{number}}? Esto emitirá una factura electrónica (e-CF) y descontará del inventario las líneas asociadas a productos. Esta acción no se puede deshacer.",
+        "paymentTitle": "Registrar Pago — {{number}}",
+        "voidConfirmTitle": "Anular Factura",
+        "voidConfirmBody": "¿Está seguro de que desea anular la factura {{number}}? Esta acción no se puede deshacer."
+      },
+      "form": {
+        "customerModeCompany": "Empresa",
+        "customerModeIndividual": "Individual",
+        "customer": "Cliente",
+        "customerRequired": "Seleccione un cliente",
+        "individualName": "Nombre Completo",
+        "individualNameRequired": "El nombre del cliente individual es requerido",
+        "dueDate": "Fecha de Vencimiento",
+        "lineItems": "Líneas de Detalle",
+        "product": "Producto",
+        "productNone": "Ninguno (línea de servicio)",
+        "available": "disponible",
+        "description": "Descripción",
+        "lineDescriptionRequired": "Cada línea necesita una descripción",
+        "quantity": "Cantidad",
+        "lineQuantityRequired": "Cada línea necesita una cantidad mayor a 0",
+        "unitPrice": "Precio Unitario",
+        "lineUnitPriceRequired": "Cada línea necesita un precio unitario válido",
+        "discountPercent": "Descuento %",
+        "taxRate": "Impuesto %",
+        "addLine": "Agregar Línea",
+        "paymentAmount": "Monto",
+        "paymentAmountRequired": "Ingrese un monto de pago mayor a 0",
+        "paymentMethod": "Método",
+        "paymentReference": "Referencia"
+      },
+      "messages": {
+        "loadFailed": "Error al cargar las facturas",
+        "saveFailed": "Error al guardar la factura",
+        "sendFailed": "Error al enviar la factura",
+        "paymentFailed": "Error al registrar el pago",
+        "voidFailed": "Error al anular la factura"
+      }
+    },
+    "customers": {
+      "title": "Clientes",
+      "empty": "No se encontraron clientes",
+      "nameRequired": "El nombre del cliente es requerido",
+      "archiveConfirmTitle": "Archivar Cliente",
+      "archiveConfirmBody": "¿Está seguro de que desea archivar este cliente?",
+      "linked": "Vinculado",
+      "linkedToCompany": "Vinculado a la empresa PMS: {{name}}",
+      "linkedToCompanyGeneric": "Vinculado a una empresa PMS",
+      "table": {
+        "name": "Nombre",
+        "contact": "Contacto",
+        "rnc": "RNC",
+        "actions": "Acciones"
+      },
+      "actions": {
+        "create": "Agregar Cliente",
+        "edit": "Editar Cliente",
+        "archive": "Archivar"
+      },
+      "form": {
+        "name": "Nombre",
+        "contactName": "Nombre de Contacto",
+        "address": "Dirección",
+        "fiscalInfoTitle": "Información Fiscal (e-CF)",
+        "rnc": "RNC",
+        "rncHelp": "9 u 11 dígitos",
+        "razonSocial": "Razón Social",
+        "linkTitle": "Vínculo con PMS (opcional)",
+        "linkCompany": "Vincular empresa PMS existente",
+        "linkCompanyHelp": "Solo para una cuenta de facturación directa preaprobada que también es una cuenta corporativa del hotel — dejar vacío en los demás casos"
+      },
+      "messages": {
+        "loadFailed": "Error al cargar los clientes",
+        "saveFailed": "Error al guardar el cliente",
+        "archiveFailed": "Error al archivar el cliente"
+      }
+    },
+    "cityLedger": {
+      "title": "Cuenta de Ciudad",
+      "intro": "Saldos impagos transferidos automáticamente al hacer check-out. Cada uno requiere que un gerente lo autorice o lo rechace antes de que aparezca en la antigüedad de cuentas por cobrar y los estados de cuenta.",
+      "pendingBadge": "{{count}} pendientes",
+      "empty": "No hay transferencias pendientes en Cuenta de Ciudad.",
+      "table": {
+        "invoice": "Factura",
+        "customer": "Cliente",
+        "reservation": "Reserva",
+        "amount": "Monto",
+        "date": "Fecha"
+      },
+      "authorize": "Autorizar",
+      "decline": "Rechazar",
+      "declineTitle": "Rechazar Transferencia a Cuenta de Ciudad",
+      "declineWarning": "Rechazar anula esta factura. No reabre el folio — el huésped ya hizo check-out. El saldo pasa a ser un asunto de castigo contable manual.",
+      "declineReason": "Motivo",
+      "authorized": "Transferencia a Cuenta de Ciudad autorizada",
+      "declined": "Transferencia a Cuenta de Ciudad rechazada",
+      "loadFailed": "No se pudo cargar la cola de Cuenta de Ciudad",
+      "authorizeFailed": "No se pudo autorizar",
+      "declineFailed": "No se pudo rechazar"
+    },
+    "quotes": {
+      "title": "Cotizaciones",
+      "loading": "Cargando cotizaciones...",
+      "empty": "No se encontraron cotizaciones",
+      "table": {
+        "number": "Número",
+        "customer": "Cliente",
+        "issueDate": "Fecha de Emisión",
+        "expiryDate": "Fecha de Vencimiento",
+        "subtotal": "Subtotal",
+        "tax": "Impuesto",
+        "total": "Total",
+        "status": "Estado",
+        "actions": "Acciones"
+      },
+      "status": {
+        "draft": "Borrador",
+        "sent": "Enviada",
+        "accepted": "Aceptada",
+        "rejected": "Rechazada",
+        "expired": "Vencida",
+        "converted": "Convertida"
+      },
+      "actions": {
+        "create": "Nueva Cotización",
+        "edit": "Editar",
+        "view": "Ver",
+        "send": "Enviar",
+        "accept": "Aceptar",
+        "reject": "Rechazar",
+        "convertToInvoice": "Convertir a Factura"
+      },
+      "dialog": {
+        "createTitle": "Nueva Cotización",
+        "editTitle": "Editar Cotización {{number}}",
+        "sendConfirmTitle": "Enviar Cotización",
+        "sendConfirmBody": "¿Enviar la cotización {{number}}? Esto la marca como enviada al cliente.",
+        "acceptConfirmTitle": "Aceptar Cotización",
+        "acceptConfirmBody": "¿Marcar la cotización {{number}} como aceptada por el cliente?",
+        "rejectConfirmTitle": "Rechazar Cotización",
+        "rejectConfirmBody": "¿Marcar la cotización {{number}} como rechazada? Una cotización rechazada ya no podrá convertirse en factura.",
+        "convertConfirmTitle": "Convertir a Factura",
+        "convertConfirmBody": "¿Convertir la cotización {{number}} en una nueva factura borrador? La cotización pasará a ser de solo lectura.",
+        "convertedNotice": "Esta cotización fue convertida en la factura {{number}}."
+      },
+      "form": {
+        "customerModeCompany": "Empresa",
+        "customerModeIndividual": "Individual",
+        "customer": "Cliente",
+        "customerRequired": "Por favor seleccione un cliente",
+        "individualName": "Nombre Completo",
+        "individualNameRequired": "El nombre del cliente individual es requerido",
+        "expiryDate": "Fecha de Vencimiento",
+        "lineItems": "Líneas de Detalle",
+        "product": "Producto",
+        "productNone": "Ninguno (línea de servicio)",
+        "available": "disponible",
+        "description": "Descripción",
+        "lineDescriptionRequired": "Cada línea de detalle necesita una descripción",
+        "quantity": "Cantidad",
+        "lineQuantityRequired": "Cada línea de detalle necesita una cantidad mayor a 0",
+        "unitPrice": "Precio Unitario",
+        "lineUnitPriceRequired": "Cada línea de detalle necesita un precio unitario válido",
+        "discountPercent": "Descuento %",
+        "taxRate": "Impuesto %",
+        "addLine": "Agregar Línea"
+      },
+      "messages": {
+        "loadFailed": "Error al cargar cotizaciones",
+        "saveFailed": "Error al guardar cotización",
+        "sendFailed": "Error al enviar cotización",
+        "acceptFailed": "Error al aceptar cotización",
+        "rejectFailed": "Error al rechazar cotización",
+        "convertFailed": "Error al convertir cotización a factura"
+      }
+    },
+    "bills": {
+      "title": "Facturas de Compra",
+      "loading": "Cargando facturas de compra...",
+      "empty": "No se encontraron facturas de compra",
+      "table": {
+        "number": "Número",
+        "supplier": "Proveedor",
+        "issueDate": "Fecha de Emisión",
+        "dueDate": "Fecha de Vencimiento",
+        "total": "Total",
+        "balanceDue": "Saldo Pendiente",
+        "status": "Estado",
+        "actions": "Acciones"
+      },
+      "status": {
+        "draft": "Borrador",
+        "received": "Recibida",
+        "partial": "Parcialmente Pagada",
+        "paid": "Pagada",
+        "void": "Anulada",
+        "overdue": "Vencida"
+      },
+      "paymentMethod": {
+        "cash": "Efectivo",
+        "card": "Tarjeta",
+        "transfer": "Transferencia",
+        "check": "Cheque",
+        "other": "Otro"
+      },
+      "actions": {
+        "create": "Nueva Factura de Compra",
+        "edit": "Editar",
+        "view": "Ver",
+        "receive": "Recibir",
+        "recordPayment": "Registrar Pago",
+        "void": "Anular"
+      },
+      "dialog": {
+        "createTitle": "Nueva Factura de Compra",
+        "editTitle": "Editar Factura de Compra {{number}}",
+        "receiveConfirmTitle": "Recibir Factura de Compra",
+        "receiveConfirmBody": "¿Recibir la factura de compra {{number}}? Esto agregará sus líneas de inventario al stock a su costo de compra. Esta acción no se puede deshacer.",
+        "paymentTitle": "Registrar Pago — {{number}}",
+        "voidConfirmTitle": "Anular Factura de Compra",
+        "voidConfirmBody": "¿Está seguro de que desea anular la factura de compra {{number}}? Esta acción no se puede deshacer."
+      },
+      "form": {
+        "supplier": "Proveedor",
+        "supplierRequired": "Por favor seleccione un proveedor",
+        "vendorInvoiceNumber": "N.º de Factura del Proveedor",
+        "dueDateHelp": "Se completa automáticamente con los términos de pago del proveedor si se deja en blanco",
+        "lineItems": "Líneas de Detalle",
+        "lineTypeInventory": "Inventario",
+        "lineTypeExpense": "Gasto",
+        "product": "Producto",
+        "lineProductRequired": "Cada línea de inventario necesita un producto",
+        "purchaseUom": "Unidad de Compra",
+        "linePurchaseUomRequired": "Cada línea de inventario necesita una unidad de compra",
+        "purchaseQuantity": "Cantidad Comprada",
+        "linePurchaseQuantityRequired": "Cada línea de inventario necesita una cantidad mayor a 0",
+        "purchaseUnitCost": "Costo / Unidad",
+        "linePurchaseCostRequired": "Cada línea de inventario necesita un costo unitario válido",
+        "stockUom": "Unidad de Stock",
+        "stockUomHelp": "Fija a la unidad base del producto",
+        "stockQuantity": "Cantidad Agregada al Stock",
+        "lineStockQuantityRequired": "Cada línea de inventario necesita una cantidad de stock mayor a 0",
+        "account": "Cuenta",
+        "lineAccountRequired": "Cada línea de gasto necesita una cuenta",
+        "lineTotal": "Monto",
+        "lineTotalRequired": "Cada línea de gasto necesita un monto válido",
+        "lineDescriptionRequired": "Cada línea de gasto necesita una descripción",
+        "addInventoryLine": "Agregar Línea de Inventario",
+        "addExpenseLine": "Agregar Línea de Gasto"
+      },
+      "messages": {
+        "loadFailed": "Error al cargar las facturas de compra",
+        "saveFailed": "Error al guardar la factura de compra",
+        "receiveFailed": "Error al recibir la factura de compra",
+        "paymentFailed": "Error al registrar el pago",
+        "voidFailed": "Error al anular la factura de compra"
+      }
+    },
+    "suppliers": {
+      "title": "Proveedores",
+      "empty": "No se encontraron proveedores",
+      "nameRequired": "El nombre del proveedor es requerido",
+      "paymentTermsInvalid": "Los términos de pago deben ser 0 o más días",
+      "archiveConfirmTitle": "Archivar Proveedor",
+      "archiveConfirmBody": "¿Está seguro de que desea archivar este proveedor?",
+      "table": {
+        "name": "Nombre",
+        "contact": "Contacto",
+        "taxId": "RNC / Tax ID",
+        "paymentTerms": "Términos de Pago",
+        "netDays": "Neto {{days}}",
+        "actions": "Acciones"
+      },
+      "actions": {
+        "create": "Agregar Proveedor",
+        "edit": "Editar Proveedor",
+        "archive": "Archivar"
+      },
+      "form": {
+        "name": "Nombre",
+        "contactName": "Nombre de Contacto",
+        "address": "Dirección",
+        "billingInfoTitle": "Información de Facturación",
+        "taxId": "RNC / Tax ID",
+        "paymentTermsDays": "Términos de Pago (días)",
+        "paymentTermsHelp": "Se usa para calcular la fecha de vencimiento de una nueva factura de compra a partir de su fecha de emisión"
+      },
+      "messages": {
+        "loadFailed": "Error al cargar los proveedores",
+        "saveFailed": "Error al guardar el proveedor",
+        "archiveFailed": "Error al archivar el proveedor"
+      }
+    },
+    "creditNotes": {
+      "title": "Notas de Crédito",
+      "loading": "Cargando notas de crédito...",
+      "empty": "No se encontraron notas de crédito",
+      "table": {
+        "number": "Número",
+        "customer": "Cliente",
+        "invoice": "Factura",
+        "issueDate": "Fecha de Emisión",
+        "total": "Total",
+        "amountApplied": "Monto Aplicado",
+        "remainingCredit": "Crédito Restante",
+        "status": "Estado",
+        "actions": "Acciones"
+      },
+      "status": {
+        "draft": "Borrador",
+        "issued": "Emitida",
+        "partial": "Parcialmente Aplicada",
+        "closed": "Cerrada",
+        "void": "Anulada"
+      },
+      "reason": {
+        "billing-error": "Error de Facturación",
+        "price-adjustment": "Ajuste de Precio",
+        "goods-returned": "Devolución de Mercancía",
+        "service-not-rendered": "Servicio No Prestado",
+        "duplicate-charge": "Cargo Duplicado",
+        "goodwill": "Ajuste de Cortesía",
+        "other": "Otro"
+      },
+      "fiscalModificationCode": {
+        "1": "1 — Anulación Total",
+        "2": "2 — Corrección de Texto",
+        "3": "3 — Corrección de Monto",
+        "4": "4 — Sustitución por Contingencia"
+      },
+      "applicationType": {
+        "invoice": "Aplicado a factura",
+        "refund": "Reembolsado"
+      },
+      "refundMethod": {
+        "cash": "Efectivo",
+        "card": "Tarjeta",
+        "transfer": "Transferencia",
+        "check": "Cheque",
+        "other": "Otro"
+      },
+      "actions": {
+        "create": "Nueva Nota de Crédito",
+        "edit": "Editar",
+        "view": "Ver",
+        "issue": "Emitir",
+        "apply": "Aplicar a Factura",
+        "refund": "Reembolsar",
+        "void": "Anular"
+      },
+      "dialog": {
+        "createTitle": "Nueva Nota de Crédito",
+        "editTitle": "Editar Nota de Crédito {{number}}",
+        "applicationsTitle": "Aplicaciones",
+        "ecfTitle": "Nota de Crédito Electrónica (e-CF)",
+        "ecfModifies": "Modifica NCF",
+        "issueConfirmTitle": "Emitir Nota de Crédito",
+        "issueConfirmBody": "¿Emitir la nota de crédito {{number}}? Esto emitirá una nota de crédito electrónica (e-CF E34) contra la factura original, repondrá al inventario cualquier producto devuelto y registrará el asiento contable correspondiente. Esta acción no se puede deshacer.",
+        "applyTitle": "Aplicar a Factura — {{number}}",
+        "refundTitle": "Reembolsar — {{number}}",
+        "voidConfirmTitle": "Anular Nota de Crédito",
+        "voidConfirmBody": "¿Está seguro de que desea anular la nota de crédito {{number}}? Esta acción no se puede deshacer. Solo se puede anular crédito que no ha sido aplicado ni reembolsado."
+      },
+      "form": {
+        "invoice": "Factura Original",
+        "invoiceRequired": "Por favor seleccione la factura que corrige esta nota de crédito",
+        "targetInvoice": "Factura Destino",
+        "reason": "Motivo",
+        "fiscalModificationCode": "Código de Modificación DGII",
+        "warehouse": "Almacén",
+        "warehouseRequired": "Se requiere un almacén cuando la nota de crédito tiene al menos una línea de devolución",
+        "lineItems": "Líneas de Detalle",
+        "lineTypeReturn": "Devolución",
+        "lineTypeAllowance": "Bonificación",
+        "product": "Producto",
+        "lineProductRequired": "Cada línea de devolución necesita un producto de la factura original",
+        "description": "Descripción",
+        "lineDescriptionRequired": "Cada línea necesita una descripción",
+        "quantity": "Cantidad",
+        "lineQuantityRequired": "Cada línea de devolución necesita una cantidad mayor a 0",
+        "unitPrice": "Precio Unitario",
+        "lineUnitPriceRequired": "Cada línea de devolución necesita un precio unitario válido",
+        "amount": "Monto",
+        "lineTotalRequired": "Cada línea de bonificación necesita un monto válido",
+        "amountRequired": "Ingrese un monto mayor a 0",
+        "taxRate": "Impuesto %",
+        "addReturnLine": "Agregar Línea de Devolución",
+        "addAllowanceLine": "Agregar Línea de Bonificación",
+        "voidReason": "Motivo de anulación (opcional)"
+      },
+      "messages": {
+        "loadFailed": "Error al cargar las notas de crédito",
+        "saveFailed": "Error al guardar la nota de crédito",
+        "issueFailed": "Error al emitir la nota de crédito",
+        "applyFailed": "Error al aplicar la nota de crédito",
+        "refundFailed": "Error al reembolsar la nota de crédito",
+        "voidFailed": "Error al anular la nota de crédito"
+      }
+    },
+    "debitNotes": {
+      "title": "Notas de Débito",
+      "loading": "Cargando notas de débito...",
+      "empty": "No se encontraron notas de débito",
+      "table": {
+        "number": "Número",
+        "customer": "Cliente",
+        "invoice": "Factura",
+        "issueDate": "Fecha de Emisión",
+        "total": "Total",
+        "balanceDue": "Saldo Pendiente",
+        "status": "Estado",
+        "actions": "Acciones"
+      },
+      "status": {
+        "draft": "Borrador",
+        "issued": "Emitida",
+        "partial": "Parcialmente Pagada",
+        "paid": "Pagada",
+        "void": "Anulada"
+      },
+      "reason": {
+        "interest-on-overdue": "Interés por Mora",
+        "price-correction": "Corrección de Precio",
+        "quantity-correction": "Corrección de Cantidad",
+        "additional-charge": "Cargo Adicional",
+        "other": "Otro"
+      },
+      "actions": {
+        "create": "Nueva Nota de Débito",
+        "edit": "Editar",
+        "view": "Ver",
+        "issue": "Emitir",
+        "recordPayment": "Registrar Pago",
+        "void": "Anular"
+      },
+      "dialog": {
+        "createTitle": "Nueva Nota de Débito",
+        "editTitle": "Editar Nota de Débito {{number}}",
+        "ecfTitle": "Nota de Débito Electrónica (e-CF)",
+        "issueConfirmTitle": "Emitir Nota de Débito",
+        "issueConfirmBody": "¿Emitir la nota de débito {{number}}? Esto emitirá una nota de débito electrónica (e-CF E33) contra la factura original y registrará el asiento contable correspondiente. Esta acción no se puede deshacer.",
+        "paymentTitle": "Registrar Pago — {{number}}",
+        "voidConfirmTitle": "Anular Nota de Débito",
+        "voidConfirmBody": "¿Está seguro de que desea anular la nota de débito {{number}}? Esta acción no se puede deshacer. Solo se puede anular una nota de débito sin pagos registrados."
+      },
+      "form": {
+        "invoice": "Factura Original",
+        "invoiceRequired": "Por favor seleccione la factura que esta nota de débito carga",
+        "reason": "Motivo",
+        "fiscalModificationCode": "Código de Modificación DGII",
+        "lineItems": "Líneas de Detalle",
+        "description": "Descripción",
+        "lineDescriptionRequired": "Cada línea necesita una descripción",
+        "amount": "Monto",
+        "lineTotalRequired": "Cada línea necesita un monto válido",
+        "taxRate": "Impuesto %",
+        "addLine": "Agregar Línea"
+      },
+      "messages": {
+        "loadFailed": "Error al cargar las notas de débito",
+        "saveFailed": "Error al guardar la nota de débito",
+        "issueFailed": "Error al emitir la nota de débito",
+        "paymentFailed": "Error al registrar el pago",
+        "voidFailed": "Error al anular la nota de débito"
+      }
+    },
+    "journalEntries": {
+      "title": "Asientos Contables",
+      "loading": "Cargando asientos contables...",
+      "empty": "No se encontraron asientos contables",
+      "table": {
+        "number": "N.º de Asiento",
+        "date": "Fecha",
+        "memo": "Memo",
+        "source": "Origen",
+        "total": "Total",
+        "status": "Estado",
+        "actions": "Acciones"
+      },
+      "status": {
+        "active": "Activos (no anulados)",
+        "posted": "Registrado",
+        "void": "Anulado"
+      },
+      "source": {
+        "manual": "Manual",
+        "invoice_sent": "Factura Enviada",
+        "invoice_payment": "Pago de Factura",
+        "invoice_void": "Anulación de Factura",
+        "bill_received": "Factura de Compra Recibida",
+        "bill_payment": "Pago de Factura de Compra",
+        "bill_void": "Anulación de Factura de Compra",
+        "credit_note_issue": "Nota de Crédito Emitida",
+        "credit_note_refund": "Reembolso de Nota de Crédito",
+        "credit_note_void": "Anulación de Nota de Crédito",
+        "debit_note_issue": "Nota de Débito Emitida",
+        "debit_note_payment": "Pago de Nota de Débito",
+        "debit_note_void": "Anulación de Nota de Débito"
+      },
+      "actions": {
+        "create": "Nuevo Asiento Contable",
+        "view": "Ver",
+        "void": "Anular"
+      },
+      "dialog": {
+        "createTitle": "Nuevo Asiento Contable",
+        "voidConfirmTitle": "Anular Asiento Contable",
+        "voidConfirmBody": "¿Está seguro de que desea anular el asiento {{number}}? Esto registrará un asiento de reversión automático y no se puede deshacer.",
+        "voidedNotice": "Este asiento fue anulado el {{date}}"
+      },
+      "form": {
+        "date": "Fecha",
+        "memo": "Memo",
+        "memoRequired": "El memo es obligatorio",
+        "minLines": "Un asiento contable requiere al menos 2 líneas",
+        "lines": "Líneas",
+        "account": "Cuenta",
+        "accountRequired": "Cada línea requiere una cuenta",
+        "type": "Tipo",
+        "debit": "Débito",
+        "credit": "Crédito",
+        "amount": "Monto",
+        "amountRequired": "Cada línea necesita un monto válido mayor que cero",
+        "lineMemo": "Memo de línea (opcional)",
+        "addLine": "Agregar Línea",
+        "totalDebit": "Total Débito",
+        "totalCredit": "Total Crédito",
+        "difference": "Diferencia",
+        "balanced": "Balanceado",
+        "unbalanced": "No balanceado",
+        "notBalanced": "El total de débitos debe ser igual al total de créditos antes de registrar este asiento",
+        "voidReason": "Motivo (opcional)"
+      },
+      "messages": {
+        "loadFailed": "Error al cargar los asientos contables",
+        "saveFailed": "Error al registrar el asiento contable",
+        "voidFailed": "Error al anular el asiento contable"
+      }
+    },
+    "reports": {
+      "title": "Reportes",
+      "balanced": "Balanceado",
+      "unbalanced": "No balanceado",
+      "empty": "No hay datos para este período",
+      "tabs": {
+        "trialBalance": "Balance de Comprobación",
+        "profitAndLoss": "Estado de Resultados",
+        "balanceSheet": "Balance General",
+        "apAging": "Antigüedad de Cuentas por Pagar",
+        "arAging": "Antigüedad de Cuentas por Cobrar",
+        "generalLedger": "Libro Mayor",
+        "supplierStatement": "Estado de Cuenta de Proveedor",
+        "customerStatement": "Estado de Cuenta de Cliente"
+      },
+      "filters": {
+        "asOf": "Al día",
+        "from": "Desde",
+        "to": "Hasta",
+        "account": "Cuenta",
+        "selectSupplier": "Seleccione un proveedor",
+        "selectCustomer": "Seleccione un cliente"
+      },
+      "table": {
+        "account": "Cuenta",
+        "debit": "Débito",
+        "credit": "Crédito",
+        "total": "Total",
+        "date": "Fecha",
+        "reference": "Referencia",
+        "balance": "Saldo"
+      },
+      "pnl": {
+        "revenue": "Ingresos",
+        "totalRevenue": "Total de Ingresos",
+        "expenses": "Gastos",
+        "totalExpenses": "Total de Gastos",
+        "netIncome": "Utilidad Neta"
+      },
+      "bs": {
+        "assets": "Activos",
+        "totalAssets": "Total de Activos",
+        "liabilities": "Pasivos",
+        "totalLiabilities": "Total de Pasivos",
+        "equity": "Patrimonio",
+        "netIncomeToDate": "Utilidad Neta (actual)",
+        "totalEquity": "Total de Patrimonio",
+        "totalLiabilitiesAndEquity": "Total Pasivos + Patrimonio"
+      },
+      "aging": {
+        "supplier": "Proveedor",
+        "customer": "Cliente",
+        "rowHintAp": "Haga clic en una fila para ver sus facturas de compra",
+        "rowHintAr": "Haga clic en una fila para ver sus facturas",
+        "buckets": {
+          "current": "Corriente",
+          "d1_30": "1-30 Días",
+          "d31_60": "31-60 Días",
+          "d61_90": "61-90 Días",
+          "d90_plus": "90+ Días"
+        }
+      },
+      "statement": {
+        "openingBalance": "Saldo Inicial",
+        "closingBalance": "Saldo Final"
+      },
+      "messages": {
+        "loadFailed": "Error al cargar el reporte"
+      }
+    }
+  },
   "pages": {
     "rooms": {
       "loadingAmenities": "Cargando amenidades...",
@@ -2273,7 +3145,7 @@
       "lastName": "Apellido",
       "email": "Correo",
       "phone": "Teléfono",
-      "saving": "Guardando\u2026",
+      "saving": "Guardando…",
       "saveChanges": "Guardar cambios",
       "changePassword": "Cambiar contraseña",
       "changePasswordSubtitle": "Usa una contraseña segura y única que no uses en ningún otro lugar.",
@@ -2281,10 +3153,10 @@
       "newPassword": "Nueva contraseña",
       "confirmNewPassword": "Confirmar nueva contraseña",
       "passwordsDoNotMatch": "Las contraseñas no coinciden",
-      "passwordsMatch": "\u2713 Las contraseñas coinciden",
+      "passwordsMatch": "✓ Las contraseñas coinciden",
       "passwordRequirements": "Requisitos de contraseña",
       "cancel": "Cancelar",
-      "updating": "Actualizando\u2026",
+      "updating": "Actualizando…",
       "updatePassword": "Actualizar contraseña",
       "accessAndPermissions": "Acceso y permisos",
       "accessDescription": "Tu cuenta tiene los siguientes permisos de acceso en esta propiedad.",

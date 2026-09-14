@@ -3,6 +3,7 @@ import express, { Response } from 'express';
 import { authenticate, authorizePermission, AuthRequest } from '../middleware/auth';
 import Payment from '../models/Payment';
 import CashierClosure from '../models/CashierClosure';
+import { postCashierClosureAdjustment } from '../services/accounting/pmsLedgerHooks';
 
 const router = express.Router();
 
@@ -63,7 +64,7 @@ const getPaymentTotalsForUser = async (userId: string, periodStart: Date, period
   return totals;
 };
 
-router.get('/preview', authenticate, authorizePermission('cashier', 'admin.access'), async (req: AuthRequest, res: Response) => {
+router.get('/preview', authenticate, authorizePermission('pms', 'cashier', 'admin.access'), async (req: AuthRequest, res: Response) => {
   try {
     const userId = String(req.user?._id || req.user?.id || '');
     if (!userId) return res.status(401).json({ success: false, message: 'Authentication required' });
@@ -100,7 +101,7 @@ router.get('/preview', authenticate, authorizePermission('cashier', 'admin.acces
   }
 });
 
-router.get('/', authenticate, authorizePermission('cashier', 'admin.access'), async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, authorizePermission('pms', 'cashier', 'admin.access'), async (req: AuthRequest, res: Response) => {
   try {
     const userId = String(req.user?._id || req.user?.id || '');
     if (!userId) return res.status(401).json({ success: false, message: 'Authentication required' });
@@ -126,7 +127,7 @@ router.get('/', authenticate, authorizePermission('cashier', 'admin.access'), as
   }
 });
 
-router.post('/', authenticate, authorizePermission('cashier', 'admin.access'), async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, authorizePermission('pms', 'cashier', 'admin.access'), async (req: AuthRequest, res: Response) => {
   try {
     const userId = String(req.user?._id || req.user?.id || '');
     if (!userId) return res.status(401).json({ success: false, message: 'Authentication required' });
@@ -169,6 +170,7 @@ router.post('/', authenticate, authorizePermission('cashier', 'admin.access'), a
       cashDistribution,
       ...(note ? { note } : {}),
     });
+    await postCashierClosureAdjustment(req.tenant, closure, userId as any);
 
     const populated = await CashierClosure.findById(closure._id)
       .populate('user', 'firstName lastName email');

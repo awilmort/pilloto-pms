@@ -1,12 +1,12 @@
 import express, { Response } from 'express';
 import Company from '../models/Company';
 import Reservation from '../models/Reservation';
-import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import { authenticate, authorize, authorizeAppAccess, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
 // GET /api/companies — list companies (any authenticated user, read-only)
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const { search, active, page = 1, limit = 50 } = req.query as any;
     const filter: any = {};

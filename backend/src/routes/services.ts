@@ -1,11 +1,11 @@
 import express, { Response } from 'express';
-import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import { authenticate, authorize, authorizeAppAccess, AuthRequest } from '../middleware/auth';
 import Service from '../models/Service';
 
 const router = express.Router();
 
 // ── GET /services ─────────────────────────────────────────────
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const { active, kind } = req.query as { active?: string; kind?: string };
     const filter: any = {};
@@ -19,7 +19,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // ── GET /services/:id ─────────────────────────────────────────
-router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/:id', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const service = await Service.findById(req.params.id).exec();
     if (!service) return res.status(404).json({ success: false, message: 'Service not found' });

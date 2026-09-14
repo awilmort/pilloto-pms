@@ -11,7 +11,7 @@ import { WristbandDelivery } from '../../types';
 
 const WristbandControl: React.FC = () => {
   const { t } = useTranslation();
-  const { user } = useAuth();
+  const { user, permissions } = useAuth();
   const [date, setDate] = useState<Date>(new Date());
   const [type, setType] = useState<'delivery' | 'collection'>('delivery');
   const [recipient, setRecipient] = useState<string>('');
@@ -30,7 +30,7 @@ const WristbandControl: React.FC = () => {
 
   // Check if user has manage permission
   const hasManagePermission = () => {
-    const perms = (user as any)?.permissions || [];
+    const perms = permissions || [];
     return user?.role === 'admin' || perms.includes('admin.wristbands.manage') || perms.includes('admin.access');
   };
 

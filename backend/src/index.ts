@@ -39,6 +39,7 @@ import bookingRoutes from './routes/booking';
 import reviewRoutes from './routes/reviews';
 import ecfRoutes from './routes/ecf';
 import reportsRoutes from './routes/reports';
+import accountingRoutes from './routes/accounting';
 import { syncUploadsToMedia } from './utils/mediaSync';
 import { migrateReservationStatuses } from './models/Reservation';
 import { runAudit } from './utils/chargeWorker';
@@ -46,6 +47,7 @@ import { initOtaCron, stopOtaCron } from './utils/otaCron';
 import PlatformSettings from './models/PlatformSettings';
 import cron from 'node-cron';
 import { resolveTenant } from './middleware/tenantContext';
+import { requireTenantProduct } from './middleware/auth';
 import Tenant from './models/Tenant';
 
 // Load environment variables
@@ -197,32 +199,40 @@ app.use('/api', limiter);
 app.use('/api/webhooks', resendWebhookRoutes);
 
 // Routes
+// `requireTenantProduct('pms')` gates every router below that is unambiguously
+// single-app (Phase 10.1 finding — see the middleware's own doc comment): a tenant
+// that never bought `pms` gets a 403 across all of it, including bare-`authenticate`
+// routes that carry no other permission check. `/api/roles`, `/api/admin`, `/api/auth`,
+// `/api/platform`, `/api/webhooks` are deliberately NOT wrapped here — they either serve
+// both apps via their own per-request `?app=` resolution (already product-gated inline,
+// see `middleware/auth.ts`) or must work with no tenant/product context at all.
 app.use('/api/platform', platformRoutes);
 app.use('/api/auth', authRoutes);
-app.use('/api/rooms', roomRoutes);
-app.use('/api/reservations', reservationRoutes);
-app.use('/api/media', mediaRoutes);
+app.use('/api/rooms', requireTenantProduct('pms'), roomRoutes);
+app.use('/api/reservations', requireTenantProduct('pms'), reservationRoutes);
+app.use('/api/media', requireTenantProduct('pms'), mediaRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/amenities', amenityRoutes);
-app.use('/api/event-types', eventTypeRoutes);
-app.use('/api/pricing', pricingRoutes);
+app.use('/api/amenities', requireTenantProduct('pms'), amenityRoutes);
+app.use('/api/event-types', requireTenantProduct('pms'), eventTypeRoutes);
+app.use('/api/pricing', requireTenantProduct('pms'), pricingRoutes);
 app.use('/api/roles', roleRoutes);
-app.use('/api/settings', settingsRoutes);
-app.use('/api/companies', companyRoutes);
-app.use('/api/guests', guestRoutes);
-app.use('/api/credit-accounts', creditAccountRoutes);
-app.use('/api/cashier-closures', cashierClosureRoutes);
-app.use('/api/services', serviceRoutes);
-app.use('/api/service-prices', servicePriceRoutes);
-app.use('/api/charge-templates', chargeTemplateRoutes);
-app.use('/api/charge-rules', chargeRuleRoutes);
-app.use('/api/audit', auditRoutes);
-app.use('/api/ota', otaRoutes);
+app.use('/api/settings', requireTenantProduct('pms'), settingsRoutes);
+app.use('/api/companies', requireTenantProduct('pms'), companyRoutes);
+app.use('/api/guests', requireTenantProduct('pms'), guestRoutes);
+app.use('/api/credit-accounts', requireTenantProduct('pms'), creditAccountRoutes);
+app.use('/api/cashier-closures', requireTenantProduct('pms'), cashierClosureRoutes);
+app.use('/api/services', requireTenantProduct('pms'), serviceRoutes);
+app.use('/api/service-prices', requireTenantProduct('pms'), servicePriceRoutes);
+app.use('/api/charge-templates', requireTenantProduct('pms'), chargeTemplateRoutes);
+app.use('/api/charge-rules', requireTenantProduct('pms'), chargeRuleRoutes);
+app.use('/api/audit', requireTenantProduct('pms'), auditRoutes);
+app.use('/api/ota', requireTenantProduct('pms'), otaRoutes);
 app.use('/api/privacy', privacyRoutes);
-app.use('/api/booking', bookingRoutes);
-app.use('/api/reviews', reviewRoutes);
-app.use('/api/ecf', ecfRoutes);
-app.use('/api/admin/reports', reportsRoutes);
+app.use('/api/booking', requireTenantProduct('pms'), bookingRoutes);
+app.use('/api/reviews', requireTenantProduct('pms'), reviewRoutes);
+app.use('/api/ecf', requireTenantProduct('pms'), ecfRoutes);
+app.use('/api/admin/reports', requireTenantProduct('pms'), reportsRoutes);
+app.use('/api/accounting', requireTenantProduct('accounting'), accountingRoutes);
 // (outbound iCal feed is registered before resolveTenant above)
 
 // Public endpoint: returns tenant info from the Host/X-Tenant-Slug header (no auth required)
@@ -246,7 +256,7 @@ app.get('/api/tenant/info', async (req, res) => {
   }
 
   const tenant = await Tenant.findOne({ slug, isActive: true })
-    .select('name slug plan settings isActive')
+    .select('name slug plan products settings isActive')
     .lean();
 
   if (!tenant) {

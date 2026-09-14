@@ -9,9 +9,13 @@ import Folio from '../models/Folio';
 import Charge from '../models/Charge';
 import Payment from '../models/Payment';
 import CreditAccount from '../models/CreditAccount';
-import { authenticate, authorize, authorizePermission } from '../middleware/auth';
+import { authenticate, authorize, authorizePermission, userHasAppAccess, userHasPermission, AuthRequest } from '../middleware/auth';
 import { getSortObject } from '../utils/helpers';
 import { sendVerificationEmail } from '../utils/email';
+import { AppCode, isAppCode } from '../constants/apps';
+import { PERMISSIONS_BY_APP, APP_ACCESS_PERMISSION, APP_USERS_PERMISSION } from '../constants/permissions';
+import { getAccountingPlanFeatures } from '../config/accountingPlans';
+import { postPaymentCompletedEntry } from '../services/accounting/pmsLedgerHooks';
 
 const router = express.Router();
 
@@ -56,39 +60,24 @@ async function getSettledReservationIdSet(reservationIds: string[]) {
 }
 
 // Permission catalog to support role management UIs
-// Exposes all known permission keys used across the backend
-// @route   GET /api/admin/permissions
-// @desc    List known permissions (admin only)
-// @access  Private (Admin or roles with admin.access)
-router.get('/permissions', authenticate, authorizePermission('admin.access'), async (req: Request, res: Response) => {
+// Exposes the canonical, verified-by-grep permission list for the requested app
+// (backend/src/constants/permissions.ts is the single source of truth).
+// @route   GET /api/admin/permissions?app=pms|accounting
+// @desc    List known permissions for an app (defaults to pms)
+// @access  Private — caller must have that app's master access permission
+router.get('/permissions', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const permissions = [
-      // Core admin
-      'admin.access',
-      'admin.dashboard',
-      'admin.backup',
-      // Users and roles
-      'admin.users',
-      'admin.roles',
-      // Reservations
-      'admin.reservations',
-      'admin.reservations.assignRoom',
-      'admin.reservations.managePayments',
-      'admin.reservations.priceUpdate',
-      'admin.reservations.amountUpdate',
-      'admin.reservations.cancel',
-      // Revenue/Commissions
-      'admin.revenue',
-      'admin.commissions',
-      // Wristbands (view/manage split)
-      'admin.wristbands.view',
-      'admin.wristbands.manage',
-      // Salesman (used in commissions)
-      'salesman',
-      // Cashier closures
-      'cashier'
-    ];
-    res.status(200).json({ success: true, data: permissions });
+    const appParam = (req.query.app as string | undefined) ?? 'pms';
+    if (!isAppCode(appParam)) {
+      return res.status(400).json({ success: false, message: 'Invalid app' });
+    }
+    const app: AppCode = appParam;
+    const allowed = await userHasPermission(req.user, app, [APP_ACCESS_PERMISSION[app]], req.tenantId, (req.tenant as any)?.products);
+    if (!allowed) {
+      return res.status(403).json({ success: false, message: 'Access denied for this app.' });
+    }
+
+    res.status(200).json({ success: true, data: PERMISSIONS_BY_APP[app] });
   } catch (error: any) {
     console.error('List permissions error:', error);
     res.status(500).json({ success: false, message: 'Server error while listing permissions' });
@@ -98,7 +87,7 @@ router.get('/permissions', authenticate, authorizePermission('admin.access'), as
 // @route   GET /api/admin/dashboard
 // @desc    Get admin dashboard statistics
 // @access  Private (Admin or roles with dashboard/access permission)
-router.get('/dashboard', authenticate, authorizePermission('admin.dashboard', 'admin.access'), async (req, res) => {
+router.get('/dashboard', authenticate, authorizePermission('pms', 'admin.dashboard', 'admin.access'), async (req, res) => {
   try {
     // Get basic counts
     const totalUsers = await User.countDocuments({ role: 'customer' });
@@ -231,7 +220,7 @@ router.get('/dashboard', authenticate, authorizePermission('admin.dashboard', 'a
 // @route   GET /api/admin/revenue
 // @desc    Get revenue and guest totals by category for a date range, plus pending payments
 // @access  Private (permission: admin.revenue)
-router.get('/revenue', authenticate, authorizePermission('admin.revenue', 'admin.access'), async (req: Request, res: Response) => {
+router.get('/revenue', authenticate, authorizePermission('pms', 'admin.revenue', 'admin.access'), async (req: Request, res: Response) => {
   try {
     const { from, to } = req.query as { from?: string; to?: string };
 
@@ -539,7 +528,7 @@ router.get('/revenue', authenticate, authorizePermission('admin.revenue', 'admin
 // @route   POST /api/admin/revenue/account-receivable/:paymentId/process
 // @desc    Settle pending credit payment and close folio
 // @access  Private (permission: admin.revenue)
-router.post('/revenue/account-receivable/:paymentId/process', authenticate, authorizePermission('admin.revenue', 'admin.access'), async (req: Request, res: Response) => {
+router.post('/revenue/account-receivable/:paymentId/process', authenticate, authorizePermission('pms', 'admin.revenue', 'admin.access'), async (req: Request, res: Response) => {
   try {
     const { creditPaymentMethod } = req.body as { creditPaymentMethod?: 'cash' | 'card' | 'transfer' | 'check' };
     const allowedMethods = ['cash', 'card', 'transfer', 'check'];
@@ -578,6 +567,15 @@ router.post('/revenue/account-receivable/:paymentId/process', authenticate, auth
     payment.createdBy = (req as any).user?._id || (req as any).user?.id;
     await payment.save();
 
+    // Phase 7.2: this is the CreditAccount "settlement" event from architecture §6.2 —
+    // cash/card/transfer/check actually received against the company/guest credit line.
+    await postPaymentCompletedEntry(
+      (req as any).tenant,
+      payment,
+      (req as any).user?._id || (req as any).user?.id,
+      creditPaymentMethod
+    );
+
     folio.status = 'closed';
     await folio.save();
 
@@ -606,7 +604,7 @@ router.post('/revenue/account-receivable/:paymentId/process', authenticate, auth
 // @route   GET /api/admin/commissions
 // @desc    List users with Salesman permission and total guests on reservations they created within a date range; supports name/email filters
 // @access  Private (permission: admin.commissions or admin.access)
-router.get('/commissions', authenticate, authorizePermission('admin.commissions', 'admin.access'), async (req: Request, res: Response) => {
+router.get('/commissions', authenticate, authorizePermission('pms', 'admin.commissions', 'admin.access'), async (req: Request, res: Response) => {
   try {
     const { from, to, name, email } = req.query as { from?: string; to?: string; name?: string; email?: string };
 
@@ -744,7 +742,7 @@ router.get('/commissions', authenticate, authorizePermission('admin.commissions'
     // @route   POST /api/admin/wristbands/deliveries
     // @desc    Register a wristband delivery for a given date with counts per category
     // @access  Private (permission: admin.wristbands.manage or admin.access)
-    router.post('/wristbands/deliveries', authenticate, authorizePermission('admin.wristbands.manage', 'admin.access'), async (req: Request, res: Response) => {
+    router.post('/wristbands/deliveries', authenticate, authorizePermission('pms', 'admin.wristbands.manage', 'admin.access'), async (req: Request, res: Response) => {
       try {
         const { date, recipient, counts, notes, type } = req.body as {
           date?: string | Date;
@@ -801,7 +799,7 @@ router.get('/commissions', authenticate, authorizePermission('admin.commissions'
     // @route   GET /api/admin/wristbands/deliveries
     // @desc    List all wristband deliveries/collections (no date filter)
     // @access  Private (permission: admin.wristbands.view or admin.access)
-    router.get('/wristbands/deliveries', authenticate, authorizePermission('admin.wristbands.view', 'admin.access'), async (req: Request, res: Response) => {
+    router.get('/wristbands/deliveries', authenticate, authorizePermission('pms', 'admin.wristbands.view', 'admin.access'), async (req: Request, res: Response) => {
       try {
         const deliveries = await WristbandDelivery.find().sort({ date: -1 }).exec();
         res.status(200).json({ success: true, count: deliveries.length, data: deliveries });
@@ -814,7 +812,7 @@ router.get('/commissions', authenticate, authorizePermission('admin.commissions'
     // @route   PUT /api/admin/wristbands/deliveries/:id
     // @desc    Update a wristband delivery
     // @access  Private (permission: admin.wristbands.manage or admin.access)
-    router.put('/wristbands/deliveries/:id', authenticate, authorizePermission('admin.wristbands.manage', 'admin.access'), async (req: Request, res: Response) => {
+    router.put('/wristbands/deliveries/:id', authenticate, authorizePermission('pms', 'admin.wristbands.manage', 'admin.access'), async (req: Request, res: Response) => {
       try {
         const { date, recipient, counts, notes, type } = req.body as {
           date?: string | Date;
@@ -887,7 +885,7 @@ router.get('/commissions', authenticate, authorizePermission('admin.commissions'
     //          - daypass: fully paid daypass reservations in range
     //          - pasatarde: fully paid PasaTarde reservations in range
     // @access  Private (permission: admin.wristbands.view or admin.access)
-    router.get('/wristbands/usage', authenticate, authorizePermission('admin.wristbands.view', 'admin.access'), async (req: Request, res: Response) => {
+    router.get('/wristbands/usage', authenticate, authorizePermission('pms', 'admin.wristbands.view', 'admin.access'), async (req: Request, res: Response) => {
       try {
         const { from, to } = req.query as { from?: string; to?: string };
         const parseLocalDate = (s?: string) => {
@@ -941,7 +939,7 @@ router.get('/commissions', authenticate, authorizePermission('admin.commissions'
     // @route   DELETE /api/admin/wristbands/deliveries/:id
     // @desc    Delete a wristband delivery
     // @access  Private (permission: admin.wristbands.manage or admin.access)
-    router.delete('/wristbands/deliveries/:id', authenticate, authorizePermission('admin.wristbands.manage', 'admin.access'), async (req: Request, res: Response) => {
+    router.delete('/wristbands/deliveries/:id', authenticate, authorizePermission('pms', 'admin.wristbands.manage', 'admin.access'), async (req: Request, res: Response) => {
       try {
         const deleted = await WristbandDelivery.findByIdAndDelete(req.params.id);
         if (!deleted) {
@@ -956,7 +954,7 @@ router.get('/commissions', authenticate, authorizePermission('admin.commissions'
         res.status(500).json({ success: false, message: 'Server error while deleting wristband delivery' });
       }
     });
-router.get('/users', authenticate, authorizePermission('admin.users'), async (req, res) => {
+router.get('/users', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const {
       role,
@@ -967,8 +965,18 @@ router.get('/users', authenticate, authorizePermission('admin.users'), async (re
       sort = '-createdAt'
     } = req.query;
 
-    // Build filter object
-    const filter: any = {};
+    const appParam = (req.query.app as string | undefined) ?? 'pms';
+    if (!isAppCode(appParam)) {
+      return res.status(400).json({ success: false, message: 'Invalid app' });
+    }
+    const app: AppCode = appParam;
+    const allowed = await userHasPermission(req.user, app, [APP_USERS_PERMISSION[app]], req.tenantId, (req.tenant as any)?.products);
+    if (!allowed) {
+      return res.status(403).json({ success: false, message: 'Access denied for this app.' });
+    }
+
+    // Build filter object — scoped to users who have a role assignment in this app
+    const filter: any = { 'appRoles.app': app };
 
     if (role) filter.role = role;
     if (isActive !== undefined) filter.isActive = isActive === 'true';
@@ -1017,7 +1025,7 @@ router.get('/users', authenticate, authorizePermission('admin.users'), async (re
 // @route   POST /api/admin/users
 // @desc    Create a new user (admin only)
 // @access  Private (Admin only)
-router.post('/users', authenticate, authorizePermission('admin.users'), async (req: Request, res: Response) => {
+router.post('/users', authenticate, authorizePermission('pms', 'admin.users'), async (req: Request, res: Response) => {
   try {
     const { firstName, lastName, email, phone, role = 'customer', password } = req.body;
 
@@ -1054,7 +1062,7 @@ router.post('/users', authenticate, authorizePermission('admin.users'), async (r
 // @route   PUT /api/admin/users/:id
 // @desc    Update user details (admin only)
 // @access  Private (Admin only)
-router.put('/users/:id', authenticate, authorizePermission('admin.users'), async (req, res) => {
+router.put('/users/:id', authenticate, authorizePermission('pms', 'admin.users'), async (req, res) => {
   try {
     const { firstName, lastName, email, phone, role, isActive, emailVerified } = req.body;
 
@@ -1100,12 +1108,79 @@ router.put('/users/:id', authenticate, authorizePermission('admin.users'), async
 
 // @route   PATCH /api/admin/users/:id/role
 // @desc    Update a user's role (admin only)
-// @access  Private (Admin only)
-router.patch('/users/:id/role', authenticate, authorizePermission('admin.users'), async (req: Request, res: Response) => {
+// @access  Private — caller must hold the target app's users-management permission
+router.patch('/users/:id/role', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { role } = req.body;
+    const { role, roleId, app: appFromBody } = req.body;
+
+    // App-scoped path: assign or remove a specific app's role. `roleId: null`
+    // (with `app` given explicitly) removes that app's assignment.
+    if (roleId !== undefined) {
+      let app: AppCode;
+      let roleDoc: any = null;
+      if (roleId) {
+        roleDoc = await Role.findById(roleId);
+        if (!roleDoc) {
+          return res.status(404).json({ success: false, message: 'Role not found' });
+        }
+        app = roleDoc.app as AppCode;
+      } else {
+        if (!isAppCode(appFromBody)) {
+          return res.status(400).json({ success: false, message: 'Invalid or missing app' });
+        }
+        app = appFromBody;
+      }
+
+      const allowed = await userHasPermission(req.user, app, [APP_USERS_PERMISSION[app]], req.tenantId, (req.tenant as any)?.products);
+      if (!allowed) {
+        return res.status(403).json({ success: false, message: 'Access denied for this app.' });
+      }
+
+      const target = await User.findById(req.params.id);
+      if (!target) {
+        return res.status(404).json({ success: false, message: 'User not found' });
+      }
+
+      // Accounting plan ladder (Phase 10.2): granting a *new* accounting seat is
+      // gated on the tenant's plan-tier user limit — per architecture §7's "gated
+      // on ... user count". Only checked when this user doesn't already hold an
+      // accounting seat (re-assigning/removing one is always allowed).
+      if (app === 'accounting' && roleDoc && !target.appRoles.some((ar) => ar.app === 'accounting')) {
+        const { maxUsers } = getAccountingPlanFeatures((req.tenant as any)?.plans?.accounting);
+        if (maxUsers !== null) {
+          const currentSeats = await User.countDocuments({ 'appRoles.app': 'accounting' });
+          if (currentSeats >= maxUsers) {
+            return res.status(403).json({
+              success: false,
+              message: `Your Accounting plan allows up to ${maxUsers} user(s). Upgrade your plan to add more.`,
+            });
+          }
+        }
+      }
+
+      target.appRoles = [
+        ...target.appRoles.filter((ar) => ar.app !== app),
+        ...(roleDoc ? [{ app, role: roleDoc._id as any }] : []),
+      ];
+      // Keep the legacy flat `role` field in sync for pms — still read by authorize()/legacy checks
+      // when no pms appRoles entry exists. Reset to 'customer' on removal so the legacy
+      // by-name fallback doesn't silently restore the access this call just revoked.
+      if (app === 'pms') {
+        target.role = roleDoc ? roleDoc.name : 'customer';
+      }
+      await target.save();
+
+      const safe = await User.findById(target._id).select('-password');
+      return res.status(200).json({ success: true, message: 'User role updated', data: safe });
+    }
+
+    // Legacy path: flat role-name assignment (pms-implied, behavior unchanged).
     if (!role) {
       return res.status(400).json({ success: false, message: 'Role is required' });
+    }
+    const legacyAllowed = await userHasPermission(req.user, 'pms', [APP_USERS_PERMISSION.pms], req.tenantId, (req.tenant as any)?.products);
+    if (!legacyAllowed) {
+      return res.status(403).json({ success: false, message: 'Access denied. Insufficient permissions.' });
     }
 
     const normalizedRole = String(role).toLowerCase();
@@ -1131,7 +1206,7 @@ router.patch('/users/:id/role', authenticate, authorizePermission('admin.users')
 // @route   DELETE /api/admin/users/:id
 // @desc    Delete user (admin only)
 // @access  Private (Admin only)
-router.delete('/users/:id', authenticate, authorizePermission('admin.users'), async (req, res) => {
+router.delete('/users/:id', authenticate, authorizePermission('pms', 'admin.users'), async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) {

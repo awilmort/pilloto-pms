@@ -3,7 +3,7 @@ import Reservation from '../models/Reservation';
 import Room from '../models/Room';
 import RatePlan from '../models/RatePlan';
 import Role from '../models/Role';
-import { authenticate, authorize, authorizePermission, AuthRequest } from '../middleware/auth';
+import { authenticate, authorize, authorizePermission, authorizeAppAccess, AuthRequest } from '../middleware/auth';
 import { validateReservation } from '../middleware/validation';
 import { getSortObject } from '../utils/helpers';
 import { sendReservationConfirmationEmail, sendInvoiceEmail, sendCorporatePriceRequestEmail } from '../utils/email';
@@ -17,6 +17,8 @@ import Charge from '../models/Charge';
 import Payment from '../models/Payment';
 import CreditAccount from '../models/CreditAccount';
 import User from '../models/User';
+import { postChargeAddedEntry, postPaymentCompletedEntry, reversePaymentEntry, tenantHasAccounting } from '../services/accounting/pmsLedgerHooks';
+import { transferFolioBalanceToCityLedger } from '../services/accounting/cityLedger.service';
 
 const router = express.Router();
 
@@ -97,7 +99,7 @@ async function getReservationFinancialSnapshot(reservation: any) {
 // @route   GET /api/reservations
 // @desc    Get user's reservations or all reservations (admin)
 // @access  Private
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const {
       status,
@@ -259,7 +261,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 // @route   GET /api/reservations/:id
 // @desc    Get single reservation
 // @access  Private
-router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/:id', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const reservation = await Reservation.findById(req.params.id)
       .populate('user', 'firstName lastName email')
@@ -899,7 +901,7 @@ router.post('/', async (req: Request, res: Response) => {
 // @route   PUT /api/reservations/:id
 // @desc    Update reservation
 // @access  Private
-router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/:id', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const reservation = await Reservation.findById(req.params.id);
 
@@ -1218,7 +1220,7 @@ router.delete('/:id', authenticate, authorize('admin'), async (req: AuthRequest,
 // @route   PATCH /api/reservations/:id/status
 // @desc    Update reservation status (Admin only)
 // @access  Private (Admin)
-router.patch('/:id/status', authenticate, async (req: AuthRequest, res: Response) => {
+router.patch('/:id/status', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const { status } = req.body;
 
@@ -1283,7 +1285,7 @@ router.patch('/:id/status', authenticate, async (req: AuthRequest, res: Response
 // @route   PUT /api/reservations/:id/assign-room
 // @desc    Assign room to reservation (Admin only)
 // @access  Private/Admin
-router.put('/:id/assign-room', authenticate, authorizePermission('admin.reservations.assignRoom'), async (req: AuthRequest, res: Response) => {
+router.put('/:id/assign-room', authenticate, authorizePermission('pms', 'admin.reservations.assignRoom'), async (req: AuthRequest, res: Response) => {
   try {
     const { roomId } = req.body;
     const reservationId = req.params.id;
@@ -1431,7 +1433,7 @@ router.put('/:id/assign-room', authenticate, authorizePermission('admin.reservat
 // @route   PUT /api/reservations/:id/assign-rooms
 // @desc    Assign multiple rooms to reservation (Admin only)
 // @access  Private/Admin
-router.put('/:id/assign-rooms', authenticate, authorizePermission('admin.reservations.assignRoom'), async (req: AuthRequest, res: Response) => {
+router.put('/:id/assign-rooms', authenticate, authorizePermission('pms', 'admin.reservations.assignRoom'), async (req: AuthRequest, res: Response) => {
   try {
     const { roomIds } = req.body as { roomIds?: string[] };
     const reservationId = req.params.id;
@@ -1696,7 +1698,7 @@ const generateReservationCode = (): string => {
 // @route   PATCH /api/reservations/:id/check-in
 // @desc    Perform check-in for any reservation type and post base charge to folio
 // @access  Private (Permission-based)
-router.patch('/:id/check-in', authenticate, authorizePermission('admin.reservations.checkin'), async (req: AuthRequest, res: Response) => {
+router.patch('/:id/check-in', authenticate, authorizePermission('pms', 'admin.reservations.checkin'), async (req: AuthRequest, res: Response) => {
   try {
     const { identificationDocument, identificationType, checkInAt } = req.body as { identificationDocument?: string; identificationType?: string; checkInAt?: string | Date };
 
@@ -1735,11 +1737,12 @@ router.patch('/:id/check-in', authenticate, authorizePermission('admin.reservati
     if (!existingBaseCharge) {
       const amount = Number((reservation as any).estimatedTotal ?? (reservation as any).totalPrice ?? 0);
       const summary = `${reservation.type} ${reservation.reservationCode || String(reservation._id).slice(-6)}`;
-      await Charge.create({
+      const baseCharge = await Charge.create({
         folioId: folio._id,
         description: `Reservation base charge: ${summary}`,
         amount,
       });
+      await postChargeAddedEntry(req.tenant, baseCharge, req.user?.id as any);
     }
 
     await reservation.save();
@@ -1760,7 +1763,7 @@ router.patch('/:id/check-in', authenticate, authorizePermission('admin.reservati
 // @route   GET /api/reservations/:id/financial
 // @desc    Get folio, charges, payments and checkout-related summary for reservation
 // @access  Private
-router.get('/:id/financial', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/:id/financial', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const reservation = await Reservation.findById(req.params.id)
       .populate('company', 'name')
@@ -1800,7 +1803,7 @@ router.get('/:id/financial', authenticate, async (req: AuthRequest, res: Respons
 // @route   PATCH /api/reservations/:id/check-out
 // @desc    Perform check-out when folio has no pending balance
 // @access  Private (Admin, Staff, Maintenance, or roles with check-in permission)
-router.patch('/:id/check-out', authenticate, async (req: AuthRequest, res: Response) => {
+router.patch('/:id/check-out', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const { checkOutAt } = req.body as { checkOutAt?: string | Date };
 
@@ -1833,28 +1836,66 @@ router.patch('/:id/check-out', authenticate, async (req: AuthRequest, res: Respo
     }
 
     const financial = await getReservationFinancialSnapshot(reservation);
+    let cityLedgerOutcome: { transferred: boolean; preApproved: boolean; invoiceNumber: string; authorizationStatus: string } | null = null;
+
+    // Resolved and validated before any City Ledger / AR side effect below, so a missing
+    // room fails fast — same fail-before-mutating order the original blocking checkout had.
+    let checkedOutRoom: any = null;
+    if (reservation.type === 'room') {
+      const primaryRoomId = reservation.room || (reservation.rooms && reservation.rooms[0]);
+      checkedOutRoom = primaryRoomId ? await Room.findById(primaryRoomId) : null;
+      if (!checkedOutRoom) return res.status(404).json({ success: false, message: 'Assigned room not found' });
+    }
+
     if (financial.totals.balance > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Pending balance must be settled before checkout',
-        data: {
-          totalCharges: financial.totals.totalCharges,
-          totalPayments: financial.totals.totalPayments,
-          balance: financial.totals.balance,
-          creditAvailability: financial.credit.available,
-        },
+      // A PMS-only tenant has no AR subledger to move the balance into — keep today's
+      // behavior (block checkout until settled or credit is used). An accounting-enabled
+      // tenant never blocks here: the balance is transferred to City Ledger automatically
+      // (architecture §11.5 — never a discretionary front-desk action).
+      if (!tenantHasAccounting(req.tenant)) {
+        return res.status(400).json({
+          success: false,
+          message: 'Pending balance must be settled before checkout',
+          data: {
+            totalCharges: financial.totals.totalCharges,
+            totalPayments: financial.totals.totalPayments,
+            balance: financial.totals.balance,
+            creditAvailability: financial.credit.available,
+          },
+        });
+      }
+
+      const balance = financial.totals.balance;
+      const transfer = await transferFolioBalanceToCityLedger(reservation, financial.folio, balance, req.user?.id as any);
+
+      await Payment.create({
+        folioId: financial.folio._id,
+        amount: balance,
+        method: 'credit',
+        status: 'pending',
+        note: transfer.preApproved
+          ? 'Credit used for checkout remaining balance (City Ledger — pre-approved direct bill)'
+          : 'Transferred to City Ledger pending manager authorization',
+        createdBy: req.user?.id as any,
       });
+
+      financial.folio.status = 'in_ar';
+      await financial.folio.save();
+
+      cityLedgerOutcome = {
+        transferred: true,
+        preApproved: transfer.preApproved,
+        invoiceNumber: transfer.invoice.invoiceNumber,
+        authorizationStatus: transfer.invoice.cityLedger!.authorizationStatus,
+      };
     }
 
     reservation.actualCheckOutAt = checkOutAt ? new Date(checkOutAt) : new Date();
     reservation.status = 'completed';
 
-    if (reservation.type === 'room') {
-      const primaryRoomId = reservation.room || (reservation.rooms && reservation.rooms[0]);
-      const room = primaryRoomId ? await Room.findById(primaryRoomId) : null;
-      if (!room) return res.status(404).json({ success: false, message: 'Assigned room not found' });
-      room.condition = 'pending_cleanup';
-      await room.save();
+    if (checkedOutRoom) {
+      checkedOutRoom.condition = 'pending_cleanup';
+      await checkedOutRoom.save();
     }
 
     if (financial.folio.status === 'open') {
@@ -1874,7 +1915,12 @@ router.patch('/:id/check-out', authenticate, async (req: AuthRequest, res: Respo
       .populate('rooms', 'name status condition')
       .populate('guestRecord', 'firstName lastName email phone');
 
-    res.status(200).json({ success: true, message: 'Check-out completed', data: populatedReservation });
+    res.status(200).json({
+      success: true,
+      message: 'Check-out completed',
+      data: populatedReservation,
+      ...(cityLedgerOutcome ? { cityLedger: cityLedgerOutcome } : {}),
+    });
   } catch (error: any) {
     console.error('Check-out error:', error);
     res.status(500).json({ success: false, message: 'Server error during check-out' });
@@ -1884,7 +1930,7 @@ router.patch('/:id/check-out', authenticate, async (req: AuthRequest, res: Respo
 // @route   POST /api/reservations/:id/charges
 // @desc    Manually add a charge to a reservation folio
 // @access  Private (roles with managePayments permission)
-router.post('/:id/charges', authenticate, authorizePermission('admin.reservations.managePayments'), async (req: AuthRequest, res: Response) => {
+router.post('/:id/charges', authenticate, authorizePermission('pms', 'admin.reservations.managePayments'), async (req: AuthRequest, res: Response) => {
   try {
     const { description, amount, category } = req.body as {
       description?: string;
@@ -1919,6 +1965,7 @@ router.post('/:id/charges', authenticate, authorizePermission('admin.reservation
       type: 'manual',
       category: category || undefined,
     });
+    await postChargeAddedEntry(req.tenant, charge, req.user?.id as any);
 
     res.status(201).json({ success: true, message: 'Charge recorded', data: charge });
   } catch (error: any) {
@@ -1930,7 +1977,7 @@ router.post('/:id/charges', authenticate, authorizePermission('admin.reservation
 // @route   DELETE /api/reservations/:id/charges/:chargeId
 // @desc    Delete a manual charge from a reservation folio
 // @access  Private (roles with managePayments permission)
-router.delete('/:id/charges/:chargeId', authenticate, authorizePermission('admin.reservations.managePayments'), async (req: AuthRequest, res: Response) => {
+router.delete('/:id/charges/:chargeId', authenticate, authorizePermission('pms', 'admin.reservations.managePayments'), async (req: AuthRequest, res: Response) => {
   try {
     const reservation = await Reservation.findById(req.params.id);
     if (!reservation) return res.status(404).json({ success: false, message: 'Reservation not found' });
@@ -1953,7 +2000,7 @@ router.delete('/:id/charges/:chargeId', authenticate, authorizePermission('admin
 // @route   POST /api/reservations/:id/payments
 // @desc    Record a payment against reservation folio
 // @access  Private
-router.post('/:id/payments', authenticate, authorizePermission('admin.reservations.managePayments'), async (req: AuthRequest, res: Response) => {
+router.post('/:id/payments', authenticate, authorizePermission('pms', 'admin.reservations.managePayments'), async (req: AuthRequest, res: Response) => {
   try {
     const { amount, method, note, reference, paymentStage: rawStage } = req.body as {
       amount?: number;
@@ -2035,7 +2082,7 @@ router.post('/:id/payments', authenticate, authorizePermission('admin.reservatio
       await financial.folio.save();
     }
 
-    await Payment.create({
+    const payment = await Payment.create({
       folioId: financial.folio._id,
       amount: amt,
       method,
@@ -2045,6 +2092,9 @@ router.post('/:id/payments', authenticate, authorizePermission('admin.reservatio
       note,
       createdBy: req.user?.id as any,
     });
+    if (paymentStatus === 'completed') {
+      await postPaymentCompletedEntry(req.tenant, payment, req.user?.id as any);
+    }
 
     const updatedFinancial = await getReservationFinancialSnapshot(reservation);
     reservation.totalPayments = updatedFinancial.totals.totalPayments;
@@ -2068,7 +2118,7 @@ router.post('/:id/payments', authenticate, authorizePermission('admin.reservatio
 // @route   PATCH /api/reservations/:id/payments/:paymentId
 // @desc    Edit a payment record and update folio summary
 // @access  Private
-router.patch('/:id/payments/:paymentId', authenticate, authorizePermission('admin.reservations.managePayments'), async (req: AuthRequest, res: Response) => {
+router.patch('/:id/payments/:paymentId', authenticate, authorizePermission('pms', 'admin.reservations.managePayments'), async (req: AuthRequest, res: Response) => {
   try {
     const { amount, method, note, reference, status } = req.body as {
       amount?: number;
@@ -2085,6 +2135,8 @@ router.patch('/:id/payments/:paymentId', authenticate, authorizePermission('admi
     const payment = await Payment.findOne({ _id: req.params.paymentId, folioId: financial.folio._id });
     if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });
 
+    const previousStatus = payment.status;
+
     if (amount !== undefined) {
       const amt = Number(amount);
       if (!amt || isNaN(amt) || amt <= 0) return res.status(400).json({ success: false, message: 'Payment amount must be a positive number' });
@@ -2096,6 +2148,18 @@ router.patch('/:id/payments/:paymentId', authenticate, authorizePermission('admi
     if (status) payment.status = status;
 
     await payment.save();
+
+    // Phase 7.2: mirror the status transition onto the GL — a completed payment gaining
+    // a GL entry, a completed→reversed one flipping it. A same-status edit (e.g. just the
+    // amount/method changing) intentionally does not adjust any already-posted entry here;
+    // reverse and re-record if a completed payment's amount needs correcting.
+    if (status && status !== previousStatus) {
+      if (status === 'reversed' && previousStatus === 'completed') {
+        await reversePaymentEntry(req.tenant, payment, req.user?.id as any);
+      } else if (status === 'completed' && previousStatus !== 'completed') {
+        await postPaymentCompletedEntry(req.tenant, payment, req.user?.id as any);
+      }
+    }
 
     const updatedFinancial = await getReservationFinancialSnapshot(reservation);
     reservation.totalPayments = updatedFinancial.totals.totalPayments;
@@ -2118,7 +2182,7 @@ router.patch('/:id/payments/:paymentId', authenticate, authorizePermission('admi
 // @route   DELETE /api/reservations/:id/payments/:paymentId
 // @desc    Delete a payment record and update folio summary
 // @access  Private
-router.delete('/:id/payments/:paymentId', authenticate, authorizePermission('admin.reservations.managePayments'), async (req: AuthRequest, res: Response) => {
+router.delete('/:id/payments/:paymentId', authenticate, authorizePermission('pms', 'admin.reservations.managePayments'), async (req: AuthRequest, res: Response) => {
   try {
     const reservation = await Reservation.findById(req.params.id);
     if (!reservation) return res.status(404).json({ success: false, message: 'Reservation not found' });
@@ -2148,7 +2212,7 @@ router.delete('/:id/payments/:paymentId', authenticate, authorizePermission('adm
 // @route   POST /api/reservations/:id/use-credit
 // @desc    Use credit for remaining folio balance and complete checkout
 // @access  Private
-router.post('/:id/use-credit', authenticate, authorizePermission('admin.reservations.managePayments'), async (req: AuthRequest, res: Response) => {
+router.post('/:id/use-credit', authenticate, authorizePermission('pms', 'admin.reservations.managePayments'), async (req: AuthRequest, res: Response) => {
   try {
     const reservation = await Reservation.findById(req.params.id);
     if (!reservation) return res.status(404).json({ success: false, message: 'Reservation not found' });

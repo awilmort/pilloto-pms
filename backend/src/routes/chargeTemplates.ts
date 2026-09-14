@@ -1,13 +1,13 @@
 import express, { Response } from 'express';
 import ChargeTemplate from '../models/ChargeTemplate';
-import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import { authenticate, authorize, authorizeAppAccess, AuthRequest } from '../middleware/auth';
 
 const router = express.Router();
 
 // @route   GET /api/charge-templates
 // @desc    List all charge templates
 // @access  Private (any authenticated staff)
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const { active } = req.query;
     const filter: any = {};

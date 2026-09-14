@@ -37,7 +37,8 @@
     "status": "Status",
     "rowsPerPage": "Rows per page",
     "reset": "Reset",
-    "errorOccurred": "An error occurred"
+    "errorOccurred": "An error occurred",
+    "close": "Close"
   },
   "nav": {
     "home": "Home",
@@ -342,6 +343,7 @@
       "form": {
         "name": "Name",
         "description": "Description",
+        "app": "App",
         "discountLimit": "Max Discount (%)",
         "discountLimitHint": "Maximum percentage this role can discount (0–100)"
       },
@@ -350,6 +352,9 @@
         "deleteFailed": "Failed to delete role",
         "updateFailed": "Failed to update role",
         "createFailed": "Failed to create role"
+      },
+      "permissionGroups": {
+        "general": "General"
       },
       "permissionLabels": {
         "adminAccess": "Admin Access (General)",
@@ -590,7 +595,9 @@
         "email": "Email",
         "phone": "Phone",
         "role": "Role",
-        "password": "Password"
+        "password": "Password",
+        "app": "App",
+        "appAccess": "App Access"
       },
       "dialog": {
         "editTitle": "Edit User",
@@ -602,6 +609,7 @@
         "loadFailed": "Failed to load users",
         "deleteFailed": "Failed to delete user",
         "updateFailed": "Failed to update user",
+        "roleRequiredForApp": "Select a role for every checked app.",
         "createFailed": "Failed to create user",
         "noUsers": "No users found."
       }
@@ -797,6 +805,8 @@
         "checkinLateConfirm": "This reservation's checkout date has passed. Check in anyway?",
         "checkinSuccess": "Checked in successfully",
         "checkoutSuccess": "Checked out successfully",
+        "checkoutCityLedgerPreApproved": "Checked out. Balance posted to the direct-bill account ({{invoiceNumber}}).",
+        "checkoutCityLedgerPending": "Checked out. Balance sent to City Ledger, pending manager authorization ({{invoiceNumber}}).",
         "operationFailed": "Operation failed"
       },
       "empty": {
@@ -827,7 +837,9 @@
         "availableCredit": "Credit available",
         "addPayment": "Add Payment",
         "useCredit": "Use Credit & Check Out",
-        "pendingHint": "There is an outstanding balance. Please collect payment or apply available credit before checking out."
+        "pendingHint": "There is an outstanding balance. Please collect payment or apply available credit before checking out.",
+        "pendingHintPreApproved": "This balance will post automatically to the guest’s direct-bill account on checkout — no extra step needed.",
+        "pendingHintCityLedger": "This balance will be sent to City Ledger automatically on checkout, pending manager authorization. You can still collect payment or use credit manually below."
       },
       "financial": {
         "estimatedTotal": "Estimated Total",
@@ -2217,6 +2229,866 @@
       }
     }
   },
+  "accounting": {
+    "title": "Pilloto Accounting",
+    "nav": {
+      "dashboard": "Dashboard",
+      "settings": "Settings",
+      "inventory": "Inventory",
+      "products": "Products",
+      "warehouses": "Warehouses",
+      "invoicing": "Invoices",
+      "invoices": "Invoices",
+      "creditNotes": "Credit Notes",
+      "debitNotes": "Debit Notes",
+      "customers": "Customers",
+      "cityLedger": "City Ledger",
+      "quotes": "Quotes",
+      "purchasing": "Bills",
+      "bills": "Bills",
+      "suppliers": "Suppliers",
+      "accounting": "Accounting",
+      "journalEntries": "Journal Entries",
+      "reports": "Reports"
+    },
+    "dashboard": {
+      "title": "Accounting Dashboard",
+      "welcomeTitle": "Welcome to Pilloto Accounting",
+      "comingSoon": "This app is being built out module by module. Invoices, bills, inventory, and the general ledger are coming soon — for now, use Settings to manage Accounting roles and users."
+    },
+    "settings": {
+      "title": "Settings",
+      "subtitle": "Manage Accounting roles and users.",
+      "tabs": {
+        "roles": "Roles",
+        "users": "Users"
+      }
+    },
+    "inventory": {
+      "title": "Products",
+      "loading": "Loading products...",
+      "empty": "No products yet.",
+      "actions": {
+        "hideArchived": "Hide Archived",
+        "showArchived": "Show Archived",
+        "lowStockOnly": "Low Stock Only",
+        "showAll": "Show All",
+        "createProduct": "New Product",
+        "cancel": "Cancel",
+        "create": "Create",
+        "save": "Save",
+        "edit": "Edit",
+        "archive": "Archive",
+        "history": "History",
+        "receive": "Receive Stock",
+        "adjust": "Adjust Stock",
+        "close": "Close"
+      },
+      "table": {
+        "name": "Name",
+        "sku": "SKU",
+        "onHand": "On Hand",
+        "cost": "Cost",
+        "price": "Price",
+        "actions": "Actions"
+      },
+      "status": {
+        "lowStock": "Low Stock"
+      },
+      "stockByWarehouse": {
+        "title": "Stock by Warehouse",
+        "empty": "No stock in any warehouse."
+      },
+      "dialog": {
+        "editTitle": "Edit Product",
+        "createTitle": "New Product",
+        "receiveTitle": "Receive Stock — {{name}}",
+        "adjustTitle": "Adjust Stock — {{name}}",
+        "historyTitle": "Transaction History — {{name}}"
+      },
+      "form": {
+        "name": "Name",
+        "sku": "SKU",
+        "category": "Category",
+        "unitOfMeasure": "Unit of Measure",
+        "defaultUnitPrice": "Sale Price",
+        "reorderPoint": "Reorder Point",
+        "reorderPointHelp": "Products at or below this quantity are flagged as low stock.",
+        "description": "Description",
+        "isSellable": "Sellable (can be added to invoices)",
+        "isPurchasable": "Purchasable (can be added to bills)",
+        "notes": "Notes",
+        "currentCost": "Current cost",
+        "currentOnHand": "Current on hand",
+        "initialStockSection": "Initial Stock (optional)",
+        "initialStockHelp": "Give this product an opening balance — recorded as a real inventory transaction.",
+        "initialQuantity": "Initial Quantity",
+        "initialUnitCost": "Initial Unit Cost",
+        "warehouse": "Warehouse",
+        "quantity": "Quantity",
+        "unitCost": "Unit Cost",
+        "adjustModeAmount": "Amount",
+        "adjustModeCount": "Physical Count",
+        "directionIncrease": "Increase",
+        "directionDecrease": "Decrease",
+        "quantityToRemove": "Quantity to remove",
+        "quantityToAdd": "Quantity to add",
+        "countedQuantity": "Counted Quantity",
+        "countedQuantityHelp": "Enter the physical count — the system calculates the difference.",
+        "countedQuantityDeltaPreview": "Change: {{delta}}",
+        "reason": "Reason"
+      },
+      "reason": {
+        "countCorrection": "Count Correction",
+        "damaged": "Damaged",
+        "lost": "Lost",
+        "theft": "Theft",
+        "other": "Other"
+      },
+      "uom": {
+        "unit": "Unit",
+        "box": "Box",
+        "pack": "Pack",
+        "dozen": "Dozen",
+        "kg": "Kilogram",
+        "g": "Gram",
+        "lb": "Pound",
+        "oz": "Ounce",
+        "l": "Liter",
+        "ml": "Milliliter",
+        "gal": "Gallon",
+        "m": "Meter",
+        "cm": "Centimeter"
+      },
+      "history": {
+        "date": "Date",
+        "type": "Type",
+        "warehouse": "Warehouse",
+        "delta": "Change",
+        "balance": "Balance",
+        "unitCost": "Unit Cost",
+        "notes": "Notes",
+        "empty": "No transactions yet.",
+        "types": {
+          "purchase": "Purchase",
+          "adjustment": "Adjustment",
+          "sale-deduction": "Sale",
+          "opening-balance": "Opening Balance"
+        }
+      },
+      "messages": {
+        "loadFailed": "Failed to load inventory.",
+        "createFailed": "Failed to create product.",
+        "updateFailed": "Failed to update product.",
+        "archiveFailed": "Failed to archive product.",
+        "purchaseFailed": "Failed to record purchase.",
+        "adjustFailed": "Failed to adjust stock."
+      }
+    },
+    "warehouses": {
+      "title": "Warehouses",
+      "loading": "Loading warehouses...",
+      "empty": "No warehouses yet.",
+      "actions": {
+        "hideArchived": "Hide Archived",
+        "showArchived": "Show Archived",
+        "create": "New Warehouse",
+        "cancel": "Cancel",
+        "save": "Save",
+        "edit": "Edit",
+        "archive": "Archive",
+        "setDefault": "Set as Default"
+      },
+      "table": {
+        "name": "Name",
+        "code": "Code",
+        "address": "Address",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "status": {
+        "default": "Default",
+        "active": "Active",
+        "archived": "Archived"
+      },
+      "dialog": {
+        "editTitle": "Edit Warehouse",
+        "createTitle": "New Warehouse"
+      },
+      "form": {
+        "name": "Name",
+        "code": "Code",
+        "codeHelp": "A short unique code, e.g. MAIN.",
+        "address": "Address",
+        "notes": "Notes"
+      },
+      "messages": {
+        "loadFailed": "Failed to load warehouses.",
+        "createFailed": "Failed to create warehouse.",
+        "updateFailed": "Failed to update warehouse.",
+        "archiveFailed": "Failed to archive warehouse.",
+        "setDefaultFailed": "Failed to set default warehouse.",
+        "cannotArchiveDefault": "Set a different warehouse as default before archiving this one."
+      }
+    },
+    "invoices": {
+      "title": "Invoices",
+      "loading": "Loading invoices...",
+      "empty": "No invoices found",
+      "table": {
+        "number": "Number",
+        "customer": "Customer",
+        "issueDate": "Issue Date",
+        "subtotal": "Subtotal",
+        "tax": "Tax",
+        "total": "Total",
+        "amountPaid": "Amount Paid",
+        "balanceDue": "Balance Due",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "status": {
+        "draft": "Draft",
+        "sent": "Sent",
+        "partial": "Partially Paid",
+        "paid": "Paid",
+        "void": "Void",
+        "overdue": "Overdue"
+      },
+      "paymentMethod": {
+        "cash": "Cash",
+        "card": "Card",
+        "transfer": "Transfer",
+        "check": "Check",
+        "credit": "Credit"
+      },
+      "actions": {
+        "create": "New Invoice",
+        "edit": "Edit",
+        "view": "View",
+        "send": "Send",
+        "recordPayment": "Record Payment",
+        "issueCreditNote": "Issue Credit Note",
+        "issueDebitNote": "Issue Debit Note",
+        "void": "Void"
+      },
+      "dialog": {
+        "createTitle": "New Invoice",
+        "editTitle": "Edit Invoice {{number}}",
+        "paymentsTitle": "Payments",
+        "ecfTitle": "Electronic Invoice (e-CF)",
+        "ecfStatus": "Status",
+        "sendConfirmTitle": "Send Invoice",
+        "sendConfirmBody": "Send invoice {{number}}? This will issue an electronic invoice (e-CF) and deduct any inventory-backed line items from stock. This cannot be undone.",
+        "paymentTitle": "Record Payment — {{number}}",
+        "voidConfirmTitle": "Void Invoice",
+        "voidConfirmBody": "Are you sure you want to void invoice {{number}}? This cannot be undone."
+      },
+      "form": {
+        "customerModeCompany": "Company",
+        "customerModeIndividual": "Individual",
+        "customer": "Customer",
+        "customerRequired": "Please select a customer",
+        "individualName": "Full Name",
+        "individualNameRequired": "Individual customer name is required",
+        "dueDate": "Due Date",
+        "lineItems": "Line Items",
+        "product": "Product",
+        "productNone": "None (service line)",
+        "available": "available",
+        "description": "Description",
+        "lineDescriptionRequired": "Every line item needs a description",
+        "quantity": "Quantity",
+        "lineQuantityRequired": "Every line item needs a quantity greater than 0",
+        "unitPrice": "Unit Price",
+        "lineUnitPriceRequired": "Every line item needs a valid unit price",
+        "discountPercent": "Discount %",
+        "taxRate": "Tax %",
+        "addLine": "Add Line",
+        "paymentAmount": "Amount",
+        "paymentAmountRequired": "Enter a payment amount greater than 0",
+        "paymentMethod": "Method",
+        "paymentReference": "Reference"
+      },
+      "messages": {
+        "loadFailed": "Error loading invoices",
+        "saveFailed": "Error saving invoice",
+        "sendFailed": "Error sending invoice",
+        "paymentFailed": "Error recording payment",
+        "voidFailed": "Error voiding invoice"
+      }
+    },
+    "customers": {
+      "title": "Customers",
+      "empty": "No customers found",
+      "nameRequired": "Customer name is required",
+      "archiveConfirmTitle": "Archive Customer",
+      "archiveConfirmBody": "Are you sure you want to archive this customer?",
+      "linked": "Linked",
+      "linkedToCompany": "Linked to PMS company: {{name}}",
+      "linkedToCompanyGeneric": "Linked to a PMS company",
+      "table": {
+        "name": "Name",
+        "contact": "Contact",
+        "rnc": "RNC",
+        "actions": "Actions"
+      },
+      "actions": {
+        "create": "Add Customer",
+        "edit": "Edit Customer",
+        "archive": "Archive"
+      },
+      "form": {
+        "name": "Name",
+        "contactName": "Contact Name",
+        "address": "Address",
+        "fiscalInfoTitle": "Fiscal Information (e-CF)",
+        "rnc": "RNC",
+        "rncHelp": "9 or 11 digits",
+        "razonSocial": "Registered Business Name",
+        "linkTitle": "PMS Link (optional)",
+        "linkCompany": "Link existing PMS company",
+        "linkCompanyHelp": "Only for a pre-approved direct-bill account that is also a hotel corporate account — leave empty otherwise"
+      },
+      "messages": {
+        "loadFailed": "Error loading customers",
+        "saveFailed": "Error saving customer",
+        "archiveFailed": "Error archiving customer"
+      }
+    },
+    "cityLedger": {
+      "title": "City Ledger",
+      "intro": "Unpaid balances transferred automatically at checkout. Each one needs a manager to authorize or decline it before it appears on AR aging and customer statements.",
+      "pendingBadge": "{{count}} pending",
+      "empty": "No pending City Ledger transfers.",
+      "table": {
+        "invoice": "Invoice",
+        "customer": "Customer",
+        "reservation": "Reservation",
+        "amount": "Amount",
+        "date": "Date"
+      },
+      "authorize": "Authorize",
+      "decline": "Decline",
+      "declineTitle": "Decline City Ledger Transfer",
+      "declineWarning": "Declining voids this invoice. It does not reopen the folio — the guest has already checked out. The balance becomes a manual write-off matter.",
+      "declineReason": "Reason",
+      "authorized": "City Ledger transfer authorized",
+      "declined": "City Ledger transfer declined",
+      "loadFailed": "Failed to load the City Ledger queue",
+      "authorizeFailed": "Failed to authorize",
+      "declineFailed": "Failed to decline"
+    },
+    "quotes": {
+      "title": "Quotes",
+      "loading": "Loading quotes...",
+      "empty": "No quotes found",
+      "table": {
+        "number": "Number",
+        "customer": "Customer",
+        "issueDate": "Issue Date",
+        "expiryDate": "Expiry Date",
+        "subtotal": "Subtotal",
+        "tax": "Tax",
+        "total": "Total",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "status": {
+        "draft": "Draft",
+        "sent": "Sent",
+        "accepted": "Accepted",
+        "rejected": "Rejected",
+        "expired": "Expired",
+        "converted": "Converted"
+      },
+      "actions": {
+        "create": "New Quote",
+        "edit": "Edit",
+        "view": "View",
+        "send": "Send",
+        "accept": "Accept",
+        "reject": "Reject",
+        "convertToInvoice": "Convert to Invoice"
+      },
+      "dialog": {
+        "createTitle": "New Quote",
+        "editTitle": "Edit Quote {{number}}",
+        "sendConfirmTitle": "Send Quote",
+        "sendConfirmBody": "Send quote {{number}}? This marks it as sent to the customer.",
+        "acceptConfirmTitle": "Accept Quote",
+        "acceptConfirmBody": "Mark quote {{number}} as accepted by the customer?",
+        "rejectConfirmTitle": "Reject Quote",
+        "rejectConfirmBody": "Mark quote {{number}} as rejected? A rejected quote can no longer be converted to an invoice.",
+        "convertConfirmTitle": "Convert to Invoice",
+        "convertConfirmBody": "Convert quote {{number}} into a new draft invoice? The quote will become read-only.",
+        "convertedNotice": "This quote was converted to invoice {{number}}."
+      },
+      "form": {
+        "customerModeCompany": "Company",
+        "customerModeIndividual": "Individual",
+        "customer": "Customer",
+        "customerRequired": "Please select a customer",
+        "individualName": "Full Name",
+        "individualNameRequired": "Individual customer name is required",
+        "expiryDate": "Expiry Date",
+        "lineItems": "Line Items",
+        "product": "Product",
+        "productNone": "None (service line)",
+        "available": "available",
+        "description": "Description",
+        "lineDescriptionRequired": "Every line item needs a description",
+        "quantity": "Quantity",
+        "lineQuantityRequired": "Every line item needs a quantity greater than 0",
+        "unitPrice": "Unit Price",
+        "lineUnitPriceRequired": "Every line item needs a valid unit price",
+        "discountPercent": "Discount %",
+        "taxRate": "Tax %",
+        "addLine": "Add Line"
+      },
+      "messages": {
+        "loadFailed": "Error loading quotes",
+        "saveFailed": "Error saving quote",
+        "sendFailed": "Error sending quote",
+        "acceptFailed": "Error accepting quote",
+        "rejectFailed": "Error rejecting quote",
+        "convertFailed": "Error converting quote to invoice"
+      }
+    },
+    "bills": {
+      "title": "Bills",
+      "loading": "Loading bills...",
+      "empty": "No bills found",
+      "table": {
+        "number": "Number",
+        "supplier": "Supplier",
+        "issueDate": "Issue Date",
+        "dueDate": "Due Date",
+        "total": "Total",
+        "balanceDue": "Balance Due",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "status": {
+        "draft": "Draft",
+        "received": "Received",
+        "partial": "Partially Paid",
+        "paid": "Paid",
+        "void": "Void",
+        "overdue": "Overdue"
+      },
+      "paymentMethod": {
+        "cash": "Cash",
+        "card": "Card",
+        "transfer": "Transfer",
+        "check": "Check",
+        "other": "Other"
+      },
+      "actions": {
+        "create": "New Bill",
+        "edit": "Edit",
+        "view": "View",
+        "receive": "Receive",
+        "recordPayment": "Record Payment",
+        "void": "Void"
+      },
+      "dialog": {
+        "createTitle": "New Bill",
+        "editTitle": "Edit Bill {{number}}",
+        "receiveConfirmTitle": "Receive Bill",
+        "receiveConfirmBody": "Receive bill {{number}}? This will add its inventory line items to stock at their landed cost. This cannot be undone.",
+        "paymentTitle": "Record Payment — {{number}}",
+        "voidConfirmTitle": "Void Bill",
+        "voidConfirmBody": "Are you sure you want to void bill {{number}}? This cannot be undone."
+      },
+      "form": {
+        "supplier": "Supplier",
+        "supplierRequired": "Please select a supplier",
+        "vendorInvoiceNumber": "Vendor Invoice #",
+        "dueDateHelp": "Defaults from the supplier's payment terms if left blank",
+        "lineItems": "Line Items",
+        "lineTypeInventory": "Inventory",
+        "lineTypeExpense": "Expense",
+        "product": "Product",
+        "lineProductRequired": "Every inventory line needs a product",
+        "purchaseUom": "Purchase Unit",
+        "linePurchaseUomRequired": "Every inventory line needs a purchase unit",
+        "purchaseQuantity": "Purchase Qty",
+        "linePurchaseQuantityRequired": "Every inventory line needs a purchase quantity greater than 0",
+        "purchaseUnitCost": "Cost / Unit",
+        "linePurchaseCostRequired": "Every inventory line needs a valid purchase unit cost",
+        "stockUom": "Stock Unit",
+        "stockUomHelp": "Fixed to the product's base unit",
+        "stockQuantity": "Stock Qty Added",
+        "lineStockQuantityRequired": "Every inventory line needs a stock quantity greater than 0",
+        "account": "Account",
+        "lineAccountRequired": "Every expense line needs an account",
+        "lineTotal": "Amount",
+        "lineTotalRequired": "Every expense line needs a valid amount",
+        "lineDescriptionRequired": "Every expense line needs a description",
+        "addInventoryLine": "Add Inventory Line",
+        "addExpenseLine": "Add Expense Line"
+      },
+      "messages": {
+        "loadFailed": "Error loading bills",
+        "saveFailed": "Error saving bill",
+        "receiveFailed": "Error receiving bill",
+        "paymentFailed": "Error recording payment",
+        "voidFailed": "Error voiding bill"
+      }
+    },
+    "suppliers": {
+      "title": "Suppliers",
+      "empty": "No suppliers found",
+      "nameRequired": "Supplier name is required",
+      "paymentTermsInvalid": "Payment terms must be 0 or more days",
+      "archiveConfirmTitle": "Archive Supplier",
+      "archiveConfirmBody": "Are you sure you want to archive this supplier?",
+      "table": {
+        "name": "Name",
+        "contact": "Contact",
+        "taxId": "Tax ID",
+        "paymentTerms": "Payment Terms",
+        "netDays": "Net {{days}}",
+        "actions": "Actions"
+      },
+      "actions": {
+        "create": "Add Supplier",
+        "edit": "Edit Supplier",
+        "archive": "Archive"
+      },
+      "form": {
+        "name": "Name",
+        "contactName": "Contact Name",
+        "address": "Address",
+        "billingInfoTitle": "Billing Information",
+        "taxId": "Tax ID",
+        "paymentTermsDays": "Payment Terms (days)",
+        "paymentTermsHelp": "Prefills a new bill's due date from its issue date"
+      },
+      "messages": {
+        "loadFailed": "Error loading suppliers",
+        "saveFailed": "Error saving supplier",
+        "archiveFailed": "Error archiving supplier"
+      }
+    },
+    "creditNotes": {
+      "title": "Credit Notes",
+      "loading": "Loading credit notes...",
+      "empty": "No credit notes found",
+      "table": {
+        "number": "Number",
+        "customer": "Customer",
+        "invoice": "Invoice",
+        "issueDate": "Issue Date",
+        "total": "Total",
+        "amountApplied": "Amount Applied",
+        "remainingCredit": "Remaining Credit",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "status": {
+        "draft": "Draft",
+        "issued": "Issued",
+        "partial": "Partially Applied",
+        "closed": "Closed",
+        "void": "Void"
+      },
+      "reason": {
+        "billing-error": "Billing Error",
+        "price-adjustment": "Price Adjustment",
+        "goods-returned": "Goods Returned",
+        "service-not-rendered": "Service Not Rendered",
+        "duplicate-charge": "Duplicate Charge",
+        "goodwill": "Goodwill Adjustment",
+        "other": "Other"
+      },
+      "fiscalModificationCode": {
+        "1": "1 — Full Cancellation",
+        "2": "2 — Text Correction",
+        "3": "3 — Amount Correction",
+        "4": "4 — Contingency Replacement"
+      },
+      "applicationType": {
+        "invoice": "Applied to invoice",
+        "refund": "Refunded"
+      },
+      "refundMethod": {
+        "cash": "Cash",
+        "card": "Card",
+        "transfer": "Transfer",
+        "check": "Check",
+        "other": "Other"
+      },
+      "actions": {
+        "create": "New Credit Note",
+        "edit": "Edit",
+        "view": "View",
+        "issue": "Issue",
+        "apply": "Apply to Invoice",
+        "refund": "Refund",
+        "void": "Void"
+      },
+      "dialog": {
+        "createTitle": "New Credit Note",
+        "editTitle": "Edit Credit Note {{number}}",
+        "applicationsTitle": "Applications",
+        "ecfTitle": "Electronic Credit Note (e-CF)",
+        "ecfModifies": "Modifies NCF",
+        "issueConfirmTitle": "Issue Credit Note",
+        "issueConfirmBody": "Issue credit note {{number}}? This will issue an electronic credit note (e-CF E34) against the original invoice, restock any returned inventory, and post the corresponding journal entry. This cannot be undone.",
+        "applyTitle": "Apply to Invoice — {{number}}",
+        "refundTitle": "Refund — {{number}}",
+        "voidConfirmTitle": "Void Credit Note",
+        "voidConfirmBody": "Are you sure you want to void credit note {{number}}? This cannot be undone. Only unapplied, unrefunded credit can be voided."
+      },
+      "form": {
+        "invoice": "Original Invoice",
+        "invoiceRequired": "Please select the invoice this credit note corrects",
+        "targetInvoice": "Target Invoice",
+        "reason": "Reason",
+        "fiscalModificationCode": "DGII Modification Code",
+        "warehouse": "Warehouse",
+        "warehouseRequired": "A warehouse is required when the credit note has at least one return line",
+        "lineItems": "Line Items",
+        "lineTypeReturn": "Return",
+        "lineTypeAllowance": "Allowance",
+        "product": "Product",
+        "lineProductRequired": "Every return line needs a product from the original invoice",
+        "description": "Description",
+        "lineDescriptionRequired": "Every line item needs a description",
+        "quantity": "Quantity",
+        "lineQuantityRequired": "Every return line needs a quantity greater than 0",
+        "unitPrice": "Unit Price",
+        "lineUnitPriceRequired": "Every return line needs a valid unit price",
+        "amount": "Amount",
+        "lineTotalRequired": "Every allowance line needs a valid amount",
+        "amountRequired": "Enter an amount greater than 0",
+        "taxRate": "Tax %",
+        "addReturnLine": "Add Return Line",
+        "addAllowanceLine": "Add Allowance Line",
+        "voidReason": "Void reason (optional)"
+      },
+      "messages": {
+        "loadFailed": "Error loading credit notes",
+        "saveFailed": "Error saving credit note",
+        "issueFailed": "Error issuing credit note",
+        "applyFailed": "Error applying credit note",
+        "refundFailed": "Error refunding credit note",
+        "voidFailed": "Error voiding credit note"
+      }
+    },
+    "debitNotes": {
+      "title": "Debit Notes",
+      "loading": "Loading debit notes...",
+      "empty": "No debit notes found",
+      "table": {
+        "number": "Number",
+        "customer": "Customer",
+        "invoice": "Invoice",
+        "issueDate": "Issue Date",
+        "total": "Total",
+        "balanceDue": "Balance Due",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "status": {
+        "draft": "Draft",
+        "issued": "Issued",
+        "partial": "Partially Paid",
+        "paid": "Paid",
+        "void": "Void"
+      },
+      "reason": {
+        "interest-on-overdue": "Interest on Overdue Balance",
+        "price-correction": "Price Correction",
+        "quantity-correction": "Quantity Correction",
+        "additional-charge": "Additional Charge",
+        "other": "Other"
+      },
+      "actions": {
+        "create": "New Debit Note",
+        "edit": "Edit",
+        "view": "View",
+        "issue": "Issue",
+        "recordPayment": "Record Payment",
+        "void": "Void"
+      },
+      "dialog": {
+        "createTitle": "New Debit Note",
+        "editTitle": "Edit Debit Note {{number}}",
+        "ecfTitle": "Electronic Debit Note (e-CF)",
+        "issueConfirmTitle": "Issue Debit Note",
+        "issueConfirmBody": "Issue debit note {{number}}? This will issue an electronic debit note (e-CF E33) against the original invoice and post the corresponding journal entry. This cannot be undone.",
+        "paymentTitle": "Record Payment — {{number}}",
+        "voidConfirmTitle": "Void Debit Note",
+        "voidConfirmBody": "Are you sure you want to void debit note {{number}}? This cannot be undone. Only a debit note with no payments recorded can be voided."
+      },
+      "form": {
+        "invoice": "Original Invoice",
+        "invoiceRequired": "Please select the invoice this debit note charges against",
+        "reason": "Reason",
+        "fiscalModificationCode": "DGII Modification Code",
+        "lineItems": "Line Items",
+        "description": "Description",
+        "lineDescriptionRequired": "Every line item needs a description",
+        "amount": "Amount",
+        "lineTotalRequired": "Every line item needs a valid amount",
+        "taxRate": "Tax %",
+        "addLine": "Add Line"
+      },
+      "messages": {
+        "loadFailed": "Error loading debit notes",
+        "saveFailed": "Error saving debit note",
+        "issueFailed": "Error issuing debit note",
+        "paymentFailed": "Error recording payment",
+        "voidFailed": "Error voiding debit note"
+      }
+    },
+    "journalEntries": {
+      "title": "Journal Entries",
+      "loading": "Loading journal entries...",
+      "empty": "No journal entries found",
+      "table": {
+        "number": "Entry #",
+        "date": "Date",
+        "memo": "Memo",
+        "source": "Source",
+        "total": "Total",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "status": {
+        "active": "Active (not void)",
+        "posted": "Posted",
+        "void": "Void"
+      },
+      "source": {
+        "manual": "Manual",
+        "invoice_sent": "Invoice Sent",
+        "invoice_payment": "Invoice Payment",
+        "invoice_void": "Invoice Void",
+        "bill_received": "Bill Received",
+        "bill_payment": "Bill Payment",
+        "bill_void": "Bill Void",
+        "credit_note_issue": "Credit Note Issued",
+        "credit_note_refund": "Credit Note Refund",
+        "credit_note_void": "Credit Note Void",
+        "debit_note_issue": "Debit Note Issued",
+        "debit_note_payment": "Debit Note Payment",
+        "debit_note_void": "Debit Note Void"
+      },
+      "actions": {
+        "create": "New Journal Entry",
+        "view": "View",
+        "void": "Void"
+      },
+      "dialog": {
+        "createTitle": "New Journal Entry",
+        "voidConfirmTitle": "Void Journal Entry",
+        "voidConfirmBody": "Are you sure you want to void journal entry {{number}}? This will post an automatic reversing entry and cannot be undone.",
+        "voidedNotice": "This entry was voided on {{date}}"
+      },
+      "form": {
+        "date": "Date",
+        "memo": "Memo",
+        "memoRequired": "Memo is required",
+        "minLines": "A journal entry requires at least 2 lines",
+        "lines": "Lines",
+        "account": "Account",
+        "accountRequired": "Every line requires an account",
+        "type": "Type",
+        "debit": "Debit",
+        "credit": "Credit",
+        "amount": "Amount",
+        "amountRequired": "Every line needs a valid amount greater than zero",
+        "lineMemo": "Line memo (optional)",
+        "addLine": "Add Line",
+        "totalDebit": "Total Debit",
+        "totalCredit": "Total Credit",
+        "difference": "Difference",
+        "balanced": "Balanced",
+        "unbalanced": "Not balanced",
+        "notBalanced": "Total debits must equal total credits before this entry can be posted",
+        "voidReason": "Reason (optional)"
+      },
+      "messages": {
+        "loadFailed": "Error loading journal entries",
+        "saveFailed": "Error posting journal entry",
+        "voidFailed": "Error voiding journal entry"
+      }
+    },
+    "reports": {
+      "title": "Reports",
+      "balanced": "Balanced",
+      "unbalanced": "Not balanced",
+      "empty": "No data for this period",
+      "tabs": {
+        "trialBalance": "Trial Balance",
+        "profitAndLoss": "Profit & Loss",
+        "balanceSheet": "Balance Sheet",
+        "apAging": "AP Aging",
+        "arAging": "AR Aging",
+        "generalLedger": "General Ledger",
+        "supplierStatement": "Supplier Statement",
+        "customerStatement": "Customer Statement"
+      },
+      "filters": {
+        "asOf": "As of",
+        "from": "From",
+        "to": "To",
+        "account": "Account",
+        "selectSupplier": "Select a supplier",
+        "selectCustomer": "Select a customer"
+      },
+      "table": {
+        "account": "Account",
+        "debit": "Debit",
+        "credit": "Credit",
+        "total": "Total",
+        "date": "Date",
+        "reference": "Reference",
+        "balance": "Balance"
+      },
+      "pnl": {
+        "revenue": "Revenue",
+        "totalRevenue": "Total Revenue",
+        "expenses": "Expenses",
+        "totalExpenses": "Total Expenses",
+        "netIncome": "Net Income"
+      },
+      "bs": {
+        "assets": "Assets",
+        "totalAssets": "Total Assets",
+        "liabilities": "Liabilities",
+        "totalLiabilities": "Total Liabilities",
+        "equity": "Equity",
+        "netIncomeToDate": "Net Income (current)",
+        "totalEquity": "Total Equity",
+        "totalLiabilitiesAndEquity": "Total Liabilities + Equity"
+      },
+      "aging": {
+        "supplier": "Supplier",
+        "customer": "Customer",
+        "rowHintAp": "Click a row to view its bills",
+        "rowHintAr": "Click a row to view its invoices",
+        "buckets": {
+          "current": "Current",
+          "d1_30": "1-30 Days",
+          "d31_60": "31-60 Days",
+          "d61_90": "61-90 Days",
+          "d90_plus": "90+ Days"
+        }
+      },
+      "statement": {
+        "openingBalance": "Opening Balance",
+        "closingBalance": "Closing Balance"
+      },
+      "messages": {
+        "loadFailed": "Error loading report"
+      }
+    }
+  },
   "pages": {
     "rooms": {
       "loadingAmenities": "Loading amenities...",
@@ -2273,7 +3145,7 @@
       "lastName": "Last Name",
       "email": "Email",
       "phone": "Phone",
-      "saving": "Saving\u2026",
+      "saving": "Saving…",
       "saveChanges": "Save Changes",
       "changePassword": "Change Password",
       "changePasswordSubtitle": "Use a strong, unique password that you don't use anywhere else.",
@@ -2281,10 +3153,10 @@
       "newPassword": "New Password",
       "confirmNewPassword": "Confirm New Password",
       "passwordsDoNotMatch": "Passwords do not match",
-      "passwordsMatch": "\u2713 Passwords match",
+      "passwordsMatch": "✓ Passwords match",
       "passwordRequirements": "Password Requirements",
       "cancel": "Cancel",
-      "updating": "Updating\u2026",
+      "updating": "Updating…",
       "updatePassword": "Update Password",
       "accessAndPermissions": "Access & Permissions",
       "accessDescription": "Your account has the following access permissions in this property.",

@@ -2,12 +2,14 @@ import express, { Request, Response } from 'express';
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
 import crypto from 'crypto';
 import User from '../models/User';
+import Role from '../models/Role';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { validateRegister, validateLogin, validateEmail, validatePasswordReset } from '../middleware/validation';
 import { sendTokenResponse } from '../utils/jwt';
 import { sendVerificationEmail, sendPasswordResetEmail, sendEmail } from '../utils/email';
 import { TenantRequest, tenantLocalStorage } from '../middleware/tenantContext';
 import Tenant from '../models/Tenant';
+import { AppCode } from '../constants/apps';
 
 const router = express.Router();
 
@@ -387,9 +389,36 @@ router.post('/reset-password', validatePasswordReset, async (req: Request, res: 
 // @access  Private
 router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    const user = req.user;
+    const appRoles: { app: AppCode; role: any }[] = user.appRoles || [];
+    const roleDocs = appRoles.length
+      ? await Role.find({ _id: { $in: appRoles.map((ar) => ar.role) } })
+          .select('name app permissions discountLimit')
+          .lean()
+      : [];
+    const roleById = new Map(roleDocs.map((r: any) => [String(r._id), r]));
+
+    // Resolved per-app access: joined role name + permissions, one entry per app the
+    // user actually has a role in. isSuperAdmin/legacy-pms-admin bypasses are exposed
+    // as flags rather than synthesized permission lists.
+    const resolvedAppRoles: Record<string, { roleId: string; roleName: string; permissions: string[]; discountLimit?: number }> = {};
+    for (const ar of appRoles) {
+      const roleDoc = roleById.get(String(ar.role));
+      if (!roleDoc) continue;
+      resolvedAppRoles[ar.app] = {
+        roleId: String(ar.role),
+        roleName: roleDoc.name,
+        permissions: roleDoc.permissions || [],
+        discountLimit: roleDoc.discountLimit,
+      };
+    }
+
     res.status(200).json({
       success: true,
-      user: req.user
+      user: {
+        ...user.toObject(),
+        resolvedAppRoles,
+      }
     });
   } catch (error: any) {
     console.error('Get profile error:', error);

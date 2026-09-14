@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { User, AuthContextType, RegisterData } from '../types';
-import { rolesService } from '../services/api';
+import { AppCode, AuthContextType, RegisterData, ResolvedAppRole, User } from '../types';
 import { authService } from '../services/api';
 import { toast } from 'react-toastify';
 
@@ -11,6 +10,7 @@ interface AuthState {
   loading: boolean;
   permissions: string[];
   discountLimit: number;
+  resolvedAppRoles: Partial<Record<AppCode, ResolvedAppRole>>;
 }
 
 type AuthAction =
@@ -26,6 +26,32 @@ const initialState: AuthState = {
   loading: true,
   permissions: [],
   discountLimit: 0,
+  resolvedAppRoles: {},
+};
+
+/**
+ * `schedule.view` and `accommodations.manage` are legacy pms permission
+ * names still stored verbatim on Role documents (see
+ * backend/src/constants/permissions.ts) — they aren't backend-enforced but
+ * do gate frontend nav/route visibility under their `admin.*` names. Kept
+ * here rather than in the backend response since it's frontend-only routing
+ * behavior, not an access-control decision.
+ */
+const LEGACY_PMS_PERMISSION_MAP: Record<string, string> = {
+  'schedule.view': 'admin.schedule',
+  'accommodations.manage': 'admin.accommodations',
+};
+
+/** Derives the legacy flat `permissions`/`discountLimit` fields (pms-scoped) from the resolved appRoles. */
+const derivePmsFields = (user: User): Pick<AuthState, 'permissions' | 'discountLimit' | 'resolvedAppRoles'> => {
+  const resolvedAppRoles = user.resolvedAppRoles || {};
+  const pms = resolvedAppRoles.pms;
+  const rawPermissions = pms?.permissions || [];
+  return {
+    permissions: rawPermissions.map((p) => LEGACY_PMS_PERMISSION_MAP[p] || p),
+    discountLimit: pms?.discountLimit ?? 0,
+    resolvedAppRoles,
+  };
 };
 
 const authReducer = (state: AuthState, action: AuthAction): AuthState => {
@@ -39,8 +65,7 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         token: action.payload.token,
         isAuthenticated: true,
         loading: false,
-        permissions: (action.payload.user as any).permissions || [],
-        discountLimit: (action.payload.user as any).discountLimit ?? 0,
+        ...derivePmsFields(action.payload.user),
       };
     case 'LOGOUT':
       return {
@@ -51,13 +76,13 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
         loading: false,
         permissions: [],
         discountLimit: 0,
+        resolvedAppRoles: {},
       };
     case 'UPDATE_USER':
       return {
         ...state,
         user: action.payload,
-        permissions: (action.payload as any).permissions || state.permissions,
-        discountLimit: (action.payload as any).discountLimit ?? state.discountLimit,
+        ...derivePmsFields(action.payload),
       };
     default:
       return state;
@@ -81,32 +106,23 @@ interface AuthProviderProps {
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
+  // Fetches the current user with resolved per-app roles/permissions already joined server-side.
+  const fetchResolvedUser = async (): Promise<User | null> => {
+    const response = await authService.getCurrentUser();
+    if (response.data.success && response.data.user) {
+      return response.data.user;
+    }
+    return null;
+  };
+
   // Check if user is logged in on app start
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          const response = await authService.getCurrentUser();
-          if (response.data.success && response.data.user) {
-            const user = response.data.user as any;
-            // Attach permissions by looking up Role definition (case-insensitive)
-            try {
-              const rolesRes = await rolesService.getRoles();
-              const roleDef = Array.isArray(rolesRes.data.data)
-                ? rolesRes.data.data.find((r: any) => String(r.name).toLowerCase() === String(user.role).toLowerCase())
-                : null;
-              const legacyMap: Record<string, string> = {
-                'schedule.view': 'admin.schedule',
-                'accommodations.manage': 'admin.accommodations',
-              };
-              const rawPerms: string[] = roleDef?.permissions || [];
-              user.permissions = rawPerms.map(p => legacyMap[p] || p);
-              user.discountLimit = roleDef?.discountLimit ?? 0;
-            } catch (e) {
-              user.permissions = [];
-              user.discountLimit = 0;
-            }
+          const user = await fetchResolvedUser();
+          if (user) {
             dispatch({ type: 'LOGIN_SUCCESS', payload: { user, token } });
           } else {
             localStorage.removeItem('token');
@@ -128,25 +144,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
-      const response = await authService.getCurrentUser();
-      if (response.data.success && response.data.user) {
-        const user = response.data.user as any;
-        try {
-          const rolesRes = await rolesService.getRoles();
-          const roleDef = Array.isArray(rolesRes.data.data)
-            ? rolesRes.data.data.find((r: any) => String(r.name).toLowerCase() === String(user.role).toLowerCase())
-            : null;
-          const legacyMap: Record<string, string> = {
-            'schedule.view': 'admin.schedule',
-            'accommodations.manage': 'admin.accommodations',
-          };
-          const rawPerms: string[] = roleDef?.permissions || [];
-          user.permissions = rawPerms.map(p => legacyMap[p] || p);
-          user.discountLimit = roleDef?.discountLimit ?? 0;
-        } catch (e) {
-          user.permissions = [];
-          user.discountLimit = 0;
-        }
+      const user = await fetchResolvedUser();
+      if (user) {
         dispatch({ type: 'UPDATE_USER', payload: user });
       }
     } catch (e) {
@@ -160,27 +159,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const response = await authService.login({ email, password });
 
       if (response.data.success && response.data.user && response.data.token) {
-        const { user: rawUser, token } = response.data as any;
-        const user = { ...rawUser } as any;
+        const { token } = response.data;
         // Store token BEFORE any authenticated calls so the request interceptor can use it
         localStorage.setItem('token', token);
-        // Attach permissions by looking up Role definition (case-insensitive)
-        try {
-          const rolesRes = await rolesService.getRoles();
-          const roleDef = Array.isArray(rolesRes.data.data)
-            ? rolesRes.data.data.find((r: any) => String(r.name).toLowerCase() === String(user.role).toLowerCase())
-            : null;
-          const legacyMap: Record<string, string> = {
-            'schedule.view': 'admin.schedule',
-            'accommodations.manage': 'admin.accommodations',
-          };
-          const rawPerms: string[] = roleDef?.permissions || [];
-          user.permissions = rawPerms.map(p => legacyMap[p] || p);
-          user.discountLimit = roleDef?.discountLimit ?? 0;
-        } catch (e) {
-          user.permissions = [];
-          user.discountLimit = 0;
-        }
+        // Re-fetch through /auth/me for the resolved appRoles the login response doesn't include
+        const user = (await fetchResolvedUser()) || response.data.user;
         dispatch({ type: 'LOGIN_SUCCESS', payload: { user, token } });
         toast.success('Login successful!');
       } else {
@@ -238,6 +221,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     permissions: state.permissions,
     discountLimit: state.discountLimit,
+    resolvedAppRoles: state.resolvedAppRoles,
     refreshUser,
   };
 
