@@ -84,6 +84,7 @@ import BookingTermsPage from './pages/booking/BookingTermsPage';
 import BookingPrivacyPage from './pages/booking/BookingPrivacyPage';
 import BookingReservationPage from './pages/booking/BookingReservationPage';
 import { BookingProvider } from './contexts/BookingContext';
+import ScapeRoomPage from './pages/playground/ScapeRoomPage'; // TEMPORARY
 
 const globalStyles = (
   <GlobalStyles
@@ -509,6 +510,9 @@ function AppContent() {
 }
 
 function App() {
+  // TEMPORARY — youth group escape room (2026-10-17). Remove with pages/playground/.
+  if (window.location.pathname.replace(/\/$/, '') === '/playground/scaperoom') return <ScapeRoomPage />;
+
   return (
     <HelmetProvider>
       <Helmet>
