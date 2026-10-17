@@ -82,6 +82,13 @@ const css = `
 .sr-key.sr-ok{background:linear-gradient(180deg,#3f7d4f,#24503a)}
 .sr-key.sr-del{background:linear-gradient(180deg,#7d4a3f,#50302a)}
 .sr-hint{position:absolute;bottom:3%;width:100%;text-align:center;font-size:12px;letter-spacing:3px;color:#59626b}
+
+.sr-win{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:32px;padding:16px;text-align:center;opacity:0;pointer-events:none;transition:opacity 1.5s ease 5.5s}
+.sr-open .sr-win{opacity:1;pointer-events:auto}
+.sr-win h2{margin:0;font-size:clamp(28px,6vw,64px);color:#2b3138;letter-spacing:2px}
+.sr-win button{padding:14px 28px;font:inherit;font-size:16px;letter-spacing:3px;font-weight:bold;cursor:pointer;
+  color:#fff;background:#2b3138;border:0;border-radius:8px}
 `;
 
 const BOLTS = Array.from({ length: 12 }, (_, i) => {
@@ -115,7 +122,7 @@ function Gate({ onPass }: { onPass: () => void }) {
   );
 }
 
-function Vault() {
+function Vault({ onReset }: { onReset: () => void }) {
   const [code, setCode] = useState('');
   const [wrong, setWrong] = useState(false);
   const [open, setOpen] = useState(false);
@@ -180,12 +187,18 @@ function Vault() {
       </div>
       {!open && <div className="sr-hint">INTRODUCE EL CÓDIGO DE 4 DÍGITOS</div>}
       <div className="sr-flood" />
+      <div className="sr-win">
+        <h2>¡Felicidades, lograste escapar!</h2>
+        <button onClick={onReset}>VOLVER A LA SALA</button>
+      </div>
     </div>
   );
 }
 
 export default function ScapeRoomPage() {
   const [allowed, setAllowed] = useState(false);
+  // Remounting the Vault closes the door instantly for the next team (no gate again).
+  const [round, setRound] = useState(0);
 
   useEffect(() => {
     document.title = 'Scape Room';
@@ -194,7 +207,7 @@ export default function ScapeRoomPage() {
   return (
     <div className="sr-root">
       <style>{css}</style>
-      {allowed ? <Vault /> : <Gate onPass={() => setAllowed(true)} />}
+      {allowed ? <Vault key={round} onReset={() => setRound((r) => r + 1)} /> : <Gate onPass={() => setAllowed(true)} />}
     </div>
   );
 }
