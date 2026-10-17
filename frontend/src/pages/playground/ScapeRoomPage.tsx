@@ -5,7 +5,6 @@ import React, { useCallback, useEffect, useState } from 'react';
 const ACCESS_PASSWORD = 'R12.2';
 const VAULT_CODE = '1414';
 
-
 const css = `
 .sr-root{position:fixed;inset:0;overflow:hidden;font-family:"Courier New",monospace;color:#d8dde3;
   background:radial-gradient(ellipse at 50% 40%,#2b3138 0%,#15191d 55%,#07090b 100%);user-select:none}
