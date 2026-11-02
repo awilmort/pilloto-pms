@@ -1,11 +1,14 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { tenantPlugin } from '../plugins/tenantPlugin';
+import { changeCapturePlugin } from '../services/channex/changeCapture';
 
 export interface IRoomType extends Document {
   name: string;
   capacity: number; // max total guests (adults + children)
   image: string; // illustration:key or uploaded image URL
   isActive: boolean;
+  /** Offered on OTAs through the channel manager (the booking engine is not affected) */
+  sellOnChannels: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -16,6 +19,7 @@ const roomTypeSchema = new Schema<IRoomType>(
     capacity: { type: Number, required: true, min: 1, default: 2 },
     image: { type: String, default: '' },
     isActive: { type: Boolean, default: true },
+    sellOnChannels: { type: Boolean, default: true },
   },
   { timestamps: true }
 );
@@ -23,5 +27,6 @@ const roomTypeSchema = new Schema<IRoomType>(
 roomTypeSchema.index({ name: 1 });
 
 roomTypeSchema.plugin(tenantPlugin);
+roomTypeSchema.plugin(changeCapturePlugin, { model: 'RoomType' });
 
 export default mongoose.model<IRoomType>('RoomType', roomTypeSchema);

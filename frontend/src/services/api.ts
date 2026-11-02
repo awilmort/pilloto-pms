@@ -1,6 +1,8 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import { User, Room, Reservation, MediaItem, Amenity, EventType, Company, Guest, CreditAccount, AppCode } from '../types';
-import type { Customer } from '../types';
+import type { OccupancyReportData, ManagerFlashData, ForecastData, SegmentationData, SegmentBy, BookingInsightsData } from '../types/reports';
+import type { DashboardData } from '../types/dashboard';
+import type { Customer, RoomBlock, RoomBlockReason } from '../types';
 import type { ChargeTemplate, ChargeRule, ChargeRuleExecution, AuditRun } from '../types';
 import type { TenantEcfConfig, ElectronicInvoice, EcfMonthlyTaxRow, EcfSequenceInfo } from '../types';
 import type { Warehouse, Product, InventoryTransaction, InventoryAdjustmentReason } from '../types';
@@ -166,6 +168,14 @@ export const authService = {
   forgotPassword: (email: string): Promise<AxiosResponse<ApiResponse>> =>
     apiClient.post('/auth/forgot-password', { email }),
 
+  /** Who an invitation link is for (400 invalid/used, 410 expired) */
+  getInvitation: (token: string): Promise<AxiosResponse<ApiResponse<{ firstName: string; email: string; tenantName: string }>>> =>
+    apiClient.get('/auth/invitation', { params: { token } }),
+
+  /** Choose the first password; the response logs the user in (token) */
+  acceptInvitation: (token: string, password: string): Promise<AxiosResponse<ApiResponse & { token?: string }>> =>
+    apiClient.post('/auth/accept-invitation', { token, password }),
+
   resetPassword: (token: string, password: string): Promise<AxiosResponse<ApiResponse>> =>
     apiClient.post('/auth/reset-password', { token, password }),
 
@@ -194,12 +204,525 @@ export const roomsService = {
   checkAvailability: (roomId: string, checkIn: string, checkOut: string): Promise<AxiosResponse<ApiResponse<{ available: boolean }>>> =>
     apiClient.get(`/rooms/${roomId}/availability`, { params: { checkIn, checkOut } }),
 
-  getAvailableRooms: (checkIn: string, checkOut: string): Promise<AxiosResponse<ApiResponse<Room[]>>> =>
-    apiClient.get('/rooms/available', { params: { checkIn, checkOut } }),
+  /** Rooms free for every night; `excludeReservationId` leaves the reservation being edited out. */
+  getAvailableRooms: (
+    checkIn: string,
+    checkOut: string,
+    opts?: { excludeReservationId?: string; roomTypeId?: string },
+  ): Promise<AxiosResponse<ApiResponse<Room[]> & { typeAvailability?: Record<string, number> }>> =>
+    apiClient.get('/rooms/available', { params: { checkIn, checkOut, ...opts } }),
 
   getAvailableDates: (startDate: string, endDate: string): Promise<AxiosResponse<ApiResponse<{ availableDates: string[]; unavailableDates: string[]; totalActiveRooms: number }>>> =>
     apiClient.get('/rooms/available-dates', { params: { startDate, endDate } }),
 
+};
+
+// Room blocks (rooms out of service over a date range)
+export interface RoomBlockInput {
+  roomId: string;
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD, the day the room is back
+  reason?: RoomBlockReason;
+  notes?: string;
+  /** Block even though a reservation is assigned to the room on those nights */
+  force?: boolean;
+}
+
+/** Body of a 409 from create/update: another block, or (without force) assigned reservations. */
+export interface RoomBlockConflict {
+  code: 'block_overlap' | 'reservation_overlap';
+  message: string;
+  conflicts: Array<{ reservationId?: string; reservationCode?: string; guestName?: string; checkIn?: string; checkOut?: string }>;
+}
+
+export const roomBlocksService = {
+  list: (params?: { from?: string; to?: string; roomId?: string }): Promise<AxiosResponse<ApiResponse<RoomBlock[]>>> =>
+    apiClient.get('/room-blocks', { params }),
+
+  create: (data: RoomBlockInput): Promise<AxiosResponse<ApiResponse<RoomBlock>>> =>
+    apiClient.post('/room-blocks', data),
+
+  update: (id: string, data: Partial<RoomBlockInput>): Promise<AxiosResponse<ApiResponse<RoomBlock>>> =>
+    apiClient.put(`/room-blocks/${id}`, data),
+
+  remove: (id: string): Promise<AxiosResponse<ApiResponse>> =>
+    apiClient.delete(`/room-blocks/${id}`),
+};
+
+// ── Rate calendar and booking rules (Pricing → Calendar / Booking rules) ─────
+export type WeekdayCode = 'mo' | 'tu' | 'we' | 'th' | 'fr' | 'sa' | 'su';
+export type RestrictionField = 'minStayArrival' | 'maxStay' | 'closedToArrival' | 'closedToDeparture' | 'stopSell';
+export type CalendarField = 'price' | RestrictionField;
+
+/** Where a Calendar value comes from */
+export type ValueSource =
+  | { kind: 'plan' }
+  | { kind: 'default' }
+  | { kind: 'rule'; ruleId: string; name?: string; origin: 'manual' | 'calendar' }
+  | { kind: 'booking_rule'; ruleId: string; name?: string; origin: 'manual' | 'calendar' };
+
+export interface CalendarRatePlanDay {
+  /** Currency units: `base` is the editable nightly price; `rates` per occupancy is what OTAs receive */
+  price: { base: number; single: number; full: number; rates: Record<string, number>; source: ValueSource };
+  restrictions: Record<RestrictionField, { value: number | boolean; source: ValueSource }>;
+  forcedStopSell?: 'rate_plan_inactive' | 'room_type_inactive' | 'no_price';
+}
+
+export interface CalendarAvailability {
+  available: number; total: number; blocked: number; assigned: number; unassignedDemand: number; overbooked: number;
+}
+
+export interface RateCalendarView {
+  from: string;
+  to: string;
+  dates: string[];
+  ratesIncludeTaxes: boolean;
+  roomTypes: Array<{
+    _id: string;
+    name: string;
+    capacity: number;
+    isActive: boolean;
+    sellOnChannels: boolean;
+    availability: Record<string, CalendarAvailability>;
+    ratePlans: Array<{ _id: string; name: string; isActive: boolean; sellOnChannels: boolean; days: Record<string, CalendarRatePlanDay> }>;
+  }>;
+}
+
+export interface CalendarSet {
+  price?: number;
+  minStayArrival?: number;
+  maxStay?: number;
+  closedToArrival?: boolean;
+  closedToDeparture?: boolean;
+  stopSell?: boolean;
+}
+
+/** One row of a Calendar save (PUT /rate-calendar/bulk) */
+export interface CalendarChange {
+  ratePlanIds: string[];
+  dateFrom: string;
+  dateTo: string;
+  /** Weekdays; omitted or empty = every day */
+  days?: WeekdayCode[];
+  set?: CalendarSet;
+  reset?: CalendarField[];
+}
+
+export interface NightReservationRef { _id: string; code?: string; guestName: string; checkIn: string; checkOut: string; status: string }
+
+export interface NightDetails {
+  date: string;
+  roomTypeId: string;
+  counts: CalendarAvailability;
+  rooms: Array<{
+    _id: string;
+    name: string;
+    state: 'free' | 'blocked' | 'assigned';
+    block?: { _id: string; reason: string; notes?: string; until: string };
+    reservation?: NightReservationRef;
+  }>;
+  unassigned: Array<NightReservationRef & { count: number }>;
+}
+
+export const rateCalendarService = {
+  get: (params: { from: string; to: string; roomTypeIds?: string }): Promise<AxiosResponse<ApiResponse<RateCalendarView>>> =>
+    apiClient.get('/rate-calendar', { params }),
+
+  availability: (roomTypeId: string, date: string): Promise<AxiosResponse<ApiResponse<NightDetails>>> =>
+    apiClient.get('/rate-calendar/availability', { params: { roomTypeId, date } }),
+
+  /** One Calendar save: every staged edit and bulk row in a single request */
+  bulk: (changes: CalendarChange[]): Promise<AxiosResponse<ApiResponse<{ pricingRulesCreated: number; restrictionRulesCreated: number; rulesTrimmed: number; rulesDeleted: number }>>> =>
+    apiClient.put('/rate-calendar/bulk', { changes }),
+};
+
+export interface RestrictionRuleRecord {
+  _id: string;
+  name: string;
+  origin: 'manual' | 'calendar';
+  scope: 'property' | 'room_types' | 'rate_plans';
+  roomTypeIds: string[];
+  ratePlanIds: string[];
+  dateStart: string;
+  dateEnd: string;
+  days: WeekdayCode[];
+  minStayArrival?: number;
+  maxStay?: number;
+  closedToArrival?: boolean;
+  closedToDeparture?: boolean;
+  stopSell?: boolean;
+  isActive: boolean;
+  updatedAt?: string;
+  summary: { es: string; en: string };
+}
+
+/** Create/update body; on update `null` clears a restriction value */
+export interface RestrictionRuleInput {
+  name?: string;
+  scope?: RestrictionRuleRecord['scope'];
+  roomTypeIds?: string[];
+  ratePlanIds?: string[];
+  dateStart?: string;
+  dateEnd?: string;
+  days?: WeekdayCode[];
+  minStayArrival?: number | null;
+  maxStay?: number | null;
+  closedToArrival?: boolean | null;
+  closedToDeparture?: boolean | null;
+  stopSell?: boolean | null;
+  isActive?: boolean;
+}
+
+export interface StayWarning {
+  ratePlanId: string;
+  ratePlanName: string;
+  roomTypeName: string;
+  code: 'stop_sell' | 'closed_to_arrival' | 'closed_to_departure' | 'min_stay' | 'max_stay';
+  message: { es: string; en: string };
+}
+
+export const restrictionRulesService = {
+  list: (params?: { origin?: 'manual' | 'calendar'; active?: boolean; from?: string; to?: string }): Promise<AxiosResponse<ApiResponse<RestrictionRuleRecord[]>>> =>
+    apiClient.get('/restriction-rules', { params }),
+
+  create: (data: RestrictionRuleInput): Promise<AxiosResponse<ApiResponse<RestrictionRuleRecord>>> =>
+    apiClient.post('/restriction-rules', data),
+
+  update: (id: string, data: RestrictionRuleInput): Promise<AxiosResponse<ApiResponse<RestrictionRuleRecord>>> =>
+    apiClient.put(`/restriction-rules/${id}`, data),
+
+  remove: (id: string): Promise<AxiosResponse<ApiResponse>> =>
+    apiClient.delete(`/restriction-rules/${id}`),
+
+  /** Plain-language summary and problems for an unsaved rule */
+  preview: (data: RestrictionRuleInput): Promise<AxiosResponse<ApiResponse<{ summary: { es: string; en: string } | null; problems: string[] }>>> =>
+    apiClient.post('/restriction-rules/preview', data),
+
+  /** Booking rules a stay breaks (admin dialogs: warnings staff may override) */
+  check: (data: { checkIn: string; checkOut: string; ratePlanIds?: string[]; roomIds?: string[] }): Promise<AxiosResponse<ApiResponse<{ warnings: StayWarning[] }>>> =>
+    apiClient.post('/restriction-rules/check', data),
+};
+
+// ── Channel manager (Settings → Channel Manager) ─────────────────────────────
+export type ReadinessId =
+  | 'currency' | 'timezone' | 'contact' | 'roomTypes' | 'rooms' | 'ratePlans' | 'limits'
+  | 'roomTypesWithoutRooms' | 'unattributableReservations' | 'noPriceNights';
+
+export interface ReadinessCheck {
+  id: ReadinessId;
+  status: 'ok' | 'warning' | 'error';
+  message: string;
+  fixRoute: string;
+  count?: number;
+}
+
+export interface ChannelManagerSettings {
+  /** Property name shown on the channels (the property profile's name) */
+  name: string;
+  autoAssignRooms: boolean;
+  sendGuestConfirmationEmail: boolean;
+  ratesIncludeTaxes: boolean;
+}
+
+export type ChannelPropertyState = 'provisioning' | 'active' | 'disabled' | 'error';
+
+/** Tenant view of the channel manager (white-label: no Channex ids or raw errors) */
+export interface ChannelManagerStatus {
+  configured: boolean;
+  enabled: boolean;
+  property: null | {
+    status: ChannelPropertyState;
+    lastFullSyncAt?: string;
+    /** Something went wrong that support must look at */
+    hasProblem: boolean;
+  };
+  /** Room types / rate plans that need attention */
+  issues: { kind: 'room_type' | 'rate_plan'; name: string; parentName?: string; status: ChannelMappingRow['status'] }[];
+  prerequisites: { id: ReadinessId; ok: boolean; message: string; fixRoute: string }[];
+  settings: ChannelManagerSettings;
+}
+
+export interface EntitySyncResult {
+  kind: 'room_type' | 'rate_plan';
+  localId: string;
+  name: string;
+  action: 'created' | 'updated' | 'unchanged' | 'deleted' | 'skipped_no_rooms' | 'skipped_no_room_type' | 'remap_required' | 'kept_mapped' | 'failed';
+  error?: string;
+}
+
+export interface EnableResponse {
+  status: string;
+  sync: { results: EntitySyncResult[]; ok: boolean };
+}
+
+export interface ChannelMappingRow {
+  kind: 'room_type' | 'rate_plan';
+  localId: string;
+  name: string;
+  parentName?: string;
+  channexId: string | null;
+  status: 'active' | 'orphaned' | 'remap_required' | 'not_synced';
+  lastSyncedAt?: string;
+  error?: string;
+}
+
+export interface SetupProgress { step: number; answers: Record<string, any>; status: 'in_progress' | 'waiting_ota' | 'completed' | 'abandoned' }
+
+export interface SyncLogRow {
+  _id: string;
+  createdAt: string;
+  trigger: 'delta' | 'full_sync' | 'manual';
+  kind: 'availability' | 'restrictions' | 'structure';
+  dateFrom?: string;
+  dateTo?: string;
+  status: 'ok' | 'warning' | 'error';
+}
+
+/** Platform console only: the technical details of each Channex call */
+export interface SyncLogDetailRow extends SyncLogRow {
+  valuesCount: number;
+  taskIds: string[];
+  warnings: unknown[];
+  httpStatus?: number;
+  error?: string;
+  durationMs?: number;
+}
+
+export interface SyncActivity<Row = SyncLogRow> {
+  logs: Row[];
+  total: number;
+  page: number;
+  limit: number;
+  /** Changes waiting to be sent */
+  pending: number;
+  lastFullSyncAt?: string;
+  lastPushAt?: string;
+  pausedUntil?: string;
+}
+
+export type BookingInboxState = 'waiting' | 'imported' | 'outdated' | 'failed';
+
+/** One change the OTA sent for a reservation */
+export interface ChannelHistoryRow {
+  _id: string;
+  receivedAt: string;
+  sentAt?: string;
+  status?: 'new' | 'modified' | 'cancelled';
+  state: BookingInboxState;
+  acknowledged: boolean;
+}
+
+export interface ReservationHistoryEntry {
+  id: string;
+  at: string;
+  action: string;
+  actor: { kind: 'user' | 'guest' | 'channel' | 'system'; name?: string };
+  changes?: { field: string; from?: unknown; to?: unknown }[];
+  note?: string;
+  amount?: number;
+  method?: string;
+  /** Reconstructed from data stored before history tracking existed */
+  inferred?: boolean;
+}
+
+export interface BookingInboxRow {
+  _id: string;
+  receivedAt: string;
+  /** As the channel manager reports it, e.g. "BookingCom", "Airbnb" */
+  otaName?: string;
+  otaReservationCode?: string;
+  status?: 'new' | 'modified' | 'cancelled';
+  state: BookingInboxState;
+  guestName?: string;
+  arrivalDate?: string;
+  departureDate?: string;
+  reservationId?: string;
+  reservationCode?: string;
+  acknowledged: boolean;
+}
+
+/** Platform console only */
+export interface BookingInboxDetailRow extends BookingInboxRow {
+  channexRevisionId: string;
+  channexBookingId: string;
+  source: 'webhook' | 'feed';
+  insertedAt?: string;
+  attempts: number;
+  error?: string;
+  ackedAt?: string;
+}
+
+export interface BookingInbox<Row = BookingInboxRow> {
+  rows: Row[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+// ── Channels (plan 8.1–8.2) ──
+export type ChannelState =
+  | 'active' | 'attention' | 'waiting_ota' | 'needs_mapping' | 'ready_to_activate' | 'inactive' | 'removal_scheduled' | 'removed';
+
+export interface ChannelCard {
+  /** Pilloto's id for the channel */
+  id: string;
+  title: string;
+  otaCode?: string;
+  otaName: string;
+  active: boolean;
+  state: ChannelState;
+  alerts: { critical: number; warning: number };
+  connectedAt?: string;
+  activatedAt?: string;
+  lastEventAt?: string;
+  /** Its connect wizard, while unfinished */
+  onboarding?: { otaCode: string; step: number; status: string };
+}
+
+export interface ChannelStatusView extends ChannelCard {
+  /** What blocks activation (empty = ready); absent when it could not be checked */
+  problems?: { kind: 'mapping' | 'settings' | 'other'; count: number }[];
+  fullSync?: { sentAt: string; status: 'ok' | 'warning' | 'error' };
+  stale: boolean;
+}
+
+export interface ChannelList {
+  channels: ChannelCard[];
+  /** Wizards started for an OTA whose channel does not exist yet */
+  onboardings: { otaCode: string; step: number; status: string }[];
+  stale: boolean;
+  /** 'platform_only': Pilloto connects channels for the tenant */
+  connection: 'tenant' | 'platform_only';
+  /** OTA codes offered, e.g. ['BDC', 'EXP'] */
+  offered: string[];
+}
+
+export type ChannelWizardStatus = 'in_progress' | 'waiting_ota' | 'completed' | 'abandoned';
+
+export interface ChannelWizardProgress {
+  otaCode: string;
+  step: number;
+  answers: Record<string, any>;
+  status: ChannelWizardStatus;
+  started: boolean;
+  channel: ChannelStatusView | ChannelCard | null;
+}
+
+export interface IframeSession { url: string; expiresAt: string }
+
+export const channelManagerService = {
+  status: (): Promise<AxiosResponse<ApiResponse<ChannelManagerStatus>>> => apiClient.get('/channel-manager/status'),
+  saveSettings: (data: Partial<Omit<ChannelManagerSettings, 'name'>>): Promise<AxiosResponse<ApiResponse<ChannelManagerSettings>>> =>
+    apiClient.put('/channel-manager/settings', data),
+  readiness: (): Promise<AxiosResponse<ApiResponse<ReadinessCheck[]>>> => apiClient.get('/channel-manager/readiness'),
+  preview: (days = 30): Promise<AxiosResponse<ApiResponse<RateCalendarView>>> => apiClient.get('/channel-manager/preview', { params: { days } }),
+  getOnboarding: (): Promise<AxiosResponse<ApiResponse<SetupProgress>>> => apiClient.get('/channel-manager/onboarding'),
+  saveOnboarding: (data: { step?: number; answers?: Record<string, any> }): Promise<AxiosResponse<ApiResponse<SetupProgress>>> => apiClient.put('/channel-manager/onboarding', data),
+  enable: (): Promise<AxiosResponse<ApiResponse<EnableResponse>>> => apiClient.post('/channel-manager/enable'),
+  disable: (): Promise<AxiosResponse<ApiResponse<{ status: string }>>> => apiClient.post('/channel-manager/disable'),
+  fullSync: (): Promise<AxiosResponse<ApiResponse<{ queued: number }>>> => apiClient.post('/channel-manager/full-sync'),
+  syncActivity: (page = 1, limit = 20): Promise<AxiosResponse<ApiResponse<SyncActivity>>> => apiClient.get('/channel-manager/sync-activity', { params: { page, limit } }),
+  bookingInbox: (page = 1, limit = 20): Promise<AxiosResponse<ApiResponse<BookingInbox>>> => apiClient.get('/channel-manager/booking-inbox', { params: { page, limit } }),
+  channels: (): Promise<AxiosResponse<ApiResponse<ChannelList>>> => apiClient.get('/channel-manager/channels'),
+  channelStatus: (id: string): Promise<AxiosResponse<ApiResponse<ChannelStatusView>>> => apiClient.get(`/channel-manager/channels/${id}/status`),
+  iframeSession: (data: { otaCode?: string; language: string }): Promise<AxiosResponse<ApiResponse<IframeSession>>> => apiClient.post('/channel-manager/iframe-session', data),
+  getChannelOnboarding: (otaCode: string, live = false): Promise<AxiosResponse<ApiResponse<ChannelWizardProgress>>> =>
+    apiClient.get(`/channel-manager/channel-onboarding/${otaCode}`, { params: live ? { live: 1 } : {} }),
+  saveChannelOnboarding: (otaCode: string, data: { step?: number; answers?: Record<string, any>; status?: ChannelWizardStatus }): Promise<AxiosResponse<ApiResponse<ChannelWizardProgress>>> =>
+    apiClient.put(`/channel-manager/channel-onboarding/${otaCode}`, data),
+};
+
+// ── Channel alerts (plan 9.1–9.2) ──
+export type ChannelAlertType =
+  | 'overbooking' | 'unmapped_booking' | 'non_acked_booking' | 'modification_needs_review' | 'currency_mismatch'
+  | 'sync_error' | 'sync_warning' | 'rate_error' | 'ari_warning' | 'push_failing'
+  | 'channel_disconnected' | 'listing_disconnected' | 'channel_removal_warning' | 'property_removal_warning'
+  | 'remap_required' | 'unmap_before_delete'
+  | 'airbnb_reservation_request' | 'airbnb_alteration_request' | 'airbnb_inquiry';
+export type ChannelAlertSeverity = 'info' | 'warning' | 'critical';
+export type ChannelAlertStatus = 'open' | 'acknowledged' | 'resolved' | 'dismissed';
+export type ChannelAlertActionKind = 'reservation' | 'channels' | 'calendar' | 'airbnb_request' | 'none';
+
+export interface ChannelAlert {
+  _id: string;
+  type: ChannelAlertType;
+  severity: ChannelAlertSeverity;
+  status: ChannelAlertStatus;
+  createdAt: string;
+  lastSeenAt?: string;
+  occurrences: number;
+  dueAt?: string;
+  acknowledgedAt?: string;
+  resolvedAt?: string;
+  autoResolved?: boolean;
+  notes?: string;
+  reservationId?: string;
+  channelId?: string;
+  /** Type-specific values for the text (guestName, otaName, nights, messages, …) */
+  params: Record<string, any>;
+  action: { kind: ChannelAlertActionKind; path?: string };
+}
+
+export interface RequestAvailability {
+  nights: string[];
+  requestedRoomType: boolean;
+  roomTypes: { roomTypeId: string; name: string; bookable: boolean; nights: { date: string; available: number }[] }[];
+}
+
+export interface ChannelAlertDetail extends ChannelAlert {
+  resolvedByName?: string;
+  acknowledgedByName?: string;
+  /** Airbnb requests: availability of the requested nights */
+  availability?: RequestAvailability | null;
+}
+
+export interface ChannelAlertList { alerts: ChannelAlert[]; total: number; page: number; limit: number }
+export interface ChannelAlertSummary { openCritical: number; open: number; acknowledged: number; activeCritical: number }
+export type ChannelAlertQuery = { status?: string; type?: string; severity?: string; page?: number; limit?: number };
+export const AIRBNB_DECLINE_REASONS = ['dates_not_available', 'not_a_good_fit', 'waiting_for_better_reservation', 'not_comfortable'] as const;
+export type AirbnbDeclineReason = typeof AIRBNB_DECLINE_REASONS[number];
+
+export const channelAlertsService = {
+  list: (q: ChannelAlertQuery = {}): Promise<AxiosResponse<ApiResponse<ChannelAlertList>>> => apiClient.get('/channel-manager/alerts', { params: q }),
+  summary: (): Promise<AxiosResponse<ApiResponse<ChannelAlertSummary>>> => apiClient.get('/channel-manager/alerts/summary'),
+  get: (id: string): Promise<AxiosResponse<ApiResponse<ChannelAlertDetail>>> => apiClient.get(`/channel-manager/alerts/${id}`),
+  act: (id: string, action: 'acknowledge' | 'resolve' | 'dismiss', notes?: string): Promise<AxiosResponse<ApiResponse<ChannelAlertDetail>>> =>
+    apiClient.post(`/channel-manager/alerts/${id}/${action}`, { notes }),
+  airbnbAnswer: (id: string, data: { decision: 'accept' | 'decline'; reason?: AirbnbDeclineReason; messageToGuest?: string; messageToAirbnb?: string }):
+    Promise<AxiosResponse<ApiResponse<{ alreadyResolved: boolean; resolution?: string; alert: ChannelAlertDetail }>>> =>
+    apiClient.post(`/channel-manager/alerts/${id}/airbnb-answer`, data),
+};
+
+// ─── Property profile ────────────────────────────────────────────────────────
+
+export const PROFILE_CURRENCIES = ['DOP', 'USD', 'EUR'] as const;
+
+export interface PropertyProfile {
+  /** Commercial name */
+  name: string;
+  legalName: string;
+  rnc: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  zipCode: string;
+  /** Empty until set (shown as DOP) */
+  currency: string;
+  timezone: string;
+  /** The currency cannot change any more (it was saved and there is data in it) */
+  currencyLocked: boolean;
+  currencyLockReason?: 'channel_manager' | 'reservations';
+  /** The currency is unset but the property already has data: saving one makes it permanent */
+  currencyLocksOnSave?: 'channel_manager' | 'reservations';
+}
+
+export const propertyProfileService = {
+  get: (): Promise<AxiosResponse<ApiResponse<PropertyProfile>>> => apiClient.get('/property-profile'),
+  update: (data: Partial<Omit<PropertyProfile, 'currencyLocked' | 'currencyLockReason' | 'currencyLocksOnSave'>>): Promise<AxiosResponse<ApiResponse<PropertyProfile>>> =>
+    apiClient.put('/property-profile', data),
 };
 
 // Reservations Service
@@ -249,8 +772,19 @@ export const reservationsService = {
     dateFrom?: string;
     dateTo?: string;
     sort?: string;
+    /** 'direct' | 'booking_engine' | 'channel' | 'ota:<OTA name>' */
+    source?: string;
   }): Promise<AxiosResponse<{ success: boolean; count: number; data: Reservation[]; pagination?: any }>> =>
     apiClient.get('/reservations', { params }),
+
+  /** OTA names reservations came from (source filter options) */
+  getChannelSources: (): Promise<AxiosResponse<ApiResponse<string[]>>> => apiClient.get('/reservations/channel-sources'),
+
+  getChannelHistory: (id: string): Promise<AxiosResponse<ApiResponse<ChannelHistoryRow[]>>> =>
+    apiClient.get(`/reservations/${id}/channel-history`),
+
+  getHistory: (id: string): Promise<AxiosResponse<ApiResponse<ReservationHistoryEntry[]>>> =>
+    apiClient.get(`/reservations/${id}/history`),
 
   getReservation: (id: string): Promise<AxiosResponse<ApiResponse<Reservation>>> =>
     apiClient.get(`/reservations/${id}`),
@@ -296,6 +830,10 @@ export const reservationsService = {
 
   assignRooms: (reservationId: string, roomIds: string[]): Promise<AxiosResponse<ApiResponse<Reservation>>> =>
     apiClient.put(`/reservations/${reservationId}/assign-rooms`, { roomIds }),
+
+  /** Booking calendar drag and drop: new check-in (same nights) and/or swap one room (`fromRoomId` null = an unassigned booked room) */
+  moveReservation: (reservationId: string, data: { checkInDate?: string; fromRoomId?: string | null; toRoomId?: string | null }): Promise<AxiosResponse<ApiResponse<Reservation>>> =>
+    apiClient.put(`/reservations/${reservationId}/move`, data),
 
   updateReservation: (id: string, data: Partial<{
     checkInDate: string | Date;
@@ -473,8 +1011,8 @@ export const eventTypesService = {
 
 // Admin Services
 export const adminService = {
-  // Dashboard stats
-  getDashboardStats: (): Promise<AxiosResponse<ApiResponse<any>>> =>
+  // Home panel
+  getDashboard: (): Promise<AxiosResponse<ApiResponse<DashboardData>>> =>
     apiClient.get('/admin/dashboard'),
   // Revenue
   getRevenue: (params: { from?: string; to?: string }): Promise<AxiosResponse<ApiResponse<any>>> =>
@@ -518,8 +1056,11 @@ export const adminService = {
     apiClient.patch(`/admin/reservations/${id}/status`, { status }),
 
   // User CRUD
-  createUser: (data: { firstName: string; lastName: string; email: string; phone?: string; role?: string; password: string }): Promise<AxiosResponse<ApiResponse<User>>> =>
+  /** No password: the user is emailed an invitation to choose one */
+  createUser: (data: { firstName: string; lastName: string; email: string; phone?: string; role?: string }): Promise<AxiosResponse<ApiResponse<User> & { invitation?: { sent: boolean } }>> =>
     apiClient.post('/admin/users', data),
+  resendInvitation: (id: string): Promise<AxiosResponse<ApiResponse>> =>
+    apiClient.post(`/admin/users/${id}/resend-invitation`),
   updateUser: (id: string, data: Partial<{ firstName: string; lastName: string; email: string; phone?: string; role?: string; isActive?: boolean; emailVerified?: boolean }>): Promise<AxiosResponse<ApiResponse<User>>> =>
     apiClient.put(`/admin/users/${id}`, data),
   deleteUser: (id: string): Promise<AxiosResponse<ApiResponse>> =>
@@ -1042,20 +1583,11 @@ export interface AppSettings {
     footerHtml?: string;
     footerText?: string;
   };
-  otaSettings?: {
-    enabled: boolean;
-    syncIntervalMinutes: number;
-    timezone: string;
-    conflictAlerts: boolean;
-  };
   bookingSettings?: {
     enabled: boolean;
     heroImageUrl?: string;
     heroHeadline?: string;
     heroSubtitle?: string;
-    contactPhone?: string;
-    contactEmail?: string;
-    contactAddress?: string;
     widgetAllowedOrigins?: string[];
     minAdvanceHours?: number;
     maxAdvanceDays?: number;
@@ -1184,6 +1716,14 @@ export const creditAccountsService = {
 export type TenantProduct = 'pms' | 'accounting';
 export type AccountingPlanSlug = 'starter' | 'pro' | 'plus';
 
+/** Where a new account's "choose your password" invitation stands */
+export interface InvitationInfo {
+  status: 'none' | 'pending' | 'expired' | 'accepted';
+  invitedAt?: string;
+  expiresAt?: string;
+  acceptedAt?: string;
+}
+
 export interface TenantRecord {
   _id: string;
   name: string;
@@ -1194,6 +1734,8 @@ export interface TenantRecord {
   isActive: boolean;
   ownerEmail: string;
   settings: Record<string, any>;
+  /** The owner's invitation (null if the owner account is missing) */
+  ownerInvitation?: InvitationInfo | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1205,7 +1747,6 @@ export interface ProvisionTenantPayload {
   ownerEmail: string;
   adminFirstName: string;
   adminLastName: string;
-  adminPassword: string;
   settings?: Record<string, any>;
   products?: TenantProduct[];
   plans?: { accounting?: AccountingPlanSlug };
@@ -1218,8 +1759,12 @@ export const platformService = {
   getTenant: (id: string): Promise<AxiosResponse<ApiResponse<TenantRecord>>> =>
     apiClient.get(`/platform/tenants/${id}`),
 
-  createTenant: (data: ProvisionTenantPayload): Promise<AxiosResponse<ApiResponse<{ tenant: TenantRecord; adminUser: any; loginUrl: string }>>> =>
+  createTenant: (data: ProvisionTenantPayload): Promise<AxiosResponse<ApiResponse<{ tenant: TenantRecord; adminUser: any; loginUrl: string; invitation: { sent: boolean; error?: string } }>>> =>
     apiClient.post('/platform/tenants', data),
+
+  /** New invitation email for an owner who has not chosen a password yet */
+  resendInvitation: (id: string): Promise<AxiosResponse<ApiResponse<InvitationInfo>>> =>
+    apiClient.post(`/platform/tenants/${id}/resend-invitation`),
 
   updateTenant: (id: string, data: Partial<{ name: string; plan: string; isActive: boolean; ownerEmail: string; settings: any; products: TenantProduct[]; plans: { accounting?: AccountingPlanSlug } }>): Promise<AxiosResponse<ApiResponse<TenantRecord>>> =>
     apiClient.patch(`/platform/tenants/${id}`, data),
@@ -1231,66 +1776,151 @@ export const platformService = {
     apiClient.get(`/platform/tenants/${id}/stats`),
 };
 
-// ── Platform OTA service ────────────────────────────────────────────────────────
-export interface PlatformOtaConfig {
-  globalEnabled: boolean;
-  cronIntervalMinutes: number;
-  cronStatus: { running: boolean; globalEnabled: boolean; intervalMinutes: number };
-}
+// ─── Platform: channel manager (Channex) technical console ───────────────────
 
-export interface PlatformOtaTenantRow {
-  tenantId: string;
-  tenantName: string;
-  tenantSlug: string;
-  isActive: boolean;
-  otaEnabled: boolean;
-  syncIntervalMinutes: number;
-  mappingCount: number;
-  pendingConflicts: number;
-  lastRun: {
-    _id: string;
-    status: string;
-    startedAt: string;
-    completedAt?: string;
-    imported: number;
-    updated: number;
-    conflicts: number;
-    errorCount: number;
-  } | null;
-}
-
-export interface PlatformOtaSyncRun {
+export interface PlatformChannexTenantRow {
   _id: string;
-  tenantId: string;
-  tenantName: string;
-  tenantSlug: string;
-  triggeredBy: 'cron' | 'manual';
-  status: 'running' | 'completed' | 'failed' | 'partial';
-  startedAt: string;
-  completedAt?: string;
-  imported: number;
-  updated: number;
-  conflicts: number;
-  errorCount: number;
-  error?: string;
+  name: string;
+  slug: string;
+  plan: string;
+  isActive: boolean;
+  property: null | {
+    status: ChannelPropertyState;
+    channexPropertyId?: string;
+    lastPushAt?: string;
+    lastFullSyncAt?: string;
+    pausedUntil?: string;
+    lastError?: string;
+    pushesPaused?: boolean;
+    consecutiveFailures?: number;
+  };
+  pendingOutbox?: number;
+  openCriticalAlerts?: number;
+  channels?: { total: number; active: number };
 }
 
-export const platformOtaService = {
-  getConfig: (): Promise<AxiosResponse<ApiResponse<PlatformOtaConfig>>> =>
-    apiClient.get('/platform/ota/config'),
+export interface PlatformChannexOverview {
+  environment: 'staging' | 'production';
+  baseUrl: string;
+  configured: boolean;
+  webhookUrl: string | null;
+  webhookSecretConfigured: boolean;
+  workersDisabledByEnv: boolean;
+  globalEnabled: boolean;
+  workers: {
+    running: boolean; notRunningReason?: 'disabled_by_env' | 'not_configured'; startedAt?: string;
+    lastTickAt?: string; lastTickError?: string; lastFeedPollAt?: string; lastFeedError?: string; lastDigestAt?: string; inboxLeaseUntil?: string;
+  };
+  webhook: { webhookId: string | null; signingKeyId: string | null; lastWebhookAt: string | null; callbackUrl: string | null; secretConfigured: boolean };
+  openPlatformAlerts: number;
+}
 
-  updateConfig: (data: { globalEnabled?: boolean; cronIntervalMinutes?: number }): Promise<AxiosResponse<ApiResponse<PlatformOtaConfig>>> =>
-    apiClient.patch('/platform/ota/config', data),
+export interface PlatformWebhookStatus {
+  environment: string;
+  callbackUrl: string | null;
+  secretConfigured: boolean;
+  signingKeyId: string | null;
+  webhookId: string | null;
+  lastWebhookAt: string | null;
+  eventMask: string;
+  recentEvents: { _id: string; event: string; channexPropertyId?: string; tenantId?: string; signatureKeyLabel?: string; receivedAt: string; processedAt?: string; error?: string }[];
+}
 
-  getTenantStats: (): Promise<AxiosResponse<ApiResponse<PlatformOtaTenantRow[]>>> =>
-    apiClient.get('/platform/ota/tenant-stats'),
+/** Raw alert as stored (platform console only) */
+export interface PlatformAlertRow {
+  _id: string; tenantId?: string; type: string; severity: string; status: string; dedupeKey: string; title: string;
+  details?: Record<string, any>; occurrences?: number; createdAt: string; updatedAt: string; lastSeenAt?: string; notes?: string;
+  reservationId?: string; channexBookingId?: string; channelId?: string; liveFeedEventId?: string; dueAt?: string;
+}
 
-  getSyncRuns: (params?: { page?: number; limit?: number; tenantId?: string; status?: string }): Promise<AxiosResponse<ApiResponse<PlatformOtaSyncRun[]> & { pagination: { page: number; limit: number; total: number; totalPages: number } }>> =>
-    apiClient.get('/platform/ota/sync-runs', { params }),
+export interface ChannexOptionRow { id: string; title: string; roomTypeId?: string; occupancies?: number[] }
+export interface RepairRow {
+  kind: 'room_type' | 'rate_plan'; localId: string; name: string; roomTypeId?: string; roomTypeName?: string; capacity?: number;
+  channexId: string | null; channexTitle?: string; status: string; error?: string;
+  problems: ('not_synced' | 'missing_in_channex' | 'remap_required' | 'error' | 'wrong_room_type')[];
+}
+export interface RepairView {
+  rows: RepairRow[];
+  channex: { roomTypes: ChannexOptionRow[]; ratePlans: ChannexOptionRow[] };
+  unlinked: { roomTypes: ChannexOptionRow[]; ratePlans: ChannexOptionRow[] };
+}
 
-  triggerSync: (tenantId?: string): Promise<AxiosResponse<ApiResponse<{ message: string }>>> =>
-    apiClient.post('/platform/ota/sync', tenantId ? { tenantId } : {}),
+export interface PlatformChannexStatus {
+  environment: 'staging' | 'production';
+  configured: boolean;
+  enabled: boolean;
+  property: null | {
+    status: ChannelPropertyState;
+    channexPropertyId?: string;
+    channexGroupId?: string;
+    lastFullSyncAt?: string;
+    lastError?: string;
+  };
+  prerequisites: { id: ReadinessId; ok: boolean; message: string; fixRoute: string }[];
+  settings: ChannelManagerSettings;
+}
+
+export const platformChannexService = {
+  health: (): Promise<AxiosResponse<ApiResponse<any>>> => apiClient.get('/platform/channex/health'),
+  tenants: (): Promise<AxiosResponse<ApiResponse<{ environment: 'staging' | 'production'; tenants: PlatformChannexTenantRow[] }>>> =>
+    apiClient.get('/platform/channex/tenants'),
+  status: (tenantId: string): Promise<AxiosResponse<ApiResponse<PlatformChannexStatus>>> => apiClient.get(`/platform/channex/tenants/${tenantId}/status`),
+  mappings: (tenantId: string): Promise<AxiosResponse<ApiResponse<ChannelMappingRow[]>>> => apiClient.get(`/platform/channex/tenants/${tenantId}/mappings`),
+  syncActivity: (tenantId: string, page = 1, limit = 25): Promise<AxiosResponse<ApiResponse<SyncActivity<SyncLogDetailRow>>>> =>
+    apiClient.get(`/platform/channex/tenants/${tenantId}/sync-activity`, { params: { page, limit } }),
+  bookingInbox: (tenantId: string, page = 1, limit = 25): Promise<AxiosResponse<ApiResponse<BookingInbox<BookingInboxDetailRow>>>> =>
+    apiClient.get(`/platform/channex/tenants/${tenantId}/booking-inbox`, { params: { page, limit } }),
+  fullSync: (tenantId: string): Promise<AxiosResponse<ApiResponse<{ queued: number }>>> => apiClient.post(`/platform/channex/tenants/${tenantId}/full-sync`),
+  resync: (tenantId: string): Promise<AxiosResponse<ApiResponse<{ sync: { results: EntitySyncResult[]; calls: number; ok: boolean }; mappings: ChannelMappingRow[] }>>> =>
+    apiClient.post(`/platform/channex/tenants/${tenantId}/resync`),
+  settings: (): Promise<AxiosResponse<ApiResponse<PlatformChannexSettings>>> => apiClient.get('/platform/channex/settings'),
+  saveSettings: (data: Partial<PlatformChannexSettings>): Promise<AxiosResponse<ApiResponse<PlatformChannexSettings>>> => apiClient.put('/platform/channex/settings', data),
+  channels: (tenantId: string): Promise<AxiosResponse<ApiResponse<PlatformChannelList>>> => apiClient.get(`/platform/channex/tenants/${tenantId}/channels`),
+  setChannelConnection: (tenantId: string, setting: ChannelConnectionSetting): Promise<AxiosResponse<ApiResponse<PlatformChannelConnection>>> =>
+    apiClient.put(`/platform/channex/tenants/${tenantId}/channel-connection`, { setting }),
+  iframeSession: (tenantId: string, data: { otaCode?: string; language?: string } = {}): Promise<AxiosResponse<ApiResponse<IframeSession>>> =>
+    apiClient.post(`/platform/channex/tenants/${tenantId}/iframe-session`, data),
+  // ── plan 9.3 ──
+  overview: (): Promise<AxiosResponse<ApiResponse<PlatformChannexOverview>>> => apiClient.get('/platform/channex/overview'),
+  webhook: (): Promise<AxiosResponse<ApiResponse<PlatformWebhookStatus>>> => apiClient.get('/platform/channex/webhook'),
+  createSigningKey: (billingAccountId: string): Promise<AxiosResponse<ApiResponse<{ signingKeyId: string; secret: string; message: string }>>> =>
+    apiClient.post('/platform/channex/signing-key', { billingAccountId }),
+  upsertWebhook: (): Promise<AxiosResponse<ApiResponse<{ webhookId: string; created: boolean; callbackUrl: string }>>> => apiClient.put('/platform/channex/webhook', {}),
+  testWebhook: (): Promise<AxiosResponse<ApiResponse<{ webhookId: string; result: any }>>> => apiClient.post('/platform/channex/webhook/test'),
+  platformAlerts: (status = 'active'): Promise<AxiosResponse<ApiResponse<PlatformAlertRow[]>>> => apiClient.get('/platform/channex/alerts', { params: { status } }),
+  platformAlertAction: (id: string, action: 'acknowledge' | 'resolve' | 'dismiss', notes?: string): Promise<AxiosResponse<ApiResponse<PlatformAlertRow>>> =>
+    apiClient.post(`/platform/channex/alerts/${id}/${action}`, { notes }),
+  enable: (tenantId: string): Promise<AxiosResponse<ApiResponse<{ status: string }>>> => apiClient.post(`/platform/channex/tenants/${tenantId}/enable`),
+  pause: (tenantId: string): Promise<AxiosResponse<ApiResponse<{ pushesPaused: boolean }>>> => apiClient.post(`/platform/channex/tenants/${tenantId}/pause`),
+  resume: (tenantId: string): Promise<AxiosResponse<ApiResponse<{ pushesPaused: boolean; pending: number }>>> => apiClient.post(`/platform/channex/tenants/${tenantId}/resume`),
+  tenantAlerts: (tenantId: string, status = 'active'): Promise<AxiosResponse<ApiResponse<PlatformAlertRow[]>>> =>
+    apiClient.get(`/platform/channex/tenants/${tenantId}/alerts`, { params: { status } }),
+  repair: (tenantId: string): Promise<AxiosResponse<ApiResponse<RepairView>>> => apiClient.get(`/platform/channex/tenants/${tenantId}/repair`),
+  relink: (tenantId: string, data: { kind: 'room_type' | 'rate_plan'; localId: string; channexId: string }): Promise<AxiosResponse<ApiResponse<{ queued: number; view: RepairView }>>> =>
+    apiClient.post(`/platform/channex/tenants/${tenantId}/repair/relink`, data),
+  recreate: (tenantId: string, localId: string): Promise<AxiosResponse<ApiResponse<{ oldDeleted: boolean; view: RepairView }>>> =>
+    apiClient.post(`/platform/channex/tenants/${tenantId}/repair/recreate`, { kind: 'rate_plan', localId }),
+  recreateRatePlans: (tenantId: string, roomTypeId: string): Promise<AxiosResponse<ApiResponse<{ recreated: number; closed: number; view: RepairView }>>> =>
+    apiClient.post(`/platform/channex/tenants/${tenantId}/repair/recreate-rate-plans`, { roomTypeId }),
 };
+
+export interface PlatformChannexSettings {
+  /** Platform kill switch: off = no pushes, feed polls or nightly syncs anywhere */
+  globalEnabled: boolean;
+  iframePlatformOnly: boolean;
+  /** OTA codes offered to tenants in "Conectar un canal", in card order */
+  offeredChannels: string[];
+}
+
+export type ChannelConnectionSetting = 'default' | 'tenant' | 'platform_only';
+export interface PlatformChannelConnection { mode: 'tenant' | 'platform_only'; setting: ChannelConnectionSetting; platformDefault: 'tenant' | 'platform_only' }
+export interface PlatformChannelList {
+  connection: PlatformChannelConnection;
+  offered: string[];
+  stale: boolean;
+  onboardings: ChannelList['onboardings'];
+  channels: (ChannelCard & { channexChannelId: string; adapter?: string; channexStatus?: string; expectedRemovalDate?: string; lastEvent?: string; lastSeenAt?: string })[];
+}
 
 // ─────────────────────────────────────────────────────────────
 // Charge Templates Service
@@ -1362,104 +1992,6 @@ export const auditService = {
     limit?: number;
   }): Promise<AxiosResponse<ApiResponse<AuditRun[]> & { pagination: { total: number; page: number; limit: number; pages: number } }>> =>
     apiClient.get('/audit/runs', { params }),
-};
-
-// ─────────────────────────────────────────────────────────────
-// OTA iCal Sync Service
-// ─────────────────────────────────────────────────────────────
-
-export type OtaProvider = 'airbnb' | 'booking_com' | 'vrbo' | 'expedia' | 'other';
-export type OtaConflictStatus =
-  | 'pending_review'
-  | 'resolved_keep_pilloto'
-  | 'resolved_accept_ota'
-  | 'resolved_outside_system'
-  | 'ignored_false_positive';
-
-export interface OtaListingMapping {
-  _id: string;
-  provider: OtaProvider;
-  providerLabel?: string;
-  externalListingId?: string;
-  inboundFeedUrl?: string;
-  outboundFeedUrl?: string;
-  outboundToken: string;
-  roomId: string | { _id: string; name: string; number?: string };
-  isActive: boolean;
-  lastSyncedAt?: string;
-  lastSyncStatus?: 'success' | 'partial' | 'failed' | 'never';
-  lastSyncError?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface OtaSyncRun {
-  _id: string;
-  mappingId: string;
-  triggeredBy: 'cron' | 'manual';
-  status: 'running' | 'completed' | 'failed';
-  startedAt: string;
-  completedAt?: string;
-  imported: number;
-  updated: number;
-  conflicts: number;
-  errors: string[];
-}
-
-export interface OtaConflict {
-  _id: string;
-  mappingId: string | OtaListingMapping;
-  externalEventId: string;
-  overlappingReservationId: string;
-  conflictType: 'overlap' | 'exact_match';
-  status: OtaConflictStatus;
-  resolvedBy?: string;
-  resolvedAt?: string;
-  notes?: string;
-  snapshot: {
-    otaCheckIn: string;
-    otaCheckOut: string;
-    otaGuestName?: string;
-    pillotoCheckIn: string;
-    pillotoCheckOut: string;
-    pillotoGuestName?: string;
-  };
-  createdAt: string;
-}
-
-export const otaService = {
-  // Listing mappings
-  getMappings: (): Promise<AxiosResponse<ApiResponse<OtaListingMapping[]>>> =>
-    apiClient.get('/ota/mappings'),
-
-  createMapping: (data: Partial<OtaListingMapping>): Promise<AxiosResponse<ApiResponse<OtaListingMapping>>> =>
-    apiClient.post('/ota/mappings', data),
-
-  updateMapping: (id: string, data: Partial<OtaListingMapping>): Promise<AxiosResponse<ApiResponse<OtaListingMapping>>> =>
-    apiClient.put(`/ota/mappings/${id}`, data),
-
-  deleteMapping: (id: string): Promise<AxiosResponse<ApiResponse>> =>
-    apiClient.delete(`/ota/mappings/${id}`),
-
-  rotateToken: (id: string): Promise<AxiosResponse<ApiResponse<{ outboundToken: string; outboundFeedUrl: string }>>> =>
-    apiClient.post(`/ota/mappings/${id}/rotate-token`),
-
-  // Sync
-  triggerSync: (mappingId?: string): Promise<AxiosResponse<ApiResponse<{ queued: boolean; mappingId?: string }>>> =>
-    apiClient.post('/ota/sync', mappingId ? { mappingId } : {}),
-
-  getSyncRuns: (params?: { mappingId?: string; page?: number; limit?: number }): Promise<AxiosResponse<ApiResponse<OtaSyncRun[]> & { pagination: { total: number; page: number; limit: number; pages: number } }>> =>
-    apiClient.get('/ota/sync-runs', { params }),
-
-  // Conflicts
-  getConflicts: (params?: { status?: OtaConflictStatus; page?: number; limit?: number }): Promise<AxiosResponse<ApiResponse<OtaConflict[]> & { pagination: { total: number; page: number; limit: number; pages: number } }>> =>
-    apiClient.get('/ota/conflicts', { params }),
-
-  getPendingConflictCount: (): Promise<AxiosResponse<ApiResponse<{ count: number }>>> =>
-    apiClient.get('/ota/conflicts/count'),
-
-  resolveConflict: (id: string, data: { status: OtaConflictStatus; notes?: string }): Promise<AxiosResponse<ApiResponse<OtaConflict>>> =>
-    apiClient.put(`/ota/conflicts/${id}/resolve`, data),
 };
 
 // ─── e-CF (Electronic Fiscal Invoicing) ──────────────────────────────────────
@@ -1640,8 +2172,24 @@ export interface OccupancyParams {
 
 export const reportsService = {
   /** GET /admin/reports/occupancy — ADR, RevPAR, Occupancy % metrics */
-  getOccupancy: (params?: OccupancyParams): Promise<AxiosResponse<ApiResponse<any>>> =>
+  getOccupancy: (params?: OccupancyParams): Promise<AxiosResponse<ApiResponse<OccupancyReportData>>> =>
     apiClient.get('/admin/reports/occupancy', { params }),
+
+  /** GET /admin/reports/manager-flash — day / MTD / YTD vs last year, operations, 30-day outlook */
+  getManagerFlash: (params?: { date?: string }): Promise<AxiosResponse<ApiResponse<ManagerFlashData>>> =>
+    apiClient.get('/admin/reports/manager-flash', { params }),
+
+  /** GET /admin/reports/forecast — on the books, pickup and pace vs same time last year */
+  getForecast: (params?: { from?: string; to?: string }): Promise<AxiosResponse<ApiResponse<ForecastData>>> =>
+    apiClient.get('/admin/reports/forecast', { params }),
+
+  /** GET /admin/reports/segmentation — revenue mix by source, room type or rate plan */
+  getSegmentation: (params?: { from?: string; to?: string; by?: SegmentBy }): Promise<AxiosResponse<ApiResponse<SegmentationData>>> =>
+    apiClient.get('/admin/reports/segmentation', { params }),
+
+  /** GET /admin/reports/booking-insights — lead time, LOS, day of week, cancellations, no-shows */
+  getBookingInsights: (params?: { from?: string; to?: string }): Promise<AxiosResponse<ApiResponse<BookingInsightsData>>> =>
+    apiClient.get('/admin/reports/booking-insights', { params }),
 
   /** GET /admin/reports/night-audit — full Night Audit for a single date */
   getNightAudit: (params?: { date?: string }): Promise<AxiosResponse<ApiResponse<any>>> =>

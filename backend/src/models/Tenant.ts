@@ -23,6 +23,23 @@ export interface ITenantSettings {
   primaryColor?: string;
 }
 
+/**
+ * The property's own details (Settings → Property profile). Every module reads them from
+ * here: booking engine, guest emails, e-invoicing, channel manager. The commercial name is
+ * `name` and the currency/time zone are `settings.currency`/`settings.timezone`.
+ */
+export interface ITenantProfile {
+  legalName?: string;  // Razón social
+  rnc?: string;        // Dominican Tax ID: 9 or 11 digits
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;    // ISO 3166-1 alpha-2, e.g. 'DO'
+  zipCode?: string;
+}
+
 export type EcfAmbiente =
   | 'Simulacion'
   | 'Pruebas'
@@ -32,10 +49,6 @@ export type EcfAmbiente =
 export interface ITenantEcfConfig {
   /** AES-256-GCM encrypted Citrus API token — NEVER expose to frontend */
   citrusToken?: string;
-  rnc: string;          // Dominican Tax ID: 9 or 11 digits
-  razonSocial: string;  // Legal business name
-  nombreComercial?: string;
-  phone?: string;       // Business contact phone (shown on printed invoice)
   ambiente: EcfAmbiente;
   isActive: boolean;
   sucursal?: string;
@@ -55,6 +68,7 @@ export interface ITenant extends Document {
   isActive: boolean;
   ownerEmail: string;  // Primary admin contact for this tenant
   settings: ITenantSettings;
+  profile?: ITenantProfile;
   ecfConfig?: ITenantEcfConfig;
   createdAt: Date;
   updatedAt: Date;
@@ -63,18 +77,6 @@ export interface ITenant extends Document {
 const ecfConfigSchema = new Schema<ITenantEcfConfig>(
   {
     citrusToken: { type: String }, // stored encrypted; never expose raw value
-    rnc: {
-      type: String,
-      required: true,
-      trim: true,
-      validate: {
-        validator: (v: string) => /^\d{9}$|^\d{11}$/.test(v),
-        message: 'RNC must be 9 or 11 digits',
-      },
-    },
-    razonSocial: { type: String, required: true, trim: true },
-    nombreComercial: { type: String, trim: true },
-    phone: { type: String, trim: true },
     ambiente: {
       type: String,
       enum: ['Simulacion', 'Pruebas', 'Certificacion', 'Produccion'],
@@ -89,6 +91,28 @@ const ecfConfigSchema = new Schema<ITenantEcfConfig>(
       default: 'https://test.ecf.citrus.com.do',
     },
     defaultItbisRate: { type: Number, required: true, min: 0, max: 100, default: 18 },
+  },
+  { _id: false }
+);
+
+const profileSchema = new Schema<ITenantProfile>(
+  {
+    legalName: { type: String, trim: true, maxlength: 150 },
+    rnc: {
+      type: String,
+      trim: true,
+      validate: {
+        validator: (v: string) => !v || /^\d{9}$|^\d{11}$/.test(v),
+        message: 'RNC must be 9 or 11 digits',
+      },
+    },
+    email:   { type: String, trim: true, lowercase: true, maxlength: 100 },
+    phone:   { type: String, trim: true, maxlength: 30 },
+    address: { type: String, trim: true, maxlength: 300 },
+    city:    { type: String, trim: true, maxlength: 100 },
+    state:   { type: String, trim: true, maxlength: 100 },
+    country: { type: String, trim: true, uppercase: true, maxlength: 2 },
+    zipCode: { type: String, trim: true, maxlength: 20 },
   },
   { _id: false }
 );
@@ -145,6 +169,7 @@ const tenantSchema = new Schema<ITenant>(
       logoUrl:      { type: String, trim: true },
       primaryColor: { type: String, trim: true },
     },
+    profile: { type: profileSchema, default: () => ({}) },
     ecfConfig: { type: ecfConfigSchema },
   },
   { timestamps: true }

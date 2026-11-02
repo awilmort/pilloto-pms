@@ -1,12 +1,13 @@
 import React from 'react';
 import {
+  Badge,
   Box,
   Drawer,
   List,
-  ListItem,
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  ListSubheader,
   Typography,
   Divider,
   IconButton,
@@ -17,45 +18,69 @@ import {
   Menu as MuiMenu,
   MenuItem as MuiMenuItem,
 } from '@mui/material';
-import { ChevronLeft, ChevronRight, Logout, Menu, ExpandMore, ExpandLess, CheckCircle, Apps } from '@mui/icons-material';
+import {
+  KeyboardDoubleArrowLeft,
+  KeyboardDoubleArrowRight,
+  Logout,
+  Menu,
+  ExpandMore,
+  UnfoldMore,
+  Check,
+  PersonOutline,
+  MoreVert,
+} from '@mui/icons-material';
 import Collapse from '@mui/material/Collapse';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTenant } from '../../contexts/TenantContext';
 import { useTranslation } from 'react-i18next';
 import LanguageSwitcher from '../common/LanguageSwitcher';
+import PillotoLogo, { PillotoSymbol } from '../brand/PillotoLogo';
 import { AppCode } from '../../types';
 import { APP_METADATA, useAccessibleApps } from '../../lib/apps';
+import { BRAND, PRODUCT_COLORS, alpha } from '../../brand';
 
-const drawerWidth = 240;
-const collapsedWidth = 72;
+const drawerWidth = 264;
+const collapsedWidth = 76;
 
 export interface AppShellNavItem {
   key: string;
   text: string;
   icon: React.ReactNode;
   path: string;
+  /** Section heading this item starts or continues; a heading renders whenever it changes between items. */
+  section?: string;
   /** Sub-items rendered as a collapsible group. */
   children?: AppShellNavItem[];
+  /** Also highlighted on every path that starts with this (e.g. '/admin/settings/'). */
+  activePrefix?: string;
+  /** Count shown on the item (e.g. open critical alerts); hidden when 0 or unset. */
+  badge?: number;
 }
+
+export type AppShellApp = AppCode | 'platform';
 
 interface AppShellProps {
   children: React.ReactNode;
   title?: React.ReactNode;
   /** Already permission-filtered and translated nav items for the current app. */
   navItems: AppShellNavItem[];
-  app: AppCode;
+  app: AppShellApp;
   /** Path the brand mark navigates to (e.g. `/admin`, `/accounting`). */
   homePath: string;
   /** Path the user-menu "profile" item navigates to. */
   profilePath: string;
   /** Translated label shown next to the hamburger on mobile. */
   mobileTitle: string;
-  brandName?: string;
-  /** Drawer background color — lets each app carry its own accent. */
-  sidebarBg?: string;
+  /** Second line of the workspace card — defaults to the tenant's name. */
+  workspaceLabel?: string;
   /** localStorage key for the persisted desktop sidebar open/collapsed state. */
   storageKey?: string;
 }
+
+/** Product accent for an app — PMS blue, Accounting green, Platform vermilion. */
+export const appAccent = (app: AppShellApp): string =>
+  app === 'platform' ? BRAND.vermilion : PRODUCT_COLORS[app];
 
 const AppShell: React.FC<AppShellProps> = ({
   children,
@@ -65,8 +90,7 @@ const AppShell: React.FC<AppShellProps> = ({
   homePath,
   profilePath,
   mobileTitle,
-  brandName = 'Pilloto',
-  sidebarBg = '#2D3748',
+  workspaceLabel,
   storageKey,
 }) => {
   const theme = useTheme();
@@ -76,14 +100,19 @@ const AppShell: React.FC<AppShellProps> = ({
   const [sidebarOpen, setSidebarOpen] = React.useState(
     () => localStorage.getItem(resolvedStorageKey) !== 'false'
   );
+  // The mobile drawer is always shown expanded.
+  const expanded = sidebarOpen || !isDesktop;
+  const accent = appAccent(app);
 
   const navigate = useNavigate();
   const location = useLocation();
   const { logout, user } = useAuth();
+  const { tenant } = useTenant();
   const { t } = useTranslation();
 
   const [userMenuAnchor, setUserMenuAnchor] = React.useState<null | HTMLElement>(null);
   const [appMenuAnchor, setAppMenuAnchor] = React.useState<null | HTMLElement>(null);
+  const [flyout, setFlyout] = React.useState<{ anchor: HTMLElement; item: AppShellNavItem } | null>(null);
   const navListRef = React.useRef<HTMLUListElement>(null);
 
   // Explicit open/close overrides for collapsible nav groups — a group with no
@@ -91,24 +120,19 @@ const AppShell: React.FC<AppShellProps> = ({
   const [groupOverrides, setGroupOverrides] = React.useState<Record<string, boolean>>({});
   const isGroupOpen = (item: AppShellNavItem): boolean => {
     if (groupOverrides[item.key] !== undefined) return groupOverrides[item.key];
-    return !!item.children?.some((child) => location.pathname === child.path);
+    return !!item.children?.some((child) => isActive(child));
   };
   const toggleGroup = (item: AppShellNavItem) => {
     setGroupOverrides((prev) => ({ ...prev, [item.key]: !isGroupOpen(item) }));
   };
 
+  const isActive = (item: AppShellNavItem): boolean =>
+    location.pathname === item.path || (!!item.activePrefix && location.pathname.startsWith(item.activePrefix));
+
   React.useEffect(() => {
     const active = navListRef.current?.querySelector<HTMLElement>('.Mui-selected');
     if (active) active.scrollIntoView({ block: 'nearest' });
   }, [location.pathname]);
-
-  const handleUserMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setUserMenuAnchor(event.currentTarget);
-  };
-
-  const handleUserMenuClose = () => {
-    setUserMenuAnchor(null);
-  };
 
   // Persist sidebar state so navigation doesn't reset it
   const handleDrawerToggle = () => {
@@ -123,6 +147,12 @@ const AppShell: React.FC<AppShellProps> = ({
     }
   };
 
+  const go = (path: string) => {
+    navigate(path);
+    setFlyout(null);
+    if (!isDesktop) setMobileOpen(false);
+  };
+
   const handleLogout = async () => {
     try {
       await logout();
@@ -134,259 +164,272 @@ const AppShell: React.FC<AppShellProps> = ({
 
   // Apps both the tenant's products and the user's appRoles allow — gates the switcher.
   const availableApps = useAccessibleApps();
-  const showAppSwitcher = availableApps.length > 1 || !!user?.isSuperAdmin;
+  const showAppSwitcher = app !== 'platform' && (availableApps.length > 1 || !!user?.isSuperAdmin);
+  const appName = (code: AppShellApp) =>
+    code === 'platform' ? t('brand.appName.platform', 'Pilloto Console') : t(`brand.appName.${code}`, APP_METADATA[code].name);
+  const workspaceSubtitle = workspaceLabel ?? tenant?.name ?? '';
 
-  const handleAppMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAppMenuAnchor(event.currentTarget);
-  };
-  const handleAppMenuClose = () => setAppMenuAnchor(null);
   const handleAppSwitch = (code: AppCode) => {
-    handleAppMenuClose();
+    setAppMenuAnchor(null);
     if (code !== app) navigate(APP_METADATA[code].path);
   };
 
+  const itemSx = (active: boolean, nested = false) => ({
+    mx: 1.5,
+    mb: 0.25,
+    borderRadius: '8px',
+    minHeight: nested ? 34 : 38,
+    py: 0.5,
+    px: expanded ? 1.25 : 0,
+    pl: expanded && nested ? 4.5 : undefined,
+    justifyContent: expanded ? 'flex-start' : 'center',
+    color: BRAND.slate,
+    '& .MuiListItemIcon-root': { color: BRAND.slate },
+    '&:hover': { bgcolor: BRAND.paper, color: BRAND.ink, '& .MuiListItemIcon-root': { color: BRAND.ink } },
+    ...(active && {
+      '&.Mui-selected, &.Mui-selected:hover': {
+        bgcolor: alpha(accent, 0.1),
+        color: BRAND.ink,
+        '& .MuiListItemIcon-root': { color: accent },
+      },
+    }),
+  });
+
+  const itemText = (text: string, active: boolean, nested = false) => (
+    <ListItemText
+      primary={text}
+      primaryTypographyProps={{
+        fontSize: nested ? '0.8125rem' : '0.875rem',
+        fontWeight: active ? 600 : 500,
+        noWrap: true,
+      }}
+    />
+  );
+
+  const renderIcon = (item: AppShellNavItem) => (
+    <ListItemIcon sx={{ minWidth: expanded ? 36 : 0, justifyContent: 'center', '& svg': { fontSize: 20 } }}>
+      {item.badge ? <Badge badgeContent={item.badge} color="error" max={99}>{item.icon}</Badge> : item.icon}
+    </ListItemIcon>
+  );
+
+  const navList = (
+    <List ref={navListRef} disablePadding sx={{ pb: 1 }}>
+      {navItems.map((item, index) => {
+        const hasChildren = !!item.children?.length;
+        const childActive = hasChildren && item.children!.some(isActive);
+        const active = hasChildren ? childActive : isActive(item);
+        const open = hasChildren && isGroupOpen(item);
+        const newSection = item.section && item.section !== navItems[index - 1]?.section;
+
+        return (
+          <React.Fragment key={item.key}>
+            {newSection && (
+              expanded ? (
+                <ListSubheader
+                  disableSticky
+                  sx={{
+                    bgcolor: 'transparent', lineHeight: 1, px: 2.75, pt: 2.25, pb: 1,
+                    fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.08em',
+                    textTransform: 'uppercase', color: '#9AA1B5',
+                  }}
+                >
+                  {item.section}
+                </ListSubheader>
+              ) : (
+                <Divider sx={{ mx: 2.5, my: 1.25 }} />
+              )
+            )}
+            <Tooltip title={!expanded ? item.text : ''} placement="right" arrow>
+              <ListItemButton
+                selected={active}
+                onClick={(e) => {
+                  if (hasChildren) {
+                    if (!expanded) setFlyout({ anchor: e.currentTarget, item });
+                    else toggleGroup(item);
+                    return;
+                  }
+                  go(item.path);
+                }}
+                sx={itemSx(active)}
+              >
+                {renderIcon(item)}
+                {expanded && itemText(item.text, active)}
+                {expanded && hasChildren && (
+                  <ExpandMore
+                    fontSize="small"
+                    sx={{ color: '#9AA1B5', transition: 'transform .2s', transform: open ? 'rotate(180deg)' : 'none' }}
+                  />
+                )}
+              </ListItemButton>
+            </Tooltip>
+            {hasChildren && (
+              <Collapse in={expanded && open} timeout="auto" unmountOnExit>
+                <Box sx={{ position: 'relative', '&::before': { content: '""', position: 'absolute', left: 33, top: 2, bottom: 6, width: '1px', bgcolor: BRAND.mist } }}>
+                  <List disablePadding>
+                    {item.children!.map((child) => {
+                      const childIsActive = isActive(child);
+                      return (
+                        <ListItemButton
+                          key={child.key}
+                          selected={childIsActive}
+                          onClick={() => go(child.path)}
+                          sx={itemSx(childIsActive, true)}
+                        >
+                          {itemText(child.text, childIsActive, true)}
+                        </ListItemButton>
+                      );
+                    })}
+                  </List>
+                </Box>
+              </Collapse>
+            )}
+          </React.Fragment>
+        );
+      })}
+    </List>
+  );
+
   const drawerContent = (
-    <Box sx={{ color: '#E2E8F0', height: '100%', display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
-      {/* Logo + Toggle */}
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
+      {/* Brand */}
       <Box
         sx={{
-          display: 'flex',
-          alignItems: 'center',
-          height: 64,
-          flexShrink: 0,
-          position: 'relative',
-          pl: sidebarOpen ? 2 : 0,
-          borderBottom: '1px solid rgba(255,255,255,0.12)',
-          justifyContent: sidebarOpen ? 'flex-start' : 'center',
+          display: 'flex', alignItems: 'center', height: 68, flexShrink: 0,
+          px: expanded ? 2.75 : 0, justifyContent: expanded ? 'space-between' : 'center',
         }}
       >
-        {/* Pilloto brand */}
         <Box
-          onClick={() => navigate(homePath)}
-          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', overflow: 'hidden' }}
+          onClick={() => go(homePath)}
+          sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+          aria-label={appName(app)}
         >
-          {/* Icon mark — fixed 40px box keeps it aligned with nav icons */}
-          <Box sx={{ width: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="26" height="35" viewBox="0 0 52 70" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="4" y="2" width="44" height="66" rx="3" fill="rgba(255,255,255,0.04)" stroke="#606060" strokeWidth="1.5"/>
-              <rect x="10" y="11" width="12" height="10" rx="1.5" fill="#CCCCCC"/>
-              <rect x="30" y="11" width="12" height="10" rx="1.5" fill="#CCCCCC"/>
-              <rect x="10" y="27" width="12" height="10" rx="1.5" fill="#787878"/>
-              <rect x="30" y="27" width="12" height="10" rx="1.5" fill="#CCCCCC"/>
-              <rect x="10" y="43" width="12" height="10" rx="1.5" fill="#CCCCCC"/>
-            </svg>
-          </Box>
-          {sidebarOpen && (
-            <Typography sx={{
-              fontFamily: "'Cormorant Garamond', Georgia, serif",
-              fontWeight: 700,
-              fontSize: 24,
-              color: '#F0F0F0',
-              letterSpacing: '-0.5px',
-              lineHeight: 1,
-              whiteSpace: 'nowrap',
-              ml: 1,
-            }}>
-              {brandName}
-            </Typography>
-          )}
+          {expanded ? <PillotoLogo height={24} product={app} /> : <PillotoSymbol size={36} product={app} />}
         </Box>
-        {/* Arrow absolutely positioned so it never shifts the P */}
-        {isDesktop && (
-          <IconButton
-            onClick={handleDrawerToggle}
-            size="small"
-            sx={{ color: '#A0AEC0', position: 'absolute', right: 2 }}
-          >
-            {sidebarOpen ? <ChevronLeft /> : <ChevronRight />}
+        {!isDesktop && (
+          <IconButton size="small" onClick={() => setMobileOpen(false)} aria-label="close menu" sx={{ color: BRAND.slate }}>
+            <KeyboardDoubleArrowLeft fontSize="small" />
           </IconButton>
         )}
       </Box>
 
-      <Divider sx={{ display: 'none' }} />
+      {/* Workspace: property name + app switcher */}
+      {(showAppSwitcher || workspaceSubtitle) && (
+        <Box sx={{ px: 1.5, pb: 1.5, flexShrink: 0 }}>
+          <Tooltip title={!expanded ? `${appName(app)}${workspaceSubtitle ? ` · ${workspaceSubtitle}` : ''}` : ''} placement="right" arrow>
+            <ListItemButton
+              onClick={showAppSwitcher ? (e) => setAppMenuAnchor(e.currentTarget) : undefined}
+              disableRipple={!showAppSwitcher}
+              sx={{
+                borderRadius: '10px',
+                border: `1px solid ${BRAND.mist}`,
+                bgcolor: BRAND.paper,
+                px: expanded ? 1.25 : 0,
+                py: 1,
+                gap: 1.25,
+                justifyContent: 'center',
+                cursor: showAppSwitcher ? 'pointer' : 'default',
+                '&:hover': { bgcolor: showAppSwitcher ? '#EDEFF3' : BRAND.paper },
+              }}
+            >
+              <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: accent, flexShrink: 0, boxShadow: `0 0 0 3px ${alpha(accent, 0.18)}` }} />
+              {expanded && (
+                <>
+                  <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+                    <Typography noWrap sx={{ fontSize: '0.8125rem', fontWeight: 600, color: BRAND.ink, lineHeight: 1.3 }}>
+                      {workspaceSubtitle || appName(app)}
+                    </Typography>
+                    <Typography noWrap sx={{ fontSize: '0.75rem', color: BRAND.slate, lineHeight: 1.3 }}>
+                      {appName(app)}
+                    </Typography>
+                  </Box>
+                  {showAppSwitcher && <UnfoldMore sx={{ fontSize: 18, color: '#9AA1B5' }} />}
+                </>
+              )}
+            </ListItemButton>
+          </Tooltip>
+        </Box>
+      )}
 
       {/* Nav items */}
-      <List
-        ref={navListRef}
+      <Box
         sx={{
           flexGrow: 1,
-          py: 0.5,
           overflowY: 'auto',
           overflowX: 'hidden',
           scrollbarWidth: 'thin',
-          scrollbarColor: 'rgba(255,255,255,0.18) transparent',
+          scrollbarColor: `${BRAND.mist} transparent`,
           '&::-webkit-scrollbar': { width: 6 },
-          '&::-webkit-scrollbar-track': { background: 'transparent' },
-          '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.18)', borderRadius: 3 },
-          '&::-webkit-scrollbar-thumb:hover': { background: 'rgba(255,255,255,0.32)' },
+          '&::-webkit-scrollbar-thumb': { background: BRAND.mist, borderRadius: 3 },
         }}
       >
-        {navItems.map((item) => {
-          const hasChildren = !!item.children?.length;
-          const childActive = hasChildren && item.children!.some((child) => location.pathname === child.path);
-          const open = hasChildren && isGroupOpen(item);
+        {navList}
+      </Box>
 
-          return (
-            <React.Fragment key={item.key}>
-              <ListItem disablePadding>
-                <Tooltip title={!sidebarOpen ? item.text : ''} placement="right">
-                  <ListItemButton
-                    selected={hasChildren ? childActive : location.pathname === item.path}
-                    onClick={() => {
-                      if (hasChildren) {
-                        if (!sidebarOpen) {
-                          // Collapsed rail: expand the drawer so the group's children become visible.
-                          setSidebarOpen(true);
-                          localStorage.setItem(resolvedStorageKey, 'true');
-                        }
-                        toggleGroup(item);
-                        return;
-                      }
-                      navigate(item.path);
-                      if (!isDesktop) setMobileOpen(false);
-                    }}
-                    sx={{
-                      color: '#E2E8F0',
-                      justifyContent: sidebarOpen ? 'flex-start' : 'center',
-                      px: sidebarOpen ? 2 : 0,
-                      minHeight: 44,
-                      '&.Mui-selected': {
-                        bgcolor: 'rgba(255,255,255,0.15)',
-                        color: '#fff',
-                        '& .MuiListItemIcon-root': { color: '#fff' },
-                        '&:hover': { bgcolor: 'rgba(255,255,255,0.22)' },
-                      },
-                      '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
-                    }}
-                  >
-                    <ListItemIcon sx={{ color: '#A0AEC0', minWidth: sidebarOpen ? 40 : 72, justifyContent: 'center' }}>
-                      {item.icon}
-                    </ListItemIcon>
-                    {sidebarOpen && <ListItemText primary={item.text} />}
-                    {sidebarOpen && hasChildren && (open ? <ExpandLess fontSize="small" sx={{ color: '#A0AEC0' }} /> : <ExpandMore fontSize="small" sx={{ color: '#A0AEC0' }} />)}
-                  </ListItemButton>
-                </Tooltip>
-              </ListItem>
-              {hasChildren && (
-                <Collapse in={sidebarOpen && open} timeout="auto" unmountOnExit>
-                  <List disablePadding>
-                    {item.children!.map((child) => (
-                      <ListItem key={child.key} disablePadding>
-                        <ListItemButton
-                          selected={location.pathname === child.path}
-                          onClick={() => {
-                            navigate(child.path);
-                            if (!isDesktop) setMobileOpen(false);
-                          }}
-                          sx={{
-                            color: '#E2E8F0',
-                            pl: 4,
-                            minHeight: 40,
-                            '&.Mui-selected': {
-                              bgcolor: 'rgba(255,255,255,0.15)',
-                              color: '#fff',
-                              '& .MuiListItemIcon-root': { color: '#fff' },
-                              '&:hover': { bgcolor: 'rgba(255,255,255,0.22)' },
-                            },
-                            '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
-                          }}
-                        >
-                          <ListItemIcon sx={{ color: '#A0AEC0', minWidth: 32, justifyContent: 'center' }}>
-                            {child.icon}
-                          </ListItemIcon>
-                          <ListItemText primary={child.text} primaryTypographyProps={{ fontSize: '0.875rem' }} />
-                        </ListItemButton>
-                      </ListItem>
-                    ))}
-                  </List>
-                </Collapse>
-              )}
-            </React.Fragment>
-          );
-        })}
-      </List>
-
-      {/* App switcher */}
-      {showAppSwitcher && (
-        <>
-          <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
-          <List sx={{ py: 0.5 }}>
-            <ListItem disablePadding>
-              <Tooltip title={!sidebarOpen ? APP_METADATA[app].name : ''} placement="right">
-                <ListItemButton
-                  onClick={handleAppMenuOpen}
-                  sx={{
-                    color: '#E2E8F0',
-                    justifyContent: sidebarOpen ? 'flex-start' : 'center',
-                    px: sidebarOpen ? 2 : 0,
-                    minHeight: 44,
-                    '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
-                  }}
-                >
-                  <ListItemIcon sx={{ color: '#A0AEC0', minWidth: sidebarOpen ? 40 : 72, justifyContent: 'center' }}>
-                    <Apps />
-                  </ListItemIcon>
-                  {sidebarOpen && (
-                    <>
-                      <ListItemText
-                        primary={APP_METADATA[app].name}
-                        primaryTypographyProps={{ fontSize: '0.85rem', fontWeight: 600 }}
-                      />
-                      <ExpandMore fontSize="small" sx={{ color: '#A0AEC0', flexShrink: 0 }} />
-                    </>
-                  )}
-                </ListItemButton>
-              </Tooltip>
-            </ListItem>
-          </List>
-        </>
-      )}
-
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.12)' }} />
-
-      {/* Logout */}
-      <List sx={{ py: 0.5 }}>
-        <ListItem disablePadding>
-          <Tooltip title={!sidebarOpen ? t('auth.logout') : ''} placement="right">
-            <ListItemButton
-              onClick={handleLogout}
-              sx={{
-                color: '#E2E8F0',
-                justifyContent: sidebarOpen ? 'flex-start' : 'center',
-                px: sidebarOpen ? 2 : 0,
-                minHeight: 44,
-                '&:hover': { bgcolor: 'rgba(255,255,255,0.08)' },
-              }}
-            >
-              <ListItemIcon sx={{ color: '#A0AEC0', minWidth: sidebarOpen ? 40 : 72, justifyContent: 'center' }}>
-                <Logout />
+      {/* Footer: collapse + user */}
+      <Box sx={{ flexShrink: 0, borderTop: `1px solid ${BRAND.mist}`, py: 1 }}>
+        {isDesktop && (
+          <Tooltip title={!expanded ? t('nav.expandSidebar', 'Expand sidebar') : ''} placement="right" arrow>
+            <ListItemButton onClick={handleDrawerToggle} sx={itemSx(false)}>
+              <ListItemIcon sx={{ minWidth: expanded ? 36 : 0, justifyContent: 'center', '& svg': { fontSize: 20 } }}>
+                {expanded ? <KeyboardDoubleArrowLeft /> : <KeyboardDoubleArrowRight />}
               </ListItemIcon>
-              {sidebarOpen && <ListItemText primary={t('auth.logout')} />}
+              {expanded && itemText(t('nav.collapseSidebar', 'Collapse sidebar'), false)}
             </ListItemButton>
           </Tooltip>
-        </ListItem>
-      </List>
+        )}
+        <Tooltip title={!expanded ? `${user?.firstName ?? ''} ${user?.lastName ?? ''}` : ''} placement="right" arrow>
+          <ListItemButton
+            onClick={(e) => setUserMenuAnchor(e.currentTarget)}
+            aria-label="account menu"
+            sx={{ ...itemSx(false), minHeight: 52, gap: 1.25 }}
+          >
+            {user?.avatar ? (
+              <Avatar src={user.avatar} alt={user.firstName} sx={{ width: 32, height: 32 }} />
+            ) : (
+              <Avatar sx={{ width: 32, height: 32, bgcolor: BRAND.ink, fontSize: '0.8rem', fontWeight: 700 }}>
+                {user?.firstName?.[0]?.toUpperCase()}
+              </Avatar>
+            )}
+            {expanded && (
+              <>
+                <Box sx={{ minWidth: 0, flexGrow: 1 }}>
+                  <Typography noWrap sx={{ fontSize: '0.8125rem', fontWeight: 600, color: BRAND.ink, lineHeight: 1.3 }}>
+                    {user?.firstName} {user?.lastName}
+                  </Typography>
+                  <Typography noWrap sx={{ fontSize: '0.75rem', color: BRAND.slate, lineHeight: 1.3 }}>
+                    {user?.email}
+                  </Typography>
+                </Box>
+                <MoreVert sx={{ fontSize: 18, color: '#9AA1B5' }} />
+              </>
+            )}
+          </ListItemButton>
+        </Tooltip>
+      </Box>
     </Box>
   );
+
+  const paperSx = {
+    boxSizing: 'border-box' as const,
+    bgcolor: BRAND.white,
+    borderRight: `1px solid ${BRAND.mist}`,
+    overflowX: 'hidden' as const,
+  };
 
   const drawerSx = (width: number) => ({
     width,
     flexShrink: 0,
     transition: theme.transitions.create('width', { easing: theme.transitions.easing.sharp }),
     '& .MuiDrawer-paper': {
+      ...paperSx,
       width,
-      boxSizing: 'border-box',
-      bgcolor: sidebarBg,
-      color: '#E2E8F0',
-      overflowX: 'hidden',
       transition: theme.transitions.create('width', { easing: theme.transitions.easing.sharp }),
-      borderRight: 'none',
     },
   });
 
   return (
     <>
-      <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+      <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
         {/* Desktop: permanent sidebar that collapses to icon-only */}
         {isDesktop && (
           <Drawer variant="permanent" sx={drawerSx(sidebarOpen ? drawerWidth : collapsedWidth)}>
@@ -401,14 +444,7 @@ const AppShell: React.FC<AppShellProps> = ({
             open={mobileOpen}
             onClose={handleDrawerToggle}
             ModalProps={{ keepMounted: true }}
-            sx={{
-              '& .MuiDrawer-paper': {
-                width: drawerWidth,
-                boxSizing: 'border-box',
-                bgcolor: sidebarBg,
-                color: '#E2E8F0',
-              },
-            }}
+            sx={{ '& .MuiDrawer-paper': { ...paperSx, width: drawerWidth } }}
           >
             {drawerContent}
           </Drawer>
@@ -416,67 +452,91 @@ const AppShell: React.FC<AppShellProps> = ({
 
         {/* Right panel: content */}
         <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          {/* Top bar: page title (desktop) | hamburger (mobile) + pill */}
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, pt: 1.5, pb: 0 }}>
+          <Box
+            component="header"
+            sx={{
+              display: 'flex', alignItems: 'center', gap: 1.5,
+              px: { xs: 2, md: 3 }, minHeight: 68,
+              position: 'sticky', top: 0, zIndex: theme.zIndex.appBar,
+              bgcolor: alpha(BRAND.paper, 0.85), backdropFilter: 'blur(8px)',
+            }}
+          >
             {/* Mobile: hamburger + app title */}
-            <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center' }}>
-              <IconButton aria-label="open menu" onClick={handleDrawerToggle}>
+            <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 1, minWidth: 0 }}>
+              <IconButton aria-label="open menu" onClick={handleDrawerToggle} edge="start">
                 <Menu />
               </IconButton>
-              <Typography variant="h6" sx={{ ml: 1 }}>
+              <PillotoSymbol size={28} product={app} />
+              <Typography variant="subtitle1" fontWeight={700} noWrap>
                 {mobileTitle}
               </Typography>
             </Box>
             {/* Desktop: page title */}
-            <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center' }}>
+            <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', minWidth: 0 }}>
               {title && (
-                <Typography variant="h3" component="h1" fontWeight={700} sx={{ lineHeight: 1, color: 'text.primary' }}>
+                <Typography variant="h4" component="h1" sx={{ lineHeight: 1.2, color: 'text.primary' }} noWrap>
                   {title}
                 </Typography>
               )}
             </Box>
-            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1, bgcolor: 'rgba(255,255,255,0.92)', backdropFilter: 'blur(8px)', borderRadius: '40px', px: 1.5, py: 0.75, boxShadow: '0 1px 8px rgba(0,0,0,0.10)', border: '1px solid rgba(0,0,0,0.06)' }}>
+            <Box sx={{ ml: 'auto', display: 'flex', alignItems: 'center', gap: 1 }}>
               <LanguageSwitcher />
-              <IconButton
-                size="small"
-                onClick={handleUserMenuOpen}
-                aria-label="account menu"
-                sx={{ p: 0.5 }}
-              >
-                {user?.avatar ? (
-                  <Avatar src={user.avatar} alt={user.firstName} sx={{ width: 30, height: 30 }} />
-                ) : (
-                  <Avatar sx={{ width: 30, height: 30, bgcolor: 'secondary.main', fontSize: '0.8rem', fontWeight: 700 }}>
-                    {user?.firstName?.[0]?.toUpperCase()}
-                  </Avatar>
-                )}
-              </IconButton>
             </Box>
           </Box>
-          <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+          <Box component="main" sx={{ flexGrow: 1, px: { xs: 2, md: 3 }, pb: 3, pt: 1 }}>
             {children}
           </Box>
         </Box>
       </Box>
 
+      {/* Collapsed-rail flyout for nav groups */}
+      <MuiMenu
+        anchorEl={flyout?.anchor}
+        open={!!flyout}
+        onClose={() => setFlyout(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+        PaperProps={{ sx: { ml: 1, minWidth: 200 } }}
+      >
+        {flyout && (
+          <ListSubheader sx={{ lineHeight: '32px', fontSize: '0.75rem', fontWeight: 700, color: BRAND.slate }}>
+            {flyout.item.text}
+          </ListSubheader>
+        )}
+        {flyout?.item.children?.map((child) => (
+          <MuiMenuItem
+            key={child.key}
+            selected={isActive(child)}
+            onClick={() => go(child.path)}
+            sx={{ fontSize: '0.875rem', borderRadius: '8px', mx: 0.5 }}
+          >
+            {child.text}
+          </MuiMenuItem>
+        ))}
+      </MuiMenu>
+
       {showAppSwitcher && (
         <MuiMenu
           anchorEl={appMenuAnchor}
           open={Boolean(appMenuAnchor)}
-          onClose={handleAppMenuClose}
-          anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
-          transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-          PaperProps={{ sx: { borderRadius: '12px', boxShadow: '0 4px 16px rgba(0,0,0,0.12)', mb: 1, minWidth: 200 } }}
+          onClose={() => setAppMenuAnchor(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+          PaperProps={{ sx: { mt: 0.5, minWidth: 236 } }}
         >
+          <ListSubheader sx={{ lineHeight: '32px', fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#9AA1B5' }}>
+            {t('nav.switchApp', 'Switch app')}
+          </ListSubheader>
           {availableApps.map((code) => (
             <MuiMenuItem
               key={code}
               onClick={() => handleAppSwitch(code)}
               selected={code === app}
-              sx={{ fontSize: '0.9rem', borderRadius: '8px', mx: 0.5, display: 'flex', justifyContent: 'space-between', gap: 1 }}
+              sx={{ borderRadius: '8px', mx: 0.5, gap: 1.5, py: 1 }}
             >
-              {APP_METADATA[code].name}
-              {code === app && <CheckCircle fontSize="small" color="success" />}
+              <PillotoSymbol size={28} product={code} />
+              <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, flexGrow: 1 }}>{appName(code)}</Typography>
+              {code === app && <Check fontSize="small" sx={{ color: PRODUCT_COLORS[code] }} />}
             </MuiMenuItem>
           ))}
         </MuiMenu>
@@ -485,27 +545,18 @@ const AppShell: React.FC<AppShellProps> = ({
       <MuiMenu
         anchorEl={userMenuAnchor}
         open={Boolean(userMenuAnchor)}
-        onClose={handleUserMenuClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-        PaperProps={{
-          sx: {
-            borderRadius: '12px',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-            mt: 1,
-            minWidth: 160,
-          },
-        }}
+        onClose={() => setUserMenuAnchor(null)}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+        PaperProps={{ sx: { ml: 1, minWidth: 200 } }}
       >
-        <MuiMenuItem disabled sx={{ fontSize: '0.85rem', color: 'text.secondary' }}>
-          {user?.firstName} {user?.lastName}
-        </MuiMenuItem>
-        <Divider />
-        <MuiMenuItem onClick={() => { handleUserMenuClose(); navigate(profilePath); }} sx={{ fontSize: '0.9rem', borderRadius: '8px', mx: 0.5 }}>
+        <MuiMenuItem onClick={() => { setUserMenuAnchor(null); go(profilePath); }} sx={{ fontSize: '0.875rem', borderRadius: '8px', mx: 0.5, gap: 1.25 }}>
+          <PersonOutline fontSize="small" sx={{ color: BRAND.slate }} />
           {t('auth.profile')}
         </MuiMenuItem>
         <Divider />
-        <MuiMenuItem onClick={() => { handleUserMenuClose(); handleLogout(); }} sx={{ fontSize: '0.9rem', borderRadius: '8px', mx: 0.5 }}>
+        <MuiMenuItem onClick={() => { setUserMenuAnchor(null); handleLogout(); }} sx={{ fontSize: '0.875rem', borderRadius: '8px', mx: 0.5, gap: 1.25, color: 'error.main' }}>
+          <Logout fontSize="small" />
           {t('auth.logout')}
         </MuiMenuItem>
       </MuiMenu>

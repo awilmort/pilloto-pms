@@ -11,11 +11,14 @@ import Payment from '../models/Payment';
 import CreditAccount from '../models/CreditAccount';
 import { authenticate, authorize, authorizePermission, userHasAppAccess, userHasPermission, AuthRequest } from '../middleware/auth';
 import { getSortObject } from '../utils/helpers';
-import { sendVerificationEmail } from '../utils/email';
+import { invitationStatus, invitationView, sendInvitation } from '../services/invitations';
 import { AppCode, isAppCode } from '../constants/apps';
 import { PERMISSIONS_BY_APP, APP_ACCESS_PERMISSION, APP_USERS_PERMISSION } from '../constants/permissions';
 import { getAccountingPlanFeatures } from '../config/accountingPlans';
 import { postPaymentCompletedEntry } from '../services/accounting/pmsLedgerHooks';
+import { actorFromRequest, recordReservationEvent } from '../services/reservationHistory';
+import { getPlanFeatures } from '../config/plans';
+import { computeDashboard } from '../services/reports/dashboardService';
 
 const router = express.Router();
 
@@ -85,129 +88,26 @@ router.get('/permissions', authenticate, async (req: AuthRequest, res: Response)
 });
 
 // @route   GET /api/admin/dashboard
-// @desc    Get admin dashboard statistics
+// @desc    Home panel: today's KPIs, movement, room status, worklists, attention queue, outlook
+//          and booking activity (services/reports/dashboardService.ts). Rates, revenue and
+//          balances only for callers who may see revenue (admin.revenue); channel alerts only
+//          with the channel manager plan feature and admin.ota.view.
 // @access  Private (Admin or roles with dashboard/access permission)
-router.get('/dashboard', authenticate, authorizePermission('pms', 'admin.dashboard', 'admin.access'), async (req, res) => {
+router.get('/dashboard', authenticate, authorizePermission('pms', 'admin.dashboard', 'admin.access'), async (req: AuthRequest, res: Response) => {
   try {
-    // Get basic counts
-    const totalUsers = await User.countDocuments({ role: 'customer' });
-    const totalRooms = await Room.countDocuments();
-    const totalReservations = await Reservation.countDocuments();
-
-    // Get revenue statistics from standalone payments (completed only)
-    const yearStart = new Date(new Date().getFullYear(), 0, 1);
-    const [revenueData, paidReservationsAgg] = await Promise.all([
-      Payment.aggregate([
-        { $match: { createdAt: { $gte: yearStart }, status: 'completed' } },
-        { $group: { _id: null, totalRevenue: { $sum: '$amount' } } }
-      ]),
-      Payment.aggregate([
-        { $match: { createdAt: { $gte: yearStart }, status: 'completed' } },
-        {
-          $lookup: {
-            from: 'folios',
-            localField: 'folioId',
-            foreignField: '_id',
-            as: 'folio'
-          }
-        },
-        { $unwind: '$folio' },
-        { $group: { _id: '$folio.reservationId' } },
-        { $count: 'count' }
-      ]),
+    const tenantProducts = (req.tenant as any)?.products as AppCode[] | undefined;
+    const features = getPlanFeatures((req.tenant as any)?.plan ?? 'basic');
+    const [showMoney, canViewAlerts] = await Promise.all([
+      userHasPermission(req.user, 'pms', ['admin.revenue'], req.tenantId, tenantProducts),
+      userHasPermission(req.user, 'pms', ['admin.ota.view'], req.tenantId, tenantProducts),
     ]);
-
-    // Monthly reservation count + payment revenue
-    const [monthlyCounts, monthlyRevenue] = await Promise.all([
-      Reservation.aggregate([
-        { $match: { createdAt: { $gte: yearStart } } },
-        {
-          $group: {
-            _id: {
-              month: { $month: '$createdAt' },
-              year: { $year: '$createdAt' }
-            },
-            count: { $sum: 1 },
-          }
-        },
-      ]),
-      Payment.aggregate([
-        { $match: { createdAt: { $gte: yearStart }, status: 'completed' } },
-        {
-          $group: {
-            _id: {
-              month: { $month: '$createdAt' },
-              year: { $year: '$createdAt' }
-            },
-            revenue: { $sum: '$amount' }
-          }
-        },
-      ])
-    ]);
-
-    const monthlyRevenueMap = new Map(monthlyRevenue.map((r: any) => [`${r._id.year}-${r._id.month}`, Number(r.revenue || 0)]));
-    const monthlyReservations = monthlyCounts
-      .map((m: any) => ({
-        _id: m._id,
-        count: m.count,
-        revenue: monthlyRevenueMap.get(`${m._id.year}-${m._id.month}`) || 0,
-      }))
-      .sort((a: any, b: any) => (a._id.year - b._id.year) || (a._id.month - b._id.month));
-
-    // Get room occupancy rates
-    const roomOccupancy = await Room.aggregate([
-      {
-        $lookup: {
-          from: 'reservations',
-          localField: '_id',
-          foreignField: 'room',
-          as: 'reservations'
-        }
-      },
-      {
-        $project: {
-          name: 1,
-          type: 1,
-          status: 1,
-          totalReservations: { $size: '$reservations' },
-          confirmedReservations: {
-            $size: {
-              $filter: {
-                input: '$reservations',
-                cond: { $eq: ['$$this.status', 'confirmed'] }
-              }
-            }
-          }
-        }
-      }
-    ]);
-
-    // Get recent activities
-    const recentReservations = await Reservation.find()
-      .populate('user', 'firstName lastName email')
-      .populate('room', 'name status')
-      .sort('-createdAt')
-      .limit(5);
-
-    res.status(200).json({
-      success: true,
-      data: {
-        overview: {
-          totalUsers,
-          totalRooms,
-          totalReservations,
-          totalRevenue: revenueData[0]?.totalRevenue || 0,
-          paidReservations: paidReservationsAgg[0]?.count || 0
-        },
-        charts: {
-          monthlyReservations,
-          roomOccupancy
-        },
-        recentActivity: {
-          reservations: recentReservations
-        }
-      }
+    const data = await computeDashboard({
+      timezone: (req.tenant as any)?.settings?.timezone || 'UTC',
+      showMoney,
+      channelAlerts: features.channelManager && canViewAlerts,
+      dayVisits: features.daypass || features.pasatarde || features.events,
     });
+    res.status(200).json({ success: true, data });
   } catch (error: any) {
     console.error('Get dashboard error:', error);
     res.status(500).json({
@@ -566,6 +466,12 @@ router.post('/revenue/account-receivable/:paymentId/process', authenticate, auth
     payment.creditPaymentDate = new Date();
     payment.createdBy = (req as any).user?._id || (req as any).user?.id;
     await payment.save();
+    await recordReservationEvent(reservation._id as any, 'payment_updated', {
+      actor: actorFromRequest(req as any),
+      ref: { kind: 'payment', id: payment._id as any },
+      changes: [{ field: 'status', from: 'pending', to: 'completed' }, { field: 'method', from: 'credit', to: creditPaymentMethod }],
+      amount: payment.amount,
+    });
 
     // Phase 7.2: this is the CreditAccount "settlement" event from architecture §6.2 —
     // cash/card/transfer/check actually received against the company/guest credit line.
@@ -1004,7 +910,7 @@ router.get('/users', authenticate, async (req: AuthRequest, res: Response) => {
 
     res.status(200).json({
       success: true,
-      data: users,
+      data: users.map((u) => ({ ...u.toJSON(), invitation: invitationView(u) })),
       pagination: {
         currentPage: pageNum,
         totalPages,
@@ -1023,13 +929,13 @@ router.get('/users', authenticate, async (req: AuthRequest, res: Response) => {
 });
 
 // @route   POST /api/admin/users
-// @desc    Create a new user (admin only)
+// @desc    Create a new user (admin only). No password: the user is emailed an invitation to choose one.
 // @access  Private (Admin only)
 router.post('/users', authenticate, authorizePermission('pms', 'admin.users'), async (req: Request, res: Response) => {
   try {
-    const { firstName, lastName, email, phone, role = 'customer', password } = req.body;
+    const { firstName, lastName, email, phone, role = 'customer' } = req.body;
 
-    if (!firstName || !lastName || !email || !password) {
+    if (!firstName || !lastName || !email) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
@@ -1038,24 +944,40 @@ router.post('/users', authenticate, authorizePermission('pms', 'admin.users'), a
       return res.status(400).json({ success: false, message: 'Email already in use' });
     }
 
-    const user = new User({ firstName, lastName, email, phone, role, password });
-    await user.save();
-
-    // Generate verification token and send welcome/activation email
-    const verificationToken = user.generateEmailVerificationToken();
-    await user.save();
-    try {
-      await sendVerificationEmail(user, verificationToken);
-    } catch (emailError) {
-      console.error('Verification email error on user create:', emailError);
-      // Do not fail the creation if email sending fails
-    }
+    // generateInvitationToken (inside sendInvitation) gives the account a random, unknown password
+    const user = new User({ firstName, lastName, email, phone, role, emailVerified: false });
+    const invitation = await sendInvitation(user);
 
     const userSafe = await User.findById(user._id).select('-password');
-    res.status(201).json({ success: true, message: 'User created successfully', data: userSafe });
+    res.status(201).json({
+      success: true,
+      message: invitation.sent ? 'User created. An invitation was emailed to choose a password.' : 'User created, but the invitation email could not be sent. Use "Resend invitation".',
+      data: { ...userSafe!.toJSON(), invitation: invitationView(userSafe!) },
+      invitation,
+    });
   } catch (error: any) {
     console.error('Create user error:', error);
     res.status(500).json({ success: false, message: 'Server error while creating user' });
+  }
+});
+
+// @route   POST /api/admin/users/:id/resend-invitation
+// @desc    New invitation for a user who has not chosen a password yet
+// @access  Private (admin.users)
+router.post('/users/:id/resend-invitation', authenticate, authorizePermission('pms', 'admin.users'), async (req: Request, res: Response) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ success: false, message: 'User not found' });
+    const status = invitationStatus(user);
+    if (status === 'accepted' || (status === 'none' && user.emailVerified)) {
+      return res.status(409).json({ success: false, message: 'This user already has a password. They can use "Forgot password" if needed.' });
+    }
+    const result = await sendInvitation(user, { isOwner: user.isSuperAdmin });
+    if (!result.sent) return res.status(502).json({ success: false, message: 'The invitation email could not be sent. Try again later.' });
+    res.json({ success: true, message: `Invitation sent to ${user.email}.`, data: invitationView(user) });
+  } catch (error: any) {
+    console.error('Resend invitation error:', error);
+    res.status(500).json({ success: false, message: 'Server error while resending the invitation' });
   }
 });
 

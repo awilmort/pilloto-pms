@@ -1,5 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { tenantPlugin } from '../plugins/tenantPlugin';
+import { changeCapturePlugin } from '../services/channex/changeCapture';
 
 export interface IRoom extends Document {
   name: string;
@@ -89,5 +90,6 @@ roomSchema.index({ condition: 1 });
 
 // ── Multi-tenancy ────────────────────────────────────────────
 roomSchema.plugin(tenantPlugin);
+roomSchema.plugin(changeCapturePlugin, { model: 'Room' });
 
 export default mongoose.model<IRoom>('Room', roomSchema);

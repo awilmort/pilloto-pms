@@ -8,25 +8,9 @@ export interface IEmailSettings {
   footerText?: string;
 }
 
-export interface IOtaSettings {
-  enabled: boolean;
-  /** Minimum minutes between automatic sync runs for this tenant (15 | 30 | 60 | 120 | 360) */
-  syncIntervalMinutes: number;
-  /** IANA timezone used to interpret OTA iCal dates (e.g. 'America/Santo_Domingo') */
-  timezone: string;
-  /** Whether to surface conflict alerts in the admin dashboard */
-  conflictAlerts: boolean;
-}
-
 export interface IBookingSettings {
   /** Master toggle — must be true AND tenant plan must include bookingEngine */
   enabled: boolean;
-  /** Contact phone shown to guests */
-  contactPhone?: string;
-  /** Contact email shown to guests */
-  contactEmail?: string;
-  /** Contact address shown to guests */
-  contactAddress?: string;
   /** Whitelisted origins that may embed the booking widget via iframe/snippet */
   widgetAllowedOrigins: string[];
   /** Minimum hours in advance a booking can be made (default 24) */
@@ -39,6 +23,26 @@ export interface IBookingSettings {
   privacyVersion: string;
 }
 
+export interface IChannelManagerSettings {
+  /** Tenant switch — the plan must also include `channelManager` */
+  enabled: boolean;
+  /** Assign a free room of the booked type when an OTA booking arrives */
+  autoAssignRooms: boolean;
+  /** Send Pilloto's own confirmation email for OTA bookings (the OTA already emails the guest) */
+  sendGuestConfirmationEmail: boolean;
+  /** Push tax-inclusive nightly rates instead of pre-tax rates */
+  ratesIncludeTaxes: boolean;
+  /**
+   * Who connects OTAs in the channel screen: the tenant, superadmins only ('platform_only'),
+   * or the platform default (`PlatformSettings.channex.iframePlatformOnly`). Set from the
+   * platform console only.
+   */
+  channelConnection: ChannelConnectionSetting;
+}
+
+export const CHANNEL_CONNECTION_SETTINGS = ['default', 'tenant', 'platform_only'] as const;
+export type ChannelConnectionSetting = typeof CHANNEL_CONNECTION_SETTINGS[number];
+
 export interface IAppSettings extends Document {
   key: string;        // singleton key, always 'global'
   sections: Record<string, boolean>;
@@ -46,8 +50,8 @@ export interface IAppSettings extends Document {
   nightAuditTime: string;           // cron expression for this tenant (overrides env default)
   checkoutTime: string;             // HH:MM — time guests must check out (default 11:00)
   emailSettings?: IEmailSettings;
-  otaSettings?: IOtaSettings;
   bookingSettings?: IBookingSettings;
+  channelManager?: IChannelManagerSettings;
   updatedAt: Date;
 }
 
@@ -74,22 +78,20 @@ const appSettingsSchema = new Schema<IAppSettings>(
       footerHtml:      { type: String, default: '' },
       footerText:      { type: String, default: '' },
     },
-    otaSettings: {
-      enabled:              { type: Boolean, default: false },
-      syncIntervalMinutes:  { type: Number, default: 60 },
-      timezone:             { type: String, default: 'UTC', maxlength: 80 },
-      conflictAlerts:       { type: Boolean, default: true },
-    },
     bookingSettings: {
       enabled:              { type: Boolean, default: false },
-      contactPhone:         { type: String, default: '', maxlength: 30 },
-      contactEmail:         { type: String, default: '', maxlength: 100 },
-      contactAddress:       { type: String, default: '', maxlength: 300 },
       widgetAllowedOrigins: [{ type: String, maxlength: 200 }],
       minAdvanceHours:      { type: Number, default: 24, min: 0 },
       maxAdvanceDays:       { type: Number, default: 365, min: 1 },
       termsVersion:         { type: String, default: '1.0', maxlength: 20 },
       privacyVersion:       { type: String, default: '1.0', maxlength: 20 },
+    },
+    channelManager: {
+      enabled:                    { type: Boolean, default: false },
+      autoAssignRooms:            { type: Boolean, default: true },
+      sendGuestConfirmationEmail: { type: Boolean, default: false },
+      ratesIncludeTaxes:          { type: Boolean, default: false },
+      channelConnection:          { type: String, enum: CHANNEL_CONNECTION_SETTINGS, default: 'default' },
     },
   },
   { timestamps: true }

@@ -45,7 +45,7 @@ import { usePermission } from '../../../lib/permissions';
 import { productsService, warehousesService } from '../../../services/api';
 import { Product, InventoryTransaction, InventoryAdjustmentReason, Warehouse } from '../../../types';
 import { UNIT_OF_MEASURE_CODES } from '../../../lib/unitsOfMeasure';
-import { formatMoney } from '../../../utils/currency';
+import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
 
 interface ProductFormState {
   name: string;

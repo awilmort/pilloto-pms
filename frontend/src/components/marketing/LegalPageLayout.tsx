@@ -7,7 +7,7 @@ import NavigateNextIcon from '@mui/icons-material/NavigateNext';
 import { useTranslation } from 'react-i18next';
 import MarketingLayout from './MarketingLayout';
 
-const BRAND = '#1A3C34';
+const BRAND = '#121A33';
 
 interface Section {
   id: string;
@@ -48,7 +48,7 @@ const LegalPageLayout: React.FC<LegalPageLayoutProps> = ({
   return (
     <MarketingLayout>
       {/* Header */}
-      <Box sx={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E5E7EB', py: 5 }}>
+      <Box sx={{ backgroundColor: '#F5F6F8', borderBottom: '1px solid #E3E6EE', py: 5 }}>
         <Container maxWidth="lg">
           <Breadcrumbs separator={<NavigateNextIcon fontSize="small" />} sx={{ mb: 2 }}>
             <Link href="/" underline="hover" color="text.secondary" variant="body2">
@@ -59,11 +59,11 @@ const LegalPageLayout: React.FC<LegalPageLayoutProps> = ({
             </Link>
             <Typography variant="body2" color="text.primary">{title}</Typography>
           </Breadcrumbs>
-          <Typography variant="h3" fontWeight={800} color="#0F172A">{title}</Typography>
+          <Typography variant="h3" fontWeight={800} color="#121A33">{title}</Typography>
           <Chip
             label={`${t('legal.effectiveDate')}: ${effectiveDate}`}
             size="small"
-            sx={{ mt: 2, backgroundColor: 'white', border: '1px solid #E5E7EB' }}
+            sx={{ mt: 2, backgroundColor: 'white', border: '1px solid #E3E6EE' }}
           />
         </Container>
       </Box>
@@ -111,7 +111,7 @@ const LegalPageLayout: React.FC<LegalPageLayoutProps> = ({
           {/* Content */}
           <Grid item xs={12} md={9}>
             <Box sx={{
-              '& h4': { fontWeight: 700, color: '#0F172A', mt: 5, mb: 2 },
+              '& h4': { fontWeight: 700, color: '#121A33', mt: 5, mb: 2 },
               '& p': { color: '#475569', lineHeight: 1.8, mb: 2 },
               '& ul, & ol': { color: '#475569', pl: 3, mb: 2 },
               '& li': { mb: 0.5, lineHeight: 1.7 },

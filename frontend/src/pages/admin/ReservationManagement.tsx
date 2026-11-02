@@ -46,6 +46,8 @@ const ReservationManagement: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo]     = useState('');
+  const [filterSource, setFilterSource]     = useState('');
+  const [channelSources, setChannelSources] = useState<string[]>([]);
 
   // ── Pagination ─────────────────────────────────────────────────────────────
   const [page, setPage]              = useState(1);
@@ -108,6 +110,7 @@ const ReservationManagement: React.FC = () => {
       if (search.trim())          params.search   = search.trim();
       if (filterDateFrom)         params.dateFrom = filterDateFrom;
       if (filterDateTo)           params.dateTo   = filterDateTo;
+      if (filterSource)           params.source   = filterSource;
       if (reset && !initialLoadDone) setLoading(true); else setLoadingMore(true);
       setError(null);
       const response = await reservationsService.getReservations(params);
@@ -128,7 +131,7 @@ const ReservationManagement: React.FC = () => {
       setLoading(false);
       setLoadingMore(false);
     }
-  }, [page, filterStatus, filterType, search, filterDateFrom, filterDateTo, initialLoadDone, t]);
+  }, [page, filterStatus, filterType, search, filterDateFrom, filterDateTo, filterSource, initialLoadDone, t]);
 
   const fetchRooms = async () => {
     try {
@@ -152,17 +155,27 @@ const ReservationManagement: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Deep-link: open details view when ?id= is present in the URL
+  // Deep-link: ?id= opens the details view (with &action=checkin|checkout, that dialog instead);
+  // ?new=1 opens the create dialog
   useEffect(() => {
     if (deepLinkHandled.current) return;
     const params = new URLSearchParams(location.search);
+    if (params.get('new') === '1') {
+      deepLinkHandled.current = true;
+      setCreateDialog(true);
+      navigate(location.pathname, { replace: true });
+      return;
+    }
     const id = params.get('id');
     if (!id) return;
     deepLinkHandled.current = true;
+    const action = params.get('action');
     reservationsService.getReservation(id)
       .then(res => {
         const reservation = res.data.data as any;
-        if (reservation) openDetailsView(reservation);
+        if (!reservation) return;
+        if (action === 'checkin' || action === 'checkout') setOpsDialog({ open: true, mode: action, reservation });
+        else openDetailsView(reservation);
       })
       .catch(() => { /* ignore — reservation may not exist */ })
       .finally(() => {
@@ -177,7 +190,12 @@ const ReservationManagement: React.FC = () => {
     const timer = setTimeout(() => fetchReservations({ reset: true }), 300);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filterStatus, filterType, search, filterDateFrom, filterDateTo]);
+  }, [filterStatus, filterType, search, filterDateFrom, filterDateTo, filterSource]);
+
+  // OTA names for the source filter
+  useEffect(() => {
+    reservationsService.getChannelSources().then((r) => setChannelSources(r.data.data ?? [])).catch(() => setChannelSources([]));
+  }, []);
 
   // Debounce search input
   useEffect(() => {
@@ -203,6 +221,7 @@ const ReservationManagement: React.FC = () => {
     setSearchInput('');
     setFilterDateFrom('');
     setFilterDateTo('');
+    setFilterSource('');
   };
 
   // ─── Loading skeleton ──────────────────────────────────────────────────────
@@ -243,12 +262,15 @@ const ReservationManagement: React.FC = () => {
               searchInput={searchInput}
               filterDateFrom={filterDateFrom}
               filterDateTo={filterDateTo}
+              filterSource={filterSource}
+              channelSources={channelSources}
               reservationServices={reservationServices}
               onFilterStatusChange={setFilterStatus}
               onFilterTypeChange={setFilterType}
               onSearchInputChange={setSearchInput}
               onFilterDateFromChange={setFilterDateFrom}
               onFilterDateToChange={setFilterDateTo}
+              onFilterSourceChange={setFilterSource}
               onFilterToday={handleFilterToday}
               onClear={handleClearFilters}
               onCreateNew={() => setCreateDialog(true)}

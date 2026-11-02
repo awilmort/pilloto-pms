@@ -40,6 +40,9 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import { useTranslation } from 'react-i18next';
 import { reportsService } from '../../../services/api';
 import { formatMoney } from '../../../utils/currency';
+import { axisTooltip, barSeries, categoryAxis, lineSeries, valueAxis } from '../../charts/EChart';
+import { SERIES } from '../../charts/chartTheme';
+import { ChartCard, Column, fmtMoney, fmtPct } from './kit';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -108,6 +111,59 @@ interface NightAuditRangeRow {
   totalRevenue: number;
   totalPayments: number;
 }
+
+// ─── Range charts ─────────────────────────────────────────────────────────────
+
+/** Revenue posted vs payments collected, and occupancy, per audited night */
+const NightAuditRangeCharts: React.FC<{ rows: NightAuditRangeRow[] }> = ({ rows }) => {
+  const { t } = useTranslation();
+  const dates = rows.map((r) => r.date);
+  const occ = (r: NightAuditRangeRow) => (r.totalRooms > 0 ? (r.occupied / r.totalRooms) * 100 : 0);
+  const columns: Column<NightAuditRangeRow>[] = [
+    { key: 'date', label: t('admin.reports.nightAudit.colDate') },
+    { key: 'occupied', label: t('admin.reports.kit.occupancy'), align: 'right', render: (r) => `${r.occupied}/${r.totalRooms} · ${fmtPct(occ(r))}` },
+    { key: 'totalRevenue', label: t('admin.reports.kit.revenuePosted'), align: 'right', render: (r) => fmtMoney(r.totalRevenue) },
+    { key: 'totalPayments', label: t('admin.reports.kit.paymentsCollected'), align: 'right', render: (r) => fmtMoney(r.totalPayments) },
+  ];
+  return (
+    <Grid container spacing={2} mb={3}>
+      <Grid item xs={12} md={7}>
+        <ChartCard
+          title={t('admin.reports.kit.revenueVsPayments')}
+          subtitle={t('admin.reports.kit.revenueVsPaymentsHelp')}
+          height={240}
+          columns={columns}
+          rows={rows}
+          option={{
+            legend: {},
+            tooltip: axisTooltip(formatMoney, 'shadow'),
+            xAxis: categoryAxis(dates),
+            yAxis: valueAxis(formatMoney),
+            series: [
+              barSeries(t('admin.reports.kit.revenuePosted'), rows.map((r) => r.totalRevenue), SERIES[0]),
+              barSeries(t('admin.reports.kit.paymentsCollected'), rows.map((r) => r.totalPayments), SERIES[1]),
+            ],
+          }}
+        />
+      </Grid>
+      <Grid item xs={12} md={5}>
+        <ChartCard
+          title={t('admin.reports.kit.occupancy')}
+          height={240}
+          columns={columns}
+          rows={rows}
+          option={{
+            grid: { top: 12 },
+            tooltip: axisTooltip((v) => `${v.toFixed(0)}%`),
+            xAxis: categoryAxis(dates),
+            yAxis: valueAxis((v) => `${v}%`, { min: 0, max: 100 }),
+            series: [lineSeries(t('admin.reports.kit.occupancy'), rows.map(occ), SERIES[0], { area: true })],
+          }}
+        />
+      </Grid>
+    </Grid>
+  );
+};
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -813,6 +869,10 @@ const NightAuditReport: React.FC = () => {
             <Box display="flex" justifyContent="center" py={6}>
               <CircularProgress />
             </Box>
+          )}
+
+          {!rangeLoading && rangeData && rangeData.length > 0 && (
+            <NightAuditRangeCharts rows={rangeData} />
           )}
 
           {!rangeLoading && rangeData && (

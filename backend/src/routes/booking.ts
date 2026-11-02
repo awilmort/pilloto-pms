@@ -38,12 +38,17 @@ import BookingVerification from '../models/BookingVerification';
 import GuestTermsAcceptance from '../models/GuestTermsAcceptance';
 import Amenity from '../models/Amenity';
 import Review from '../models/Review';
-import { calculateTieredPrice } from '../utils/pricing';
+import { bookablePlanFrom, loadStayContext, quoteStayFrom, toStay, violationMessages, StayQuote } from '../services/stayQuote';
+import { getInventory, findFreeRooms, minAvailable, InventoryGrid } from '../services/channex/inventory.service';
+import { eachNight } from '../services/channex/dates';
 import { calculateServicePrice } from '../utils/servicePricing';
 import { sendEmail } from '../utils/email';
 import { renderBookingVerification } from '../utils/emailTemplates/bookingVerification';
 import { renderReservationConfirmation } from '../utils/emailTemplates/reservationConfirmation';
 import Tenant from '../models/Tenant';
+import { formatAddress, tenantCurrency } from '../services/propertyProfile';
+import { generateReservationCode } from '../services/reservationRecords';
+import { GUEST_ACTOR, recordReservationEvent } from '../services/reservationHistory';
 
 const router = express.Router();
 
@@ -101,6 +106,18 @@ async function requireBookingEnabled(req: TenantRequest, res: Response, next: ex
   }
 }
 
+// ── Booking rules ────────────────────────────────────────────────────────────
+
+/** Why a rate cannot be booked for the stay, in the property's language (null = bookable). */
+function restrictionMessage(req: Request, quote: StayQuote): string | null {
+  const msgs = violationMessages(quote.violations);
+  if (!msgs) return null;
+  const es = (req as TenantRequest).tenant?.settings?.language === 'es';
+  return es
+    ? `La tarifa ${quote.ratePlan.name} no está disponible para estas fechas. ${msgs.es}`
+    : `The ${quote.ratePlan.name} rate is not available for these dates. ${msgs.en}`;
+}
+
 // Apply to all routes
 router.use(bookingLimiter);
 router.use(requireBookingEngine as any);
@@ -123,12 +140,13 @@ router.get('/config', async (req: TenantRequest, res: Response) => {
         tenantSlug: tenant?.slug || '',
         logoUrl: tenant?.settings?.logoUrl || '',
         primaryColor: tenant?.settings?.primaryColor || '#2D3748',
-        currency: tenant?.settings?.currency || 'USD',
+        currency: tenantCurrency(tenant),
         timezone: tenant?.settings?.timezone || 'UTC',
         language: tenant?.settings?.language || 'en',
-        contactPhone: bs.contactPhone || '',
-        contactEmail: bs.contactEmail || '',
-        contactAddress: bs.contactAddress || '',
+        // Guest-facing contact data comes from the property profile
+        contactPhone: tenant?.profile?.phone || '',
+        contactEmail: tenant?.profile?.email || '',
+        contactAddress: formatAddress(tenant?.profile),
         minAdvanceHours: bs.minAdvanceHours ?? 24,
         maxAdvanceDays: bs.maxAdvanceDays ?? 365,
         termsVersion: bs.termsVersion || '1.0',
@@ -251,67 +269,40 @@ router.get(
 
       const roomTypeIds = roomTypes.map(rt => rt._id);
 
-      // Get active rooms for these room types
+      // Get active rooms for these room types (images/features for display)
       const rooms = await Room.find({
         roomTypeId: { $in: roomTypeIds },
         status: 'active',
       }).lean();
 
-      // Get existing reservations overlapping the date range
-      const overlapping = await Reservation.find({
-        type: 'room',
-        status: { $in: ['pending', 'confirmed', 'checked-in'] },
-        checkInDate: { $lt: checkOut },
-        $or: [
-          { checkOutDate: { $gt: checkIn } },
-          { checkOutDate: { $exists: false } },
-        ],
-      })
-        .select('room rooms')
-        .lean();
+      // Rooms left per type for every night of the stay — InventoryService counts assigned
+      // rooms, room-type bookings without a room yet, and room blocks.
+      const stayNights = eachNight(checkIn, checkOut);
+      const inventory = stayNights.length
+        ? await getInventory({ dateFrom: stayNights[0], dateTo: stayNights[stayNights.length - 1], roomTypeIds: roomTypeIds.map(String) })
+        : {};
 
-      // Collect all occupied room IDs
-      const occupiedRoomIds = new Set<string>();
-      for (const r of overlapping) {
-        if (r.room) occupiedRoomIds.add(String(r.room));
-        if (r.rooms) r.rooms.forEach((id: any) => occupiedRoomIds.add(String(id)));
-      }
-
-      // Calculate availability per room type
-      const nights = Math.max(1, Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)));
-
-      // Get rate plans for all room types
-      const ratePlans = await RatePlan.find({
-        roomTypeId: { $in: roomTypeIds },
-        isActive: true,
-      }).lean();
+      // Night-by-night prices and booking rules of every rate plan of these room types
+      const stay = toStay(req.query.checkIn as string, req.query.checkOut as string);
+      const stayContext = await loadStayContext({ ...stay, roomTypeIds: roomTypeIds.map(String) });
 
       const results = [];
 
       for (const rt of roomTypes) {
         const rtId = String(rt._id);
         const typeRooms = rooms.filter(r => String(r.roomTypeId) === rtId);
-        const availableRooms = typeRooms.filter(r => !occupiedRoomIds.has(String(r._id)));
+        const availableCount = minAvailable(inventory, rtId, stayNights);
 
-        if (availableRooms.length === 0) continue;
+        if (availableCount === 0) continue;
 
-        // Get the best rate plan for this room type
-        const rtRatePlans = ratePlans.filter(rp => String(rp.roomTypeId) === rtId);
-        if (rtRatePlans.length === 0) continue;
-
-        // Calculate price using the first active rate plan.
-        // Clip guest count to room capacity so pricing reflects per-room cost.
-        const bestPlan = rtRatePlans[0];
+        // The first active rate plan (by name) the stay can be booked on: plans with stop
+        // sell on a night, no arrivals/departures on those dates, or a min/max stay the stay
+        // breaks are left out. Clip guest count to room capacity so pricing reflects per-room cost.
         const roomAdults = Math.min(adults, rt.capacity);
         const roomChildren = Math.min(children, Math.max(0, rt.capacity - roomAdults));
         try {
-          const priceResult = await calculateTieredPrice({
-            ratePlanId: String(bestPlan._id),
-            adults: roomAdults,
-            children: roomChildren,
-            date: checkIn,
-            nights,
-          });
+          const { quote: priceResult } = bookablePlanFrom(stayContext, rtId, stay, { adults: roomAdults, children: roomChildren, rooms: 1 });
+          if (!priceResult) continue;
 
           // Get room images for this type (first available room with images)
           const roomWithImages = typeRooms.find(r => r.images && r.images.length > 0);
@@ -323,10 +314,10 @@ router.get(
               capacity: rt.capacity,
               image: (rt as any).image || '',
             },
-            availableCount: availableRooms.length,
+            availableCount,
             ratePlan: {
-              _id: bestPlan._id,
-              name: bestPlan.name,
+              _id: priceResult.ratePlan._id,
+              name: priceResult.ratePlan.name,
             },
             pricing: {
               basePrice: priceResult.basePrice,
@@ -381,22 +372,28 @@ router.post(
   async (req: Request, res: Response) => {
     try {
       const { roomTypeId, ratePlanId, checkIn, checkOut, adults, children = 0, rooms = 1 } = req.body;
-      const checkInDate = new Date(checkIn);
-      const checkOutDate = new Date(checkOut);
-      const nights = Math.max(1, Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24)));
+      const stay = toStay(checkIn, checkOut);
+      if (stay.checkOut <= stay.checkIn) {
+        return res.status(400).json({ success: false, message: 'Check-out must be after check-in.' });
+      }
+      const party = { adults, children, rooms };
+      const stayContext = await loadStayContext({ ...stay, roomTypeIds: [roomTypeId] });
 
-      const priceResult = await calculateTieredPrice({
-        roomTypeId,
-        ratePlanId,
-        adults,
-        children,
-        date: checkInDate,
-        nights,
-        rooms,
-      });
+      // A chosen plan must be bookable for the stay; otherwise the first bookable plan is quoted
+      let priceResult: StayQuote | null;
+      if (ratePlanId) {
+        priceResult = quoteStayFrom(stayContext, String(ratePlanId), stay, party);
+      } else {
+        const pick = bookablePlanFrom(stayContext, String(roomTypeId), stay, party);
+        priceResult = pick.quote ?? pick.rejected[0] ?? null;
+      }
 
-      if (!priceResult.ratePlan) {
+      if (!priceResult) {
         return res.status(404).json({ success: false, message: 'No rate plan found for this room type.' });
+      }
+      const restricted = restrictionMessage(req, priceResult);
+      if (restricted) {
+        return res.status(409).json({ success: false, code: 'restricted', message: restricted, violations: priceResult.violations });
       }
 
       res.json({ success: true, data: priceResult });
@@ -716,11 +713,23 @@ router.post(
       let reservationType: 'room' | 'daypass' | 'PasaTarde' | 'event' = 'room';
       let primaryRoomTypeId: string | undefined;
 
+      // Rooms left per type over every room item's nights, from one InventoryService window.
+      // `claimed` counts what earlier items of this same request take, so two items cannot
+      // both get the last room.
+      const requestedNights = items
+        .filter((i: any) => i.kind === 'room' && i.checkIn && i.checkOut)
+        .flatMap((i: any) => eachNight(new Date(i.checkIn), new Date(i.checkOut)))
+        .sort();
+      const inventory: InventoryGrid = requestedNights.length
+        ? await getInventory({ dateFrom: requestedNights[0], dateTo: requestedNights[requestedNights.length - 1] })
+        : {};
+      const claimed = new Map<string, number>(); // `${roomTypeId}|${night}` → rooms taken by this request
+      const pickedRoomIds = new Set<string>();
+
       for (const item of items) {
         if (item.kind === 'room') {
           const checkIn = new Date(item.checkIn);
           const checkOut = new Date(item.checkOut);
-          const nights = Math.max(1, Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)));
           const adults = item.adults || 1;
           const children = item.children || 0;
 
@@ -738,51 +747,49 @@ router.post(
             });
           }
 
-          // Verify availability (find an available room)
-          const occupiedRooms = await Reservation.find({
-            type: 'room',
-            status: { $in: ['pending', 'confirmed', 'checked-in'] },
-            checkInDate: { $lt: checkOut },
-            $or: [
-              { checkOutDate: { $gt: checkIn } },
-              { checkOutDate: { $exists: false } },
-            ],
-          }).select('room rooms').lean();
-
-          const occupiedIds = new Set<string>();
-          for (const r of occupiedRooms) {
-            if (r.room) occupiedIds.add(String(r.room));
-            if (r.rooms) r.rooms.forEach((id: any) => occupiedIds.add(String(id)));
-          }
-
-          const availableRoom = await Room.findOne({
-            roomTypeId: item.roomTypeId,
-            status: 'active',
-            _id: { $nin: Array.from(occupiedIds) },
-          }).lean();
-
-          if (!availableRoom) {
+          // Verify availability: a room of this type is left on every night, after unassigned
+          // bookings, room blocks and the earlier items of this request
+          const typeKey = String(item.roomTypeId);
+          const stayNights = eachNight(checkIn, checkOut);
+          const roomLeft = stayNights.length > 0 && stayNights.every(
+            (d) => (inventory[typeKey]?.[d]?.available ?? 0) - (claimed.get(`${typeKey}|${d}`) ?? 0) > 0,
+          );
+          if (!roomLeft) {
             return res.status(400).json({
               success: false,
               message: `No rooms available for ${roomType.name} on the selected dates.`,
             });
           }
+          for (const d of stayNights) claimed.set(`${typeKey}|${d}`, (claimed.get(`${typeKey}|${d}`) ?? 0) + 1);
 
-          // Calculate price
-          const priceResult = await calculateTieredPrice({
-            roomTypeId: item.roomTypeId,
-            ratePlanId: item.ratePlanId,
-            adults,
-            children,
-            date: checkIn,
-            nights,
-          });
+          // Assign a room that is free for the whole stay when there is one; otherwise the
+          // booking stays unassigned (still counted for its room type) and staff assign it
+          // from the booking calendar's Unassigned lane.
+          const { freeRoomIds } = await findFreeRooms({ checkIn, checkOut, roomTypeId: item.roomTypeId });
+          const assignedRoomId = freeRoomIds.find((id) => !pickedRoomIds.has(id));
+          if (assignedRoomId) pickedRoomIds.add(assignedRoomId);
 
-          if (!priceResult.ratePlan) {
+          // Night-by-night price on a plan the stay can be booked on (booking rules apply)
+          const stay = toStay(item.checkIn, item.checkOut);
+          const stayContext = await loadStayContext({ ...stay, roomTypeIds: [item.roomTypeId] });
+          const party = { adults, children, rooms: 1 };
+          let priceResult: StayQuote | null;
+          if (item.ratePlanId) {
+            priceResult = quoteStayFrom(stayContext, String(item.ratePlanId), stay, party);
+          } else {
+            const pick = bookablePlanFrom(stayContext, String(item.roomTypeId), stay, party);
+            priceResult = pick.quote ?? pick.rejected[0] ?? null;
+          }
+
+          if (!priceResult) {
             return res.status(400).json({
               success: false,
               message: `No rate plan found for ${roomType.name}.`,
             });
+          }
+          const restricted = restrictionMessage(req, priceResult);
+          if (restricted) {
+            return res.status(400).json({ success: false, code: 'restricted', message: restricted, violations: priceResult.violations });
           }
 
           processedItems.push({
@@ -804,7 +811,7 @@ router.post(
             })),
             totalTaxes: priceResult.totalTaxes,
             total: priceResult.finalTotal,
-            _assignedRoomId: availableRoom._id, // Internal — used to assign the room
+            _assignedRoomId: assignedRoomId, // Internal — used to assign the room
           });
 
           totalEstimate += priceResult.finalTotal;
@@ -948,12 +955,13 @@ router.post(
         primaryKind: hasRoom ? 'room' : 'service',
         room: assignedRoomIds[0] || undefined,
         rooms: assignedRoomIds.length > 1 ? assignedRoomIds : undefined,
-        roomCount: assignedRoomIds.length || undefined,
+        roomCount: processedItems.filter(i => i.kind === 'room').length || undefined,
         estimatedTotal: totalEstimate,
         totalPayments: 0,
         pricingSnapshot,
         guestRecord: guestRecord?._id,
       });
+      await recordReservationEvent(reservation._id as any, 'created', { actor: GUEST_ACTOR, note: 'booking_engine' });
 
       // ── 9. Record legal acceptance ──────────────────────────
       const guestFullName = `${firstName} ${lastName}`;
@@ -989,7 +997,7 @@ router.post(
           tenantName: tenant?.name || 'Hotel',
           tenantSlug: tenant?.slug,
           tenantLogoUrl: tenant?.settings?.logoUrl,
-          currency: tenant?.settings?.currency || 'DOP',
+          currency: tenantCurrency(tenant),
           customFooterHtml: emailConfig.footerHtml,
           customFooterText: emailConfig.footerText,
           replyTo: emailConfig.replyTo,
@@ -1068,18 +1076,6 @@ router.get('/legal/privacy', async (req: TenantRequest, res: Response) => {
 });
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
-
-function generateReservationCode(): string {
-  const prefix = 'B';
-  const year = new Date().getFullYear().toString().slice(-2);
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let code = '';
-  const bytes = crypto.randomBytes(4);
-  for (let i = 0; i < 4; i++) {
-    code += chars[bytes[i] % chars.length];
-  }
-  return `${prefix}${year}${code}`;
-}
 
 function generateBookingTerms(propertyName: string): string {
   const p = propertyName.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1249,7 +1245,7 @@ router.get('/reservation/:code', bookingLimiter, requireBookingEngine, async (re
     }
 
     const tenant = req.tenant!;
-    const currency: string = (tenant as any).settings?.currency || 'DOP';
+    const currency: string = tenantCurrency(tenant as any);
     const snap = (reservation as any).pricingSnapshot;
 
     res.json({

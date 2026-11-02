@@ -1,5 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { tenantPlugin } from '../plugins/tenantPlugin';
+import { changeCapturePlugin } from '../services/channex/changeCapture';
 
 // ── Enums / literal types ─────────────────────────────────────────────────────
 
@@ -17,6 +18,13 @@ export type RuleScope = 'base' | 'occupancy' | 'both';
 
 /** Day-of-week pattern for when the rule is active. */
 export type PeriodPattern = 'all_days' | 'weekdays' | 'weekends' | 'specific_days';
+
+/**
+ * 'manual' = a named rule (season, promotion, negotiated price) created in the Pricing page.
+ * 'calendar' = a price adjustment typed in the Calendar: beats other promotional rules on its
+ * dates, newest calendar adjustment wins (CHANNEX_ARCHITECTURE.md §4.3).
+ */
+export type PricingRuleOrigin = 'manual' | 'calendar';
 
 // ── Priority helper ───────────────────────────────────────────────────────────
 
@@ -47,6 +55,7 @@ export interface IOccupancyTierOverride {
 
 export interface IPricingRule extends Document {
   name: string;
+  origin: PricingRuleOrigin;
 
   // ── Targeting ────────────────────────────────────────────────────────────────
   /** Priority tier and scope of application. */
@@ -130,6 +139,7 @@ const occupancyTierOverrideSchema = new Schema<IOccupancyTierOverride>(
 const pricingRuleSchema = new Schema<IPricingRule>(
   {
     name: { type: String, required: true, trim: true, maxlength: 200 },
+    origin: { type: String, enum: ['manual', 'calendar'] as PricingRuleOrigin[], default: 'manual' },
 
     ruleTarget: {
       type: String,
@@ -187,6 +197,11 @@ pricingRuleSchema.pre('save', function (next) {
   if (this.ruleTarget === 'guest') {
     if (!this.guestEmail?.trim()) return next(new Error('guestEmail is required for guest rules'));
     if (this.ruleModel !== 'custom') this.direction = 'discount'; // always a discount
+  }
+
+  // Calendar adjustments are prices shown to every guest: always promotional
+  if (this.origin === 'calendar' && this.ruleTarget !== 'promotional') {
+    return next(new Error('Calendar price adjustments must be promotional rules'));
   }
 
   if (this.ruleTarget === 'promotional') {
@@ -258,5 +273,7 @@ pricingRuleSchema.pre('save', function (next) {
 
 // ── Multi-tenancy ─────────────────────────────────────────────────────────────
 pricingRuleSchema.plugin(tenantPlugin);
+pricingRuleSchema.plugin(changeCapturePlugin, { model: 'PricingRule' });
+pricingRuleSchema.index({ tenantId: 1, ratePlanId: 1, origin: 1, dateStart: 1, dateEnd: 1 });
 
 export default mongoose.model<IPricingRule>('PricingRule', pricingRuleSchema);

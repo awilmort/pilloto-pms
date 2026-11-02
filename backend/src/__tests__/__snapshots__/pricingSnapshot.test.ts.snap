@@ -1,0 +1,697 @@
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) blackout date skips the rule 1`] = `
+{
+  "adjustedSubtotal": 100,
+  "appliedRule": null,
+  "basePrice": 100,
+  "finalTotal": 100,
+  "nights": 1,
+  "occupancyCost": 0,
+  "ratePlan": {
+    "_id": "rp1",
+    "name": "BAR Twin",
+    "roomTypeId": "rt1",
+    "roomTypeName": "Twin",
+  },
+  "subtotal": 100,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) blackout ends: rule applies the day after 1`] = `
+{
+  "adjustedSubtotal": 90,
+  "appliedRule": {
+    "_id": "rule-1",
+    "model": "percentage",
+    "name": "Season -10%",
+    "ruleTarget": "promotional",
+  },
+  "basePrice": 100,
+  "finalTotal": 90,
+  "nights": 1,
+  "occupancyCost": 0,
+  "ratePlan": {
+    "_id": "rp1",
+    "name": "BAR Twin",
+    "roomTypeId": "rt1",
+    "roomTypeName": "Twin",
+  },
+  "subtotal": 100,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) company rule ignored on the public channel 1`] = `
+{
+  "adjustedSubtotal": 90,
+  "appliedRule": {
+    "_id": "rule-1",
+    "model": "percentage",
+    "name": "Promo -10%",
+    "ruleTarget": "promotional",
+  },
+  "basePrice": 100,
+  "finalTotal": 90,
+  "nights": 1,
+  "occupancyCost": 0,
+  "ratePlan": {
+    "_id": "rp1",
+    "name": "BAR Twin",
+    "roomTypeId": "rt1",
+    "roomTypeName": "Twin",
+  },
+  "subtotal": 100,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) company rule wins on the admin channel 1`] = `
+{
+  "adjustedSubtotal": 70,
+  "appliedRule": {
+    "_id": "rule-1",
+    "model": "percentage",
+    "name": "ACME -30%",
+    "ruleTarget": "company",
+  },
+  "basePrice": 100,
+  "finalTotal": 70,
+  "nights": 1,
+  "occupancyCost": 0,
+  "ratePlan": {
+    "_id": "rp1",
+    "name": "BAR Twin",
+    "roomTypeId": "rt1",
+    "roomTypeName": "Twin",
+  },
+  "subtotal": 100,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) custom base + custom adult tiers (child tiers fall back to plan) 1`] = `
+{
+  "adjustedSubtotal": 220,
+  "appliedRule": {
+    "_id": "rule-1",
+    "model": "custom",
+    "name": "Custom",
+    "ruleTarget": "promotional",
+  },
+  "basePrice": 300,
+  "finalTotal": 220,
+  "nights": 2,
+  "occupancyCost": 130,
+  "ratePlan": {
+    "_id": "rp2",
+    "name": "Family Flex",
+    "roomTypeId": "rt2",
+    "roomTypeName": "Family",
+  },
+  "subtotal": 430,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) fixed discount larger than the price clamps to 0 1`] = `
+{
+  "adjustedSubtotal": 0,
+  "appliedRule": {
+    "_id": "rule-1",
+    "model": "fixed",
+    "name": "-500",
+    "ruleTarget": "promotional",
+  },
+  "basePrice": 100,
+  "finalTotal": 0,
+  "nights": 1,
+  "occupancyCost": 0,
+  "ratePlan": {
+    "_id": "rp1",
+    "name": "BAR Twin",
+    "roomTypeId": "rt1",
+    "roomTypeName": "Twin",
+  },
+  "subtotal": 100,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) fixed discount on base and occupancy 1`] = `
+{
+  "adjustedSubtotal": 270,
+  "appliedRule": {
+    "_id": "rule-1",
+    "model": "fixed",
+    "name": "-15 both",
+    "ruleTarget": "promotional",
+  },
+  "basePrice": 300,
+  "finalTotal": 270,
+  "nights": 1,
+  "occupancyCost": 0,
+  "ratePlan": {
+    "_id": "rp2",
+    "name": "Family Flex",
+    "roomTypeId": "rt2",
+    "roomTypeName": "Family",
+  },
+  "subtotal": 300,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) fixed surcharge on occupancy 1`] = `
+{
+  "adjustedSubtotal": 210,
+  "appliedRule": {
+    "_id": "rule-1",
+    "model": "fixed",
+    "name": "+5 occ",
+    "ruleTarget": "promotional",
+  },
+  "basePrice": 150,
+  "finalTotal": 210,
+  "nights": 1,
+  "occupancyCost": 55,
+  "ratePlan": {
+    "_id": "rp2",
+    "name": "Family Flex",
+    "roomTypeId": "rt2",
+    "roomTypeName": "Family",
+  },
+  "subtotal": 205,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) guest rule beats company rule on the admin channel 1`] = `
+{
+  "adjustedSubtotal": 95,
+  "appliedRule": {
+    "_id": "rule-1",
+    "model": "fixed",
+    "name": "VIP -5",
+    "ruleTarget": "guest",
+  },
+  "basePrice": 100,
+  "finalTotal": 95,
+  "nights": 1,
+  "occupancyCost": 0,
+  "ratePlan": {
+    "_id": "rp1",
+    "name": "BAR Twin",
+    "roomTypeId": "rt1",
+    "roomTypeName": "Twin",
+  },
+  "subtotal": 100,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) inactive rule ignored 1`] = `
+{
+  "adjustedSubtotal": 100,
+  "appliedRule": null,
+  "basePrice": 100,
+  "finalTotal": 100,
+  "nights": 1,
+  "occupancyCost": 0,
+  "ratePlan": {
+    "_id": "rp1",
+    "name": "BAR Twin",
+    "roomTypeId": "rt1",
+    "roomTypeName": "Twin",
+  },
+  "subtotal": 100,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) minimum nights met 1`] = `
+{
+  "adjustedSubtotal": 255,
+  "appliedRule": {
+    "_id": "rule-1",
+    "model": "percentage",
+    "name": "Stay 3",
+    "ruleTarget": "promotional",
+  },
+  "basePrice": 300,
+  "finalTotal": 255,
+  "nights": 3,
+  "occupancyCost": 0,
+  "ratePlan": {
+    "_id": "rp1",
+    "name": "BAR Twin",
+    "roomTypeId": "rt1",
+    "roomTypeName": "Twin",
+  },
+  "subtotal": 300,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) minimum nights not met 1`] = `
+{
+  "adjustedSubtotal": 200,
+  "appliedRule": null,
+  "basePrice": 200,
+  "finalTotal": 200,
+  "nights": 2,
+  "occupancyCost": 0,
+  "ratePlan": {
+    "_id": "rp1",
+    "name": "BAR Twin",
+    "roomTypeId": "rt1",
+    "roomTypeName": "Twin",
+  },
+  "subtotal": 200,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) more specific (shorter) window wins over a season 1`] = `
+{
+  "adjustedSubtotal": 95,
+  "appliedRule": {
+    "_id": "rule-1",
+    "model": "percentage",
+    "name": "Week -5%",
+    "ruleTarget": "promotional",
+  },
+  "basePrice": 100,
+  "finalTotal": 95,
+  "nights": 1,
+  "occupancyCost": 0,
+  "ratePlan": {
+    "_id": "rp1",
+    "name": "BAR Twin",
+    "roomTypeId": "rt1",
+    "roomTypeName": "Twin",
+  },
+  "subtotal": 100,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) multi-room guest distribution 1`] = `
+{
+  "adjustedSubtotal": 770,
+  "appliedRule": null,
+  "basePrice": 600,
+  "finalTotal": 770,
+  "nights": 2,
+  "occupancyCost": 170,
+  "ratePlan": {
+    "_id": "rp2",
+    "name": "Family Flex",
+    "roomTypeId": "rt2",
+    "roomTypeName": "Family",
+  },
+  "subtotal": 770,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) no rules, base only 1`] = `
+{
+  "adjustedSubtotal": 100,
+  "appliedRule": null,
+  "basePrice": 100,
+  "finalTotal": 100,
+  "nights": 1,
+  "occupancyCost": 0,
+  "ratePlan": {
+    "_id": "rp1",
+    "name": "BAR Twin",
+    "roomTypeId": "rt1",
+    "roomTypeName": "Twin",
+  },
+  "subtotal": 100,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) no rules, occupancy tiers, 3 nights 1`] = `
+{
+  "adjustedSubtotal": 690,
+  "appliedRule": null,
+  "basePrice": 450,
+  "finalTotal": 690,
+  "nights": 3,
+  "occupancyCost": 240,
+  "ratePlan": {
+    "_id": "rp2",
+    "name": "Family Flex",
+    "roomTypeId": "rt2",
+    "roomTypeName": "Family",
+  },
+  "subtotal": 690,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) outside the validity window 1`] = `
+{
+  "adjustedSubtotal": 100,
+  "appliedRule": null,
+  "basePrice": 100,
+  "finalTotal": 100,
+  "nights": 1,
+  "occupancyCost": 0,
+  "ratePlan": {
+    "_id": "rp1",
+    "name": "BAR Twin",
+    "roomTypeId": "rt1",
+    "roomTypeName": "Twin",
+  },
+  "subtotal": 100,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) percentage discount on base 1`] = `
+{
+  "adjustedSubtotal": 400,
+  "appliedRule": {
+    "_id": "rule-1",
+    "model": "percentage",
+    "name": "10% off base",
+    "ruleTarget": "promotional",
+  },
+  "basePrice": 300,
+  "finalTotal": 400,
+  "nights": 2,
+  "occupancyCost": 130,
+  "ratePlan": {
+    "_id": "rp2",
+    "name": "Family Flex",
+    "roomTypeId": "rt2",
+    "roomTypeName": "Family",
+  },
+  "subtotal": 430,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) percentage discount on both 1`] = `
+{
+  "adjustedSubtotal": 156,
+  "appliedRule": {
+    "_id": "rule-1",
+    "model": "percentage",
+    "name": "20% off",
+    "ruleTarget": "promotional",
+  },
+  "basePrice": 150,
+  "finalTotal": 156,
+  "nights": 1,
+  "occupancyCost": 45,
+  "ratePlan": {
+    "_id": "rp2",
+    "name": "Family Flex",
+    "roomTypeId": "rt2",
+    "roomTypeName": "Family",
+  },
+  "subtotal": 195,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) percentage surcharge on occupancy 1`] = `
+{
+  "adjustedSubtotal": 247.5,
+  "appliedRule": {
+    "_id": "rule-1",
+    "model": "percentage",
+    "name": "+50% occ",
+    "ruleTarget": "promotional",
+  },
+  "basePrice": 150,
+  "finalTotal": 247.5,
+  "nights": 1,
+  "occupancyCost": 65,
+  "ratePlan": {
+    "_id": "rp2",
+    "name": "Family Flex",
+    "roomTypeId": "rt2",
+    "roomTypeName": "Family",
+  },
+  "subtotal": 215,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) plan resolved from room type 1`] = `
+{
+  "adjustedSubtotal": 170,
+  "appliedRule": null,
+  "basePrice": 150,
+  "finalTotal": 170,
+  "nights": 1,
+  "occupancyCost": 20,
+  "ratePlan": {
+    "_id": "rp2",
+    "name": "Family Flex",
+    "roomTypeId": "rt2",
+    "roomTypeName": "Family",
+  },
+  "subtotal": 170,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) same window: higher value wins, custom beats all 1`] = `
+{
+  "adjustedSubtotal": 95,
+  "appliedRule": {
+    "_id": "rule-1",
+    "model": "custom",
+    "name": "C custom",
+    "ruleTarget": "promotional",
+  },
+  "basePrice": 100,
+  "finalTotal": 95,
+  "nights": 1,
+  "occupancyCost": 0,
+  "ratePlan": {
+    "_id": "rp1",
+    "name": "BAR Twin",
+    "roomTypeId": "rt1",
+    "roomTypeName": "Twin",
+  },
+  "subtotal": 100,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) specific days (Fri) on a Friday 1`] = `
+{
+  "adjustedSubtotal": 130,
+  "appliedRule": {
+    "_id": "rule-1",
+    "model": "fixed",
+    "name": "Fri",
+    "ruleTarget": "promotional",
+  },
+  "basePrice": 100,
+  "finalTotal": 130,
+  "nights": 1,
+  "occupancyCost": 0,
+  "ratePlan": {
+    "_id": "rp1",
+    "name": "BAR Twin",
+    "roomTypeId": "rt1",
+    "roomTypeName": "Twin",
+  },
+  "subtotal": 100,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) taxes: exclusive percentage + inclusive + fixed per guest / room / total 1`] = `
+{
+  "adjustedSubtotal": 600,
+  "appliedRule": {
+    "_id": "rule-1",
+    "model": "percentage",
+    "name": "10% off base",
+    "ruleTarget": "promotional",
+  },
+  "basePrice": 600,
+  "finalTotal": 743,
+  "nights": 2,
+  "occupancyCost": 60,
+  "ratePlan": {
+    "_id": "rp2",
+    "name": "Family Flex",
+    "roomTypeId": "rt2",
+    "roomTypeName": "Family",
+  },
+  "subtotal": 660,
+  "taxes": [
+    {
+      "amount": 108,
+      "isInclusive": false,
+      "name": "ITBIS",
+      "type": "percentage",
+    },
+    {
+      "amount": 60,
+      "isInclusive": true,
+      "name": "Servicio",
+      "type": "percentage",
+    },
+    {
+      "amount": 16,
+      "isInclusive": false,
+      "name": "Eco fee",
+      "type": "fixed",
+    },
+    {
+      "amount": 12,
+      "isInclusive": false,
+      "name": "Room levy",
+      "type": "fixed",
+    },
+    {
+      "amount": 7,
+      "isInclusive": false,
+      "name": "Booking fee",
+      "type": "fixed",
+    },
+  ],
+  "totalTaxes": 143,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) tier fallback beyond the last defined tier 1`] = `
+{
+  "adjustedSubtotal": 315,
+  "appliedRule": null,
+  "basePrice": 150,
+  "finalTotal": 315,
+  "nights": 1,
+  "occupancyCost": 165,
+  "ratePlan": {
+    "_id": "rp2",
+    "name": "Family Flex",
+    "roomTypeId": "rt2",
+    "roomTypeName": "Family",
+  },
+  "subtotal": 315,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) unknown plan 1`] = `
+{
+  "adjustedSubtotal": 0,
+  "appliedRule": null,
+  "basePrice": 0,
+  "finalTotal": 0,
+  "nights": 1,
+  "occupancyCost": 0,
+  "ratePlan": null,
+  "subtotal": 0,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) weekday rule on a Wednesday 1`] = `
+{
+  "adjustedSubtotal": 90,
+  "appliedRule": {
+    "_id": "rule-1",
+    "model": "fixed",
+    "name": "Midweek -10",
+    "ruleTarget": "promotional",
+  },
+  "basePrice": 100,
+  "finalTotal": 90,
+  "nights": 1,
+  "occupancyCost": 0,
+  "ratePlan": {
+    "_id": "rp1",
+    "name": "BAR Twin",
+    "roomTypeId": "rt1",
+    "roomTypeName": "Twin",
+  },
+  "subtotal": 100,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) weekend rule on a Saturday 1`] = `
+{
+  "adjustedSubtotal": 120,
+  "appliedRule": {
+    "_id": "rule-1",
+    "model": "percentage",
+    "name": "Weekend +20%",
+    "ruleTarget": "promotional",
+  },
+  "basePrice": 100,
+  "finalTotal": 120,
+  "nights": 1,
+  "occupancyCost": 0,
+  "ratePlan": {
+    "_id": "rp1",
+    "name": "BAR Twin",
+    "roomTypeId": "rt1",
+    "roomTypeName": "Twin",
+  },
+  "subtotal": 100,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;
+
+exports[`calculateTieredPrice behaviour lock (snapshot from before the RateResolver refactor) weekend rule on a Wednesday (not applied) 1`] = `
+{
+  "adjustedSubtotal": 100,
+  "appliedRule": null,
+  "basePrice": 100,
+  "finalTotal": 100,
+  "nights": 1,
+  "occupancyCost": 0,
+  "ratePlan": {
+    "_id": "rp1",
+    "name": "BAR Twin",
+    "roomTypeId": "rt1",
+    "roomTypeName": "Twin",
+  },
+  "subtotal": 100,
+  "taxes": [],
+  "totalTaxes": 0,
+}
+`;

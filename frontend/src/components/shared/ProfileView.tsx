@@ -33,6 +33,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { authService } from '../../services/api';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
+import { PillotoWordmark } from '../brand/PillotoLogo';
 
 // ─── Password strength ────────────────────────────────────────────────────────
 
@@ -67,17 +68,6 @@ interface PasswordRule {
 }
 
 // ─── Pilloto SVG mark ─────────────────────────────────────────────────────────
-
-const PillotoMark: React.FC<{ size?: number }> = ({ size = 32 }) => (
-  <svg width={size * 0.74} height={size} viewBox="0 0 52 70" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect x="4" y="2" width="44" height="66" rx="3" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" />
-    <rect x="10" y="11" width="12" height="10" rx="1.5" fill="rgba(255,255,255,0.9)" />
-    <rect x="30" y="11" width="12" height="10" rx="1.5" fill="rgba(255,255,255,0.9)" />
-    <rect x="10" y="27" width="12" height="10" rx="1.5" fill="rgba(255,255,255,0.45)" />
-    <rect x="30" y="27" width="12" height="10" rx="1.5" fill="rgba(255,255,255,0.9)" />
-    <rect x="10" y="43" width="12" height="10" rx="1.5" fill="rgba(255,255,255,0.9)" />
-  </svg>
-);
 
 // ─── Role chip colours ────────────────────────────────────────────────────────
 
@@ -226,20 +216,7 @@ const ProfileView: React.FC = () => {
 
         {/* Pilloto logomark */}
         <Box sx={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 1.5, zIndex: 1 }}>
-          <PillotoMark size={48} />
-          <Typography
-            sx={{
-              fontFamily: "'Cormorant Garamond', Georgia, serif",
-              fontWeight: 700,
-              fontSize: { xs: 22, md: 28 },
-              color: '#F0F0F0',
-              letterSpacing: '-0.5px',
-              lineHeight: 1,
-              userSelect: 'none',
-            }}
-          >
-            Pilloto
-          </Typography>
+          <PillotoWordmark height={34} tone="reversed" />
         </Box>
 
         <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.18)', mx: 1 }} />

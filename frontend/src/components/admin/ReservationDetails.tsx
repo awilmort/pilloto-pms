@@ -12,6 +12,9 @@ import NumberField from '../../components/common/NumberField';
 import InvoiceGenerationModal from './InvoiceGenerationModal';
 import EcfInvoicesSection from './EcfInvoicesSection';
 import EcfStatusBadge from './EcfStatusBadge';
+import ChannelBadge from './reservations/ChannelBadge';
+import ReservationChannelSection from './reservations/ReservationChannelSection';
+import ReservationHistorySection from './reservations/ReservationHistorySection';
 
 type Props = {
   reservation: Reservation;
@@ -78,6 +81,7 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
   const cashierName = [(user as any)?.firstName, (user as any)?.lastName].filter(Boolean).join(' ') || 'Front Desk';
   const isAdmin = String(user?.role).toLowerCase() === 'admin';
   const canManagePayments = isAdmin || (permissions || []).includes('admin.reservations.managePayments');
+  const canViewHistory = isAdmin || (permissions || []).includes('admin.reservations');
   const { t } = useTranslation();
   const paymentsDisabled = current.status === 'cancelled';
 
@@ -194,7 +198,10 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
             <Typography variant="h6" gutterBottom>{guestName}</Typography>
             <Typography variant="body2" color="text.secondary">{guestEmail} • {guestPhone}</Typography>
           </Box>
-          <Chip label={t(`admin.reservations.details.status.${current.status}`)} color={getStatusColor(current.status) as any} sx={{ textTransform: 'capitalize' }} />
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <ChannelBadge source={current.channelSource} size="medium" />
+            <Chip label={t(`admin.reservations.details.status.${current.status}`)} color={getStatusColor(current.status) as any} sx={{ textTransform: 'capitalize' }} />
+          </Box>
         </Box>
 
         <Divider sx={{ my: 2 }} />
@@ -271,6 +278,9 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
                 </Grid>
               );
             })()
+          )}
+          {current.channelSource && (
+            <ReservationChannelSection reservationId={current._id} source={current.channelSource} formatCurrency={formatCurrency} />
           )}
           {current.specialRequests && (
             <Grid item xs={12}>
@@ -555,6 +565,15 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
               />
             )}
           </Grid>
+          {canViewHistory && (
+            <Grid item xs={12}>
+              <ReservationHistorySection
+                reservationId={current._id}
+                version={`${(current as any).updatedAt ?? ''}|${charges.length}|${payments.length}`}
+                formatCurrency={formatCurrency}
+              />
+            </Grid>
+          )}
         </Grid>
       </Paper>
     </Container>

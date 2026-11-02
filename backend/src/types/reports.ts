@@ -6,7 +6,9 @@ export type GroupBy = 'day' | 'week' | 'month';
 
 export interface OccupancyRow {
   date: string;
+  /** Active rooms minus rooms out of service */
   roomsAvailable: number;
+  roomsOutOfOrder: number;
   roomsSold: number;
   occupancyPct: number;
   roomRevenue: number;

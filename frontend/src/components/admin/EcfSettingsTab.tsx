@@ -26,18 +26,16 @@ import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import VpnKeyOffIcon from '@mui/icons-material/VpnKeyOff';
 import WifiIcon from '@mui/icons-material/Wifi';
 import { useTranslation } from 'react-i18next';
-import { ecfService } from '../../services/api';
+import { ecfService, PropertyProfile } from '../../services/api';
 import type { TenantEcfConfig, EcfAmbiente } from '../../types';
+import PropertyProfileSummary from './PropertyProfileSummary';
 
 const AMBIENTES: EcfAmbiente[] = ['Simulacion', 'Pruebas', 'Certificacion', 'Produccion'];
 
 const DEFAULT_CITRUS_URL = 'https://test.ecf.citrus.com.do';
 
+// Legal name, RNC, commercial name and phone come from the property profile
 interface FormState {
-  rnc: string;
-  razonSocial: string;
-  nombreComercial: string;
-  phone: string;
   sucursal: string;
   ambiente: EcfAmbiente;
   citrusBaseUrl: string;
@@ -46,10 +44,6 @@ interface FormState {
 }
 
 const emptyForm: FormState = {
-  rnc: '',
-  razonSocial: '',
-  nombreComercial: '',
-  phone: '',
   sucursal: '',
   ambiente: 'Simulacion',
   citrusBaseUrl: DEFAULT_CITRUS_URL,
@@ -72,6 +66,7 @@ const EcfSettingsTab: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<'success' | 'error' | null>(null);
   const [revokeDialogOpen, setRevokeDialogOpen] = useState(false);
+  const [fiscalReady, setFiscalReady] = useState(true);
 
   // ── Load config ─────────────────────────────────────────────
 
@@ -83,10 +78,6 @@ const EcfSettingsTab: React.FC = () => {
       setConfig(data);
       if (data) {
         setForm({
-          rnc: data.rnc ?? '',
-          razonSocial: data.razonSocial ?? '',
-          nombreComercial: data.nombreComercial ?? '',
-          phone: data.phone ?? '',
           sucursal: data.sucursal ?? '',
           ambiente: data.ambiente ?? 'Simulacion',
           citrusBaseUrl: data.citrusBaseUrl ?? DEFAULT_CITRUS_URL,
@@ -106,13 +97,8 @@ const EcfSettingsTab: React.FC = () => {
   // ── Save ─────────────────────────────────────────────────────
 
   const handleSave = async () => {
-    // Validate RNC
-    if (form.rnc && !/^\d{9}$|^\d{11}$/.test(form.rnc)) {
-      setFormError(t('admin.settings.ecf.errors.invalidRnc'));
-      return;
-    }
-    if (!form.rnc.trim() || !form.razonSocial.trim()) {
-      setFormError(t('common.requiredFields', 'RNC and Razón Social are required'));
+    if (!fiscalReady) {
+      setFormError(t('admin.settings.ecf.errors.profileIncomplete'));
       return;
     }
 
@@ -120,10 +106,6 @@ const EcfSettingsTab: React.FC = () => {
     setSaving(true);
     try {
       const payload: Partial<TenantEcfConfig & { citrusToken?: string }> = {
-        rnc: form.rnc.trim(),
-        razonSocial: form.razonSocial.trim(),
-        nombreComercial: form.nombreComercial.trim() || undefined,
-        phone: form.phone.trim() || undefined,
         sucursal: form.sucursal.trim() || undefined,
         ambiente: form.ambiente,
         // citrusBaseUrl is managed server-side — not sent by the client
@@ -249,38 +231,15 @@ const EcfSettingsTab: React.FC = () => {
 
         <Divider sx={{ my: 2 }} />
 
-        {/* ── RNC + Razón Social ────────────────────────────── */}
+        {/* ── Issuer: from the property profile ─────────────── */}
+        <Box mb={2}>
+          <PropertyProfileSummary
+            fields={['legalName', 'rnc', 'name', 'phone']}
+            intro={t('admin.settings.ecf.fromProfile')}
+            onLoaded={(p: PropertyProfile) => setFiscalReady(Boolean(p.legalName && p.rnc))}
+          />
+        </Box>
         <Box display="grid" gridTemplateColumns={{ xs: '1fr', sm: '1fr 1fr' }} gap={2} mb={2}>
-          <TextField
-            label={t('admin.settings.ecf.fields.rnc')}
-            value={form.rnc}
-            onChange={e => setForm(prev => ({ ...prev, rnc: e.target.value }))}
-            helperText={t('admin.settings.ecf.fields.rncHelp')}
-            size="small"
-            required
-            inputProps={{ maxLength: 11 }}
-          />
-          <TextField
-            label={t('admin.settings.ecf.fields.razonSocial')}
-            value={form.razonSocial}
-            onChange={e => setForm(prev => ({ ...prev, razonSocial: e.target.value }))}
-            size="small"
-            required
-          />
-          <TextField
-            label={t('admin.settings.ecf.fields.nombreComercial')}
-            value={form.nombreComercial}
-            onChange={e => setForm(prev => ({ ...prev, nombreComercial: e.target.value }))}
-            size="small"
-          />
-          <TextField
-            label={t('admin.settings.ecf.fields.phone', 'Teléfono de Contacto')}
-            value={form.phone}
-            onChange={e => setForm(prev => ({ ...prev, phone: e.target.value }))}
-            size="small"
-            helperText={t('admin.settings.ecf.fields.phoneHelp', 'Aparece en la representación impresa del comprobante')}
-            inputProps={{ maxLength: 20 }}
-          />
           <TextField
             label={t('admin.settings.ecf.fields.sucursal')}
             value={form.sucursal}

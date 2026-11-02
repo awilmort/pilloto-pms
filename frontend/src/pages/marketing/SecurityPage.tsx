@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import LegalPageLayout from '../../components/marketing/LegalPageLayout';
 import PageMeta from '../../components/marketing/PageMeta';
 
-const BRAND = '#1A3C34';
+const BRAND = '#121A33';
 
 const SECTIONS = [
   'overview',
@@ -97,7 +97,7 @@ const SecurityPage: React.FC = () => {
       <Typography paragraph>{t('legal.security.contact.body')}</Typography>
 
       {/* Trust Badges */}
-      <Box sx={{ mt: 4, pt: 4, borderTop: '1px solid #E5E7EB' }}>
+      <Box sx={{ mt: 4, pt: 4, borderTop: '1px solid #E3E6EE' }}>
         <Typography variant="overline" fontWeight={700} color="text.secondary" sx={{ letterSpacing: 1.5 }}>
           {t('legal.security.commitments')}
         </Typography>

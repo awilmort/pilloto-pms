@@ -2,6 +2,7 @@ import React from 'react';
 import { IconButton, Typography, Menu, MenuItem } from '@mui/material';
 import LanguageIcon from '@mui/icons-material/Language';
 import { useTranslation } from 'react-i18next';
+import { BRAND } from '../../brand';
 
 const LanguageSwitcher: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -19,13 +20,14 @@ const LanguageSwitcher: React.FC = () => {
         onClick={e => setAnchor(e.currentTarget)}
         aria-label="select language"
         sx={{
-          border: '1px solid #EBEBEB',
+          border: `1px solid ${BRAND.mist}`,
+          bgcolor: BRAND.white,
           borderRadius: '9999px',
           px: 1.5,
           py: 0.5,
-          color: '#222222',
+          color: BRAND.ink,
           transition: 'all 0.2s ease-out',
-          '&:hover': { bgcolor: '#F7F7F7', borderColor: '#222222' },
+          '&:hover': { bgcolor: BRAND.paper, borderColor: '#9AA1B5' },
         }}
       >
         <LanguageIcon sx={{ fontSize: 18, mr: 0.5 }} />
@@ -39,8 +41,6 @@ const LanguageSwitcher: React.FC = () => {
         onClose={() => setAnchor(null)}
         PaperProps={{
           sx: {
-            borderRadius: '12px',
-            boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
             mt: 1,
             minWidth: 140,
           },

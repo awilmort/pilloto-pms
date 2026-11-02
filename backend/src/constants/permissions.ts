@@ -70,7 +70,7 @@ export const PMS_PERMISSIONS = [
   'admin.wristbands.view',
   'admin.wristbands.manage',
 
-  // OTA
+  // Channel Manager (Channex) — legacy `ota` strings kept, relabelled in the UI
   'admin.ota.view',
   'admin.ota.manage',
   'admin.ota.resolve',

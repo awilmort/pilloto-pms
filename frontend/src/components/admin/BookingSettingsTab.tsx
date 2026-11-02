@@ -5,12 +5,10 @@ import {
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { settingsService } from '../../services/api';
+import PropertyProfileSummary from './PropertyProfileSummary';
 
 interface BookingSettings {
   enabled: boolean;
-  contactPhone: string;
-  contactEmail: string;
-  contactAddress: string;
   widgetAllowedOrigins: string[];
   minAdvanceHours: number;
   maxAdvanceDays: number;
@@ -24,9 +22,6 @@ interface BookingSettingsTabProps {
 
 const DEFAULT_SETTINGS: BookingSettings = {
   enabled: false,
-  contactPhone: '',
-  contactEmail: '',
-  contactAddress: '',
   widgetAllowedOrigins: [],
   minAdvanceHours: 24,
   maxAdvanceDays: 365,
@@ -103,34 +98,12 @@ const BookingSettingsTab: React.FC<BookingSettingsTabProps> = ({ showSnackbar })
       <Typography variant="subtitle2" fontWeight={600} gutterBottom>
         {t('admin.settings.booking.contact.heading', 'Contact Information')}
       </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        {t('admin.settings.booking.contact.description', 'Contact details shown to guests on the booking page.')}
-      </Typography>
-      <Stack spacing={2} sx={{ mb: 3 }}>
-        <TextField
-          label={t('admin.settings.booking.contact.phone', 'Phone')}
-          value={settings?.contactPhone || ''}
-          onChange={e => setSettings(prev => ({ ...prev!, contactPhone: e.target.value }))}
-          fullWidth
-          size="small"
+      <Box sx={{ mb: 3 }}>
+        <PropertyProfileSummary
+          fields={['name', 'phone', 'email', 'address', 'city', 'country', 'currency']}
+          intro={t('admin.settings.booking.contact.fromProfile')}
         />
-        <TextField
-          label={t('admin.settings.booking.contact.email', 'Email')}
-          value={settings?.contactEmail || ''}
-          onChange={e => setSettings(prev => ({ ...prev!, contactEmail: e.target.value }))}
-          fullWidth
-          size="small"
-        />
-        <TextField
-          label={t('admin.settings.booking.contact.address', 'Address')}
-          value={settings?.contactAddress || ''}
-          onChange={e => setSettings(prev => ({ ...prev!, contactAddress: e.target.value }))}
-          fullWidth
-          size="small"
-          multiline
-          rows={2}
-        />
-      </Stack>
+      </Box>
 
       <Divider sx={{ mb: 3 }} />
 

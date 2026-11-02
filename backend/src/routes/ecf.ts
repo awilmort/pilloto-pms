@@ -73,8 +73,17 @@ const ALLOWED_AMBIENTES: EcfAmbiente[] = [
   'Simulacion', 'Pruebas', 'Certificacion', 'Produccion',
 ];
 
-const RNC_REGEX = /^\d{9}$|^\d{11}$/;
 const CITRUS_URL_REGEX = /^https:\/\/.+/;
+
+/** Issuer block of the fallback PDF: legal name, RNC and phone from the property profile. */
+function issuerInfo(tenant: { name: string; profile?: { legalName?: string; rnc?: string; phone?: string } | null }) {
+  return {
+    razonSocial:     tenant.profile?.legalName || tenant.name,
+    rnc:             tenant.profile?.rnc ?? '',
+    phone:           tenant.profile?.phone,
+    nombreComercial: tenant.name,
+  };
+}
 
 function maskConfig(ecfConfig: any) {
   if (!ecfConfig) return null;
@@ -317,11 +326,8 @@ router.put(
   authorize('admin'),
   async (req: AuthRequest, res: Response) => {
     try {
+      // Legal name, RNC and phone are edited in the property profile (/api/property-profile)
       const {
-        rnc,
-        razonSocial,
-        nombreComercial,
-        phone,
         ambiente,
         sucursal,
         citrusBaseUrl,
@@ -330,17 +336,11 @@ router.put(
       } = req.body;
 
       // ── Validation ────────────────────────────────────────────
-      if (rnc !== undefined && !RNC_REGEX.test(String(rnc))) {
-        return res.status(400).json({ success: false, message: 'RNC must be 9 or 11 digits' });
-      }
       if (ambiente !== undefined && !ALLOWED_AMBIENTES.includes(ambiente)) {
         return res.status(400).json({ success: false, message: `Ambiente must be one of: ${ALLOWED_AMBIENTES.join(', ')}` });
       }
       if (citrusBaseUrl !== undefined && !CITRUS_URL_REGEX.test(String(citrusBaseUrl))) {
         return res.status(400).json({ success: false, message: 'citrusBaseUrl must be a valid HTTPS URL' });
-      }
-      if (razonSocial !== undefined && String(razonSocial).trim().length === 0) {
-        return res.status(400).json({ success: false, message: 'razonSocial cannot be empty' });
       }
 
       const tenant = await Tenant.findById(req.tenantId);
@@ -350,10 +350,6 @@ router.put(
 
       // Build partial update
       const update: Record<string, unknown> = {};
-      if (rnc !== undefined) update['ecfConfig.rnc'] = String(rnc).trim();
-      if (razonSocial !== undefined) update['ecfConfig.razonSocial'] = String(razonSocial).trim();
-      if (nombreComercial !== undefined) update['ecfConfig.nombreComercial'] = String(nombreComercial).trim();
-      if (phone !== undefined) update['ecfConfig.phone'] = String(phone).trim();
       if (ambiente !== undefined) update['ecfConfig.ambiente'] = ambiente;
       if (sucursal !== undefined) update['ecfConfig.sucursal'] = String(sucursal).trim();
       if (citrusBaseUrl !== undefined) update['ecfConfig.citrusBaseUrl'] = String(citrusBaseUrl).trim();
@@ -366,10 +362,10 @@ router.put(
 
       // If no ecfConfig yet, set defaults for required fields
       if (!tenant.ecfConfig) {
-        if (!rnc || !razonSocial) {
+        if (!tenant.profile?.rnc || !tenant.profile?.legalName) {
           return res.status(400).json({
             success: false,
-            message: 'rnc and razonSocial are required when creating ECF configuration',
+            message: 'Fill in the legal name and RNC in the property profile before configuring electronic invoicing',
           });
         }
         if (!update['ecfConfig.citrusBaseUrl']) {
@@ -1107,12 +1103,7 @@ router.post(
       }
 
       if (!attachment) {
-        const tenantInfo = {
-          razonSocial:     tenant.ecfConfig.razonSocial,
-          rnc:             tenant.ecfConfig.rnc,
-          phone:           tenant.ecfConfig.phone,
-          nombreComercial: tenant.ecfConfig.nombreComercial,
-        };
+        const tenantInfo = issuerInfo(tenant);
         const pdfBuffer = await generateFallbackPdf(invoice, tenantInfo);
         attachment = { filename, content: pdfBuffer, contentType: 'application/pdf' };
       }
@@ -1238,12 +1229,7 @@ router.get(
 
       if (!attachment) {
         // Generate a local PDF fallback
-        const tenantInfo = {
-          razonSocial:    tenant.ecfConfig.razonSocial,
-          rnc:            tenant.ecfConfig.rnc,
-          phone:          tenant.ecfConfig.phone,
-          nombreComercial: tenant.ecfConfig.nombreComercial,
-        };
+        const tenantInfo = issuerInfo(tenant);
         const pdfBuffer = await generateFallbackPdf(invoice, tenantInfo);
         attachment = { filename, content: pdfBuffer, contentType: 'application/pdf' };
       }

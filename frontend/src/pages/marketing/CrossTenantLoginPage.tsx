@@ -5,7 +5,7 @@ import {
 } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import axios from 'axios';
-import PillotoLogo from '../../components/marketing/PillotoLogo';
+import PillotoLogo from '../../components/brand/PillotoLogo';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
@@ -54,7 +54,7 @@ const CrossTenantLoginPage: React.FC = () => {
   return (
     <Box sx={{
       minHeight: '100vh',
-      backgroundColor: '#F7F7F5',
+      backgroundColor: '#F5F6F8',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
@@ -64,7 +64,7 @@ const CrossTenantLoginPage: React.FC = () => {
       <Container maxWidth="xs">
         {/* Logo */}
         <Stack alignItems="center" mb={5}>
-          <PillotoLogo iconHeight={42} />
+          <PillotoLogo height={38} />
           <Typography variant="body2" color="text.secondary" mt={1.5}>
             Sign in to your workspace
           </Typography>

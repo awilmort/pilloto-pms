@@ -3,7 +3,7 @@ import { Box, Button, Typography, Link, Stack, Slide } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 
 const STORAGE_KEY = 'pilloto_cookie_consent';
-const BRAND = '#1A3C34';
+const BRAND = '#121A33';
 
 type ConsentChoice = 'accepted' | 'rejected';
 
@@ -36,7 +36,7 @@ const CookieConsent: React.FC = () => {
           right: 0,
           zIndex: 1400,
           backgroundColor: 'white',
-          borderTop: '1px solid #E5E7EB',
+          borderTop: '1px solid #E3E6EE',
           boxShadow: '0 -4px 20px rgba(0,0,0,0.08)',
           py: 3,
           px: { xs: 2, md: 6 },
@@ -73,7 +73,7 @@ const CookieConsent: React.FC = () => {
               variant="contained"
               size="small"
               onClick={() => handleChoice('accepted')}
-              sx={{ backgroundColor: BRAND, '&:hover': { backgroundColor: '#14302A' } }}
+              sx={{ backgroundColor: BRAND, '&:hover': { backgroundColor: '#2A3352' } }}
             >
               {t('legal.cookies.accept')}
             </Button>

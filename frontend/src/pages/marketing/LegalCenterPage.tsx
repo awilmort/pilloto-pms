@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import MarketingLayout from '../../components/marketing/MarketingLayout';
 import PageMeta from '../../components/marketing/PageMeta';
 
-const BRAND = '#1A3C34';
+const BRAND = '#121A33';
 
 const PAGES = [
   { key: 'privacy', icon: <ShieldIcon />, path: '/privacy' },
@@ -38,9 +38,9 @@ const LegalCenterPage: React.FC = () => {
       />
 
       {/* Header */}
-      <Box sx={{ backgroundColor: '#F8FAFC', borderBottom: '1px solid #E5E7EB', py: { xs: 6, md: 10 } }}>
+      <Box sx={{ backgroundColor: '#F5F6F8', borderBottom: '1px solid #E3E6EE', py: { xs: 6, md: 10 } }}>
         <Container maxWidth="md" sx={{ textAlign: 'center' }}>
-          <Typography variant="h2" fontWeight={800} color="#0F172A" mb={2}>
+          <Typography variant="h2" fontWeight={800} color="#121A33" mb={2}>
             {t('legal.center.heading')}
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ fontSize: '1.1rem', lineHeight: 1.8 }}>
@@ -58,7 +58,7 @@ const LegalCenterPage: React.FC = () => {
                 elevation={0}
                 sx={{
                   height: '100%',
-                  border: '1px solid #E5E7EB',
+                  border: '1px solid #E3E6EE',
                   borderRadius: 2,
                   transition: 'box-shadow 0.2s, border-color 0.2s',
                   '&:hover': { boxShadow: '0 4px 20px rgba(0,0,0,0.08)', borderColor: BRAND },

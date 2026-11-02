@@ -22,6 +22,7 @@ import { useForm } from 'react-hook-form';
 import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
+import { PillotoWordmark } from '../../components/brand/PillotoLogo';
 
 interface LoginFormData {
   email: string;
@@ -64,7 +65,7 @@ const LoginPageSimple: React.FC = () => {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#F7F7F5', py: 8 }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.default', py: 8 }}>
       <Container maxWidth="sm">
         <Paper
           elevation={8}
@@ -79,26 +80,8 @@ const LoginPageSimple: React.FC = () => {
         >
         {/* Header */}
         <Box sx={{ textAlign: 'center', mb: 4 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, mb: 1.5 }}>
-            <svg width="24" height="32" viewBox="0 0 52 70" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="4" y="2" width="44" height="66" rx="3" fill="rgba(15,23,42,0.02)" stroke="#606060" strokeWidth="1.5"/>
-              <rect x="10" y="11" width="12" height="10" rx="1.5" fill="#CCCCCC"/>
-              <rect x="30" y="11" width="12" height="10" rx="1.5" fill="#CCCCCC"/>
-              <rect x="10" y="27" width="12" height="10" rx="1.5" fill="#787878"/>
-              <rect x="30" y="27" width="12" height="10" rx="1.5" fill="#CCCCCC"/>
-              <rect x="10" y="43" width="12" height="10" rx="1.5" fill="#CCCCCC"/>
-            </svg>
-            <Typography
-              variant="h5"
-              sx={{
-                fontFamily: "'Cormorant Garamond', Georgia, serif",
-                fontWeight: 700,
-                color: 'text.primary',
-                letterSpacing: '-0.3px',
-              }}
-            >
-              Pilloto
-            </Typography>
+          <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+            <PillotoWordmark height={34} />
           </Box>
           <Typography
             variant="h4"

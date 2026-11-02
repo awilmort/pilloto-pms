@@ -1,5 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { tenantPlugin } from '../plugins/tenantPlugin';
+import { changeCapturePlugin } from '../services/channex/changeCapture';
 
 // ── Reservation Item (service or room line item) ─────────────
 export interface IReservationItem {
@@ -139,13 +140,34 @@ export interface IReservation extends Document {
   assignedBy?: mongoose.Types.ObjectId; // Admin who assigned the room/approved event
   assignedAt?: Date;
 
-  // OTA source metadata — set only for reservations imported from OTA iCal feeds
-  otaSource?: {
-    provider: string;                            // e.g. 'airbnb'
-    externalEventId: mongoose.Types.ObjectId;    // ref: OtaExternalEvent
-    mappingId: mongoose.Types.ObjectId;          // ref: OtaListingMapping
-    externalUid: string;                         // original iCal UID
-    importedAt: Date;
+  // Channel source — set only for reservations that arrived from an OTA
+  // (Channex booking revisions, or legacy iCal imports migrated as 'ical_legacy')
+  channelSource?: {
+    provider: 'channex' | 'ical_legacy';
+    otaName?: string;                 // e.g. 'Booking.com', 'airbnb'
+    otaCode?: string;                 // prefix of uniqueId, e.g. 'BDC'
+    otaReservationCode?: string;
+    uniqueId?: string;                // Channex unique_id, e.g. 'BDC-123456'
+    channexBookingId?: string;
+    channexPropertyId?: string;
+    channelId?: string;
+    lastRevisionId?: string;
+    lastRevisionInsertedAt?: Date;
+    paymentCollect?: 'property' | 'ota';
+    paymentType?: string;
+    otaCommission?: number;
+    currency?: string;
+    /** Masked guarantee only — never full card data */
+    guaranteeSummary?: {
+      cardType?: string;
+      last4?: string;
+      expirationDate?: string;
+      isVirtual?: boolean;
+      virtualCardCurrency?: string;
+      virtualCardBalance?: number;
+      virtualCardActivationDate?: string;
+    };
+    importedAt?: Date;
   };
 
   createdAt: Date;
@@ -170,7 +192,8 @@ const reservationItemSchema = new Schema<IReservationItem>(
     quantity: { type: Number, required: true, min: 1, default: 1 },
     unitPrice: { type: Number, required: true, min: 0 },
     subtotal: { type: Number, required: true, min: 0 },
-    taxes: [{ name: String, type: String, amount: Number, isInclusive: Boolean }],
+    // `type` is a field here, so it needs `{ type: String }` (a bare `type: String` makes the array [String])
+    taxes: [{ name: String, type: { type: String }, amount: Number, isInclusive: Boolean }],
     totalTaxes: { type: Number, required: true, min: 0, default: 0 },
     total: { type: Number, required: true, min: 0 },
   },
@@ -307,7 +330,8 @@ const reservationSchema = new Schema<IReservation>({
     occupancyCost: { type: Number },
     subtotal: { type: Number },
     adjustedSubtotal: { type: Number },
-    taxes: [{ name: String, type: String, amount: Number, isInclusive: Boolean }],
+    // `type` is a field here, so it needs `{ type: String }` (a bare `type: String` makes the array [String])
+    taxes: [{ name: String, type: { type: String }, amount: Number, isInclusive: Boolean }],
     totalTaxes: { type: Number },
     finalTotal: { type: Number },
     nights: { type: Number },
@@ -400,13 +424,51 @@ const reservationSchema = new Schema<IReservation>({
     required: false
   },
 
-  // OTA source metadata
-  otaSource: {
-    provider:         { type: String, maxlength: 80 },
-    externalEventId:  { type: Schema.Types.ObjectId, ref: 'OtaExternalEvent' },
-    mappingId:        { type: Schema.Types.ObjectId, ref: 'OtaListingMapping' },
-    externalUid:      { type: String, maxlength: 500 },
-    importedAt:       { type: Date },
+  // Channel source (OTA bookings)
+  channelSource: {
+    type: new Schema(
+      {
+        provider:               { type: String, enum: ['channex', 'ical_legacy'], required: true },
+        otaName:                { type: String, maxlength: 80 },
+        otaCode:                { type: String, maxlength: 20 },
+        otaReservationCode:     { type: String, maxlength: 120 },
+        uniqueId:               { type: String, maxlength: 120 },
+        channexBookingId:       { type: String, maxlength: 64 },
+        channexPropertyId:      { type: String, maxlength: 64 },
+        channelId:              { type: String, maxlength: 64 },
+        lastRevisionId:         { type: String, maxlength: 64 },
+        lastRevisionInsertedAt: { type: Date },
+        paymentCollect:         { type: String, enum: ['property', 'ota'] },
+        paymentType:            { type: String, maxlength: 40 },
+        otaCommission:          { type: Number },
+        currency:               { type: String, maxlength: 3 },
+        guaranteeSummary: {
+          cardType:                  { type: String, maxlength: 40 },
+          last4:                     { type: String, maxlength: 4 },
+          expirationDate:            { type: String, maxlength: 10 },
+          isVirtual:                 { type: Boolean },
+          virtualCardCurrency:       { type: String, maxlength: 3 },
+          virtualCardBalance:        { type: Number },
+          virtualCardActivationDate: { type: String, maxlength: 10 },
+        },
+        importedAt:             { type: Date },
+      },
+      {
+        _id: false,
+        // White-label (architecture §18): API responses never carry Channex ids. Code reading
+        // the document (booking mapper, platform console) still sees them.
+        toJSON: {
+          transform: (_doc: unknown, ret: Record<string, unknown>) => {
+            delete ret.channexBookingId;
+            delete ret.channexPropertyId;
+            delete ret.channelId;
+            delete ret.lastRevisionId;
+            return ret;
+          },
+        },
+      }
+    ),
+    required: false,
   },
 
   // Corporate booking
@@ -491,7 +553,7 @@ reservationSchema.index({ status: 1 });
 reservationSchema.index({ checkInDate: 1, checkOutDate: 1 });
 reservationSchema.index({ actualCheckInAt: 1 });
 reservationSchema.index({ actualCheckOutAt: 1 });
-reservationSchema.index({ 'otaSource.mappingId': 1 });
+reservationSchema.index({ 'channelSource.channexBookingId': 1 }, { sparse: true });
 // reservationCode already has a unique index via field definition; avoid duplicate index
 
 // Backward-compat alias during transition: totalPrice -> estimatedTotal
@@ -526,6 +588,7 @@ reservationSchema.pre('save', function (next) {
 
 // ── Multi-tenancy ────────────────────────────────────────────
 reservationSchema.plugin(tenantPlugin);
+reservationSchema.plugin(changeCapturePlugin, { model: 'Reservation' });
 
 const ReservationModel = mongoose.model<IReservation>('Reservation', reservationSchema);
 

@@ -11,6 +11,8 @@ export interface ICharge extends Document {
   type: ChargeType;
   category?: ChargeCategory;
   chargeTemplateId?: mongoose.Types.ObjectId;
+  /** Staff user who posted it; absent for night-audit charges */
+  createdBy?: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -46,6 +48,11 @@ const chargeSchema = new Schema<ICharge>({
   chargeTemplateId: {
     type: Schema.Types.ObjectId,
     ref: 'ChargeTemplate',
+  },
+  createdBy: {
+    type: Schema.Types.ObjectId,
+    ref: 'User',
+    required: false,
   },
 }, { timestamps: true });
 

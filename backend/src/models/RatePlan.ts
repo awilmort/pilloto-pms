@@ -1,5 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { tenantPlugin } from '../plugins/tenantPlugin';
+import { changeCapturePlugin } from '../services/channex/changeCapture';
 
 export interface IOccupancyTier {
   guestType: 'adult' | 'child';
@@ -14,6 +15,8 @@ export interface IRatePlan extends Document {
   pricingMode: 'tiered';    // only supported mode
   occupancyTiers: IOccupancyTier[];
   isActive: boolean;
+  /** Offered on OTAs through the channel manager (the booking engine is not affected) */
+  sellOnChannels: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -35,6 +38,7 @@ const ratePlanSchema = new Schema<IRatePlan>(
     pricingMode: { type: String, enum: ['tiered'], default: 'tiered' },
     occupancyTiers: [occupancyTierSchema],
     isActive: { type: Boolean, default: true },
+    sellOnChannels: { type: Boolean, default: true },
   },
   { timestamps: true }
 );
@@ -42,5 +46,6 @@ const ratePlanSchema = new Schema<IRatePlan>(
 ratePlanSchema.index({ roomTypeId: 1, isActive: 1 });
 
 ratePlanSchema.plugin(tenantPlugin);
+ratePlanSchema.plugin(changeCapturePlugin, { model: 'RatePlan' });
 
 export default mongoose.model<IRatePlan>('RatePlan', ratePlanSchema);

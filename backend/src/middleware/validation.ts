@@ -4,9 +4,11 @@ import { body, validationResult } from 'express-validator';
 export const handleValidationErrors = (req: Request, res: Response, next: NextFunction) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
+    // Surface the field-level reasons in `message` — that's what the frontend shows
+    const details = [...new Set(errors.array().map((e) => String(e.msg)))];
     return res.status(400).json({
       success: false,
-      message: 'Validation errors',
+      message: `Validation errors: ${details.join('; ')}`,
       errors: errors.array()
     });
   }

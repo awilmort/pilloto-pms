@@ -1,8 +1,6 @@
 import React from 'react';
 import {
   Box,
-  Tab,
-  Tabs,
   Typography,
   FormGroup,
   FormControlLabel,
@@ -31,7 +29,9 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import { Navigate, useParams } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
+import { SETTINGS_SECTIONS, SettingsOverview, SettingsShell, settingsItem } from '../../components/admin/settings/SettingsNav';
 import NumberField from '../../components/common/NumberField';
 import { useTranslation } from 'react-i18next';
 import { settingsService, AppSettings, roomTypeService, resolveMediaUrl } from '../../services/api';
@@ -40,27 +40,21 @@ import { AmenitiesContent } from './AmenitiesManagement';
 import { EventTypesContent } from './EventTypesManagement';
 import { RolesContent } from './RolesManagement';
 import { MediaContent } from './MediaManagement';
-import OtaSettingsTab from '../../components/admin/OtaSettingsTab';
 import BookingSettingsTab from '../../components/admin/BookingSettingsTab';
 import MediaPicker from '../../components/admin/MediaPicker';
 import { RoomIllustration, isIllustrationUrl, getIllustrationByKey, getIllustrationKey } from '../../components/illustrations';
 import ReviewsContent from '../../components/admin/ReviewsContent';
 import EcfSettingsTab from '../../components/admin/EcfSettingsTab';
+import ChannelManagerTab from '../../components/admin/channelManager/ChannelManagerTab';
+import PropertyProfileForm from '../../components/admin/PropertyProfileForm';
 
 export type { AppSettings };
 
-// ─── Tab Panel ────────────────────────────────────────────────────────────────
+// ─── Section panel ────────────────────────────────────────────────────────────
+// Each settings section is its own page (/admin/settings/:section); /admin/settings is the overview.
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
-
-const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => (
-  <div role="tabpanel" hidden={value !== index} id={`settings-tabpanel-${index}`}>
-    {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-  </div>
+const SectionPanel: React.FC<{ show: boolean; children?: React.ReactNode }> = ({ show, children }) => (
+  show ? <Box sx={{ pt: 3 }}>{children}</Box> : null
 );
 
 // ─── Section keys (must match AdminLayout menu item keys) ───────────────────
@@ -95,7 +89,7 @@ const defaultSettings: AppSettings = {
 
 const Settings: React.FC = () => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = React.useState(0);
+  const { section = 'overview' } = useParams<{ section: string }>();
   const [settings, setSettings] = React.useState<AppSettings>(defaultSettings);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -119,7 +113,7 @@ const Settings: React.FC = () => {
   const [roomTypes, setRoomTypes] = React.useState<RoomType[]>([]);
   const [roomTypesLoading, setRoomTypesLoading] = React.useState(false);
   const [roomTypeDialog, setRoomTypeDialog] = React.useState(false);
-  const [roomTypeForm, setRoomTypeForm] = React.useState<Partial<RoomType>>({ name: '', capacity: 2, isActive: true });
+  const [roomTypeForm, setRoomTypeForm] = React.useState<Partial<RoomType>>({ name: '', capacity: 2, isActive: true, sellOnChannels: true });
   const [roomTypeError, setRoomTypeError] = React.useState<string | null>(null);
   const [roomTypeMediaPickerOpen, setRoomTypeMediaPickerOpen] = React.useState(false);
 
@@ -166,7 +160,7 @@ const Settings: React.FC = () => {
   ]);
 
   const openNewRoomType = () => {
-    setRoomTypeForm({ name: '', capacity: 2, isActive: true });
+    setRoomTypeForm({ name: '', capacity: 2, isActive: true, sellOnChannels: true });
     setRoomTypeError(null);
     setRoomTypeDialog(true);
   };
@@ -227,12 +221,12 @@ const Settings: React.FC = () => {
   // A section is enabled when not explicitly set to false
   const isSectionEnabled = (key: string) => settings.sections?.[key] !== false;
 
+  if (section !== 'overview' && !SETTINGS_SECTIONS.includes(section)) return <Navigate to="/admin/settings" replace />;
+  const current = settingsItem(section);
+
   return (
-    <AdminLayout title={t('admin.settings.title')}>
-      <Box sx={{ pb: 4 }}>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          {t('admin.settings.subtitle')}
-        </Typography>
+    <AdminLayout title={current ? `${t('admin.settings.title')} · ${t(current.labelKey)}` : t('admin.settings.title')}>
+      <SettingsShell section={section}>
 
         {error && (
           <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
@@ -240,7 +234,7 @@ const Settings: React.FC = () => {
           </Alert>
         )}
 
-        {loading ? (
+        {section === 'overview' ? <SettingsOverview /> : loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
             <CircularProgress />
           </Box>
@@ -249,26 +243,14 @@ const Settings: React.FC = () => {
             elevation={0}
             sx={{ border: '1px solid', borderColor: 'divider', opacity: saving ? 0.7 : 1, transition: 'opacity 0.2s' }}
           >
-            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-              <Tabs value={activeTab} onChange={(_e, v) => setActiveTab(v)} aria-label="settings tabs" variant="scrollable" scrollButtons="auto">
-                <Tab label={t('admin.settings.tabs.sections')} id="settings-tab-0" />
-                <Tab label={t('admin.settings.tabs.roomTypes', 'Room Types')} id="settings-tab-1" />
-                <Tab label={t('admin.settings.tabs.amenities', 'Amenities')} id="settings-tab-2" />
-                <Tab label={t('admin.settings.tabs.eventTypes', 'Event Types')} id="settings-tab-3" />
-                <Tab label={t('admin.settings.tabs.roles', 'Roles')} id="settings-tab-4" />
-                <Tab label={t('admin.settings.tabs.media', 'Media')} id="settings-tab-5" />
-                <Tab label={t('admin.settings.tabs.nightAudit', 'Night Audit')} id="settings-tab-6" />
-                <Tab label={t('admin.settings.tabs.email', 'Email')} id="settings-tab-7" />
-                <Tab label={t('admin.settings.tabs.checkout', 'Check-Out')} id="settings-tab-8" />
-                <Tab label={t('admin.settings.tabs.ota', 'OTA Sync')} id="settings-tab-9" />
-                <Tab label={t('admin.settings.tabs.booking', 'Booking Engine')} id="settings-tab-10" />
-                <Tab label={t('admin.settings.tabs.reviews', 'Reviews')} id="settings-tab-11" />
-                <Tab label={t('admin.settings.tabs.ecf', 'Facturación Electrónica')} id="settings-tab-12" />
-              </Tabs>
-            </Box>
+            <SectionPanel show={section === 'profile'}>
+              <Box sx={{ px: 3, pb: 3 }}>
+                <PropertyProfileForm showSnackbar={showSnackbar} />
+              </Box>
+            </SectionPanel>
 
-            {/* Sections tab */}
-            <TabPanel value={activeTab} index={0}>
+            {/* Sections */}
+            <SectionPanel show={section === 'sections'}>
               <Box sx={{ px: 3, pb: 3 }}>
                 <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
                   {t('admin.settings.sections.heading')}
@@ -293,10 +275,10 @@ const Settings: React.FC = () => {
                   ))}
                 </FormGroup>
               </Box>
-            </TabPanel>
+            </SectionPanel>
 
-            {/* Room Types tab */}
-            <TabPanel value={activeTab} index={1}>
+            {/* Room Types */}
+            <SectionPanel show={section === 'room-types'}>
               <Box sx={{ px: 3, pb: 3 }}>
                 {roomTypeError && (
                   <Alert severity="error" sx={{ mb: 2 }} onClose={() => setRoomTypeError(null)}>{roomTypeError}</Alert>
@@ -316,6 +298,7 @@ const Settings: React.FC = () => {
                           <TableCell>{t('admin.pricing.roomTypes.table.name')}</TableCell>
                           <TableCell>{t('admin.pricing.roomTypes.table.capacity')}</TableCell>
                           <TableCell>{t('admin.pricing.roomTypes.table.active')}</TableCell>
+                          <TableCell>{t('admin.pricing.sellOnChannels.column')}</TableCell>
                           <TableCell>{t('admin.pricing.roomTypes.table.actions')}</TableCell>
                         </TableRow>
                       </TableHead>
@@ -328,13 +311,16 @@ const Settings: React.FC = () => {
                               <Chip size="small" label={rt.isActive ? t('common.yes') : t('common.no')} color={rt.isActive ? 'success' : 'default'} />
                             </TableCell>
                             <TableCell>
+                              <Chip size="small" label={rt.sellOnChannels !== false ? t('common.yes') : t('common.no')} color={rt.sellOnChannels !== false ? 'success' : 'default'} />
+                            </TableCell>
+                            <TableCell>
                               <IconButton size="small" onClick={() => openEditRoomType(rt)}><EditIcon fontSize="small" /></IconButton>
                               <IconButton size="small" color="error" onClick={() => deleteRoomType(rt._id)}><DeleteIcon fontSize="small" /></IconButton>
                             </TableCell>
                           </TableRow>
                         ))}
                         {roomTypes.length === 0 && (
-                          <TableRow><TableCell colSpan={4} align="center">{t('admin.pricing.roomTypes.empty')}</TableCell></TableRow>
+                          <TableRow><TableCell colSpan={5} align="center">{t('admin.pricing.roomTypes.empty')}</TableCell></TableRow>
                         )}
                       </TableBody>
                     </Table>
@@ -391,6 +377,13 @@ const Settings: React.FC = () => {
                         control={<Switch checked={roomTypeForm.isActive ?? true} onChange={e => setRoomTypeForm(p => ({ ...p, isActive: e.target.checked }))} />}
                         label={t('admin.pricing.form.active')}
                       />
+                      <Box>
+                        <FormControlLabel
+                          control={<Switch checked={roomTypeForm.sellOnChannels ?? true} onChange={e => setRoomTypeForm(p => ({ ...p, sellOnChannels: e.target.checked }))} />}
+                          label={t('admin.pricing.sellOnChannels.label')}
+                        />
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 6, mt: -0.5 }}>{t('admin.pricing.sellOnChannels.roomTypeHint')}</Typography>
+                      </Box>
                     </Box>
                   </DialogContent>
                   <DialogActions>
@@ -412,38 +405,38 @@ const Settings: React.FC = () => {
                   }}
                 />
               </Box>
-            </TabPanel>
+            </SectionPanel>
 
-            {/* Amenities tab */}
-            <TabPanel value={activeTab} index={2}>
+            {/* Amenities */}
+            <SectionPanel show={section === 'amenities'}>
               <Box sx={{ px: 3, pb: 3 }}>
                 <AmenitiesContent />
               </Box>
-            </TabPanel>
+            </SectionPanel>
 
-            {/* Event Types tab */}
-            <TabPanel value={activeTab} index={3}>
+            {/* Event Types */}
+            <SectionPanel show={section === 'event-types'}>
               <Box sx={{ px: 3, pb: 3 }}>
                 <EventTypesContent />
               </Box>
-            </TabPanel>
+            </SectionPanel>
 
-            {/* Roles tab */}
-            <TabPanel value={activeTab} index={4}>
+            {/* Roles */}
+            <SectionPanel show={section === 'roles'}>
               <Box sx={{ px: 3, pb: 3 }}>
                 <RolesContent />
               </Box>
-            </TabPanel>
+            </SectionPanel>
 
-            {/* Media tab */}
-            <TabPanel value={activeTab} index={5}>
+            {/* Media */}
+            <SectionPanel show={section === 'media'}>
               <Box sx={{ px: 3, pb: 3 }}>
                 <MediaContent />
               </Box>
-            </TabPanel>
+            </SectionPanel>
 
-            {/* Night Audit tab */}
-            <TabPanel value={activeTab} index={6}>
+            {/* Night Audit */}
+            <SectionPanel show={section === 'night-audit'}>
               <Box sx={{ px: 3, pb: 3 }}>
                 <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
                   {t('admin.settings.nightAudit.heading', 'Night Audit Worker')}
@@ -499,10 +492,10 @@ const Settings: React.FC = () => {
                   {nightAuditTimeSaving ? t('common.saving', 'Saving…') : t('common.save', 'Save')}
                 </Button>
               </Box>
-            </TabPanel>
+            </SectionPanel>
 
-            {/* Email tab */}
-            <TabPanel value={activeTab} index={7}>
+            {/* Email */}
+            <SectionPanel show={section === 'email'}>
               <Box sx={{ px: 3, pb: 3, maxWidth: 600 }}>
                 <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
                   {t('admin.settings.email.heading', 'Email Settings')}
@@ -579,10 +572,10 @@ const Settings: React.FC = () => {
                   </Box>
                 </Box>
               </Box>
-            </TabPanel>
+            </SectionPanel>
 
-            {/* Check-Out tab */}
-            <TabPanel value={activeTab} index={8}>
+            {/* Check-Out */}
+            <SectionPanel show={section === 'checkout'}>
               <Box sx={{ px: 3, pb: 3, maxWidth: 400 }}>
                 <Typography variant="subtitle1" fontWeight={600} sx={{ mb: 1 }}>
                   {t('admin.settings.checkout.heading', 'Check-Out Settings')}
@@ -621,26 +614,28 @@ const Settings: React.FC = () => {
                   {checkoutTimeSaving ? t('common.saving', 'Saving…') : t('common.save', 'Save')}
                 </Button>
               </Box>
-            </TabPanel>
-            <TabPanel value={activeTab} index={9}>
-              <OtaSettingsTab showSnackbar={showSnackbar} />
-            </TabPanel>
-            <TabPanel value={activeTab} index={10}>
+            </SectionPanel>
+            <SectionPanel show={section === 'booking-engine'}>
               <BookingSettingsTab showSnackbar={showSnackbar} />
-            </TabPanel>
-            <TabPanel value={activeTab} index={11}>
+            </SectionPanel>
+            <SectionPanel show={section === 'reviews'}>
               <Box sx={{ px: 3, pb: 3 }}>
                 <ReviewsContent />
               </Box>
-            </TabPanel>
-            <TabPanel value={activeTab} index={12}>
+            </SectionPanel>
+            <SectionPanel show={section === 'e-invoicing'}>
               <Box sx={{ px: 3, pb: 3 }}>
                 <EcfSettingsTab />
               </Box>
-            </TabPanel>
+            </SectionPanel>
+            <SectionPanel show={section === 'channel-manager'}>
+              <Box sx={{ px: 3, pb: 3 }}>
+                <ChannelManagerTab />
+              </Box>
+            </SectionPanel>
           </Paper>
         )}
-      </Box>
+      </SettingsShell>
 
       <Snackbar
         open={snackbar.open}

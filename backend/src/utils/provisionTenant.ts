@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 /**
  * Tenant Provisioning Service
  *
@@ -30,8 +31,11 @@ export interface ProvisionTenantInput {
   ownerEmail: string;
   adminFirstName: string;
   adminLastName: string;
-  /** Plain-text; hashed before saving */
-  adminPassword: string;
+  /**
+   * Plain-text; hashed before saving. Only scripts (seed) pass one: tenants created from the
+   * platform console omit it and the owner is invited to choose a password (services/invitations.ts).
+   */
+  adminPassword?: string;
   settings?: ITenantSettings;
   /** Products this tenant is provisioned with. Defaults to `['pms']` (the schema default) if omitted. */
   products?: AppCode[];
@@ -122,12 +126,14 @@ export async function provisionTenant(input: ProvisionTenantInput): Promise<Prov
       firstName: adminFirstName,
       lastName:  adminLastName,
       email:     ownerEmail,
-      password:  adminPassword,  // pre-save hook in User schema hashes it
+      // pre-save hook in User schema hashes it; without one the account stays unusable until the invitation is accepted
+      password:  adminPassword ?? crypto.randomBytes(32).toString('hex'),
       role:      'admin',
       appRoles:  [{ app: 'pms', role: adminRole._id }],
       isSuperAdmin: true, // tenant-owner bypass across this tenant's own apps
       isActive:  true,
-      emailVerified: true,
+      // An invitation verifies the email when it is accepted
+      emailVerified: Boolean(adminPassword),
       tenantId,
     });
 

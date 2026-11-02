@@ -8,6 +8,7 @@ import React from 'react';
 import { Box, Button, FormControl, InputLabel, MenuItem, Paper, Select, TextField } from '@mui/material';
 import { Add } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
+import { otaLabel } from '../../../utils/channels';
 
 interface ReservationServices {
   daypass: boolean;
@@ -22,12 +23,17 @@ interface Props {
   searchInput: string;
   filterDateFrom: string;
   filterDateTo: string;
+  /** '' | 'direct' | 'booking_engine' | 'channel' | 'ota:<name>' */
+  filterSource: string;
+  /** OTA names reservations came from */
+  channelSources: string[];
   reservationServices: ReservationServices;
   onFilterStatusChange: (v: string) => void;
   onFilterTypeChange: (v: 'all' | 'room' | 'daypass' | 'PasaTarde' | 'event') => void;
   onSearchInputChange: (v: string) => void;
   onFilterDateFromChange: (v: string) => void;
   onFilterDateToChange: (v: string) => void;
+  onFilterSourceChange: (v: string) => void;
   onFilterToday: () => void;
   onClear: () => void;
   onCreateNew?: () => void;
@@ -39,12 +45,15 @@ const ReservationFilters: React.FC<Props> = ({
   searchInput,
   filterDateFrom,
   filterDateTo,
+  filterSource,
+  channelSources,
   reservationServices,
   onFilterStatusChange,
   onFilterTypeChange,
   onSearchInputChange,
   onFilterDateFromChange,
   onFilterDateToChange,
+  onFilterSourceChange,
   onFilterToday,
   onClear,
   onCreateNew,
@@ -82,6 +91,21 @@ const ReservationFilters: React.FC<Props> = ({
           {reservationServices.daypass        && <MenuItem value="daypass">{t('admin.reservations.typeLabels.daypass')}</MenuItem>}
           {reservationServices.pasatarde      && <MenuItem value="PasaTarde">{t('admin.reservations.typeLabels.pasatarde')}</MenuItem>}
           {reservationServices.event          && <MenuItem value="event">{t('admin.reservations.typeLabels.event')}</MenuItem>}
+        </Select>
+      </FormControl>
+
+      <FormControl size="small" sx={{ minWidth: 200 }}>
+        <InputLabel>{t('admin.reservations.filters.sourceLabel')}</InputLabel>
+        <Select
+          value={filterSource}
+          label={t('admin.reservations.filters.sourceLabel')}
+          onChange={e => onFilterSourceChange(e.target.value)}
+        >
+          <MenuItem value="">{t('admin.reservations.filters.sources.all')}</MenuItem>
+          <MenuItem value="direct">{t('admin.reservations.filters.sources.direct')}</MenuItem>
+          <MenuItem value="booking_engine">{t('admin.reservations.filters.sources.booking_engine')}</MenuItem>
+          {channelSources.length > 0 && <MenuItem value="channel">{t('admin.reservations.filters.sources.channel')}</MenuItem>}
+          {channelSources.map((name) => <MenuItem key={name} value={`ota:${name}`}>{otaLabel(name)}</MenuItem>)}
         </Select>
       </FormControl>
 

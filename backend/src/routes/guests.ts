@@ -2,6 +2,7 @@ import express, { Response } from 'express';
 import Guest from '../models/Guest';
 import Reservation from '../models/Reservation';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
+import { eraseChannelGuestData } from '../services/channex/privacy';
 
 const router = express.Router();
 
@@ -79,6 +80,10 @@ router.delete('/:id', authenticate, authorize('admin'), async (req: AuthRequest,
   try {
     const guest = await Guest.findByIdAndDelete(req.params.id);
     if (!guest) return res.status(404).json({ success: false, message: 'Guest not found' });
+    // OTA booking copies kept by the channel manager hold the same personal data
+    const reservations = await Reservation.find({ guestRecord: guest._id }).select('_id').lean();
+    await eraseChannelGuestData({ email: (guest as any).email, reservationIds: reservations.map((r) => r._id) })
+      .catch((err) => console.error('Channel guest erasure failed:', (err as Error).message));
     res.status(200).json({ success: true, message: 'Guest deleted' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Failed to delete guest' });

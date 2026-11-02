@@ -19,7 +19,7 @@ import { usePermission } from '../../../lib/permissions';
 import { billsService, suppliersService, productsService, accountsService, BillLineItemInput } from '../../../services/api';
 import { Bill, BillStatus, BillPaymentMethod, Supplier, Product, Account } from '../../../types';
 import { UNIT_OF_MEASURE_CODES } from '../../../lib/unitsOfMeasure';
-import { formatMoney } from '../../../utils/currency';
+import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 

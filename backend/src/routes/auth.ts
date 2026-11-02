@@ -10,6 +10,7 @@ import { sendVerificationEmail, sendPasswordResetEmail, sendEmail } from '../uti
 import { TenantRequest, tenantLocalStorage } from '../middleware/tenantContext';
 import Tenant from '../models/Tenant';
 import { AppCode } from '../constants/apps';
+import { hashInvitationToken, invitationStatus } from '../services/invitations';
 
 const router = express.Router();
 
@@ -155,6 +156,16 @@ router.post('/login', authRateLimit, validateLogin, async (req: Request, res: Re
       return res.status(401).json({
         success: false,
         message: 'Please verify your email address before logging in. Check your email for the verification link.'
+      });
+    }
+
+    // Invited but no password chosen yet: the account's password is random and unknown
+    const invite = invitationStatus(user);
+    if (invite === 'pending' || invite === 'expired') {
+      return res.status(401).json({
+        success: false,
+        reason: 'invitation_pending',
+        message: 'You have not chosen your password yet. Use the link in your invitation email, or ask for a new invitation.'
       });
     }
 
@@ -366,6 +377,13 @@ router.post('/reset-password', validatePasswordReset, async (req: Request, res: 
     user.password = password;
     user.passwordResetToken = undefined;
     user.passwordResetExpires = undefined;
+    // A reset before accepting an invitation is as good as accepting it
+    if (user.invitedAt && !user.invitationAcceptedAt) {
+      user.invitationAcceptedAt = new Date();
+      user.invitationToken = undefined;
+      user.invitationExpires = undefined;
+      user.emailVerified = true;
+    }
     // Reset login attempts
     user.loginAttempts = 0;
     user.lockUntil = undefined;
@@ -381,6 +399,65 @@ router.post('/reset-password', validatePasswordReset, async (req: Request, res: 
       success: false,
       message: 'Server error during password reset'
     });
+  }
+});
+
+// Tokens are 256-bit random, so this only slows abuse; failed attempts (e.g. a password that does
+// not meet the rules) count, successful ones do not
+const acceptInvitationRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many attempts, please try again in a few minutes.' },
+});
+
+// @route   GET /api/auth/invitation?token=
+// @desc    Check an invitation link before showing the "choose your password" form
+// @access  Public (tenant from the subdomain)
+router.get('/invitation', async (req: Request, res: Response) => {
+  try {
+    const token = String(req.query.token ?? '');
+    if (!token) return res.status(400).json({ success: false, reason: 'invalid', message: 'Invitation token is required' });
+    const user = await User.findOne({ invitationToken: hashInvitationToken(token) }).select('firstName email invitedAt invitationExpires invitationAcceptedAt');
+    const status = invitationStatus(user);
+    if (!user || status === 'none' || status === 'accepted') return res.status(400).json({ success: false, reason: 'invalid', message: 'This invitation link is not valid or was already used.' });
+    if (status === 'expired') return res.status(410).json({ success: false, reason: 'expired', message: 'This invitation link has expired. Ask for a new invitation.' });
+    const tenant = (req as TenantRequest).tenant as any;
+    res.json({ success: true, data: { firstName: user.firstName, email: user.email, tenantName: tenant?.name ?? 'Pilloto' } });
+  } catch (error: any) {
+    console.error('Get invitation error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// @route   POST /api/auth/accept-invitation
+// @desc    Choose the first password from an invitation; verifies the email and logs in
+// @access  Public (tenant from the subdomain)
+router.post('/accept-invitation', acceptInvitationRateLimit, validatePasswordReset, async (req: Request, res: Response) => {
+  try {
+    const { token, password } = req.body;
+    const user = await User.findOne({ invitationToken: hashInvitationToken(String(token)) });
+    const status = invitationStatus(user);
+    if (!user || status === 'none' || status === 'accepted') return res.status(400).json({ success: false, reason: 'invalid', message: 'This invitation link is not valid or was already used.' });
+    if (status === 'expired') return res.status(410).json({ success: false, reason: 'expired', message: 'This invitation link has expired. Ask for a new invitation.' });
+    if (!user.isActive) return res.status(401).json({ success: false, message: 'Account is deactivated. Please contact support.' });
+
+    user.password = password;
+    user.invitationToken = undefined;
+    user.invitationExpires = undefined;
+    user.invitationAcceptedAt = new Date();
+    user.emailVerified = true;
+    user.loginAttempts = 0;
+    user.lockUntil = undefined;
+    user.lastLogin = new Date();
+    await user.save();
+
+    sendTokenResponse(res, 200, user, 'Password set. Welcome to Pilloto!', user.tenantId?.toString());
+  } catch (error: any) {
+    console.error('Accept invitation error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 

@@ -33,7 +33,7 @@ const BookingSearchWidget: React.FC = () => {
       .finally(() => setLoading(false));
   }, []);
 
-  const primaryColor = config?.primaryColor || '#2D3748';
+  const primaryColor = config?.primaryColor || '#121A33';
   const minDate = new Date(Date.now() + (config?.minAdvanceHours || 24) * 3600000)
     .toISOString().split('T')[0];
   const maxDate = new Date(Date.now() + (config?.maxAdvanceDays || 365) * 86400000)

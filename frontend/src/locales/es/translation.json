@@ -45,7 +45,10 @@
     "checkinCancelledGuard": "No se puede hacer check-in a una reserva cancelada",
     "rooms": "Hospedaje",
     "daypass": "DayPass",
-    "events": "Eventos"
+    "events": "Eventos",
+    "collapseSidebar": "Contraer menú",
+    "expandSidebar": "Expandir menú",
+    "switchApp": "Cambiar de app"
   },
   "auth": {
     "welcome": "¡Bienvenido, {{name}}!",
@@ -155,9 +158,16 @@
       "creditAccounts": "Cuentas de crédito",
       "cashierClosures": "Cierres de caja",
       "bookingCalendar": "Calendario",
-      "otaConflicts": "Conflictos OTA",
       "ecfInvoices": "Facturas e-CF",
-      "reports": "Reportes"
+      "reports": "Reportes",
+      "channelAlerts": "Alertas de canales",
+      "sections": {
+        "frontDesk": "Recepción",
+        "property": "Propiedad",
+        "distribution": "Distribución",
+        "finance": "Finanzas",
+        "administration": "Administración"
+      }
     },
     "revenue": {
       "title": "Ingresos",
@@ -372,9 +382,9 @@
         "creditAccountsEdit": "Cuentas de crédito: Editar",
         "cashier": "Cajero",
         "salesman": "Vendedor",
-        "otaView": "Sync OTA: Ver",
-        "otaManage": "Sync OTA: Gestionar",
-        "otaResolve": "Sync OTA: Resolver conflictos"
+        "otaView": "Channel Manager: Ver",
+        "otaManage": "Channel Manager: Gestionar",
+        "otaResolve": "Channel Manager: Resolver alertas"
       }
     },
     "commissions": {
@@ -580,7 +590,8 @@
         "email": "Correo",
         "phone": "Teléfono",
         "role": "Rol",
-        "actions": "Acciones"
+        "actions": "Acciones",
+        "access": "Acceso"
       },
       "actions": {
         "createUser": "Crear usuario",
@@ -612,6 +623,17 @@
         "roleRequiredForApp": "Selecciona un rol para cada app marcada.",
         "createFailed": "No se pudo crear el usuario",
         "noUsers": "No se encontraron usuarios."
+      },
+      "invitation": {
+        "pending": "Invitación enviada",
+        "expired": "Invitación vencida",
+        "accepted": "Contraseña creada",
+        "resend": "Reenviar invitación",
+        "resent": "Invitación enviada a {{email}}.",
+        "resendFailed": "No se pudo reenviar la invitación.",
+        "createHint": "Le enviaremos un correo para que elija su propia contraseña. El enlace vence en 72 horas.",
+        "sent": "Usuario creado. Enviamos a {{email}} un correo para elegir su contraseña.",
+        "notSent": "Usuario creado, pero no se pudo enviar la invitación. Usa «Reenviar invitación»."
       }
     },
     "media": {
@@ -706,7 +728,14 @@
         "from": "Desde",
         "to": "Hasta",
         "today": "Hoy",
-        "clear": "Limpiar"
+        "clear": "Limpiar",
+        "sourceLabel": "Origen",
+        "sources": {
+          "all": "Todos los orígenes",
+          "direct": "Directa (recepción)",
+          "booking_engine": "Motor de reservas",
+          "channel": "Todos los canales"
+        }
       },
       "table": {
         "guest": "Huésped",
@@ -928,11 +957,124 @@
           "checked-in": "Check-In",
           "checked-out": "Check-Out"
         }
+      },
+      "bookingRuleWarnings": {
+        "title": "Esta reserva no cumple una regla de reserva",
+        "hint": "Puedes crearla igualmente: el motor de reservas y las OTAs no la permitirían.",
+        "createdWithWarnings": "Reserva creada. Aviso: no cumple las reglas de reserva de esas fechas."
+      },
+      "channel": {
+        "badgeHint": "Reserva de un canal (OTA) y su código de reserva en ese canal",
+        "title": "Canal",
+        "ota": "Canal",
+        "otaCode": "Código en el canal",
+        "paymentCollect": "Quién cobra",
+        "collect": {
+          "ota": "El canal cobra al huésped y paga a la propiedad (se factura al canal)",
+          "property": "La propiedad cobra al huésped",
+          "unknown": "El canal no lo indicó"
+        },
+        "paymentType": "Forma de pago",
+        "paymentTypes": {
+          "credit_card": "Tarjeta",
+          "bank_transfer": "Transferencia del canal"
+        },
+        "commission": "Comisión del canal",
+        "currency": "Moneda de la reserva",
+        "card": "Tarjeta de garantía",
+        "expires": "vence {{date}}",
+        "virtualCard": "tarjeta virtual",
+        "virtualBalance": "saldo {{amount}}",
+        "virtualFrom": "usable desde {{date}}",
+        "virtualCardHint": "Los datos completos de la tarjeta virtual están en el extranet del canal; Pilloto solo guarda los últimos 4 dígitos.",
+        "history": "Cambios enviados por el canal",
+        "historyEmpty": "No hay cambios registrados.",
+        "columns": {
+          "received": "Recibido",
+          "change": "Cambio",
+          "state": "Estado"
+        }
+      },
+      "history": {
+        "title": "Historial",
+        "empty": "Aún no hay actividad registrada.",
+        "error": "No se pudo cargar el historial.",
+        "inferred": "(registro anterior)",
+        "inferredHint": "Reconstruido a partir de datos guardados antes de que existiera el historial; puede que no se sepa quién lo hizo.",
+        "columns": {
+          "when": "Cuándo",
+          "who": "Quién",
+          "what": "Qué",
+          "amount": "Monto"
+        },
+        "actor": {
+          "staff": "Personal",
+          "guest": "Huésped",
+          "channel": "Canal",
+          "system": "Sistema"
+        },
+        "actions": {
+          "created": "Reserva creada",
+          "updated": "Reserva editada",
+          "status_changed": "Estado cambiado",
+          "cancelled": "Cancelada",
+          "rooms_changed": "Habitaciones asignadas",
+          "moved": "Movida",
+          "checked_in": "Check-in realizado",
+          "checked_out": "Check-out realizado",
+          "charge_added": "Cargo agregado",
+          "charge_deleted": "Cargo eliminado",
+          "payment_recorded": "Pago registrado",
+          "payment_updated": "Pago editado",
+          "payment_deleted": "Pago eliminado",
+          "corporate_rate_approved": "Tarifa corporativa aprobada",
+          "corporate_rate_declined": "Tarifa corporativa rechazada",
+          "channel_modified": "Modificada por el canal",
+          "email_sent": "Correo enviado",
+          "deleted": "Reserva eliminada"
+        },
+        "fields": {
+          "status": "Estado",
+          "checkInDate": "Entrada",
+          "checkOutDate": "Salida",
+          "adults": "Adultos",
+          "children": "Niños",
+          "infants": "Infantes",
+          "rooms": "Habitaciones",
+          "estimatedTotal": "Total",
+          "guestName": "Huésped",
+          "email": "Correo",
+          "phone": "Teléfono",
+          "specialRequests": "Solicitudes especiales",
+          "corporatePriceStatus": "Tarifa corporativa",
+          "amount": "Monto",
+          "method": "Método",
+          "reference": "Referencia"
+        },
+        "corporate": {
+          "pending": "Pendiente",
+          "approved": "Aprobada",
+          "declined": "Rechazada"
+        },
+        "notes": {
+          "booking_engine": "Motor de reservas",
+          "email_link": "Desde el enlace del correo",
+          "credit": "Balance pasado a cuenta de crédito",
+          "deposit": "Depósito",
+          "confirmation": "Confirmación",
+          "invoice": "Factura",
+          "cedula": "Cédula",
+          "pasaporte": "Pasaporte",
+          "rnc": "RNC",
+          "cash": "Efectivo",
+          "card": "Tarjeta",
+          "transfer": "Transferencia",
+          "check": "Cheque"
+        }
       }
     },
     "settings": {
       "title": "Configuración",
-      "subtitle": "Administra la configuración de la aplicación y los servicios activos",
       "tabs": {
         "sections": "Secciones",
         "roomTypes": "Tipos de habitación",
@@ -943,9 +1085,11 @@
         "nightAudit": "Auditoría nocturna",
         "email": "Correo",
         "checkout": "Check-Out",
-        "ota": "Sincronización OTA",
         "booking": "Motor de reservas",
-        "ecf": "Facturación Electrónica"
+        "ecf": "Facturación Electrónica",
+        "channelManager": "Channel Manager",
+        "profile": "Perfil de la propiedad",
+        "reviews": "Reseñas"
       },
       "sections": {
         "heading": "Secciones del menú",
@@ -976,94 +1120,6 @@
         "checkoutTime": "Hora de check-out",
         "checkoutTimeHint": "Se espera que los huéspedes hagan el check-out a esta hora. Las políticas de cargo automático la usan como punto de referencia."
       },
-      "ota": {
-        "heading": "Sincronización OTA",
-        "description": "Conecta calendarios de listados OTA (Airbnb, Booking.com, VRBO) mediante iCal. Pilloto importa bloqueos de disponibilidad y publica su propio feed iCal para cada habitación.",
-        "enabled": "Habilitar sincronización OTA",
-        "syncInterval": "Intervalo de sincronización",
-        "timezone": "Zona horaria del calendario",
-        "conflictAlerts": "Alertas de conflictos",
-        "syncAll": "Sincronizar todo ahora",
-        "sync": "Sincronizar ahora",
-        "mappings": {
-          "heading": "Listados vinculados",
-          "description": "Cada vínculo conecta un listado OTA con una habitación de Pilloto.",
-          "add": "Agregar vínculo",
-          "addTitle": "Agregar listado vinculado",
-          "editTitle": "Editar listado vinculado",
-          "provider": "Proveedor",
-          "label": "Etiqueta del listado",
-          "labelHint": "Nombre descriptivo, p. ej. \"Airbnb – Habitación 12\"",
-          "externalId": "ID externo del listado (opcional)",
-          "externalIdHint": "Solo para referencia.",
-          "inboundUrl": "URL iCal de entrada",
-          "inboundUrlHint": "La URL .ics del calendario del listado en Airbnb / Booking / VRBO.",
-          "room": "Habitación de Pilloto",
-          "active": "Activo",
-          "copyUrl": "Copiar URL",
-          "rotateToken": "Rotar token de feed saliente",
-          "deleteTitle": "¿Eliminar listado vinculado?",
-          "deleteConfirm": "Se eliminará permanentemente este vínculo y su historial de sincronización. Las reservas existentes no se verán afectadas.",
-          "empty": "Aún no hay listados vinculados.",
-          "table": {
-            "provider": "Proveedor",
-            "label": "Etiqueta",
-            "room": "Habitación",
-            "lastSync": "Última sincronización",
-            "status": "Estado",
-            "outboundFeed": "Feed saliente"
-          }
-        },
-        "syncStatus": {
-          "success": "OK",
-          "partial": "Parcial",
-          "failed": "Falló",
-          "never": "Nunca"
-        },
-        "errors": {
-          "loadFailed": "Error al cargar listados OTA",
-          "saveFailed": "Error al guardar listado vinculado",
-          "deleteFailed": "Error al eliminar listado vinculado",
-          "rotateFailed": "Error al rotar token",
-          "syncFailed": "Error al activar sincronización"
-        },
-        "messages": {
-          "mappingCreated": "Listado vinculado creado",
-          "mappingUpdated": "Listado vinculado actualizado",
-          "mappingDeleted": "Listado vinculado eliminado",
-          "tokenRotated": "Token de feed saliente rotado",
-          "syncQueued": "Sincronización activada",
-          "urlCopied": "URL del feed copiada al portapapeles"
-        },
-        "conflicts": {
-          "heading": "Cola de conflictos OTA",
-          "description": "Bloqueos del calendario OTA que se superponen con reservas existentes de Pilloto. Revisa y resuelve cada conflicto antes de la próxima sincronización.",
-          "pendingBadge": "{{count}} pendientes",
-          "statusFilter": "Estado",
-          "loadFailed": "Error al cargar conflictos",
-          "resolved": "Conflicto resuelto",
-          "resolveFailed": "Error al resolver conflicto",
-          "resolve": "Resolver",
-          "resolveTitle": "Resolver conflicto",
-          "submitResolve": "Enviar resolución",
-          "otaBlock": "Bloqueo OTA",
-          "pillotoBlock": "Reserva en Pilloto",
-          "resolution": "Resolución",
-          "notes": "Notas (opcional)",
-          "notesHint": "Agrega contexto para el registro de auditoría.",
-          "overlap": "Superposición",
-          "exactMatch": "Coincidencia exacta",
-          "empty": "No se encontraron conflictos con este filtro.",
-          "table": {
-            "provider": "Proveedor / Listado",
-            "otaBlock": "Bloqueo OTA",
-            "pillotoReservation": "Reserva Pilloto",
-            "type": "Tipo",
-            "status": "Estado",
-            "detected": "Detectado"
-          }
-        }
-      },
       "booking": {
         "heading": "Motor de reservas",
         "description": "Configura la página pública de reservas para los huéspedes. Controla disponibilidad, marca y widgets embebidos.",
@@ -1081,10 +1137,7 @@
         },
         "contact": {
           "heading": "Información de contacto",
-          "description": "Datos de contacto mostrados a los huéspedes en la página de reservas.",
-          "phone": "Teléfono",
-          "email": "Correo electrónico",
-          "address": "Dirección"
+          "fromProfile": "Los datos de contacto que ven los huéspedes en la página de reservas vienen del perfil de la propiedad."
         },
         "rules": {
           "heading": "Reglas de reserva",
@@ -1131,10 +1184,6 @@
         "title": "Facturación Electrónica (e-CF)",
         "subtitle": "Configuración del proveedor Citrus e-CF para emisión de comprobantes fiscales electrónicos DGII.",
         "fields": {
-          "rnc": "RNC / Cédula del contribuyente",
-          "rncHelp": "9 dígitos (RNC) o 11 dígitos (cédula)",
-          "razonSocial": "Razón social",
-          "nombreComercial": "Nombre comercial (opcional)",
           "sucursal": "Sucursal (opcional)",
           "ambiente": "Ambiente DGII",
           "citrusBaseUrl": "URL base de Citrus API",
@@ -1171,7 +1220,7 @@
           "loadFailed": "Error al cargar la configuración e-CF",
           "saveFailed": "Error al guardar la configuración e-CF",
           "testFailed": "Error al probar la conexión",
-          "invalidRnc": "RNC debe tener 9 u 11 dígitos"
+          "profileIncomplete": "Completa la razón social y el RNC en el perfil de la propiedad antes de configurar la facturación electrónica."
         },
         "contingency": {
           "title": "Modo Contingencia Activo",
@@ -1240,7 +1289,8 @@
           "errorRncRequired": "RNC requerido para este tipo de comprobante",
           "errorCountryRequired": "País requerido para este tipo de comprobante",
           "errorNameRequired": "Nombre o razón social requerido"
-        }
+        },
+        "fromProfile": "El emisor de los comprobantes (razón social, RNC, nombre comercial y teléfono) viene del perfil de la propiedad."
       },
       "ecfInvoices": {
         "tabLabel": "Comprobantes Fiscales",
@@ -1365,6 +1415,110 @@
             "failed": "Error al emitir la nota de débito. Por favor intente nuevamente.",
             "invalidOriginal": "La factura original no es válida para emitir una nota de débito."
           }
+        }
+      },
+      "groups": {
+        "property": "Propiedad",
+        "operations": "Operación",
+        "sales": "Ventas y canales",
+        "billing": "Facturación",
+        "communication": "Comunicación",
+        "access": "Acceso"
+      },
+      "profile": {
+        "heading": "Perfil de la propiedad",
+        "description": "Los datos de tu propiedad. El motor de reservas, los correos a huéspedes, la facturación electrónica y el Channel Manager los toman de aquí.",
+        "identityTitle": "Identidad",
+        "contactTitle": "Contacto y dirección",
+        "regionalTitle": "Moneda y zona horaria",
+        "fields": {
+          "name": "Nombre comercial",
+          "legalName": "Razón social",
+          "rnc": "RNC",
+          "email": "Correo",
+          "phone": "Teléfono",
+          "address": "Dirección",
+          "city": "Ciudad",
+          "state": "Provincia / estado",
+          "country": "País",
+          "zipCode": "Código postal",
+          "currency": "Moneda",
+          "timezone": "Zona horaria"
+        },
+        "hints": {
+          "name": "Así ven tu propiedad los huéspedes y las OTAs.",
+          "legalName": "Aparece en los comprobantes fiscales (e-CF).",
+          "rnc": "9 u 11 dígitos, sin guiones.",
+          "country": "2 letras, ej. DO",
+          "currency": "La moneda en la que vendes: precios, reservas y OTAs.",
+          "timezone": "Define qué día es «hoy» para la propiedad. Ej. America/Santo_Domingo",
+          "currencyNotSet": "Aún no has elegido la moneda; mientras tanto los precios se muestran en RD$."
+        },
+        "currencies": {
+          "DOP": "Peso dominicano (RD$)",
+          "USD": "Dólar estadounidense (US$)",
+          "EUR": "Euro (€)"
+        },
+        "currencyLocked": {
+          "reservations": "La moneda ya no se puede cambiar: la propiedad tiene reservas en esta moneda.",
+          "channel_manager": "La moneda ya no se puede cambiar mientras la propiedad está conectada al Channel Manager."
+        },
+        "currencyWarning": "Después de la primera reserva o de activar el Channel Manager, la moneda ya no se podrá cambiar.",
+        "notSet": "Sin completar",
+        "edit": "Editar en el perfil de la propiedad",
+        "saved": "Perfil guardado.",
+        "saveFailed": "No se pudo guardar el perfil.",
+        "loadFailed": "No se pudo cargar el perfil de la propiedad.",
+        "chooseCurrency": "Elige la moneda",
+        "currencyChoice": {
+          "reservations": "Ya tienes reservas: sus importes no se convierten y se mostrarán en la moneda que elijas. Después de guardar, la moneda no se podrá cambiar.",
+          "channel_manager": "Tu propiedad ya está conectada al Channel Manager. Después de guardar, la moneda no se podrá cambiar."
+        }
+      },
+      "nav": {
+        "search": "Buscar en configuración",
+        "overview": "Resumen",
+        "overviewIntro": "Todo lo que se configura una vez o de vez en cuando, agrupado por tema.",
+        "noResults": "Nada coincide con «{{query}}».",
+        "groups": {
+          "property": "Datos, habitaciones y medios de la propiedad",
+          "operations": "Cómo funciona el día a día",
+          "sales": "Dónde y cómo vendes",
+          "billing": "Comprobantes fiscales",
+          "communication": "Correos a huéspedes",
+          "access": "Quién puede hacer qué"
+        },
+        "items": {
+          "profile": "Nombre, RNC, contacto, dirección, moneda y zona horaria.",
+          "roomTypes": "Las categorías que vendes y su capacidad.",
+          "amenities": "Lo que ofreces: wifi, piscina, desayuno…",
+          "media": "Fotos y archivos de la propiedad.",
+          "checkout": "Hora de salida de los huéspedes.",
+          "nightAudit": "Cargos automáticos de cada noche.",
+          "eventTypes": "Bodas, reuniones y otros eventos.",
+          "sections": "Qué partes de Pilloto usa tu equipo.",
+          "booking": "Reservas en línea desde tu sitio web.",
+          "channelManager": "Booking.com, Expedia, Airbnb y más.",
+          "reviews": "Opiniones que muestras a tus huéspedes.",
+          "ecf": "Comprobantes e-CF ante la DGII.",
+          "email": "Remitente y pie de los correos a huéspedes.",
+          "roles": "Qué puede hacer cada usuario."
+        },
+        "keywords": {
+          "profile": "moneda, zona horaria, rnc, razón social, dirección, teléfono, correo, nombre, país",
+          "roomTypes": "capacidad, categorías, habitaciones",
+          "amenities": "amenidades, servicios, wifi, piscina",
+          "media": "fotos, imágenes, archivos, logo",
+          "checkout": "salida, hora, salida tarde",
+          "nightAudit": "cierre, noche, cargos automáticos",
+          "eventTypes": "eventos, bodas, reuniones",
+          "sections": "módulos, menú, ocultar",
+          "booking": "web, reservas en línea, widget, sitio",
+          "channelManager": "ota, booking, airbnb, expedia, despegar, canales",
+          "reviews": "opiniones, comentarios",
+          "ecf": "dgii, ncf, e-cf, comprobantes, factura, citrus",
+          "email": "email, remitente, pie, firma",
+          "roles": "permisos, usuarios, accesos"
         }
       }
     },
@@ -1556,8 +1710,8 @@
       },
       "occupancy": {
         "title": "Métricas de Ocupación",
-        "description": "Tendencias de ADR, RevPAR y Ocupación % — los KPIs universales del desempeño hotelero.",
-        "subtitle": "ADR, RevPAR y Ocupación % para cualquier rango de fechas",
+        "description": "Ocupación, ADR, RevPAR e ingreso de habitaciones — reales y reservados — contra el año pasado o el período anterior.",
+        "subtitle": "Ocupación, ADR, RevPAR e ingreso de habitaciones para cualquier rango, pasado o futuro",
         "kpiOccupancy": "Ocupación %",
         "kpiAdr": "ADR",
         "kpiRevpar": "RevPAR",
@@ -1683,6 +1837,199 @@
           "partial": "Parcial",
           "unpaid": "Sin pago"
         }
+      },
+      "groups": {
+        "management": {
+          "title": "Gerencia e ingresos",
+          "description": "Resumen diario, pronóstico y ritmo, mezcla de ingresos y comportamiento de reservas: los reportes detrás de las decisiones de precio y distribución."
+        },
+        "frontOffice": {
+          "title": "Recepción",
+          "description": "Auditoría nocturna y llegadas y salidas del día."
+        },
+        "fiscal": {
+          "title": "Fiscal (DGII e-CF)",
+          "description": "Reporte mensual de impuestos, secuencias NCF y facturas pendientes de envío."
+        }
+      },
+      "kit": {
+        "refresh": "Actualizar",
+        "print": "Imprimir / PDF",
+        "custom": "Personalizado",
+        "from": "Desde",
+        "to": "Hasta",
+        "noData": "No hay datos para el período seleccionado.",
+        "chart": "Gráfico",
+        "table": "Tabla",
+        "monthToDate": "Mes a la fecha",
+        "yearToDate": "Año a la fecha",
+        "last12Months": "Últimos 12 meses",
+        "next30days": "Próximos 30 días",
+        "nextDays": "Próximos {{count}} días",
+        "lastDays": "Últimos {{count}} días",
+        "outOfService": "Fuera de servicio",
+        "total": "Total",
+        "vs": "vs {{what}}",
+        "lastYear": "año pasado",
+        "ofAvailable": "de {{count}} disponibles",
+        "roomsSoldOf": "{{sold}} de {{available}} habitaciones",
+        "actualsAndOtb": "Noches pasadas son reales; desde hoy, lo reservado",
+        "occupancy": "Ocupación",
+        "roomRevenue": "Ingreso de habitaciones",
+        "roomNights": "Noches-habitación",
+        "night": "Noche",
+        "roomsOnBooks": "Habitaciones reservadas",
+        "available": "Disponibles",
+        "today": "Hoy",
+        "stly": "Misma fecha año pasado",
+        "revenuePosted": "Ingreso cargado",
+        "paymentsCollected": "Pagos cobrados",
+        "revenueVsPayments": "Ingresos vs pagos",
+        "revenueVsPaymentsHelp": "Cargos a folios contra dinero cobrado, por noche auditada",
+        "help": {
+          "occupancy": "Habitaciones vendidas ÷ disponibles (activas menos fuera de servicio)",
+          "adr": "Tarifa promedio diaria: ingreso de habitaciones ÷ habitaciones vendidas",
+          "revpar": "Ingreso por habitación disponible: ingreso de habitaciones ÷ habitaciones disponibles"
+        },
+        "weekdays": {
+          "0": "Lun",
+          "1": "Mar",
+          "2": "Mié",
+          "3": "Jue",
+          "4": "Vie",
+          "5": "Sáb",
+          "6": "Dom"
+        },
+        "stlyShort": "año ant."
+      },
+      "flash": {
+        "title": "Flash gerencial",
+        "description": "El resumen diario: hoy, mes y año a la fecha contra el año pasado, la operación del día y los próximos 30 días.",
+        "subtitle": "Hoy, mes y año a la fecha contra las mismas fechas del año pasado",
+        "businessDate": "Fecha de operación",
+        "theDay": "Fecha de operación {{date}} vs misma fecha del año pasado",
+        "day": "Día",
+        "mtd": "Mes a la fecha",
+        "ytd": "Año a la fecha",
+        "period": "Período",
+        "ly": "Año pasado",
+        "change": "Cambio",
+        "operations": "Operación",
+        "arrivals": "Llegadas",
+        "departures": "Salidas",
+        "inHouse": "En casa",
+        "noShows": "No-shows",
+        "newBookings": "Reservas tomadas",
+        "newBookingsCaption": "{{nights}} noches-habitación · {{revenue}}",
+        "cancellations": "Cancelaciones",
+        "cancellationsCaption": "{{nights}} noches-habitación perdidas",
+        "periodsTitle": "Desempeño vs año pasado",
+        "periodsHelp": "Noches e ingresos de cada período contra las mismas fechas del año pasado",
+        "outlookTitle": "Próximas 30 noches reservadas",
+        "outlookHelp": "Ocupación {{occ}} · ingreso {{revenue}} · ADR {{adr}}",
+        "average": "Prom. {{pct}}%"
+      },
+      "forecast": {
+        "title": "Pronóstico y ritmo",
+        "description": "Lo reservado para cada noche próxima, qué tan rápido se llena y el ritmo contra la misma fecha del año pasado.",
+        "subtitle": "Reservado, pickup de 7 días y ritmo contra la misma fecha del año pasado",
+        "onTheBooks": "Reservado",
+        "pickup7": "Pickup (7 días)",
+        "pickup7Caption": "Noches-habitación reservadas en los últimos 7 días para estas noches",
+        "arrivals": "Llegadas",
+        "departures": "Salidas",
+        "pace": "Ritmo vs año pasado",
+        "otbOccupancy": "Ocupación reservada",
+        "otbRevenue": "Ingreso reservado",
+        "otbRoomNights": "Noches-habitación reservadas",
+        "otbAdr": "ADR reservado",
+        "compressionTitle_one": "{{count}} noche con {{pct}}%+ de ocupación",
+        "compressionTitle_other": "{{count}} noches con {{pct}}%+ de ocupación",
+        "compressionHelp": "Demanda alta: considere subir tarifas, cerrar planes con descuento o exigir estadía mínima.",
+        "softTitle_one": "{{count}} noche bajo {{pct}}% en los próximos {{days}} días",
+        "softTitle_other": "{{count}} noches bajo {{pct}}% en los próximos {{days}} días",
+        "softHelp": "Fechas flojas: considere una promoción, abrir más canales o relajar restricciones.",
+        "paceTitle": "Ocupación reservada vs misma fecha del año pasado",
+        "paceHelp": "Año pasado: la noche 52 semanas antes, como estaba hace 52 semanas",
+        "pickupTitle": "Pickup — últimos 7 días",
+        "pickupHelp": "Habitaciones reservadas en la última semana para cada noche; los picos indican demanda creciente",
+        "movementTitle": "Llegadas y salidas",
+        "movementHelp": "Habitaciones que llegan y salen cada día — planifique personal y limpieza",
+        "tableTitle": "Noche por noche",
+        "stlyHelp": "Año pasado: el mismo día de la semana, contando solo lo reservado a esta misma fecha del año pasado."
+      },
+      "segmentation": {
+        "title": "Mezcla de ingresos",
+        "description": "Noches, ingresos, ADR, comisión y cancelaciones por origen, tipo de habitación o plan de tarifa.",
+        "subtitle": "De dónde viene el ingreso de habitaciones y cuánto cuesta conseguirlo",
+        "by": {
+          "source": "Origen",
+          "roomType": "Tipo de habitación",
+          "ratePlan": "Plan de tarifa"
+        },
+        "sources": {
+          "front_desk": "Recepción",
+          "booking_engine": "Motor de reservas",
+          "corporate": "Corporativo"
+        },
+        "unknownType": "Sin tipo de habitación",
+        "noRatePlan": "Sin plan de tarifa",
+        "other": "Otros",
+        "reservations": "Reservas",
+        "share": "Participación",
+        "commission": "Comisión OTA",
+        "netRevenue": "Ingreso neto",
+        "avgLead": "Anticipación prom. (días)",
+        "avgLos": "Estadía prom. (noches)",
+        "cancellationRate": "Tasa de cancelación",
+        "ofRevenue": "{{pct}} del ingreso de habitaciones",
+        "netHelp": "Ingreso de habitaciones menos comisión OTA",
+        "revenueBySegment": "Ingreso de habitaciones por segmento",
+        "trendTitle": "Tendencia de ingresos por segmento",
+        "bucket": {
+          "day": "Por día",
+          "week": "Por semana",
+          "month": "Por mes"
+        },
+        "adrBySegment": "ADR por segmento",
+        "adrHelp": "Qué segmentos pagan mejor tarifa",
+        "cancelBySegment": "Tasa de cancelación por segmento",
+        "cancelHelp": "Canceladas ÷ todas las reservas que llegan en el rango",
+        "tableTitle": "Detalle por segmento"
+      },
+      "insights": {
+        "title": "Comportamiento de reservas",
+        "description": "Anticipación, duración de estadía, demanda por día de la semana, cancelaciones, no-shows y huéspedes recurrentes.",
+        "subtitle": "Cómo reservan los huéspedes — para política de cancelación, estadías mínimas y precios por día",
+        "days": "{{range}} d",
+        "nights": "{{range}} n",
+        "daysValue": "{{value}} días",
+        "nightsValue": "{{value}} noches",
+        "reservations": "Reservas",
+        "cancellations": "Cancelaciones",
+        "cancellationRate": "Tasa de cancelación",
+        "leadTime": "Anticipación",
+        "lengthOfStay": "Duración de estadía",
+        "weekday": "Día",
+        "arrivals": "Llegadas",
+        "avgLead": "Anticipación promedio",
+        "avgLos": "Estadía prom.",
+        "noShowRate": "Tasa de no-show",
+        "noShowCaption_one": "{{count}} no-show",
+        "noShowCaption_other": "{{count}} no-shows",
+        "repeatGuests": "Huéspedes recurrentes",
+        "partySize": "Huéspedes por habitación",
+        "leadTitle": "Ventana de reserva",
+        "leadHelp": "Días entre la reserva y la llegada",
+        "leadCancelTitle": "Cancelación por ventana de reserva",
+        "leadCancelHelp": "¿Cancelan más las reservas anticipadas? Considere depósitos o tarifas no reembolsables",
+        "dowOccTitle": "Ocupación por día de la semana",
+        "dowAdrTitle": "ADR por día de la semana",
+        "dowHelp": "Promedio de las noches del rango",
+        "losTitle": "Duración de estadía",
+        "losHelp": "Reservas por número de noches — guía para reglas de estadía mínima",
+        "sourceCancelTitle": "Cancelación por origen",
+        "sourceCancelHelp": "Canceladas ÷ todas las reservas de cada origen"
       }
     },
     "cashierClosures": {
@@ -1719,37 +2066,162 @@
       "subtotal": "Subtotal"
     },
     "dashboard": {
-      "title": "Panel de administración",
-      "welcome": "¡Bienvenido de nuevo, {{name}}! Aquí tienes el resumen de la actividad de hoy.",
-      "stats": {
-        "totalRooms": "Total de habitaciones",
-        "totalReservations": "Total de reservas",
-        "pendingReservations": "Reservas pendientes",
-        "confirmedReservations": "Reservas confirmadas"
+      "title": "Panel",
+      "greeting": {
+        "morning": "Buenos días, {{name}}",
+        "afternoon": "Buenas tardes, {{name}}",
+        "evening": "Buenas noches, {{name}}"
       },
-      "quickActions": {
-        "title": "Acciones rápidas",
-        "manageRooms": "Gestionar habitaciones",
-        "manageReservations": "Gestionar reservas",
-        "manageUsers": "Gestionar usuarios"
+      "updated": "actualizado {{time}}",
+      "refresh": "Actualizar",
+      "retry": "Reintentar",
+      "loadFailed": "No se pudo cargar el panel.",
+      "staleData": "No se pudo actualizar; se muestran las últimas cifras cargadas.",
+      "actions": {
+        "newReservation": "Nueva reserva",
+        "calendar": "Calendario de reservas"
       },
-      "roomsOverview": {
-        "title": "Resumen de habitaciones",
-        "table": {
-          "roomName": "Nombre de la habitación",
-          "type": "Tipo",
-          "status": "Estado"
+      "kpi": {
+        "occTonight": "Ocupación esta noche",
+        "adrTonight": "ADR esta noche",
+        "revparTonight": "RevPAR esta noche",
+        "revenueMtd": "Ingresos hab. del mes",
+        "occMtdCaption": "Ocupación {{pct}} en el mes",
+        "occTomorrow": "Mañana",
+        "onTheBooks": "{{sold}} de {{available}} habitaciones reservadas",
+        "occMtd": "Ocupación del mes",
+        "next14": "Próximas 14 noches",
+        "next14Caption": "Ocupación media reservada"
+      },
+      "movement": {
+        "arrivals": "Llegadas",
+        "departures": "Salidas",
+        "inHouse": "En casa",
+        "checkedIn": "{{done}} de {{total}} habitaciones con check-in",
+        "checkedOut": "{{done}} de {{total}} habitaciones con check-out",
+        "inHouseCaption": "{{guests}} huéspedes · {{stayovers}} continúan"
+      },
+      "rooms": {
+        "title": "Estado de habitaciones",
+        "manage": "Habitaciones",
+        "occupied": "Ocupadas",
+        "vacantClean": "Listas",
+        "vacantDirty": "Por limpiar",
+        "outOfService": "Fuera de servicio",
+        "occupiedDirty_one": "{{count}} habitación ocupada marcada para limpieza",
+        "occupiedDirty_other": "{{count}} habitaciones ocupadas marcadas para limpieza"
+      },
+      "worklist": {
+        "title": "Recepción hoy",
+        "allReservations": "Todas las reservas",
+        "tabs": {
+          "arrivals": "Llegadas",
+          "departures": "Salidas",
+          "inHouse": "En casa"
+        },
+        "guest": "Huésped",
+        "room": "Habitación",
+        "stay": "Estadía",
+        "status": "Estado",
+        "balance": "Saldo",
+        "unassigned": "Sin asignar",
+        "assignPartial": "{{assigned}} de {{rooms}} asignadas",
+        "checkIn": "Check-in",
+        "checkOut": "Check-out",
+        "nights_one": "{{count}} noche",
+        "nights_other": "{{count}} noches",
+        "roomsCount_one": "{{count}} habitación",
+        "roomsCount_other": "{{count}} habitaciones",
+        "overdue": "Pasó la fecha de salida",
+        "arrivedAt": "Check-in {{time}}",
+        "leftAt": "Check-out {{time}}",
+        "corporate": "Corporativa",
+        "requests": "Solicitudes especiales: {{text}}",
+        "empty": {
+          "arrivals": "No hay llegadas hoy.",
+          "departures": "No hay salidas hoy.",
+          "inHouse": "No hay huéspedes en casa."
+        },
+        "guests_one": "{{count}} huésped",
+        "guests_other": "{{count}} huéspedes"
+      },
+      "attention": {
+        "title": "Requiere atención",
+        "subtitle_one": "{{count}} asunto por resolver",
+        "subtitle_other": "{{count}} asuntos por resolver",
+        "allClear": "Todo en orden: nada requiere atención ahora.",
+        "more": "+{{count}} más",
+        "severity": {
+          "critical": "Crítica",
+          "warning": "Advertencia",
+          "info": "Info"
+        },
+        "overdueArrivals": {
+          "title_one": "{{count}} llegada sin check-in",
+          "title_other": "{{count}} llegadas sin check-in",
+          "help": "La fecha de llegada ya pasó. Haz el check-in o cancela la reserva como no-show."
+        },
+        "overdueDepartures": {
+          "title_one": "{{count}} huésped pasado de su fecha de salida",
+          "title_other": "{{count}} huéspedes pasados de su fecha de salida",
+          "help": "Siguen con check-in después de la fecha de salida. Haz el check-out o extiende la estadía."
+        },
+        "unassigned": {
+          "title_one": "{{count}} llegada sin habitación",
+          "title_other": "{{count}} llegadas sin habitación",
+          "help": "Llegan en los próximos {{days}} días sin habitación asignada."
+        },
+        "unconfirmed": {
+          "title_one": "{{count}} reserva sin confirmar",
+          "title_other": "{{count}} reservas sin confirmar",
+          "help": "Reservas pendientes que llegan en los próximos {{days}} días."
+        },
+        "balanceDue": {
+          "title_one": "{{count}} salida con saldo pendiente",
+          "title_other": "{{count}} salidas con saldo pendiente",
+          "help": "{{amount}} por cobrar antes del check-out."
+        },
+        "dirtyRooms": {
+          "title_one": "{{count}} habitación libre por limpiar",
+          "title_other": "{{count}} habitaciones libres por limpiar",
+          "help": "Faltan {{arrivals}} habitaciones por llegar hoy; {{clean}} habitaciones libres están listas."
+        },
+        "corporateRates": {
+          "title_one": "{{count}} tarifa corporativa por aprobar",
+          "title_other": "{{count}} tarifas corporativas por aprobar",
+          "help": "Reservas que solicitaron una tarifa corporativa aún no aprobada."
+        },
+        "channelAlerts": {
+          "title_one": "{{count}} alerta de canal abierta",
+          "title_other": "{{count}} alertas de canal abiertas",
+          "help": "Problemas reportados por el channel manager, como sobreventas o errores de sincronización."
         }
+      },
+      "outlook": {
+        "title": "Próximas 14 noches",
+        "subtitle": "Ocupación reservada · media {{pct}}",
+        "arrivals": "Llegadas",
+        "departures": "Salidas",
+        "forecast": "Pronóstico"
+      },
+      "activity": {
+        "title": "Actividad de reservas",
+        "subtitle": "Reservas de habitación hechas hoy",
+        "newBookings": "Reservas nuevas",
+        "cancellations": "Cancelaciones",
+        "roomNights_one": "{{count}} noche-habitación",
+        "roomNights_other": "{{count}} noches-habitación",
+        "nights_one": "{{count}} noche",
+        "nights_other": "{{count}} noches",
+        "latest": "Últimas reservas",
+        "empty": "Aún no hay reservas."
+      },
+      "dayVisits": {
+        "title": "Visitantes de día hoy",
+        "summary": "{{reservations}} reservas · {{guests}} personas"
       },
       "recentReservations": {
-        "title": "Reservas recientes",
-        "guestFallback": "Huésped",
-        "table": {
-          "guest": "Huésped",
-          "checkin": "Check-in",
-          "status": "Estado",
-          "total": "Total"
-        }
+        "guestFallback": "Huésped"
       }
     },
     "schedule": {
@@ -1891,7 +2363,9 @@
         "services": "Servicios",
         "servicePrices": "Precios de servicio",
         "chargePolicies": "Políticas de cargo automático",
-        "auditLog": "Registro de auditoría"
+        "auditLog": "Registro de auditoría",
+        "calendar": "Calendario",
+        "bookingRules": "Reglas de reserva"
       },
       "form": {
         "active": "Activo"
@@ -2177,6 +2651,264 @@
           "executedAt": "Ejecutado el",
           "error": "Error"
         }
+      },
+      "calendar": {
+        "intro": "Precio, disponibilidad y reglas de reserva de cada noche. Lo que cambies aquí se guarda como ajustes sobre tus planes de tarifa: el motor de reservas (y las OTAs, cuando el Channel Manager esté activo) reciben exactamente estos valores.",
+        "from": "Desde",
+        "days14": "14 días",
+        "days30": "30 días",
+        "prev": "Anterior",
+        "next": "Siguiente",
+        "today": "Hoy",
+        "bulkEdit": "Edición masiva",
+        "save": "Guardar ({{count}})",
+        "discard": "Descartar",
+        "saved": "Cambios guardados.",
+        "saveFailed": "No se pudieron guardar los cambios.",
+        "loadFailed": "No se pudo cargar el calendario.",
+        "stagedHint": "Tienes {{count}} cambios sin guardar. Se guardan todos juntos con «Guardar».",
+        "discardConfirm": "¿Descartar los cambios sin guardar?",
+        "availability": "Disponibles",
+        "price": "Precio",
+        "restrictions": "Reglas",
+        "noRoomTypes": "Aún no hay tipos de habitación con planes de tarifa. Créalos en «Planes de tarifa».",
+        "inactive": "inactivo",
+        "preTax": "Precios por noche antes de impuestos, para la ocupación base.",
+        "legend": {
+          "named": "Viene de una temporada, promoción o regla de reserva",
+          "calendar": "Ajustado en el calendario",
+          "staged": "Cambio sin guardar",
+          "closed": "Cerrado a la venta"
+        },
+        "source": {
+          "plan": "Precio del plan de tarifa.",
+          "rule": "Regla de precio «{{name}}».",
+          "calendar": "Ajustado en el calendario.",
+          "default": "Valor por defecto (ninguna regla).",
+          "bookingRule": "Regla de reserva «{{name}}».",
+          "calendarBookingRule": "Puesto en el calendario.",
+          "resetPending": "Al guardar vuelve al valor del plan y de las reglas con nombre."
+        },
+        "forced": {
+          "rate_plan_inactive": "Cerrado: el plan de tarifa está inactivo.",
+          "room_type_inactive": "Cerrado: el tipo de habitación está inactivo.",
+          "no_price": "Cerrado: el precio es 0 o menor (nunca se venden noches sin precio)."
+        },
+        "cell": {
+          "editPrice": "Precio por noche",
+          "apply": "Aplicar",
+          "cancel": "Cancelar",
+          "resetPrice": "Volver al precio del plan",
+          "resetRestrictions": "Quitar las reglas puestas en el calendario",
+          "occupancyRates": "Lo que reciben las OTAs, por número de huéspedes",
+          "taxesIncluded": "impuestos incluidos",
+          "guests_one": "{{count}} huésped",
+          "guests_other": "{{count}} huéspedes",
+          "noMax": "0 = sin máximo",
+          "staged": "Sin guardar",
+          "editRestrictions": "Reglas de reserva de esta noche"
+        },
+        "why": {
+          "button": "¿Por qué?",
+          "summary": "{{available}} de {{total}} disponibles",
+          "free": "Libre",
+          "blocked": "Fuera de servicio hasta el {{until}}",
+          "assigned": "Ocupada",
+          "unassignedTitle": "Reservas sin habitación asignada (cuentan igual)",
+          "unassignedRooms_one": "{{count}} habitación",
+          "unassignedRooms_other": "{{count}} habitaciones",
+          "overbooked": "Sobreventa: {{count}} habitación(es) reservadas de más esa noche.",
+          "noRooms": "Este tipo de habitación no tiene habitaciones activas.",
+          "rooms": "Habitaciones",
+          "loading": "Cargando…"
+        },
+        "bulk": {
+          "title": "Edición masiva",
+          "intro": "Cada fila aplica sus cambios a las tarifas, fechas y días elegidos. Todas las filas se guardan juntas con un solo «Guardar». Si dos filas tocan la misma noche, gana la de más abajo.",
+          "includesStaged": "Tus {{count}} cambios sin guardar del calendario se guardarán junto con estas filas.",
+          "addRow": "Añadir fila",
+          "removeRow": "Quitar fila",
+          "row": "Fila {{n}}",
+          "plans": "Tarifas",
+          "allPlans": "Todas las tarifas",
+          "dateFrom": "Desde",
+          "dateTo": "Hasta (incluido)",
+          "days": "Días de la semana",
+          "everyDay": "Todos los días",
+          "price": "Precio por noche",
+          "empty": "vacío = sin cambio",
+          "keep": "Sin cambio",
+          "cta": {
+            "on": "Sin llegadas",
+            "off": "Permitir llegadas"
+          },
+          "ctd": {
+            "on": "Sin salidas",
+            "off": "Permitir salidas"
+          },
+          "stopSell": {
+            "on": "Cerrar a la venta",
+            "off": "Abrir a la venta"
+          },
+          "resetPrice": "Volver al precio del plan",
+          "resetRestrictions": "Quitar las reglas puestas en el calendario",
+          "previewNights_one": "{{count}} noche",
+          "previewNights_other": "{{count}} noches",
+          "previewPlans_one": "{{count}} tarifa",
+          "previewPlans_other": "{{count}} tarifas",
+          "preview": "Se aplicará a {{nights}} en {{plans}}.",
+          "save": "Guardar todo",
+          "errors": {
+            "plans": "Elige al menos una tarifa.",
+            "dates": "Elige fechas válidas (la final no puede ser anterior a la inicial).",
+            "past": "No se pueden cambiar fechas pasadas.",
+            "horizon": "Solo se puede editar hasta 2 años adelante.",
+            "days": "Elige al menos un día de la semana.",
+            "noNights": "Los días elegidos no caen dentro de esas fechas.",
+            "price": "El precio debe ser mayor que 0, con hasta 2 decimales. Para cerrar fechas usa «Cerrar a la venta».",
+            "minStay": "El mínimo de noches debe ser un número entero de 1 a 730.",
+            "maxStay": "El máximo de noches debe ser un número entero de 0 a 730.",
+            "maxBelowMin": "El máximo de noches no puede ser menor que el mínimo.",
+            "nothing": "Elige al menos un cambio."
+          }
+        },
+        "adjustments": {
+          "title": "Ajustes del calendario",
+          "description": "Precios escritos en el Calendario. Se guardan como reglas de precio, ganan sobre temporadas y promociones, y se eliminan solos cuando un ajuste más reciente los cubre.",
+          "named": "Temporadas, promociones y precios negociados",
+          "empty": "No hay ajustes del calendario.",
+          "openCalendar": "Abrir el calendario",
+          "dates": "Fechas",
+          "price": "Precio",
+          "savedAt": "Guardado"
+        },
+        "weekdays": {
+          "mo": "Lu",
+          "tu": "Ma",
+          "we": "Mi",
+          "th": "Ju",
+          "fr": "Vi",
+          "sa": "Sá",
+          "su": "Do"
+        }
+      },
+      "bookingRules": {
+        "description": "Limitan cómo se puede reservar: mínimo o máximo de noches, días sin llegadas o sin salidas y fechas cerradas. El motor de reservas las aplica, las OTAs las reciben y el personal ve un aviso al crear una reserva que no las cumple.",
+        "new": "Nueva regla",
+        "presetsTitle": "Empieza con un ejemplo",
+        "presets": {
+          "weekendMin": {
+            "title": "Mínimo de noches en fines de semana",
+            "description": "Quien llega viernes o sábado se queda al menos 2 noches.",
+            "name": "Mínimo 2 noches fines de semana"
+          },
+          "closeDates": {
+            "title": "Cerrar fechas",
+            "description": "No vender ciertas fechas: cierre por temporada, evento privado, mantenimiento.",
+            "name": "Fechas cerradas"
+          },
+          "noArrivals": {
+            "title": "Sin llegadas ciertos días",
+            "description": "Nadie llega esos días; quien ya está hospedado no se ve afectado.",
+            "name": "Sin llegadas los domingos"
+          },
+          "custom": {
+            "title": "Regla personalizada",
+            "description": "Combina cualquier restricción, fechas y tarifas."
+          }
+        },
+        "table": {
+          "name": "Nombre",
+          "summary": "Qué hace",
+          "active": "Activa",
+          "actions": "Acciones"
+        },
+        "empty": "Aún no hay reglas de reserva. Sin reglas, cualquier fecha se puede reservar con cualquier duración.",
+        "calendarGroup": {
+          "title": "Reglas puestas en el calendario",
+          "description": "Restricciones escritas directamente en el Calendario. Para cambiarlas usa el Calendario.",
+          "empty": "No hay reglas puestas en el calendario."
+        },
+        "deleteConfirm": "¿Eliminar esta regla de reserva?",
+        "loadFailed": "No se pudieron cargar las reglas de reserva.",
+        "saveFailed": "No se pudo guardar la regla.",
+        "dialog": {
+          "titleNew": "Nueva regla de reserva",
+          "titleEdit": "Editar regla de reserva",
+          "name": "Nombre",
+          "appliesTo": "Se aplica a",
+          "scope": {
+            "property": "Todas las habitaciones",
+            "room_types": "Algunos tipos de habitación",
+            "rate_plans": "Algunas tarifas"
+          },
+          "roomTypes": "Tipos de habitación",
+          "ratePlans": "Tarifas",
+          "dateStart": "Desde",
+          "dateEnd": "Hasta (incluido)",
+          "days": "Días de la semana",
+          "daysHint": "Para el mínimo y el máximo de noches cuenta el día de llegada.",
+          "restrictionsTitle": "Qué limita esta regla",
+          "on": "Sí",
+          "off": "No (anula una regla anterior)",
+          "summary": "Resumen",
+          "active": "Activa",
+          "save": "Guardar",
+          "cancel": "Cancelar",
+          "errors": {
+            "name": "Escribe un nombre.",
+            "dates": "Elige fechas válidas.",
+            "scope": "Elige al menos un tipo de habitación o tarifa.",
+            "nothing": "Activa al menos una restricción."
+          }
+        }
+      },
+      "glossary": {
+        "title": "Glosario",
+        "button": "Glosario",
+        "minStayArrival": {
+          "term": "Mínimo de noches (a la llegada)",
+          "text": "La estancia más corta para quien llega ese día. Ej.: con 2 un viernes, quien llega el viernes se queda 2 noches o más; quien llegó antes no se ve afectado."
+        },
+        "maxStay": {
+          "term": "Máximo de noches (a la llegada)",
+          "text": "La estancia más larga para quien llega ese día. 0 = sin máximo."
+        },
+        "closedToArrival": {
+          "term": "Sin llegadas",
+          "text": "Cerrado a la llegada: nadie puede llegar ese día; quien ya esté hospedado no se ve afectado."
+        },
+        "closedToDeparture": {
+          "term": "Sin salidas",
+          "text": "Cerrado a la salida: nadie puede salir (hacer check-out) ese día."
+        },
+        "stopSell": {
+          "term": "Cerrado a la venta",
+          "text": "Esa noche no se vende en esta tarifa, ni en el motor de reservas ni en las OTAs. El personal puede reservar igualmente, con un aviso."
+        },
+        "availability": {
+          "term": "Disponibles",
+          "text": "Habitaciones activas menos las ocupadas, las fuera de servicio y las reservas de ese tipo que aún no tienen habitación."
+        },
+        "price": {
+          "term": "Precio por noche",
+          "text": "El precio base de una noche. Los recargos por huésped del plan se suman encima."
+        },
+        "calendarAdjustment": {
+          "term": "Ajuste del calendario",
+          "text": "Un precio o regla escrito en el Calendario. Gana sobre temporadas y promociones; si hay varios, gana el más reciente."
+        },
+        "namedRule": {
+          "term": "Regla con nombre",
+          "text": "Una temporada, promoción o regla de reserva creada en su pestaña. El Calendario nunca la modifica."
+        }
+      },
+      "sellOnChannels": {
+        "label": "Vender en canales",
+        "column": "En canales",
+        "off": "No se vende en canales",
+        "roomTypeHint": "Se ofrece en Booking.com, Expedia, Airbnb y los demás canales. Apágalo para venderlo solo directamente (recepción y tu motor de reservas).",
+        "ratePlanHint": "Se ofrece en los canales. Apágalo para tarifas solo para venta directa (por ejemplo, tarifas de empresas o de recepción)."
       }
     },
     "bookingCalendar": {
@@ -2184,47 +2916,732 @@
       "today": "Hoy",
       "room": "Habitación",
       "unassigned": "Sin asignar",
-      "noRooms": "No se encontraron habitaciones activas."
+      "noRooms": "No se encontraron habitaciones activas.",
+      "outOfService": "Fuera de servicio",
+      "newReservation": "Nueva reserva",
+      "blockRoom": "Poner habitación fuera de servicio",
+      "assignRoom": "Asignar una habitación",
+      "noFreeRooms": "Ninguna habitación está libre todas las noches de esta estadía. Libere una habitación o cambie las fechas.",
+      "viewDetails": "Ver detalles",
+      "bookedType": "Tipo de habitación reservado",
+      "otherRooms": "Otras habitaciones (mejora)",
+      "roomAssigned": "Habitación {{room}} asignada",
+      "assignFailed": "No se pudo asignar la habitación",
+      "clickToAssign": "Haga clic para asignar una habitación",
+      "unassignedCount_one": "{{count}} habitación por asignar",
+      "unassignedCount_other": "{{count}} habitaciones por asignar",
+      "capacity_one": "hasta {{count}} huésped",
+      "capacity_other": "hasta {{count}} huéspedes",
+      "occupancy": "{{pct}}% ocup.",
+      "occupancyTooltip": "{{sold}} de {{total}} habitaciones ocupadas ({{pct}}%)",
+      "dragToMove": "Arrastra para mover",
+      "moved": "Reserva movida",
+      "moveFailed": "No se pudo mover la reserva",
+      "moveToUnassigned": "Aquí no se puede quitar la habitación de una estadía. Ábrela para cambiar habitaciones.",
+      "moveNoPermission": "No tienes permiso para hacer este cambio",
+      "moveCheckedIn": "El huésped ya hizo check-in: solo se puede cambiar la habitación",
+      "movePast": "El check-in no puede ser en el pasado",
+      "moveAlreadyAssigned": "Esta habitación ya está en la reserva",
+      "moveTaken": "{{room}} está ocupada por {{guest}} en esas noches",
+      "moveBlocked": "{{room}} está fuera de servicio en esas noches"
     },
-    "ota": {
-      "conflicts": {
-        "heading": "Cola de conflictos OTA",
-        "pendingBadge": "{{count}} pendientes",
-        "statusFilter": "Estado",
-        "empty": "No se encontraron conflictos para este filtro.",
-        "loadFailed": "Error al cargar los conflictos",
-        "resolve": "Resolver",
-        "resolveTitle": "Resolver conflicto",
-        "resolved": "Conflicto resuelto",
-        "resolveFailed": "Error al resolver el conflicto",
-        "otaBlock": "Bloqueo OTA",
-        "pillotoBlock": "Reserva de Pilloto",
-        "notes": "Notas (opcional)",
-        "notesHint": "Añade contexto para el registro de auditoría.",
-        "submitResolve": "Enviar resolución",
-        "exactMatch": "Coincidencia exacta",
-        "overlap": "Superposición",
-        "table": {
-          "provider": "Proveedor / Listado",
-          "otaBlock": "Bloqueo OTA",
-          "pillotoReservation": "Reserva Pilloto",
-          "type": "Tipo",
-          "status": "Estado",
-          "detected": "Detectado"
+    "roomBlocks": {
+      "action": "Fuera de servicio",
+      "title": {
+        "create": "Poner habitación fuera de servicio",
+        "edit": "Habitación fuera de servicio"
+      },
+      "help": "Mientras una habitación está fuera de servicio no se ofrece esas noches en el motor de reservas ni en los canales conectados, y no se puede asignar a una reserva.",
+      "fields": {
+        "room": "Habitación",
+        "from": "Primera noche fuera de servicio",
+        "until": "Vuelve a estar disponible el",
+        "reason": "Motivo",
+        "notes": "Notas"
+      },
+      "reasons": {
+        "maintenance": "Mantenimiento",
+        "out_of_order": "Averiada",
+        "owner_use": "Uso del propietario",
+        "other": "Otro"
+      },
+      "summary_one": "{{room}} no se venderá {{count}} noche ({{from}}). Vuelve a estar disponible el {{until}}.",
+      "summary_other": "{{room}} no se venderá {{count}} noches ({{from}} al {{last}}). Vuelve a estar disponible el {{until}}.",
+      "conflictTitle": "Esta habitación tiene reservas en estas fechas",
+      "conflictHint": "Mueva primero estas reservas a otra habitación, o bloquee la habitación de todos modos (las reservas conservan esta habitación y necesitarán otra).",
+      "blockAnyway": "Bloquear de todos modos",
+      "save": "Guardar",
+      "create": "Bloquear habitación",
+      "delete": "Eliminar bloqueo",
+      "confirmDelete": "¿Eliminar este bloqueo? La habitación se podrá vender de nuevo esas noches.",
+      "cancel": "Cancelar",
+      "close": "Cerrar",
+      "errors": {
+        "dates": "Elija la primera noche y el día en que la habitación vuelve a estar disponible (después de la primera noche)."
+      },
+      "messages": {
+        "created": "Habitación puesta fuera de servicio",
+        "updated": "Bloqueo actualizado",
+        "deleted": "Bloqueo eliminado",
+        "failed": "No se pudo guardar el bloqueo",
+        "loadFailed": "No se pudieron cargar los bloqueos"
+      },
+      "list": {
+        "title": "Fuera de servicio — {{room}}",
+        "empty": "No hay bloqueos actuales ni próximos para esta habitación.",
+        "add": "Agregar bloqueo",
+        "view": "Ver"
+      }
+    },
+    "channelManager": {
+      "noPermission": "No tienes permiso para ver el Channel Manager.",
+      "noPlan": "El Channel Manager conecta Pilloto con Booking.com, Expedia, Airbnb y más, y no está incluido en tu plan actual. Cámbiate a un plan Pro o Enterprise para activarlo.",
+      "loadFailed": "No se pudo cargar el Channel Manager.",
+      "notConfigured": "El Channel Manager aún no está configurado en este servidor. Puedes preparar todo, pero la activación no estará disponible hasta que se configure.",
+      "glossary": {
+        "button": "Glosario",
+        "title": "Glosario del Channel Manager",
+        "channelManager": {
+          "term": "Channel Manager",
+          "text": "El servicio de Pilloto que envía a todas las OTAs tus precios, reglas y disponibilidad desde un solo lugar y trae las reservas de vuelta."
         },
-        "statusLabels": {
-          "all": "Todos",
-          "pending_review": "Pendiente de revisión",
-          "resolved_keep_pilloto": "Mantener Pilloto",
-          "resolved_accept_ota": "Aceptar OTA",
-          "resolved_outside_system": "Resuelto externamente",
-          "ignored_false_positive": "Falso positivo"
+        "ota": {
+          "term": "OTA",
+          "text": "Agencia de viajes en línea: Booking.com, Expedia, Airbnb, VRBO, Despegar…"
         },
-        "resolutionLabels": {
-          "resolved_keep_pilloto": "Mantener reserva de Pilloto (el bloqueo OTA es un duplicado falso)",
-          "resolved_accept_ota": "Aceptar reserva OTA (se requerirá creación manual de reserva)",
-          "resolved_outside_system": "Resuelto fuera del sistema",
-          "ignored_false_positive": "Ignorar — falso positivo, mismo bloqueo de ambos lados"
+        "channel": {
+          "term": "Canal",
+          "text": "La conexión de tu propiedad con una OTA. Cada OTA es un canal."
+        },
+        "mapping": {
+          "term": "Mapeo",
+          "text": "Decirle a cada OTA qué habitación y tarifa suya corresponde a cada tipo de habitación y tarifa de Pilloto. Se hace una vez por OTA."
+        },
+        "roomTypeRate": {
+          "term": "Tipo de habitación y tarifa",
+          "text": "Lo que las OTAs ven de Pilloto: cada tipo de habitación y cada plan de tarifa activo se crean allá automáticamente."
+        },
+        "fullSync": {
+          "term": "Sincronizar todo",
+          "text": "Enviar a las OTAs todos los precios y la disponibilidad de los próximos 500 días. Se hace al activar y una vez por noche; el resto del tiempo solo se envían los cambios."
+        },
+        "availability": {
+          "term": "Disponibilidad",
+          "text": "Cuántas habitaciones de cada tipo quedan por noche. Se calcula con tus habitaciones, reservas y bloqueos."
+        },
+        "ratesIncludeTaxes": {
+          "term": "Precios con impuestos",
+          "text": "Si lo activas, a las OTAs se les envía el precio con impuestos incluidos. Si no, el precio base y las OTAs suman los impuestos que configures en su panel."
+        },
+        "overbooking": {
+          "term": "Sobreventa",
+          "text": "Cuando una OTA vende una habitación que ya no queda. Las reservas de OTAs nunca se rechazan: aparecen como alerta para resolverlas."
+        }
+      },
+      "checks": {
+        "fix": "Arreglar",
+        "currency": {
+          "ok": "Moneda configurada.",
+          "problem": "Falta la moneda en la que vendes. Se configura en el perfil de la propiedad."
+        },
+        "timezone": {
+          "ok": "Zona horaria configurada.",
+          "problem": "Falta la zona horaria de la propiedad. Se configura en el perfil de la propiedad."
+        },
+        "contact": {
+          "ok": "Datos de contacto completos.",
+          "problem": "Completa en el perfil de la propiedad el correo, teléfono, dirección, ciudad, país y código postal. Las OTAs los exigen para conectar."
+        },
+        "roomTypes": {
+          "ok": "Tienes tipos de habitación activos.",
+          "problem": "Crea al menos un tipo de habitación activo."
+        },
+        "rooms": {
+          "ok": "Tus tipos de habitación tienen habitaciones activas.",
+          "problem": "Agrega al menos una habitación activa a un tipo de habitación activo."
+        },
+        "ratePlans": {
+          "ok": "Tienes planes de tarifa activos.",
+          "problem": "Crea un plan de tarifa activo para un tipo de habitación que tenga habitaciones activas."
+        },
+        "limits": {
+          "ok": "Dentro de los límites del Channel Manager.",
+          "problem": "El Channel Manager admite hasta 20 tipos de habitación y 200 planes de tarifa por propiedad."
+        },
+        "roomTypesWithoutRooms": {
+          "ok": "Todos los tipos de habitación tienen habitaciones.",
+          "problem_one": "{{count}} tipo de habitación no tiene habitaciones activas y no se ofrecerá en las OTAs.",
+          "problem_other": "{{count}} tipos de habitación no tienen habitaciones activas y no se ofrecerán en las OTAs."
+        },
+        "unattributableReservations": {
+          "ok": "Todas las reservas próximas tienen habitación.",
+          "problem_one": "{{count}} reserva próxima no tiene habitación ni tipo de habitación, así que no reduce la disponibilidad en las OTAs. Asígnale una habitación.",
+          "problem_other": "{{count}} reservas próximas no tienen habitación ni tipo de habitación, así que no reducen la disponibilidad en las OTAs. Asígnales una habitación."
+        },
+        "noPriceNights": {
+          "ok": "Todas las noches de los próximos 30 días tienen precio.",
+          "problem_one": "{{count}} noche de los próximos 30 días tiene precio 0 o menor: se enviará como cerrada a la venta.",
+          "problem_other": "{{count}} noches de los próximos 30 días tienen precio 0 o menor: se enviarán como cerradas a la venta."
+        }
+      },
+      "wizard": {
+        "title": "Activar Channel Manager",
+        "loadFailed": "No se pudo cargar esta información.",
+        "readOnly": "Solo puedes ver el asistente. Pide a un administrador con permiso para gestionar el Channel Manager que lo complete.",
+        "steps": {
+          "intro": "Introducción",
+          "property": "Tu propiedad",
+          "rooms": "Habitaciones",
+          "prices": "Precios",
+          "rules": "Reglas",
+          "bookings": "Reservas",
+          "activate": "Activar",
+          "next": "Siguiente paso"
+        },
+        "intro": {
+          "heading": "Vende en las OTAs sin llevar dos calendarios",
+          "what": "El Channel Manager conecta Pilloto con Booking.com, Expedia, Airbnb y otras OTAs. Pilloto envía tus precios, reglas de reserva y disponibilidad, y las reservas de las OTAs llegan solas a Pilloto.",
+          "changesTitle": "Qué cambia en tu día a día",
+          "changes": {
+            "prices": "Los precios y los cierres se manejan solo en Pilloto (en el Calendario). Ya no se editan en cada OTA.",
+            "bookings": "Las reservas de las OTAs llegan automáticamente a Pilloto, con la insignia del canal.",
+            "alerts": "Si algo necesita tu atención (por ejemplo una sobreventa), aparece como alerta."
+          },
+          "otasTitle": "OTAs compatibles",
+          "plan": "El Channel Manager está incluido en tu plan de Pilloto, sin costo adicional."
+        },
+        "property": {
+          "intro": "Estos son los datos de tu propiedad que verán las OTAs. Vienen del perfil de la propiedad; si algo falta o está mal, corrígelo allí y vuelve.",
+          "allGood": "Los datos de la propiedad están completos."
+        },
+        "rooms": {
+          "intro": "Cada tipo de habitación es lo que los huéspedes reservan en las OTAs. Revisa que las habitaciones y capacidades sean correctas.",
+          "roomType": "Tipo de habitación",
+          "rooms": "Habitaciones",
+          "capacity": "Capacidad",
+          "rates": "Tarifas",
+          "allGood": "Todo en orden con tus habitaciones.",
+          "notOnChannels": "Estos tipos de habitación no se venden en canales y no se enviarán: {{names}}. Se cambia en Configuración → Tipos de habitación («Vender en canales»)."
+        },
+        "prices": {
+          "intro": "Estos son los precios por noche que recibirán las OTAs, calculados de tus planes de tarifa, temporadas y ajustes del calendario. No tienes que configurar nada dos veces.",
+          "taxQuestion": "¿Los precios que ven los huéspedes en las OTAs incluyen impuestos?",
+          "taxNo": "No, los impuestos se suman aparte",
+          "taxYes": "Sí, incluyen impuestos",
+          "taxHint": "Los impuestos (ITBIS, servicio) se configuran también en el panel de cada OTA, de la misma forma.",
+          "plan": "Tarifa",
+          "range": "30 días (mín – máx)",
+          "fullOccupancy": "Precio por noche con la ocupación completa de la habitación, antes de cargos por huésped adicional de las OTAs."
+        },
+        "rules": {
+          "intro": "Opcional: reglas como mínimo de noches los fines de semana o fechas cerradas. Puedes omitirlo y hacerlo después en el Calendario.",
+          "none": "Aún no hay reglas de reserva.",
+          "skip": "Omitir"
+        },
+        "bookings": {
+          "intro": "Las OTAs no traen reservas anteriores a la conexión. Revisa que todas tus reservas futuras (incluidas las que vinieron de OTAs) estén en Pilloto, para que la disponibilidad enviada sea correcta. Cada cuadro es una noche (verde = todo libre, naranja = parcial, rojo = agotado).",
+          "confirm": "Todas mis reservas futuras ya están en Pilloto"
+        },
+        "activate": {
+          "intro": "Todo listo para conectar tu propiedad al Channel Manager y enviar tus tipos de habitación y tarifas.",
+          "summary": "Se enviará «{{name}}» con {{rooms}} tipos de habitación y {{plans}} planes de tarifa.",
+          "button": "Activar Channel Manager",
+          "blocked": "Arregla los puntos en rojo para poder activar.",
+          "working": "Creando tu propiedad, tipos de habitación y tarifas… puede tardar unos segundos.",
+          "failed": "No se pudo activar. No se perdió nada; inténtalo de nuevo en unos minutos.",
+          "bookingsNotConfirmed": "No confirmaste que tus reservas futuras estén en Pilloto (paso Reservas). Puedes activar igualmente, pero revisa la disponibilidad antes de conectar una OTA.",
+          "partial": "Algunos elementos no se pudieron crear. Puedes volver a pulsar «Activar» para reintentar solo lo que falta.",
+          "propertyDone": "Propiedad conectada al Channel Manager",
+          "roomTypesDone_one": "{{count}} tipo de habitación enviado",
+          "roomTypesDone_other": "{{count}} tipos de habitación enviados",
+          "ratePlansDone_one": "{{count}} plan de tarifa enviado",
+          "ratePlansDone_other": "{{count}} planes de tarifa enviados",
+          "fullSyncDone": "500 días de disponibilidad y precios enviados",
+          "fullSyncPending": "Enviando 500 días de disponibilidad y precios…",
+          "itemFailed": "«{{name}}» no se pudo enviar. Pulsa «Activar» de nuevo para reintentarlo; si sigue fallando, contacta a soporte."
+        },
+        "next": {
+          "done": "¡Channel Manager activado!",
+          "connect": "El siguiente paso es conectar tu primer canal (Booking.com, Expedia, Airbnb…). Te guiamos paso a paso.",
+          "home": "Ir al Channel Manager",
+          "connectButton": "Conectar mi primer canal"
+        }
+      },
+      "home": {
+        "title": "Channel Manager",
+        "saveFailed": "No se pudo guardar.",
+        "state": {
+          "active": "Activo",
+          "provisioning": "Preparando",
+          "error": "Con errores",
+          "disabled": "Desactivado"
+        },
+        "stateText": {
+          "active": "«{{name}}» está lista para conectarse a las OTAs.",
+          "provisioning": "Estamos preparando tu propiedad en el Channel Manager…",
+          "error": "Hubo un problema preparando tu propiedad. Nuestro equipo ya puede verlo; si no se resuelve pronto, contacta a soporte.",
+          "disabled": "El Channel Manager está desactivado."
+        },
+        "issues_one": "{{count}} elemento necesita atención:",
+        "issues_other": "{{count}} elementos necesitan atención:",
+        "optionsTitle": "Opciones",
+        "options": {
+          "autoAssign": {
+            "label": "Asignar habitación automáticamente a las reservas de OTAs",
+            "hint": "Si hay una habitación libre del tipo reservado, se asigna sola. Si no, queda en el carril «Sin asignar» del calendario."
+          },
+          "guestEmail": {
+            "label": "Enviar mi correo de confirmación a los huéspedes de OTAs",
+            "hint": "La OTA ya les envía su propia confirmación; normalmente se deja apagado."
+          },
+          "taxes": {
+            "label": "Enviar precios con impuestos incluidos",
+            "hint": "Cámbialo solo si los impuestos están incluidos en los precios que ven los huéspedes en las OTAs."
+          }
+        },
+        "propertyTitle": "Datos de la propiedad",
+        "propertyChangeNote": "El nombre, el contacto y la zona horaria se editan en el perfil de la propiedad y se envían solos a los canales.",
+        "disable": "Desactivar Channel Manager",
+        "disableTitle": "¿Desactivar el Channel Manager?",
+        "disableText": "Pilloto dejará de enviar precios y disponibilidad. Si tienes canales activos, seguirán vendiendo con los últimos datos enviados, por eso primero debes desactivarlos. Tu configuración se conserva y puedes reactivar cuando quieras.",
+        "disableConfirm": "Desactivar",
+        "disableFailed": "No se pudo desactivar.",
+        "syncActivity": {
+          "title": "Actividad de sincronización",
+          "intro": "Las actualizaciones que Pilloto envía a tus canales. Los cambios se agrupan y se envían unos segundos después de hacerlos.",
+          "fullSync": "Reenviar todo a mis canales",
+          "fullSyncHint": "Vuelve a enviar los próximos 500 días de disponibilidad, precios y reglas. Úsalo si algo parece desfasado; Pilloto también lo hace automáticamente cada noche.",
+          "fullSyncQueued": "Reenvío iniciado. Aparecerá abajo en unos segundos.",
+          "fullSyncWait": "Acabas de reenviar todo. Inténtalo de nuevo en unos minutos.",
+          "fullSyncFailed": "No se pudo iniciar el reenvío.",
+          "refresh": "Actualizar",
+          "empty": "Aún no se ha enviado nada.",
+          "pending_one": "{{count}} cambio esperando ser enviado",
+          "pending_other": "{{count}} cambios esperando ser enviados",
+          "paused": "El envío está en pausa hasta las {{time}} porque los canales pidieron ir más despacio o no respondían. No se pierde nada; se reanuda solo.",
+          "someFailed": "Algunos envíos recientes fallaron. Pilloto los reintenta solo; si el aviso no desaparece, contacta a soporte.",
+          "lastPush": "Último envío: {{time}}",
+          "lastFull": "Último reenvío completo: {{time}}",
+          "columns": {
+            "time": "Hora",
+            "trigger": "Origen",
+            "kind": "Qué",
+            "dates": "Fechas",
+            "status": "Estado"
+          },
+          "triggers": {
+            "delta": "Cambio",
+            "full_sync": "Reenvío completo",
+            "manual": "Manual"
+          },
+          "kinds": {
+            "availability": "Disponibilidad",
+            "restrictions": "Precios y reglas",
+            "structure": "Habitaciones y tarifas"
+          },
+          "status": {
+            "ok": "Enviado",
+            "warning": "Enviado con avisos",
+            "error": "Falló"
+          },
+          "prev": "Anterior",
+          "next": "Siguiente"
+        },
+        "problem": "Algo no funcionó como debía con el Channel Manager. No se pierde nada de lo que cambias en Pilloto; si el aviso no desaparece, contacta a soporte.",
+        "issueStatus": {
+          "remap_required": "cambió de capacidad; hay que volver a mapear sus tarifas en los canales",
+          "failed": "no se pudo enviar a los canales"
+        },
+        "bookingInbox": {
+          "title": "Reservas de los canales",
+          "intro": "Las reservas que llegan de tus canales (Booking.com, Expedia, Airbnb…). Pilloto las recibe en segundos y vuelve a revisar cada 2 minutos por si alguna se quedó en el camino.",
+          "refresh": "Actualizar",
+          "empty": "Aún no ha llegado ninguna reserva de tus canales.",
+          "someFailed": "Algunas reservas no se pudieron importar. Revisa la lista; Pilloto avisó a soporte.",
+          "open": "Abrir reserva",
+          "columns": {
+            "received": "Recibida",
+            "channel": "Canal",
+            "code": "Código",
+            "guest": "Huésped",
+            "stay": "Estancia",
+            "change": "Cambio",
+            "state": "Estado"
+          },
+          "status": {
+            "new": "Nueva",
+            "modified": "Modificada",
+            "cancelled": "Cancelada"
+          },
+          "state": {
+            "waiting": "Procesando",
+            "imported": "Importada",
+            "outdated": "Ya actualizada",
+            "failed": "No se pudo importar"
+          },
+          "stateHint": {
+            "waiting": "Pilloto la está procesando.",
+            "imported": "Está en Pilloto.",
+            "outdated": "Llegó un cambio más reciente de esta reserva; se aplicó ese.",
+            "failed": "Pilloto no pudo importarla. Soporte ya fue avisado."
+          },
+          "prev": "Anterior",
+          "next": "Siguiente"
+        }
+      },
+      "channels": {
+        "title": "Canales",
+        "connect": "Conectar un canal",
+        "openScreen": "Abrir pantalla de canales",
+        "empty": "Aún no tienes canales conectados. Conecta el primero: Booking.com, Expedia, Airbnb…",
+        "inactive": "Tus canales aparecerán aquí cuando el Channel Manager esté activo.",
+        "platformOnly": "Pilloto conecta tus canales por ti. Escribe a soporte de Pilloto para conectar uno nuevo; aquí verás su estado.",
+        "loadFailed": "No se pudieron cargar tus canales.",
+        "stale": "No pudimos actualizar el estado de tus canales ahora; se muestra el último conocido.",
+        "state": {
+          "active": "Conectado",
+          "attention": "Necesita atención",
+          "waiting_ota": "Esperando aprobación",
+          "needs_mapping": "Falta mapear",
+          "ready_to_activate": "Listo para activar",
+          "inactive": "Desactivado",
+          "removal_scheduled": "Se eliminará pronto",
+          "removed": "Eliminado"
+        },
+        "stateText": {
+          "active": "{{name}} está conectado: recibe tus precios y disponibilidad, y sus reservas llegan solas a Pilloto.",
+          "attention": "{{name}} está conectado, pero informó un problema. Revisa las alertas del canal.",
+          "waiting_ota": "Esperando que {{name}} apruebe la conexión. Puede tardar desde minutos hasta un día.",
+          "needs_mapping": "Faltan habitaciones o tarifas por mapear en {{name}} antes de poder activarlo.",
+          "ready_to_activate": "{{name}} está mapeado. Actívalo para empezar a vender.",
+          "inactive": "{{name}} está creado pero desactivado: no recibe precios ni envía reservas.",
+          "removal_scheduled": "{{name}} está desactivado y se eliminará pronto si no lo activas.",
+          "removed": "Este canal ya no existe."
+        },
+        "alertsCritical_one": "{{count}} alerta importante",
+        "alertsCritical_other": "{{count}} alertas importantes",
+        "alertsWarning_one": "{{count}} aviso",
+        "alertsWarning_other": "{{count}} avisos",
+        "lastEvent": "Última novedad: {{time}}",
+        "connectedAt": "Creado el {{time}}",
+        "continue": "Continuar conexión",
+        "stepOf": "paso {{step}} de {{total}}",
+        "inProgress": "A medias",
+        "inProgressText": "Empezaste a conectar {{name}} (paso {{step}} de {{total}}). Continúa donde lo dejaste.",
+        "dialogTitle": "Pantalla de canales",
+        "dialogIntro": "Aquí creas, mapeas y activas tus canales. Precios, disponibilidad y reglas se cambian solo en Pilloto.",
+        "done": "Listo",
+        "frame": {
+          "title": "Conexión de canales",
+          "loading": "Abriendo la pantalla de conexión…",
+          "failed": "No se pudo abrir la pantalla de conexión.",
+          "retry": "Reintentar",
+          "newWindow": "Abrir en una ventana nueva",
+          "newWindowHint": "Úsalo si la página de inicio de sesión del canal no carga aquí.",
+          "newWindowBlocked": "Tu navegador bloqueó la ventana nueva. Permite las ventanas emergentes para este sitio e inténtalo otra vez.",
+          "openedNewWindow": "La pantalla de conexión se abrió en una ventana nueva. Cuando termines allí, ciérrala y continúa aquí."
+        }
+      },
+      "connect": {
+        "pickTitle": "Conectar un canal",
+        "pickIntro": "Elige el canal que quieres conectar. Te guiamos paso a paso; puedes cerrar en cualquier momento y seguir luego.",
+        "noneOffered": "Todavía no hay canales disponibles para conectar. Contacta a soporte de Pilloto.",
+        "alreadyConnected": "Ya conectado",
+        "choose": "Conectar {{name}}",
+        "otherChannel": "Elegir otro canal",
+        "close": "Cerrar",
+        "title": "Conectar {{name}}",
+        "back": "Atrás",
+        "next": "Continuar",
+        "readOnly": "Puedes ver el asistente, pero solo un administrador del Channel Manager puede avanzar.",
+        "loadFailed": "No se pudo cargar el progreso de esta conexión.",
+        "saveFailed": "No se pudo guardar el progreso.",
+        "steps": {
+          "before": "Antes de empezar",
+          "authorize": "Autorizar en {{name}}",
+          "connect": "Conectar y mapear",
+          "verify": "Activar y verificar",
+          "done": "Listo"
+        },
+        "before": {
+          "intro": "Revisa esto en {{name}} antes de conectar. Marca cada punto cuando esté hecho.",
+          "allNeeded": "Marca todos los puntos para continuar."
+        },
+        "authorize": {
+          "intro": "Autoriza a Pilloto a enviar tus precios y disponibilidad a {{name}}:",
+          "done": "Ya lo hice"
+        },
+        "connect": {
+          "intro": "En esta pantalla conecta {{name}} y mapea tus habitaciones y tarifas. A la derecha tienes los pasos.",
+          "stepsTitle": "Qué hacer aquí",
+          "rulesTitle": "Reglas para mapear",
+          "rules": {
+            "every": "Mapea TODAS las habitaciones y tarifas de {{name}}. Una reserva de una tarifa sin mapear llega sin tipo de habitación.",
+            "oneToOne": "Cada habitación de {{name}} va a un solo tipo de habitación de Pilloto; nunca mapees dos habitaciones de {{name}} al mismo tipo.",
+            "pricesInPilloto": "Precios, disponibilidad y reglas se cambian solo en Pilloto; esta pantalla no los edita."
+          },
+          "namesTitle": "Tus tipos de habitación y planes en Pilloto",
+          "noNames": "No hay tipos de habitación que se vendan en canales.",
+          "docs": "Guía detallada de este canal (en inglés)",
+          "platformOnly": "Pilloto conecta {{name}} por ti. Escribe a soporte de Pilloto con el ID de tu propiedad en {{name}}; cuando esté conectado lo verás en el paso siguiente."
+        },
+        "verify": {
+          "intro": "Comprobamos el estado de {{name}} cada pocos segundos.",
+          "noChannel": "Todavía no vemos {{name}}. Vuelve al paso anterior y créalo en la pantalla de conexión.",
+          "noChannelPlatform": "Todavía no vemos {{name}}. Aparecerá aquí cuando Pilloto lo conecte.",
+          "problems": {
+            "mapping_one": "{{count}} habitación o tarifa por mapear",
+            "mapping_other": "{{count}} habitaciones o tarifas por mapear",
+            "settings_one": "{{count}} dato de la conexión por completar",
+            "settings_other": "{{count}} datos de la conexión por completar",
+            "other_one": "{{count}} punto pendiente",
+            "other_other": "{{count}} puntos pendientes"
+          },
+          "mapHint": "Vuelve al paso anterior y termina el mapeo.",
+          "activateHint": "Pulsa «Activate» en la pantalla de conexión (paso anterior).",
+          "waitingButton": "Ya pedí la conexión; estoy esperando a {{name}}",
+          "waitingSaved": "Anotado. Puedes cerrar el asistente: la tarjeta del canal mostrará «Esperando aprobación» y podrás seguir desde ahí.",
+          "active": "¡{{name}} está activo!",
+          "fullSyncOk": "Pilloto envió todos tus precios y disponibilidad ({{time}}).",
+          "fullSyncPending": "Pilloto está enviando todos tus precios y disponibilidad…",
+          "fullSyncError": "El envío completo tuvo un problema y se reintentará solo. También puedes usar «Reenviar todo a mis canales».",
+          "spotCheck": "Comprueba 3 fechas en la extranet de {{name}} (un día de semana, un fin de semana y una fecha cerrada) y compáralas con el Calendario de Pilloto.",
+          "stale": "No pudimos comprobar el estado ahora; se muestra el último conocido."
+        },
+        "done": {
+          "title": "{{name}} está conectado",
+          "text": "Las reservas de {{name}} llegarán solas a Pilloto y tus cambios de precios y disponibilidad se enviarán en segundos.",
+          "items": {
+            "prices": "Cambia precios, disponibilidad y reglas solo en Pilloto.",
+            "alerts": "Revisa a diario los avisos del Channel Manager.",
+            "cards": "Las tarjetas virtuales de {{name}} se consultan en su extranet."
+          },
+          "finish": "Volver al Channel Manager"
+        }
+      }
+    },
+    "channelAlerts": {
+      "title": "Alertas de canales",
+      "subtitle": "Problemas de tus canales que necesitan atención. Cada alerta explica qué pasó y qué hacer.",
+      "empty": "No hay alertas con estos filtros.",
+      "emptyActive": "Todo en orden: no hay alertas activas.",
+      "loadFailed": "No se pudieron cargar las alertas.",
+      "noPlan": "Tu plan no incluye el Channel Manager.",
+      "refresh": "Actualizar",
+      "filters": {
+        "status": "Estado",
+        "type": "Tipo",
+        "severity": "Gravedad",
+        "anyType": "Todos los tipos",
+        "anySeverity": "Todas",
+        "statuses": {
+          "active": "Activas",
+          "open": "Nuevas",
+          "acknowledged": "En revisión",
+          "resolved": "Resueltas",
+          "dismissed": "Descartadas",
+          "all": "Todas"
+        }
+      },
+      "status": {
+        "open": "Nueva",
+        "acknowledged": "En revisión",
+        "resolved": "Resuelta",
+        "dismissed": "Descartada"
+      },
+      "severity": {
+        "critical": "Crítica",
+        "warning": "Aviso",
+        "info": "Información"
+      },
+      "summary": "{{critical}} críticas · {{open}} nuevas · {{acknowledged}} en revisión",
+      "occurrences": "Ocurrió {{count}} veces",
+      "autoResolved": "Se resolvió sola",
+      "lastSeen": "Última vez: {{time}}",
+      "whatHappened": "Qué pasó",
+      "whatToDo": "Qué hacer",
+      "details": "Detalles",
+      "channelMessages": "Mensaje del canal",
+      "competing": "Reservas en conflicto",
+      "thisReservation": "Esta reserva",
+      "openReservation": "Abrir",
+      "notes": "Notas",
+      "notesPlaceholder": "Qué hiciste o por qué (opcional)",
+      "resolvedBy": "Resuelta por {{name}} · {{time}}",
+      "acknowledgedBy": "En revisión por {{name}} · {{time}}",
+      "noResolvePermission": "No tienes permiso para resolver alertas.",
+      "actionFailed": "No se pudo guardar.",
+      "close": "Cerrar",
+      "buttons": {
+        "acknowledge": "Marcar en revisión",
+        "resolve": "Marcar resuelta",
+        "dismiss": "Descartar"
+      },
+      "actions": {
+        "reservation": "Abrir reserva",
+        "channels": "Ir al Channel Manager",
+        "calendar": "Abrir calendario de precios",
+        "airbnb_request": "Responder"
+      },
+      "aChannel": "Un canal",
+      "aBooking": "Una reserva de canal",
+      "aGuest": "Un huésped",
+      "someDates": "unas fechas",
+      "stay": "del {{checkIn}} al {{checkOut}} ({{nights}} noches)",
+      "stayFrom": "a partir del {{checkIn}}",
+      "booking": "{{ota}} {{code}}",
+      "bookingGuest": "{{ota}} {{code}} ({{guest}})",
+      "diff": {
+        "checkIn": "Llegada",
+        "checkOut": "Salida",
+        "rooms": "Habitaciones",
+        "total": "Total",
+        "guests": "Huéspedes"
+      },
+      "airbnb": {
+        "requestedStay": "Estadía solicitada",
+        "guests": "{{adults}} adultos, {{children}} niños",
+        "guestsAdults": "{{adults}} adultos",
+        "payout": "Pago estimado",
+        "message": "Mensaje del huésped",
+        "deadline": "Responde antes de: {{time}}",
+        "timeLeft": "Quedan {{hours}} h {{minutes}} min",
+        "expired": "El plazo de 24 horas venció",
+        "availability": "Disponibilidad de esas noches",
+        "availabilityRequested": "Disponibilidad del tipo de habitación solicitado",
+        "availabilityAll": "No se sabe qué tipo pidió: disponibilidad de todos",
+        "bookable": "Disponible todas las noches",
+        "notBookable": "Sin disponibilidad alguna noche",
+        "noAvailability": "No se pudo calcular la disponibilidad de esas fechas.",
+        "accept": {
+          "airbnb_reservation_request": "Aceptar reserva",
+          "airbnb_alteration_request": "Aceptar cambio",
+          "airbnb_inquiry": "Preaprobar"
+        },
+        "decline": {
+          "airbnb_reservation_request": "Rechazar",
+          "airbnb_alteration_request": "Rechazar cambio",
+          "airbnb_inquiry": "No responder"
+        },
+        "declineReason": "Motivo",
+        "reasons": {
+          "dates_not_available": "Las fechas no están disponibles",
+          "not_a_good_fit": "La reserva no encaja con la propiedad",
+          "waiting_for_better_reservation": "Espero otra reserva para esas fechas",
+          "not_comfortable": "No me siento cómodo con esta reserva"
+        },
+        "messageToGuest": "Mensaje para el huésped (opcional)",
+        "messageToAirbnb": "Nota para Airbnb (opcional, el huésped no la ve)",
+        "confirmDecline": "Confirmar rechazo",
+        "inquiryDeclineHint": "Airbnb no permite rechazar una consulta: si no respondes, vence sola. Esta alerta se cerrará.",
+        "answered": {
+          "accept": "Aceptada",
+          "decline": "Rechazada",
+          "alreadyAnswered": "Ya se había respondido en Airbnb ({{resolution}})"
+        },
+        "sending": "Enviando…"
+      },
+      "types": {
+        "overbooking": {
+          "title": "Sobreventa",
+          "what": "{{booking}} llegó para fechas sin habitación libre ({{nights}}). Se creó sin habitación asignada: las reservas de los canales nunca se rechazan.",
+          "todo": "Compara las reservas en conflicto y decide: mueve a un huésped a otra habitación o tipo, o pide al canal que lo reubique. Luego marca la alerta como resuelta."
+        },
+        "unmapped_booking": {
+          "title": "Reserva para una habitación o tarifa sin enlazar",
+          "what": "{{booking}} se hizo con una habitación o tarifa del canal que no está enlazada a Pilloto. La reserva se creó, pero sin tipo de habitación, así que no descuenta disponibilidad.",
+          "todo": "Asígnale una habitación en la reserva (la alerta se cierra sola). Después, en Configuración → Channel Manager, abre la pantalla de canales y enlaza esa habitación o tarifa para que no se repita."
+        },
+        "non_acked_booking": {
+          "title": "Reserva de canal pendiente de recibir",
+          "what": "Un canal envió una reserva que Pilloto todavía no ha confirmado como recibida.",
+          "todo": "Normalmente se resuelve sola en unos minutos. Revisa «Reservas recibidas» en el Channel Manager; si sigue pendiente después de 30 minutos, contacta al soporte de Pilloto."
+        },
+        "modification_needs_review": {
+          "title": "Cambio de reserva para revisar",
+          "what": "{{booking}} cambió en el canal después de la llegada. Pilloto actualizó los datos del huésped, pero no las fechas ni las habitaciones.",
+          "what_cancelled": "{{booking}} se canceló en el canal, pero el huésped ya hizo check-in o check-out, así que Pilloto no la canceló.",
+          "what_reinstated": "{{booking}} estaba cancelada y el canal la volvió a activar.",
+          "todo": "Abre la reserva y ajusta fechas, habitaciones o cargos según corresponda; luego marca la alerta como resuelta."
+        },
+        "currency_mismatch": {
+          "title": "Reserva en otra moneda",
+          "what": "{{booking}} llegó en {{bookingCurrency}}, pero tu propiedad trabaja en {{propertyCurrency}}. Los montos se guardaron tal como llegaron.",
+          "todo": "Revisa los montos de la reserva. Configura en el canal la moneda de tus tarifas igual a la de tu propiedad para que no se repita."
+        },
+        "sync_error": {
+          "title": "Error en un canal",
+          "what": "{{channel}} reportó un error al recibir tus precios o disponibilidad.",
+          "todo": "Lee el mensaje del canal. Si menciona una habitación o tarifa, revisa su enlace en la pantalla de canales; si no está claro, contacta al soporte de Pilloto."
+        },
+        "sync_warning": {
+          "title": "Aviso de un canal",
+          "what": "{{channel}} envió un aviso sobre tus precios o disponibilidad.",
+          "todo": "Lee el mensaje. Normalmente no impide vender, pero conviene corregirlo."
+        },
+        "rate_error": {
+          "title": "Un canal rechazó un precio",
+          "what": "{{channel}} rechazó uno de tus precios (por ejemplo, por estar fuera del rango que permite).",
+          "todo": "Revisa ese precio en el Calendario de precios y corrígelo."
+        },
+        "ari_warning": {
+          "title": "Valores no aceptados",
+          "what": "El Channel Manager no aceptó {{count}} valor(es) de disponibilidad que Pilloto envió.",
+          "what_rates": "El Channel Manager no aceptó {{count}} valor(es) de precios o reglas que Pilloto envió.",
+          "todo": "Revisa esas fechas en el Calendario de precios. Pilloto vuelve a enviar todo cada noche."
+        },
+        "push_failing": {
+          "title": "No se pueden enviar cambios a tus canales",
+          "what": "Desde {{since}} Pilloto no consigue enviar tus cambios de precios y disponibilidad. Los cambios no se pierden: se envían en cuanto vuelva la conexión.",
+          "todo": "No tienes que hacer nada: Pilloto sigue reintentando y la alerta se cierra sola. Si dura más de una hora, contacta al soporte de Pilloto y, mientras tanto, cierra en el canal las fechas que vendas por otra vía."
+        },
+        "channel_disconnected": {
+          "title": "Canal desconectado",
+          "what": "{{channel}} se desconectó: ya no recibe tus precios ni disponibilidad, y sus reservas no llegan a Pilloto.",
+          "todo": "Vuelve a conectarlo desde el Channel Manager (por ejemplo, si cambiaste la contraseña del canal). La alerta se cierra sola cuando el canal vuelve a estar activo."
+        },
+        "listing_disconnected": {
+          "title": "Anuncio desconectado",
+          "what": "Un anuncio de {{channel}} se desconectó del Channel Manager.",
+          "todo": "Revisa el anuncio en el canal y vuelve a enlazarlo en la pantalla de canales."
+        },
+        "channel_removal_warning": {
+          "title": "Canal pendiente de eliminación",
+          "what": "{{channel}} está desactivado y se eliminará pronto.",
+          "what_date": "{{channel}} está desactivado y se eliminará el {{removalDate}}.",
+          "todo": "Si quieres seguir vendiendo en este canal, actívalo desde el Channel Manager. Si no, descarta esta alerta."
+        },
+        "property_removal_warning": {
+          "title": "Channel Manager sin canales",
+          "what": "Tu Channel Manager no tiene ningún canal conectado y se eliminará pronto.",
+          "todo": "Conecta un canal desde Configuración → Channel Manager → Conectar un canal."
+        },
+        "remap_required": {
+          "title": "Tarifas por volver a enlazar",
+          "what": "La capacidad de «{{name}}» cambió. Sus tarifas no reciben precios para la nueva ocupación hasta que se vuelvan a crear.",
+          "what_map_in_channels": "Pilloto volvió a crear las tarifas de «{{name}}» para la nueva capacidad.",
+          "todo": "El soporte de Pilloto vuelve a crear esas tarifas; después tendrás que enlazarlas otra vez en cada canal desde la pantalla de canales.",
+          "todo_map_in_channels": "Enlaza las nuevas tarifas en cada canal desde la pantalla de canales. Las anteriores quedaron cerradas a la venta."
+        },
+        "unmap_before_delete": {
+          "title": "Se mantiene en tus canales",
+          "what": "Desactivaste «{{name}}», pero un canal todavía lo tiene enlazado, así que sigue en el Channel Manager, cerrado a la venta.",
+          "todo": "Desenlázalo en la pantalla de canales; Pilloto lo elimina en la siguiente sincronización y la alerta se cierra sola."
+        },
+        "airbnb_reservation_request": {
+          "title": "Solicitud de reserva de Airbnb",
+          "what": "{{guest}} quiere reservar {{stay}}. Airbnb da 24 horas para responder; si no respondes, la solicitud vence.",
+          "todo": "Revisa la disponibilidad de esas noches y acepta o rechaza. Si aceptas, la reserva llega a Pilloto como cualquier otra."
+        },
+        "airbnb_alteration_request": {
+          "title": "Solicitud de cambio de Airbnb",
+          "what": "{{guest}} pide cambiar su reserva a {{stay}}. Tienes 24 horas para responder.",
+          "todo": "Revisa la disponibilidad y acepta o rechaza el cambio. Si aceptas, la reserva se actualiza en Pilloto sola."
+        },
+        "airbnb_inquiry": {
+          "title": "Consulta de Airbnb",
+          "what": "{{guest}} pregunta por {{stay}}.",
+          "todo": "Si quieres recibirlo, preaprueba la consulta para que pueda reservar. Si no, no respondas: las consultas vencen solas."
         }
       }
     }
@@ -2249,7 +3666,11 @@
       "suppliers": "Proveedores",
       "accounting": "Contabilidad",
       "journalEntries": "Asientos Contables",
-      "reports": "Reportes"
+      "reports": "Reportes",
+      "sections": {
+        "sales": "Ventas",
+        "purchases": "Compras"
+      }
     },
     "dashboard": {
       "title": "Panel de Contabilidad",
@@ -3498,6 +4919,19 @@
         "requiredFields": "Por favor completa todos los campos obligatorios",
         "createFailed": "No se pudo crear la reserva de evento"
       }
+    },
+    "setPassword": {
+      "title": "Elige tu contraseña",
+      "subtitle": "Hola {{name}}, crea la contraseña para entrar a {{tenant}} en Pilloto.",
+      "email": "Correo",
+      "password": "Contraseña",
+      "confirm": "Confirma la contraseña",
+      "submit": "Guardar y entrar",
+      "checking": "Comprobando tu invitación…",
+      "invalid": "Este enlace no es válido o ya se usó. Si ya elegiste tu contraseña, inicia sesión.",
+      "expired": "Este enlace venció. Pide a quien te invitó que te envíe uno nuevo.",
+      "failed": "No se pudo guardar la contraseña. Inténtalo de nuevo.",
+      "goToLogin": "Ir a iniciar sesión"
     }
   },
   "companies": {
@@ -3556,20 +4990,30 @@
       "pricing": "Precios",
       "contact": "Contacto",
       "signIn": "Iniciar sesión",
-      "getStarted": "Comenzar"
+      "getStarted": "Solicitar demo",
+      "product": "Productos",
+      "faq": "Preguntas"
     },
     "hero": {
-      "badge": "Diseñado para operaciones de resort",
-      "headline": "El PMS que gestiona",
-      "headlineAccent": "todo tu resort",
-      "body": "Reservaciones, pases de día, eventos, pulseras, facturación y reportes — en una sola plataforma para la hospitalidad caribeña.",
-      "ctaPricing": "Ver precios",
-      "ctaDemo": "Solicitar demo",
-      "trustedBy": "Utilizado por operadores de resort en el Caribe"
+      "badge": "PMS + Contabilidad, una sola plataforma",
+      "headline": "La operación y la contabilidad de tu hotel,",
+      "headlineAccent": "por fin en un solo lugar.",
+      "body": "Pilloto conecta tu recepción, tus canales de venta y tus libros. Reservas, folios, facturación electrónica DGII y contabilidad — hecho para hoteles y resorts en República Dominicana y el Caribe.",
+      "ctaPrimary": "Solicitar demo",
+      "ctaSecondary": "Ver precios",
+      "points": [
+        "14 días de prueba gratis",
+        "Sin costos de instalación",
+        "Español e inglés"
+      ],
+      "mockOccupancy": "Ocupación esta noche",
+      "mockEcf": "e-CF aceptado",
+      "mockArrivals": "Llegadas hoy",
+      "mockCalendar": "Calendario de reservas"
     },
     "features": {
       "heading": "Todo en un solo lugar",
-      "subheading": "Desde el check-in hasta el cierre de caja, Pilloto cubre el flujo operativo diario completo.",
+      "subheading": "Desde el check-in hasta el cierre de caja, Pilloto cubre todo el flujo diario.",
       "roomRate_title": "Gestión de habitaciones y tarifas",
       "roomRate_body": "Tipos de habitación, planes de tarifas, precios escalonados por ocupación y reglas estacionales — todo unificado.",
       "bookingCal_title": "Calendario de reservas",
@@ -3585,7 +5029,8 @@
       "reporting_title": "Reportes de ingresos",
       "reporting_body": "Tasas de ocupación, desglose de ingresos y reportes de cierre de caja.",
       "roles_title": "Roles y permisos",
-      "roles_body": "Control de acceso detallado para recepción, cajeros y gerentes."
+      "roles_body": "Control de acceso detallado para recepción, cajeros y gerentes.",
+      "eyebrow": "Y todo lo demás"
     },
     "pricing": {
       "heading": "Precios simples y transparentes",
@@ -3626,12 +5071,14 @@
         "Auditoría nocturna",
         "Roles y permisos personalizados",
         "Incorporación dedicada"
-      ]
+      ],
+      "eyebrow": "Precios",
+      "accountingAddon": "¿También necesitas Pilloto Contable? Agrégalo a cualquier plan — consulta precios con ventas."
     },
     "cta": {
-      "heading": "¿Listo para modernizar tu propiedad?",
-      "body": "Contáctanos y tendremos tu propiedad activa en minutos.",
-      "contactUs": "Contáctanos",
+      "heading": "¿Listo para ver Pilloto con tu propia propiedad?",
+      "body": "Agenda un recorrido de 30 minutos. Te mostramos la recepción, la facturación y la contabilidad con una configuración como la tuya.",
+      "contactUs": "Solicitar demo",
       "viewPlans": "Ver planes"
     },
     "contact": {
@@ -3659,6 +5106,123 @@
     },
     "footer": {
       "copyright": "© {{year}} Pilloto. Todos los derechos reservados."
+    },
+    "pillars": {
+      "ecf_title": "Listo para e-CF de la DGII",
+      "ecf_body": "Facturas electrónicas, notas de crédito y débito emitidas desde donde facturas.",
+      "channels_title": "Channel manager",
+      "channels_body": "Tarifas y disponibilidad sincronizadas con Booking.com, Expedia, Airbnb y más.",
+      "bilingual_title": "Español e inglés",
+      "bilingual_body": "Cada pantalla en ambos idiomas, a elección de cada usuario.",
+      "cloud_title": "Nada que instalar",
+      "cloud_body": "Funciona en el navegador, en cualquier computadora, tablet o teléfono."
+    },
+    "products": {
+      "eyebrow": "La suite Pilloto",
+      "heading": "Dos productos. Una plataforma.",
+      "subheading": "Empieza con el que necesitas y suma el otro cuando estés listo — comparten huéspedes, empresas y folios desde el primer día.",
+      "pms_tagline": "La recepción, las reservas y el motor de ingresos.",
+      "pms_points": [
+        "Calendario de reservas",
+        "Folios, pagos y cierres de caja",
+        "Planes tarifarios, temporadas y reglas de precio",
+        "Motor de reservas online",
+        "Channel manager",
+        "Pasadías, eventos y pulseras"
+      ],
+      "accounting_tagline": "Facturación, compras y el libro mayor.",
+      "accounting_points": [
+        "Facturas, cotizaciones, notas de crédito y débito",
+        "Facturación electrónica e-CF (DGII)",
+        "Facturas de compra y proveedores",
+        "Inventario y almacenes",
+        "Asientos contables y catálogo de cuentas",
+        "Reportes financieros"
+      ],
+      "learnMore": "Hablar con ventas",
+      "together_title": "Mejor juntos",
+      "together_body": "Carga una estadía a la cuenta de una empresa en el PMS y llega a la Cuenta de Ciudad de Contable al hacer el check-out. Sin volver a digitar, sin sorpresas a fin de mes."
+    },
+    "deepDive": {
+      "eyebrow": "Cómo trabaja tu equipo",
+      "heading": "Diseñado según cómo funcionan los hoteles de verdad",
+      "frontDesk_label": "Recepción",
+      "frontDesk_title": "Una recepción que no se queda atrás",
+      "frontDesk_body": "Ve cada habitación y cada estadía en un solo calendario. Mueve una reserva, asigna habitaciones, haz check-in y check-out y guarda el historial del huésped en un solo perfil.",
+      "frontDesk_points": [
+        "Calendario de reservas con arrastrar y soltar",
+        "Check-in, check-out y asignación de habitaciones",
+        "Perfiles de huéspedes y empresas con historial"
+      ],
+      "revenue_label": "Ingresos y distribución",
+      "revenue_title": "Vende cada habitación, en cada canal",
+      "revenue_body": "Define tus tarifas una vez y deja que fluyan a tu motor de reservas y a las OTAs. Precios por ocupación, temporadas y promociones incluidos.",
+      "revenue_points": [
+        "Planes tarifarios por ocupación",
+        "Temporadas, promociones y fechas bloqueadas",
+        "Reservas directas sin comisión"
+      ],
+      "billing_label": "Facturación y cumplimiento",
+      "billing_title": "Facturación a la manera de la DGII",
+      "billing_body": "Los folios acumulan cargos y pagos automáticamente. A la hora de facturar, emite un e-CF con un clic y cierra la caja al final de cada turno.",
+      "billing_points": [
+        "e-CF tipos E31, E32, E33 y E34",
+        "Impuestos y cargos por servicio configurables",
+        "Cierres de caja con desglose de denominaciones"
+      ],
+      "resort_label": "Operación de resort",
+      "resort_title": "Más allá de la habitación",
+      "resort_body": "Vende pasadías y pasatardes, organiza eventos en la propiedad y controla las pulseras — todo en el mismo folio de la estadía.",
+      "resort_points": [
+        "Venta de pasadías y pasatardes",
+        "Módulo de eventos",
+        "Entrega y uso de pulseras"
+      ]
+    },
+    "onboarding": {
+      "eyebrow": "Cómo empezar",
+      "heading": "En vivo, sin dolores de cabeza",
+      "subheading": "Hacemos la configuración contigo, para que tu equipo se enfoque en los huéspedes.",
+      "step1_title": "Cuéntanos de tu propiedad",
+      "step1_body": "Una llamada corta para entender tus habitaciones, tarifas, canales y cómo facturas hoy.",
+      "step2_title": "Lo configuramos contigo",
+      "step2_body": "Habitaciones, planes tarifarios, impuestos, usuarios y permisos — configurados y revisados juntos.",
+      "step3_title": "Capacita y arranca",
+      "step3_body": "Tu equipo aprende Pilloto con tus propios datos y hacen el cambio con nosotros acompañándolos."
+    },
+    "faq": {
+      "eyebrow": "Preguntas frecuentes",
+      "heading": "Preguntas, respondidas",
+      "items": [
+        {
+          "q": "¿Hay una prueba gratis?",
+          "a": "Sí. Todos los planes incluyen 14 días de prueba gratis, sin tarjeta de crédito."
+        },
+        {
+          "q": "¿Pilloto emite facturas electrónicas (e-CF) de la DGII?",
+          "a": "Sí. Pilloto emite facturas de Crédito Fiscal (E31) y de Consumo (E32), notas de débito (E33) y notas de crédito (E34) directamente desde folios y facturas."
+        },
+        {
+          "q": "¿Puedo conectar Booking.com, Expedia y Airbnb?",
+          "a": "Sí. Los planes Pro y Enterprise incluyen el channel manager, que mantiene sincronizadas la disponibilidad, las tarifas y las reservas con las principales OTAs."
+        },
+        {
+          "q": "¿Puedo usar el PMS y Contable por separado?",
+          "a": "Sí. Cada producto funciona por sí solo. Usados juntos, las estadías cargadas a cuentas de empresas pasan del PMS a Contable automáticamente."
+        },
+        {
+          "q": "¿Tengo que instalar algo?",
+          "a": "No. Pilloto funciona en el navegador, en cualquier computadora, tablet o teléfono. Tus datos viven en la nube y están disponibles donde trabaje tu equipo."
+        },
+        {
+          "q": "¿Qué idiomas soporta?",
+          "a": "Español e inglés. Cada usuario puede elegir su idioma en cualquier momento."
+        }
+      ]
+    },
+    "meta": {
+      "title": "Pilloto — PMS y Contabilidad para hoteles del Caribe",
+      "description": "Reservas, channel manager, folios, facturación electrónica e-CF de la DGII y contabilidad en una sola plataforma en la nube para hoteles y resorts en República Dominicana y el Caribe."
     }
   },
   "legal": {
@@ -3678,11 +5242,12 @@
       "accessibility": "Accesibilidad"
     },
     "footer": {
-      "tagline": "Software de gestión hotelera diseñado para la hospitalidad caribeña.",
+      "tagline": "Software de operación hotelera y contabilidad, hecho para el Caribe.",
       "product": "Producto",
       "legal": "Legal",
       "company": "Empresa",
-      "entity": "Pilloto SRL"
+      "entity": "Pilloto SRL",
+      "products": "Productos"
     },
     "center": {
       "metaTitle": "Centro Legal — Pilloto",
@@ -4339,5 +5904,27 @@
     "checkIn": "Check-In",
     "status": "Estado",
     "total": "Total"
+  },
+  "brand": {
+    "product": {
+      "pms": "pms",
+      "accounting": "contable",
+      "platform": "consola"
+    },
+    "appName": {
+      "pms": "Pilloto PMS",
+      "accounting": "Pilloto Contable",
+      "platform": "Pilloto Consola"
+    }
+  },
+  "platform": {
+    "superAdmin": "Super admin",
+    "nav": {
+      "tenants": "Clientes",
+      "channelManager": "Channel Manager",
+      "sections": {
+        "workspace": "Plataforma"
+      }
+    }
   }
 }

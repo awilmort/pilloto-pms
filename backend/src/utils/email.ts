@@ -22,6 +22,7 @@ import Charge from '../models/Charge';
 import Payment from '../models/Payment';
 import Reservation from '../models/Reservation';
 import { renderReservationConfirmation } from './emailTemplates/reservationConfirmation';
+import { renderInvitation } from './emailTemplates/invitation';
 import { renderInvoice } from './emailTemplates/invoice';
 import { renderCorporatePriceRequest } from './emailTemplates/corporatePriceRequest';
 import { renderEmailVerification } from './emailTemplates/emailVerification';
@@ -175,24 +176,24 @@ async function getTenantInfo(): Promise<{ name: string; slug?: string; logoUrl?:
 
 // ── Public email functions ────────────────────────────────────────────────────
 
+/** The tenant's own app origin: `FRONTEND_URL` with the tenant slug as subdomain (keeps the dev port). */
+export function tenantBaseUrl(slug?: string): string {
+  const rawBase = process.env.FRONTEND_URL || 'http://localhost:3000';
+  if (!slug) return rawBase;
+  try {
+    const parsed = new URL(rawBase);
+    if (parsed.hostname.startsWith(`${slug}.`)) return rawBase;
+    parsed.hostname = `${slug}.${parsed.hostname}`;
+    // Preserve port for dev (e.g. banana-ranch.localhost:3000)
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return rawBase;
+  }
+}
+
 export const sendVerificationEmail = async (user: any, token: string): Promise<void> => {
   const [tenantInfo, emailCfg] = await Promise.all([getTenantInfo(), getTenantEmailConfig()]);
-
-  const rawBase = process.env.FRONTEND_URL || 'http://localhost:3000';
-  let tenantBase = rawBase;
-  if (tenantInfo.slug) {
-    try {
-      const parsed = new URL(rawBase);
-      const hostname = parsed.hostname;
-      if (!hostname.startsWith(`${tenantInfo.slug}.`)) {
-        parsed.hostname = `${tenantInfo.slug}.${hostname}`;
-        // Preserve port for dev (e.g. banana-ranch.localhost:3000)
-        tenantBase = `${parsed.protocol}//${parsed.host}`;
-      }
-    } catch {
-      // fallback: use rawBase unchanged
-    }
-  }
+  const tenantBase = tenantBaseUrl(tenantInfo.slug);
 
   const verifyUrl = `${tenantBase}/verify-email?token=${token}`;
 
@@ -211,6 +212,30 @@ export const sendVerificationEmail = async (user: any, token: string): Promise<v
     html,
     text,
     _logMeta: { emailType: 'email_verification' },
+  });
+};
+
+/** Invitation to choose a first password. Runs in the user's tenant context (subdomain link, tenant branding). */
+export const sendInvitationEmail = async (user: any, token: string, opts: { isOwner?: boolean; expiresInHours: number }): Promise<void> => {
+  const [tenantInfo, emailCfg] = await Promise.all([getTenantInfo(), getTenantEmailConfig()]);
+  const setPasswordUrl = `${tenantBaseUrl(tenantInfo.slug)}/set-password?token=${token}`;
+  const tenantName = emailCfg.fromDisplayName || tenantInfo.name;
+  const { html, text } = renderInvitation({
+    firstName: user.firstName,
+    setPasswordUrl,
+    tenantName,
+    isOwner: opts.isOwner,
+    expiresInHours: opts.expiresInHours,
+    tenantLogoUrl: tenantInfo.logoUrl,
+    customFooterHtml: emailCfg.footerHtml,
+    customFooterText: emailCfg.footerText,
+  });
+  await sendEmail({
+    to: user.email,
+    subject: `Bienvenido a Pilloto — elige tu contraseña (${tenantName})`,
+    html,
+    text,
+    _logMeta: { emailType: 'invitation' },
   });
 };
 

@@ -18,7 +18,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { usePermission } from '../../../lib/permissions';
 import { debitNotesService, invoicesService, DebitNoteLineItemInput } from '../../../services/api';
 import { DebitNote, DebitNoteStatus, DebitNoteReason, DebitNoteFiscalModificationCode, DebitNotePaymentMethod, Invoice, ElectronicInvoice } from '../../../types';
-import { formatMoney } from '../../../utils/currency';
+import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 

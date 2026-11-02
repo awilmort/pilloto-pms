@@ -32,6 +32,7 @@ import DateRangePicker from '../../common/DateRangePicker';
 import { reservationsService, pricingService } from '../../../services/api';
 import { useTranslation } from 'react-i18next';
 import { formatMoney } from '../../../utils/currency';
+import BookingRuleWarnings from './BookingRuleWarnings';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 const DEFAULT_FORM = {
@@ -134,8 +135,10 @@ const BookingCreateDialog: React.FC<Props> = ({
         totalPrice:       parseFloat(form.totalPrice as string) || 0,
       };
       if (ratePlanId) payload.ratePlanId = ratePlanId;
-      await reservationsService.createReservation(payload);
-      onSnackbar(t('admin.reservations.messages.createSuccess', 'Reservation created successfully!'), 'success');
+      const res = await reservationsService.createReservation(payload);
+      onSnackbar((res.data as any)?.warnings?.length
+        ? t('admin.reservations.bookingRuleWarnings.createdWithWarnings')
+        : t('admin.reservations.messages.createSuccess', 'Reservation created successfully!'), 'success');
       onClose();
       onCreated();
     } catch (e: any) {
@@ -261,6 +264,12 @@ const BookingCreateDialog: React.FC<Props> = ({
               onChange={e => setForm(f => ({ ...f, specialRequests: e.target.value }))}
             />
             {error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
+          </Box>
+        )}
+
+        {(step === 1 || step === 3) && ratePlanId && (
+          <Box sx={{ mt: step === 1 ? 2 : 0, mb: step === 3 ? 2 : 0 }}>
+            <BookingRuleWarnings checkIn={form.checkInDate} checkOut={form.checkOutDate} ratePlanIds={[ratePlanId]} />
           </Box>
         )}
 

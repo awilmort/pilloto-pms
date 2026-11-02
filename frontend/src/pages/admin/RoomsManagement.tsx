@@ -43,6 +43,7 @@ import {
   Delete,
   Search,
   Hotel,
+  EventBusy,
 } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { roomsService, adminService, roomTypeService } from '../../services/api';
@@ -51,6 +52,7 @@ import AdminLayout from '../../components/admin/AdminLayout';
 import { RoomIllustration, isIllustrationUrl, getIllustrationByKey, getIllustrationKey } from '../../components/illustrations';
 import { resolveMediaUrl } from '../../services/api';
 import { useTranslation } from 'react-i18next';
+import RoomBlocksDialog from '../../components/admin/roomBlocks/RoomBlocksDialog';
 import Autocomplete from '@mui/material/Autocomplete';
 
 interface RoomFormData {
@@ -110,6 +112,7 @@ const RoomsManagement: React.FC = () => {
   const [newAmenity, setNewAmenity] = useState('');
   const [roomTypes, setRoomTypes] = useState<RoomType[]>([]);
   const [selectedRoomType, setSelectedRoomType] = useState<RoomType | null>(null);
+  const [blocksRoom, setBlocksRoom] = useState<Room | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -429,6 +432,13 @@ const RoomsManagement: React.FC = () => {
                           >
                             {t('admin.rooms.actions.edit')}
                           </Button>
+                          <Button
+                            size="small"
+                            startIcon={<EventBusy />}
+                            onClick={() => setBlocksRoom(room)}
+                          >
+                            {t('admin.roomBlocks.action')}
+                          </Button>
                           {canFullEdit && (
                           <Button
                             size="small"
@@ -527,6 +537,11 @@ const RoomsManagement: React.FC = () => {
                               <Tooltip title={t('admin.rooms.actions.edit')}>
                                 <IconButton size="small" onClick={() => handleEditRoom(room)}>
                                   <Edit />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title={t('admin.roomBlocks.action')}>
+                                <IconButton size="small" onClick={() => setBlocksRoom(room)}>
+                                  <EventBusy />
                                 </IconButton>
                               </Tooltip>
                               {canFullEdit && (
@@ -825,6 +840,14 @@ const RoomsManagement: React.FC = () => {
           </Alert>
         </Snackbar>
       </Container>
+      <RoomBlocksDialog
+        open={Boolean(blocksRoom)}
+        room={blocksRoom}
+        rooms={rooms}
+        canManage={canFullEdit}
+        onClose={() => setBlocksRoom(null)}
+        onSnackbar={showSnackbar}
+      />
     </AdminLayout>
   );
 };

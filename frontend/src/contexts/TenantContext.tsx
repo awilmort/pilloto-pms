@@ -14,6 +14,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import axios from 'axios';
 import { getPlanFeatures, PlanFeatures } from '../config/plans';
 import { AppCode } from '../types';
+import { setPropertyCurrency } from '../utils/currency';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
@@ -143,7 +144,9 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       .get(`${origin}/api/tenant/info`, { headers })
       .then((res) => {
         if (res.data?.data) {
-          setTenant(res.data.data as TenantInfo);
+          const info = res.data.data as TenantInfo;
+          setPropertyCurrency(info.settings?.currency);
+          setTenant(info);
         }
       })
       .catch((err) => {

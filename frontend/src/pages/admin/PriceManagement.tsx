@@ -10,10 +10,13 @@ import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AdminLayout from '../../components/admin/AdminLayout';
 import NumberField from '../../components/common/NumberField';
+import RateCalendarTab from '../../components/admin/pricing/RateCalendarTab';
+import BookingRulesTab from '../../components/admin/pricing/BookingRulesTab';
 import { pricingService, companiesService, roomTypeService, servicesService, servicePricesService, chargeTemplatesService, chargeRulesService, auditService, guestsService } from '../../services/api';
 import type { ServiceRecord, ServicePriceRecord, ServiceKind, ChargeBasis, ReservationMode, ServicePriceCategory, ServicePriceValidity, AuditSummary } from '../../services/api';
 import { Company, RoomType, ChargeTemplate, ChargeRule, ChargeRuleExecution, ChargeTrigger, CalculationMethod, ChargeCategory, AuditRun, Guest } from '../../types';
 import { useTranslation } from 'react-i18next';
+import { getCurrencyConfig } from '../../utils/currency';
 import type { OccupancyTier, RatePlan, PricingRule, RuleTarget, RuleModel, RuleDirection, RuleScope, PeriodPattern, IOccupancyTierOverride, IBlackoutRange, TaxConfig } from '../../utils/pricing';
 
 // ─────────────────────────────────────────────────────────────
@@ -75,7 +78,9 @@ function defaultRuleWizardForm(): RuleWizardForm {
 // ─────────────────────────────────────────────────────────────
 const PriceManagement: React.FC = () => {
   const { t } = useTranslation();
-  const [tab, setTab] = useState(0);
+  const cur = getCurrencyConfig().symbol;
+  // ?tab=calendar opens the Calendar (links from channel alerts)
+  const [tab, setTab] = useState(() => (new URLSearchParams(window.location.search).get('tab') === 'calendar' ? 1 : 0));
   const [error, setError] = useState<string | null>(null);
 
   // ── Room Types state (data only — CRUD moved to Settings) ────
@@ -315,7 +320,7 @@ const PriceManagement: React.FC = () => {
 
   // ── Rate Plan handlers ────────────────────────────────────
   const openNewRatePlan = () => {
-    setRatePlanForm({ name: '', roomTypeId: '', basePrice: 0, pricingMode: 'tiered', occupancyTiers: defaultTiers(), isActive: true });
+    setRatePlanForm({ name: '', roomTypeId: '', basePrice: 0, pricingMode: 'tiered', occupancyTiers: defaultTiers(), isActive: true, sellOnChannels: true });
     setSelectedRatePlanRoomType(null);
     setRatePlanDialog(true);
   };
@@ -798,6 +803,10 @@ const PriceManagement: React.FC = () => {
     return found?.name || String(roomTypeId);
   };
 
+  const namedRules = rules.filter(r => r.origin !== 'calendar');
+  const calendarRules = rules.filter(r => r.origin === 'calendar')
+    .sort((a, b) => String(a.dateStart).localeCompare(String(b.dateStart)));
+
   return (
     <AdminLayout title={t('admin.pricing.title')}>
       <Container maxWidth="lg" sx={{ pt: 0, pb: 4 }}>
@@ -809,7 +818,9 @@ const PriceManagement: React.FC = () => {
         <Paper sx={{ mb: 2 }}>
           <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
             <Tab label={t('admin.pricing.tabs.ratePlans')} />
+            <Tab label={t('admin.pricing.tabs.calendar')} />
             <Tab label={t('admin.pricing.tabs.rules')} />
+            <Tab label={t('admin.pricing.tabs.bookingRules')} />
             <Tab label={t('admin.pricing.tabs.taxes')} />
             <Tab label={t('admin.pricing.tabs.services', 'Services')} />
             <Tab label={t('admin.pricing.tabs.servicePrices', 'Service Prices')} />
@@ -839,8 +850,9 @@ const PriceManagement: React.FC = () => {
                       <Typography variant="subtitle1" fontWeight={600}>{plan.name}</Typography>
                       <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
                         <Chip size="small" label={getRoomTypeName(plan.roomTypeId)} color="primary" variant="outlined" />
-                        <Chip size="small" label={`${t('admin.pricing.ratePlans.basePrice')}: $${plan.basePrice}`} />
+                        <Chip size="small" label={`${t('admin.pricing.ratePlans.basePrice')}: ${cur}${plan.basePrice}`} />
                         {!plan.isActive && <Chip size="small" label={t('admin.pricing.inactive')} color="warning" />}
+                        {plan.sellOnChannels === false && <Chip size="small" label={t('admin.pricing.sellOnChannels.off')} />}
                       </Box>
                     </Box>
                     <Box sx={{ display: 'flex', gap: 1 }}>
@@ -871,7 +883,7 @@ const PriceManagement: React.FC = () => {
                                 <TableCell>
                                   {tier.price === 0
                                     ? <Chip size="small" label={t('admin.pricing.ratePlans.included')} color="success" />
-                                    : `$${tier.price}`}
+                                    : `${cur}${tier.price}`}
                                 </TableCell>
                               </TableRow>
                             ))}
@@ -886,8 +898,22 @@ const PriceManagement: React.FC = () => {
           )}
         </TabPanel>
 
-        {/* ── Rules Tab ───────────────────────────────────── */}
+        {/* ── Calendar Tab ────────────────────────────────── */}
         <TabPanel value={tab} index={1}>
+          <RateCalendarTab />
+        </TabPanel>
+
+        {/* ── Booking rules Tab ───────────────────────────── */}
+        <TabPanel value={tab} index={3}>
+          <BookingRulesTab
+            roomTypes={roomTypes.map(rt => ({ _id: rt._id, name: rt.name }))}
+            ratePlans={ratePlans.filter(rp => rp._id).map(rp => ({ _id: rp._id!, name: rp.name, roomTypeName: getRoomTypeName(rp.roomTypeId) }))}
+            onOpenCalendar={() => setTab(1)}
+          />
+        </TabPanel>
+
+        {/* ── Rules Tab ───────────────────────────────────── */}
+        <TabPanel value={tab} index={2}>
           <Box sx={{ mb: 2 }}>
             <Typography variant="body2" color="text.secondary">{t('admin.pricing.rules.description')}</Typography>
           </Box>
@@ -910,7 +936,7 @@ const PriceManagement: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {rules.map(rule => {
+                {namedRules.map(rule => {
                   const companyName = typeof rule.companyId === 'object' ? (rule.companyId as any)?.name : rule.companyId;
                   const ratePlanName = typeof rule.ratePlanId === 'object' && rule.ratePlanId
                     ? (rule.ratePlanId as any).name
@@ -942,7 +968,7 @@ const PriceManagement: React.FC = () => {
                           <Box>
                             <Typography variant="body2">
                               {rule.direction === 'surcharge' ? '+' : '−'}
-                              {rule.ruleModel === 'percentage' ? `${rule.value}%` : `$${rule.value}`}
+                              {rule.ruleModel === 'percentage' ? `${rule.value}%` : `${cur}${rule.value}`}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">on {rule.scope}</Typography>
                           </Box>
@@ -969,16 +995,63 @@ const PriceManagement: React.FC = () => {
                     </TableRow>
                   );
                 })}
-                {rules.length === 0 && !rulesLoading && (
+                {namedRules.length === 0 && !rulesLoading && (
                   <TableRow><TableCell colSpan={7} align="center">{t('admin.pricing.rules.empty')}</TableCell></TableRow>
                 )}
               </TableBody>
             </Table>
           </TableContainer>
+
+          {/* Calendar adjustments: prices typed in the Calendar, kept apart from named rules */}
+          <Paper variant="outlined" sx={{ p: 2, mt: 3 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Typography variant="subtitle1" fontWeight={700} sx={{ flex: 1 }}>
+                {t('admin.pricing.calendar.adjustments.title')} ({calendarRules.length})
+              </Typography>
+              <Button size="small" onClick={() => setTab(1)}>{t('admin.pricing.calendar.adjustments.openCalendar')}</Button>
+            </Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>{t('admin.pricing.calendar.adjustments.description')}</Typography>
+            {calendarRules.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">{t('admin.pricing.calendar.adjustments.empty')}</Typography>
+            ) : (
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Rate Plan</TableCell>
+                    <TableCell>{t('admin.pricing.calendar.adjustments.dates')}</TableCell>
+                    <TableCell>{t('admin.pricing.calendar.adjustments.price')}</TableCell>
+                    <TableCell>{t('admin.pricing.calendar.adjustments.savedAt')}</TableCell>
+                    <TableCell />
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {calendarRules.map(rule => {
+                    const plan = typeof rule.ratePlanId === 'object' && rule.ratePlanId
+                      ? (rule.ratePlanId as any).name
+                      : ratePlans.find(rp => rp._id === rule.ratePlanId)?.name || '—';
+                    const days = rule.periodPattern === 'specific_days' && rule.specificDays?.length
+                      ? ` · ${(['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa'] as const).filter((_, i) => rule.specificDays!.includes(i)).map(d => t(`admin.pricing.calendar.weekdays.${d}`)).join(' ')}`
+                      : '';
+                    return (
+                      <TableRow key={rule._id}>
+                        <TableCell>{plan}</TableCell>
+                        <TableCell>{rule.dateStart?.substring(0, 10)} → {rule.dateEnd?.substring(0, 10)}{days}</TableCell>
+                        <TableCell>${rule.customBasePrice}</TableCell>
+                        <TableCell>{rule.updatedAt ? new Date(rule.updatedAt).toLocaleString() : ''}</TableCell>
+                        <TableCell align="right">
+                          <IconButton size="small" color="error" onClick={() => deleteRule(rule._id!)}><DeleteIcon fontSize="small" /></IconButton>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            )}
+          </Paper>
         </TabPanel>
 
         {/* ── Taxes Tab ───────────────────────────────────── */}
-        <TabPanel value={tab} index={2}>
+        <TabPanel value={tab} index={4}>
           <Box sx={{ mb: 2 }}>
             <Typography variant="body2" color="text.secondary">{t('admin.pricing.taxes.description')}</Typography>
           </Box>
@@ -1006,7 +1079,7 @@ const PriceManagement: React.FC = () => {
                   <TableRow key={tax._id}>
                     <TableCell>{tax.name}</TableCell>
                     <TableCell><Chip size="small" label={tax.type} /></TableCell>
-                    <TableCell>{tax.type === 'percentage' ? `${tax.value}%` : `$${tax.value}`}</TableCell>
+                    <TableCell>{tax.type === 'percentage' ? `${tax.value}%` : `${cur}${tax.value}`}</TableCell>
                     <TableCell>{taxAppliesToLabel[tax.appliesTo]}</TableCell>
                     <TableCell>
                       <Chip size="small"
@@ -1033,7 +1106,7 @@ const PriceManagement: React.FC = () => {
         </TabPanel>
 
         {/* ── Services Tab ─────────────────────────────────── */}
-        <TabPanel value={tab} index={3}>
+        <TabPanel value={tab} index={5}>
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
             <Button variant="contained" startIcon={<AddIcon />} onClick={openNewService}>
               {t('admin.pricing.services.actions.new', 'New Service')}
@@ -1078,7 +1151,7 @@ const PriceManagement: React.FC = () => {
         </TabPanel>
 
         {/* ── Service Prices Tab ───────────────────────────── */}
-        <TabPanel value={tab} index={4}>
+        <TabPanel value={tab} index={6}>
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
             <Button variant="contained" startIcon={<AddIcon />} onClick={openNewServicePrice}>
               {t('admin.pricing.servicePrices.actions.new', 'New Price')}
@@ -1242,6 +1315,13 @@ const PriceManagement: React.FC = () => {
                 control={<Switch checked={ratePlanForm.isActive ?? true} onChange={e => setRatePlanForm(p => ({ ...p, isActive: e.target.checked }))} />}
                 label={t('admin.pricing.form.active')}
               />
+              <Box>
+                <FormControlLabel
+                  control={<Switch checked={ratePlanForm.sellOnChannels ?? true} onChange={e => setRatePlanForm(p => ({ ...p, sellOnChannels: e.target.checked }))} />}
+                  label={t('admin.pricing.sellOnChannels.label')}
+                />
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 6, mt: -0.5 }}>{t('admin.pricing.sellOnChannels.ratePlanHint')}</Typography>
+              </Box>
             </Box>
           </DialogContent>
           <DialogActions>
@@ -1605,7 +1685,7 @@ const PriceManagement: React.FC = () => {
                     ) : (
                       <Typography variant="body2">
                         {ruleForm.ruleTarget !== 'promotional' ? 'Discount' : ruleForm.direction === 'discount' ? 'Discount' : 'Surcharge'} of{' '}
-                        {ruleForm.ruleModel === 'percentage' ? `${ruleForm.value}%` : `$${ruleForm.value}`}
+                        {ruleForm.ruleModel === 'percentage' ? `${ruleForm.value}%` : `${cur}${ruleForm.value}`}
                         {' '}on{' '}
                         {ruleForm.scope === 'base' ? 'base price' : ruleForm.scope === 'occupancy' ? 'occupancy charges' : 'base + occupancy'}
                       </Typography>
@@ -1913,7 +1993,7 @@ const PriceManagement: React.FC = () => {
         </Dialog>
 
         {/* ── Auto-Charge Policies Tab ──────────────────────── */}
-        <TabPanel value={tab} index={5}>
+        <TabPanel value={tab} index={7}>
           <Box sx={{ mb: 2 }}>
             <Typography variant="body2" color="text.secondary">
               {t('admin.pricing.chargePolicies.description', 'Define automatic charges that apply when specific events occur, such as late checkouts or no-shows.')}
@@ -1944,7 +2024,7 @@ const PriceManagement: React.FC = () => {
                   };
                   let chargeDesc = '—';
                   if (tmpl) {
-                    if (tmpl.calculationMethod === 'fixed') chargeDesc = `$${Number(tmpl.amount).toFixed(2)}`;
+                    if (tmpl.calculationMethod === 'fixed') chargeDesc = `${cur}${Number(tmpl.amount).toFixed(2)}`;
                     else if (tmpl.calculationMethod === 'extra_night') chargeDesc = t('admin.pricing.chargePolicies.chargeDesc.extra_night', 'one additional night at nightly rate');
                     else if (tmpl.calculationMethod === 'percent_of_nightly_rate') chargeDesc = `${tmpl.amount}% ${t('admin.pricing.chargePolicies.chargeDesc.percent', 'of nightly rate')}`;
                   }
@@ -1980,7 +2060,7 @@ const PriceManagement: React.FC = () => {
         </TabPanel>
 
         {/* ── Audit Log Tab ─────────────────────────────────── */}
-        <TabPanel value={tab} index={6}>
+        <TabPanel value={tab} index={8}>
           <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2 }}>
             <Button variant="contained" onClick={() => handleRunAudit(false)} disabled={auditRunning}>
               {auditRunning ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}

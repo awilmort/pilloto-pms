@@ -37,6 +37,9 @@ jest.mock('../../../services/api', () => ({
     getSettings: (...args: any[]) => mockGetSettings(...args),
     updateSettings: (...args: any[]) => mockUpdateSettings(...args),
   },
+  propertyProfileService: {
+    get: () => Promise.resolve({ data: { data: { name: 'Test Hotel', phone: '+1 555-1234', email: 'test@hotel.com', address: '123 Test St', city: '', country: 'DO', currency: 'USD' } } }),
+  },
   resolveMediaUrl: (url: string) => url || '',
 }));
 

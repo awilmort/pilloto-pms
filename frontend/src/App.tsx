@@ -1,5 +1,5 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline, GlobalStyles, CircularProgress, Box } from '@mui/material';
 import { ToastContainer } from 'react-toastify';
@@ -7,7 +7,7 @@ import { HelmetProvider, Helmet } from 'react-helmet-async';
 import 'react-toastify/dist/ReactToastify.css';
 
 import theme from './theme';
-import accountingTheme from './accountingTheme';
+import { BRAND, FONT_UI } from './brand';
 import { AuthProvider } from './contexts/AuthContext';
 import { SettingsProvider } from './contexts/SettingsContext';
 import { TenantProvider, useTenant } from './contexts/TenantContext';
@@ -15,8 +15,8 @@ import Layout from './components/layout/Layout';
 
 // Platform portal pages (admin.pilloto.com)
 import TenantsPage from './pages/platform/TenantsPage';
-import OtaSyncPage from './pages/platform/OtaSyncPage';
 import SuperAdminProfilePage from './pages/platform/SuperAdminProfilePage';
+import ChannelManagerPage from './pages/platform/ChannelManagerPage';
 import TenantNotFoundPage from './pages/TenantNotFoundPage';
 
 // Pages
@@ -25,6 +25,7 @@ import RegistrationSuccessPage from './pages/customer/RegistrationSuccessPage';
 import EmailVerificationPage from './pages/customer/EmailVerificationPage';
 import ForgotPasswordPage from './pages/customer/ForgotPasswordPage';
 import PasswordResetPage from './pages/customer/PasswordResetPage';
+import SetPasswordPage from './pages/customer/SetPasswordPage';
 import ReservationsPage from './pages/customer/ReservationsPage';
 import ReservationSummaryPage from './pages/customer/ReservationSummaryPage';
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -32,6 +33,7 @@ import RoomsManagement from './pages/admin/RoomsManagement';
 import ReservationManagement from './pages/admin/ReservationManagement';
 import UsersManagement from './pages/admin/UsersManagement';
 import PriceManagement from './pages/admin/PriceManagement';
+import ChannelAlertsPage from './pages/admin/ChannelAlertsPage';
 import ScheduleSummary from './pages/admin/ScheduleSummary';
 import BookingCalendar from './pages/admin/BookingCalendar';
 import Accommodations from './pages/admin/Accommodations';
@@ -43,7 +45,6 @@ import CompaniesManagement from './pages/admin/CompaniesManagement';
 import GuestsManagement from './pages/admin/GuestsManagement';
 import CreditAccountsManagement from './pages/admin/CreditAccountsManagement';
 import CashierClosuresPage from './pages/admin/CashierClosuresPage';
-import OtaConflictQueue from './pages/admin/OtaConflictQueue';
 import EcfInvoicesPage from './pages/admin/EcfInvoicesPage';
 import ReportsPage from './pages/admin/ReportsPage';
 import CorporatePriceActionPage from './pages/admin/CorporatePriceActionPage';
@@ -103,7 +104,7 @@ const globalStyles = (
       body: {
         height: '100%',
         width: '100%',
-        fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+        fontFamily: FONT_UI,
       },
       '#root': {
         height: '100%',
@@ -113,7 +114,7 @@ const globalStyles = (
         backgroundColor: 'rgba(255, 255, 255, 0.5) !important',
       },
       '.swiper-pagination-bullet-active': {
-        backgroundColor: '#F4A460 !important',
+        backgroundColor: `${BRAND.vermilion} !important`,
       },
     }}
   />
@@ -182,14 +183,14 @@ function PlatformApp() {
               <TenantsPage />
             </ProtectedRoute>
           } />
-          <Route path="/platform/ota" element={
-            <ProtectedRoute>
-              <OtaSyncPage />
-            </ProtectedRoute>
-          } />
           <Route path="/platform/profile" element={
             <ProtectedRoute>
               <SuperAdminProfilePage />
+            </ProtectedRoute>
+          } />
+          <Route path="/platform/channel-manager" element={
+            <ProtectedRoute>
+              <ChannelManagerPage />
             </ProtectedRoute>
           } />
           <Route path="*" element={<Navigate to="/platform/tenants" replace />} />
@@ -200,25 +201,11 @@ function PlatformApp() {
   );
 }
 
-// Switches to the emerald accounting theme under `/accounting/*`, replacing (not
-// merging with) the outer pms theme for that subtree — both themes are complete
-// MUI theme objects, per Phase 2.1's "distinct theme accent" requirement.
-function AppThemeSwitcher({ children }: { children: React.ReactNode }) {
-  const location = useLocation();
-  const isAccounting = location.pathname.startsWith('/accounting');
-  return (
-    <ThemeProvider theme={isAccounting ? accountingTheme : theme}>
-      {children}
-    </ThemeProvider>
-  );
-}
-
 // ─── Regular tenant app ────────────────────────────────────────────────────────
 function TenantApp() {
   return (
     <AuthProvider>
       <Router>
-        <AppThemeSwitcher>
         <SettingsProvider>
           <Routes>
             {/* Accounting routes — sibling app tree to /admin/*, gated by AccountingRoute */}
@@ -314,6 +301,11 @@ function TenantApp() {
                 <ReservationManagement />
               </ProtectedRoute>
             } />
+            <Route path="/admin/channel-alerts" element={
+              <ProtectedRoute requiredPermission="admin.ota.view">
+                <ChannelAlertsPage />
+              </ProtectedRoute>
+            } />
             <Route path="/admin/pricing" element={
               <ProtectedRoute requiredPermission="admin.pricing" requiredSection="pricing">
                 <PriceManagement />
@@ -359,6 +351,11 @@ function TenantApp() {
                 <Settings />
               </ProtectedRoute>
             } />
+            <Route path="/admin/settings/:section" element={
+              <ProtectedRoute requiredPermission="admin.settings">
+                <Settings />
+              </ProtectedRoute>
+            } />
             <Route path="/admin/companies" element={
               <ProtectedRoute requiredPermission="admin.companies" requiredSection="companies">
                 <CompaniesManagement />
@@ -377,12 +374,6 @@ function TenantApp() {
             <Route path="/admin/cashier-closures" element={
               <ProtectedRoute requiredPermission="cashier" requiredSection="cashier-closures">
                 <CashierClosuresPage />
-              </ProtectedRoute>
-            } />
-
-            <Route path="/admin/ota-conflicts" element={
-              <ProtectedRoute requiredPermission="admin.ota.view">
-                <OtaConflictQueue />
               </ProtectedRoute>
             } />
 
@@ -472,6 +463,7 @@ function TenantApp() {
                   <Route path="/verify-email" element={<EmailVerificationPage />} />
                   <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                   <Route path="/reset-password" element={<PasswordResetPage />} />
+                  <Route path="/set-password" element={<SetPasswordPage />} />
 
                   {/* 404 catch-all inside Layout */}
                   <Route path="*" element={<NotFoundPage />} />
@@ -481,7 +473,6 @@ function TenantApp() {
           </Routes>
           {toastConfig}
         </SettingsProvider>
-        </AppThemeSwitcher>
       </Router>
     </AuthProvider>
   );
@@ -516,10 +507,9 @@ function App() {
   return (
     <HelmetProvider>
       <Helmet>
-        <link rel="icon" href="/favicon/favicon.ico" />
-        <link rel="icon" type="image/png" sizes="16x16" href="/favicon/favicon-16x16-light.png" />
-        <link rel="icon" type="image/png" sizes="32x32" href="/favicon/favicon-32x32-light.png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/favicon/favicon-180x180-light.png" />
+        <link rel="icon" href="/favicon/favicon.ico" sizes="48x48" />
+        <link rel="icon" href="/favicon/favicon.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/favicon/apple-touch-icon.png" />
       </Helmet>
       <ThemeProvider theme={theme}>
         <CssBaseline />

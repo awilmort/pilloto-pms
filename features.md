@@ -24,9 +24,8 @@ Customer / Public Booking
 - Users, Roles & Permissions: user management, role management, permission-based access control.
 - Cashier & Revenue: cashier closures (shift totals, denominations), revenue endpoints, commissions/salesman stats.
 - Wristbands: wristband deliveries, usage reports, create/update/delete deliveries.
-- OTA / iCal integration: OTA listing mappings, inbound/outbound feeds, token rotation, sync runs, conflict queue + conflict resolution workflows.
 - Audit / Automation: scheduled/manual audit runs for rules, audit runs + executions listing.
-- Admin settings: App/OTA/booking settings, booking legal/branding/versioning, night-audit settings.
+- Admin settings: App/booking settings, booking legal/branding/versioning, night-audit settings.
   Financial / Reporting
 - Folio summary endpoints: charges/payments/totals/balance/balance-on-arrival/credit-availability.
 - Payment processing helpers: process account-receivable payments, mark credit payments, payment totals aggregation for cashier closures.
@@ -35,7 +34,6 @@ Customer / Public Booking
   Integrations & Webhooks
 - Email service: templated reservation, invoice and transactional emails; SES webhook handling and resend endpoints.
 - Webhooks: SES/webhook handlers + resend mechanism.
-- OTA providers: airbnb/booking_com/vrbo/expedia/other iCal sync support and conflict detection.
   Utilities & Misc
 - Multi-tenant support: X-Tenant-Slug injection in API client, tenant-scoped queries and settings.
 - Plans & entitlements gating: feature gating by plan (basic/pro/enterprise) — booking engine and other Pro+ features controlled by plans config.

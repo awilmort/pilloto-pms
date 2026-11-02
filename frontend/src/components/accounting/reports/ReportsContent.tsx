@@ -15,7 +15,7 @@ import {
   ApAgingReport, ArAgingReport, GeneralLedgerReport,
   SupplierStatementReport, CustomerStatementReport,
 } from '../../../types';
-import { formatMoney } from '../../../utils/currency';
+import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const yearStartStr = () => `${new Date().getFullYear()}-01-01`;

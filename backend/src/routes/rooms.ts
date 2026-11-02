@@ -1,10 +1,20 @@
 import express, { Request, Response } from 'express';
+import mongoose from 'mongoose';
 import Room from '../models/Room';
 import { authenticate, authorize, optionalAuth, authorizePermission } from '../middleware/auth';
 import Reservation from '../models/Reservation';
 import { validateRoom } from '../middleware/validation';
+import { findFreeRooms, loadInventoryWindow, computeInventory } from '../services/channex/inventory.service';
+import { addDays, eachDate, fromChannexDate, isChannexDate } from '../services/channex/dates';
 
 const router = express.Router();
+
+/** `YYYY-MM-DD` (a full ISO string is cut to its date part) or null. */
+const parseDay = (value: unknown): string | null => {
+  if (typeof value !== 'string') return null;
+  const day = value.slice(0, 10);
+  return isChannexDate(day) ? day : null;
+};
 
 // @route   GET /api/rooms
 // @desc    Get all rooms with optional filtering
@@ -116,120 +126,48 @@ router.get('/', optionalAuth, async (req, res) => {
 });
 
 // @route   GET /api/rooms/available-dates
-// @desc    Get available dates in a range where at least one room is available
+// @desc    Dates in a range (inclusive) on which at least one room can be sold — room-type
+//          availability from InventoryService (unassigned bookings and room blocks included)
 // @access  Public
 router.get('/available-dates', async (req, res) => {
   try {
     const { startDate, endDate } = req.query as { startDate?: string; endDate?: string };
-    
+
     if (!startDate || !endDate) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Start date and end date are required (format: YYYY-MM-DD)' 
+      return res.status(400).json({
+        success: false,
+        message: 'Start date and end date are required (format: YYYY-MM-DD)'
       });
     }
 
-    const parseLocalDate = (s: string) => {
-      const [y, m, d] = s.split('-').map(Number);
-      return new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-    };
-
-    const start = parseLocalDate(startDate);
-    const end = parseLocalDate(endDate);
-
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+    const start = parseDay(startDate);
+    const end = parseDay(endDate);
+    if (!start || !end) {
       return res.status(400).json({ success: false, message: 'Invalid date format' });
     }
-
     if (start > end) {
       return res.status(400).json({ success: false, message: 'Start date must be before end date' });
     }
 
-    // Get all active rooms
-    const activeRooms = await Room.find({ status: 'active' }).select('_id').lean();
-    const totalActiveRooms = activeRooms.length;
-
+    const data = await loadInventoryWindow({ dateFrom: start, dateTo: end });
+    const totalActiveRooms = data.rooms.filter(r => r.status === 'active').length;
     if (totalActiveRooms === 0) {
       return res.status(200).json({ success: true, data: { availableDates: [], unavailableDates: [] } });
     }
 
-    const activeRoomIds = activeRooms.map(r => r._id);
+    // Rooms without a room type are counted as a type of their own
+    const grid = computeInventory({
+      ...data,
+      rooms: data.rooms.map(r => ({ ...r, roomTypeId: r.roomTypeId ?? '__untyped' })),
+      dateFrom: start,
+      dateTo: end,
+    });
 
-    // Get all reservations that overlap with the date range
-    const reservations = await Reservation.find({
-      type: 'room',
-      status: { $in: ['pending', 'confirmed', 'completed'] },
-      checkInDate: { $lt: end },
-      checkOutDate: { $gt: start },
-      $or: [
-        { room: { $in: activeRoomIds } },
-        { rooms: { $elemMatch: { $in: activeRoomIds } } }
-      ]
-    }).select('checkInDate checkOutDate room rooms').lean();
-
-    // Build a map of date -> number of rooms occupied
-    const dateOccupancyMap = new Map<string, Set<string>>();
-
-    // Helper to format date as YYYY-MM-DD
-    const formatDate = (d: Date) => {
-      const year = d.getUTCFullYear();
-      const month = String(d.getUTCMonth() + 1).padStart(2, '0');
-      const day = String(d.getUTCDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
-    };
-
-    // Iterate through each reservation and mark occupied dates
-    for (const reservation of reservations as any[]) {
-      const resStart = new Date(reservation.checkInDate);
-      const resEnd = new Date(reservation.checkOutDate);
-      
-      // Get room IDs for this reservation
-      const roomIds: string[] = [];
-      if (reservation.room) {
-        roomIds.push(String(reservation.room));
-      }
-      if (Array.isArray(reservation.rooms)) {
-        roomIds.push(...reservation.rooms.map((r: any) => String(r)));
-      }
-
-      // Mark each date in the reservation period as occupied for these rooms
-      let currentMs = Date.UTC(resStart.getUTCFullYear(), resStart.getUTCMonth(), resStart.getUTCDate(), 12, 0, 0);
-      const endMs = Date.UTC(resEnd.getUTCFullYear(), resEnd.getUTCMonth(), resEnd.getUTCDate(), 12, 0, 0);
-      while (currentMs < endMs) {
-        const currentDate = new Date(currentMs);
-        const dateKey = formatDate(currentDate);
-        
-        if (!dateOccupancyMap.has(dateKey)) {
-          dateOccupancyMap.set(dateKey, new Set());
-        }
-        
-        const occupiedRooms = dateOccupancyMap.get(dateKey)!;
-        roomIds.forEach(roomId => occupiedRooms.add(roomId));
-        
-        currentMs += 86_400_000;
-      }
-    }
-
-    // Check each date in the requested range
     const availableDates: string[] = [];
     const unavailableDates: string[] = [];
-    
-    let curMs = Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), 12, 0, 0);
-    const endMs2 = Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate(), 12, 0, 0);
-    while (curMs <= endMs2) {
-      const currentDate = new Date(curMs);
-      const dateKey = formatDate(currentDate);
-      const occupiedRooms = dateOccupancyMap.get(dateKey);
-      const occupiedCount = occupiedRooms ? occupiedRooms.size : 0;
-      const availableCount = totalActiveRooms - occupiedCount;
-
-      if (availableCount > 0) {
-        availableDates.push(dateKey);
-      } else {
-        unavailableDates.push(dateKey);
-      }
-
-      curMs += 86_400_000;
+    for (const day of eachDate(start, end)) {
+      const anyLeft = Object.values(grid).some(byDate => (byDate[day]?.available ?? 0) > 0);
+      (anyLeft ? availableDates : unavailableDates).push(day);
     }
 
     res.status(200).json({
@@ -247,44 +185,37 @@ router.get('/available-dates', async (req, res) => {
 });
 
 // Additional endpoint: list all active rooms available for a given date range
-// @route   GET /api/rooms/available
-// @desc    Get active rooms with no overlapping reservations in [checkIn, checkOut)
+// @route   GET /api/rooms/available?checkIn&checkOut[&roomTypeId][&excludeReservationId]
+// @desc    Active rooms free for every night of [checkIn, checkOut): not blocked, not assigned to a
+//          pending/confirmed/checked-in reservation, and whose room type still has a room left once
+//          unassigned room-type bookings are counted. `excludeReservationId` leaves the reservation
+//          being edited out of the calculation.
 // @access  Public
 router.get('/available', async (req, res) => {
   try {
-    const { checkIn, checkOut } = req.query as { checkIn?: string; checkOut?: string };
+    const { checkIn, checkOut, roomTypeId, excludeReservationId } = req.query as Record<string, string | undefined>;
     if (!checkIn || !checkOut) {
       return res.status(400).json({ success: false, message: 'Check-in and check-out dates are required' });
     }
-    const parseLocalDate = (s: string) => {
-      const [y,m,d] = s.split('-').map(Number);
-      return new Date(y, (m - 1), d, 0, 0, 0, 0);
-    };
-    const start = parseLocalDate(checkIn);
-    const end = parseLocalDate(checkOut);
-    // Get active rooms only (populate roomTypeId so the client can use capacity)
-    const rooms = await Room.find({ status: 'active' }).populate('roomTypeId', 'name capacity').lean();
-    const roomIds = rooms.map(r => r._id);
-    // Find overlapping reservations for these rooms
-    const overlaps = await Reservation.find({
-      type: 'room',
-      $or: [
-        { room: { $in: roomIds } },
-        { rooms: { $in: roomIds } }
-      ],
-      status: { $in: ['pending', 'confirmed', 'completed'] },
-      checkInDate: { $lt: end },
-      checkOutDate: { $gt: start },
-    }).select('room rooms').lean();
-    const busySet = new Set<string>();
-    for (const r of overlaps as any[]) {
-      if (r.room) busySet.add(String(r.room));
-      if (Array.isArray(r.rooms)) {
-        for (const rr of r.rooms) busySet.add(String(rr));
-      }
+    const ci = parseDay(checkIn);
+    const co = parseDay(checkOut);
+    if (!ci || !co || co <= ci) {
+      return res.status(400).json({ success: false, message: 'Check-in and check-out must be YYYY-MM-DD dates, check-out after check-in' });
     }
-    const availableRooms = rooms.filter(r => !busySet.has(String(r._id)));
-    res.status(200).json({ success: true, data: availableRooms });
+    const isId = (v?: string) => !v || mongoose.Types.ObjectId.isValid(v);
+    if (!isId(roomTypeId) || !isId(excludeReservationId)) {
+      return res.status(400).json({ success: false, message: 'Invalid roomTypeId or excludeReservationId' });
+    }
+
+    const { freeRoomIds, typeAvailability } = await findFreeRooms({
+      checkIn: fromChannexDate(ci),
+      checkOut: fromChannexDate(co),
+      roomTypeId,
+      excludeReservationId,
+    });
+    // Populate roomTypeId so the client can use capacity
+    const rooms = await Room.find({ _id: { $in: freeRoomIds } }).populate('roomTypeId', 'name capacity').sort({ name: 1 }).lean();
+    res.status(200).json({ success: true, data: rooms, typeAvailability });
   } catch (error: any) {
     console.error('List available rooms error:', error);
     res.status(500).json({ success: false, message: 'Server error while listing available rooms' });
@@ -455,12 +386,12 @@ router.delete('/:id', authenticate, authorize('admin'), async (req, res) => {
   }
 });
 
-// @route   GET /api/rooms/:id/availability
-// @desc    Check room availability for specific dates
+// @route   GET /api/rooms/:id/availability?checkIn&checkOut | ?date[&excludeReservationId]
+// @desc    Whether this room can take the stay (same rules as /api/rooms/available)
 // @access  Public
 router.get('/:id/availability', async (req, res) => {
   try {
-    const { checkIn, checkOut, date } = req.query as { checkIn?: string; checkOut?: string; date?: string };
+    const { checkIn, checkOut, date, excludeReservationId } = req.query as Record<string, string | undefined>;
 
     const room = await Room.findById(req.params.id);
     if (!room) {
@@ -474,45 +405,32 @@ router.get('/:id/availability', async (req, res) => {
       return res.status(200).json({ success: true, available: false, reason: 'Room inactive' });
     }
 
-    const parseLocalDate = (s: string) => {
-      const [y,m,d] = s.split('-').map(Number);
-      return new Date(y, (m - 1), d, 0, 0, 0, 0);
-    };
-
-    if (date && typeof date === 'string') {
-      const dayStart = parseLocalDate(date);
-      const overlapping = await Reservation.findOne({
-        type: 'room',
-        $or: [
-          { room: room._id },
-          { rooms: room._id }
-        ],
-        status: { $in: ['pending', 'confirmed', 'completed'] },
-        checkInDate: { $lte: dayStart },
-        checkOutDate: { $gt: dayStart },
-      }).select('actualCheckInAt').lean();
-      const available = !overlapping;
-      return res.status(200).json({ success: true, available });
+    let ci: string | null;
+    let co: string | null;
+    if (date) {
+      ci = parseDay(date);
+      co = ci ? addDays(ci, 1) : null;
+    } else {
+      if (!checkIn || !checkOut) {
+        return res.status(400).json({ success: false, message: 'Check-in and check-out dates are required' });
+      }
+      ci = parseDay(checkIn);
+      co = parseDay(checkOut);
+    }
+    if (!ci || !co || co <= ci) {
+      return res.status(400).json({ success: false, message: 'Dates must be YYYY-MM-DD, check-out after check-in' });
+    }
+    if (excludeReservationId && !mongoose.Types.ObjectId.isValid(excludeReservationId)) {
+      return res.status(400).json({ success: false, message: 'Invalid excludeReservationId' });
     }
 
-    if (!checkIn || !checkOut) {
-      return res.status(400).json({ success: false, message: 'Check-in and check-out dates are required' });
-    }
-
-    const start = parseLocalDate(checkIn as string);
-    const end = parseLocalDate(checkOut as string);
-    // Find any overlapping reservation in [start, end) range
-    const overlapping = await Reservation.findOne({
-      type: 'room',
-      $or: [
-        { room: room._id },
-        { rooms: room._id }
-      ],
-      status: { $in: ['pending', 'confirmed', 'completed'] },
-      checkInDate: { $lt: end },
-      checkOutDate: { $gt: start },
-    }).lean();
-    const available = !overlapping;
+    const { freeRoomIds } = await findFreeRooms({
+      checkIn: fromChannexDate(ci),
+      checkOut: fromChannexDate(co),
+      roomTypeId: room.roomTypeId ?? undefined,
+      excludeReservationId,
+    });
+    const available = freeRoomIds.includes(String(room._id));
     return res.status(200).json({ success: true, available });
   } catch (error: any) {
     if (error.name === 'CastError') {

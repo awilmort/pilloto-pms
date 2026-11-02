@@ -16,9 +16,36 @@ import {
   computeArrivals,
   computeDepartures,
 } from '../services/reports/arrivalsDeparturesService';
+import {
+  computeManagerFlash,
+  computeForecast,
+  computeSegmentation,
+  computeBookingInsights,
+  SegmentBy,
+} from '../services/reports/managementService';
+import { todayInTz } from '../services/channex/dates';
 import { GroupBy } from '../types/reports';
 
 const router = express.Router();
+
+/** The property's local date (tenant time zone, UTC when unset or invalid) */
+function localToday(req: AuthRequest): string {
+  const tz = (req.tenant as any)?.settings?.timezone;
+  try { return todayInTz(tz || 'UTC'); } catch { return todayInTz('UTC'); }
+}
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Validated `from` / `to` query (defaults supplied by the caller), or an error message */
+function rangeQuery(req: AuthRequest, defFrom: string, defTo: string, maxDays: number): { from: string; to: string } | { error: string } {
+  const from = (req.query.from as string) || defFrom;
+  const to = (req.query.to as string) || defTo;
+  const valid = (d: string) => { try { return DATE_RE.test(d) && parseUTCDate(d).toISOString().slice(0, 10) === d; } catch { return false; } };
+  if (!valid(from) || !valid(to)) return { error: 'Invalid date format. Use YYYY-MM-DD.' };
+  if (from > to) return { error: '"from" must be before or equal to "to".' };
+  if (daysBetween(parseUTCDate(from), parseUTCDate(to)) > maxDays) return { error: `Date range cannot exceed ${maxDays} days.` };
+  return { from, to };
+}
 
 // ─── Occupancy ────────────────────────────────────────────────────────────────
 
@@ -69,7 +96,8 @@ router.get(
         return res.status(400).json({ success: false, message: 'Date range cannot exceed 2 years.' });
       }
 
-      let rows = await computeOccupancy(fromDate, toDate);
+      const today = localToday(req);
+      let rows = await computeOccupancy(fromDate, toDate, today);
       rows = groupRows(rows, groupBy as GroupBy);
       const summary = summarise(rows);
 
@@ -81,7 +109,7 @@ router.get(
 
       const comparison =
         compareTo === 'prev_period' || compareTo === 'prev_year'
-          ? await buildComparison(fromDate, toDate, compareTo, groupBy as GroupBy)
+          ? await buildComparison(fromDate, toDate, compareTo, groupBy as GroupBy, today)
           : null;
 
       return res.json({
@@ -243,5 +271,85 @@ router.get(
     }
   },
 );
+
+// ─── Management analytics ─────────────────────────────────────────────────────
+
+/**
+ * @route  GET /api/admin/reports/manager-flash
+ * @desc   Day / MTD / YTD KPIs vs same dates last year, the day's operations, 30-day outlook
+ * @query  date  YYYY-MM-DD  (default: today, property time)
+ * @access Private (admin)
+ */
+router.get('/manager-flash', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const today = localToday(req);
+    const date = (req.query.date as string) || today;
+    if (!DATE_RE.test(date)) return res.status(400).json({ success: false, message: 'Invalid date format. Use YYYY-MM-DD.' });
+    return res.json({ success: true, data: await computeManagerFlash(date, today) });
+  } catch (err: any) {
+    console.error('Manager flash error:', err);
+    return res.status(500).json({ success: false, message: 'Server error', error: err?.message });
+  }
+});
+
+/**
+ * @route  GET /api/admin/reports/forecast
+ * @desc   On-the-books occupancy & revenue per night, 7-day pickup, pace vs same time last year
+ * @query  from, to  YYYY-MM-DD  (default: today → +89 days; max 366 days)
+ * @access Private (admin)
+ */
+router.get('/forecast', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const today = localToday(req);
+    const range = rangeQuery(req, today, toDateStr(addDays(parseUTCDate(today), 89)), 366);
+    if ('error' in range) return res.status(400).json({ success: false, message: range.error });
+    return res.json({ success: true, data: { filters: range, ...(await computeForecast(range.from, range.to, today)) } });
+  } catch (err: any) {
+    console.error('Forecast report error:', err);
+    return res.status(500).json({ success: false, message: 'Server error', error: err?.message });
+  }
+});
+
+/**
+ * @route  GET /api/admin/reports/segmentation
+ * @desc   Room nights, revenue, ADR, commission, LOS, lead time, cancellations by segment
+ * @query  from, to  YYYY-MM-DD  (default: last 30 days; max 2 years)
+ * @query  by        source | roomType | ratePlan  (default: source)
+ * @access Private (admin)
+ */
+router.get('/segmentation', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const today = localToday(req);
+    const by = ((req.query.by as string) || 'source') as SegmentBy;
+    if (!['source', 'roomType', 'ratePlan'].includes(by)) {
+      return res.status(400).json({ success: false, message: 'Invalid "by". Use source, roomType or ratePlan.' });
+    }
+    const range = rangeQuery(req, toDateStr(addDays(parseUTCDate(today), -29)), today, 731);
+    if ('error' in range) return res.status(400).json({ success: false, message: range.error });
+    return res.json({ success: true, data: { filters: { ...range, by }, ...(await computeSegmentation(range.from, range.to, by, today)) } });
+  } catch (err: any) {
+    console.error('Segmentation report error:', err);
+    return res.status(500).json({ success: false, message: 'Server error', error: err?.message });
+  }
+});
+
+/**
+ * @route  GET /api/admin/reports/booking-insights
+ * @desc   Lead time, length of stay, day-of-week demand, cancellations, no-shows, repeat guests
+ *         for stays arriving in the range
+ * @query  from, to  YYYY-MM-DD  (default: last 90 days; max 2 years)
+ * @access Private (admin)
+ */
+router.get('/booking-insights', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
+  try {
+    const today = localToday(req);
+    const range = rangeQuery(req, toDateStr(addDays(parseUTCDate(today), -89)), today, 731);
+    if ('error' in range) return res.status(400).json({ success: false, message: range.error });
+    return res.json({ success: true, data: { filters: range, ...(await computeBookingInsights(range.from, range.to, today)) } });
+  } catch (err: any) {
+    console.error('Booking insights error:', err);
+    return res.status(500).json({ success: false, message: 'Server error', error: err?.message });
+  }
+});
 
 export default router;

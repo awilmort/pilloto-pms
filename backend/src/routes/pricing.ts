@@ -1,3 +1,5 @@
+import { hardDeleteBlockReason } from '../services/channex/structuralSync';
+import { getChannexConfig } from '../services/channex/config';
 import express, { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import { authenticate, authorize, authorizeAppAccess, AuthRequest } from '../middleware/auth';
@@ -48,6 +50,8 @@ router.put('/room-types/:id', authenticate, authorize('admin'), async (req: Auth
 
 router.delete('/room-types/:id', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
   try {
+    const blocked = await hardDeleteBlockReason('room_type', req.params.id, getChannexConfig().environment);
+    if (blocked) return res.status(409).json({ success: false, message: blocked });
     const roomType = await RoomType.findByIdAndDelete(req.params.id);
     if (!roomType) return res.status(404).json({ success: false, message: 'Room type not found' });
     res.status(200).json({ success: true, message: 'Room type deleted' });
@@ -94,6 +98,8 @@ router.put('/rate-plans/:id', authenticate, authorize('admin'), async (req: Auth
 
 router.delete('/rate-plans/:id', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
   try {
+    const blocked = await hardDeleteBlockReason('rate_plan', req.params.id, getChannexConfig().environment);
+    if (blocked) return res.status(409).json({ success: false, message: blocked });
     const plan = await RatePlan.findByIdAndDelete(req.params.id);
     if (!plan) return res.status(404).json({ success: false, message: 'Rate plan not found' });
     res.status(200).json({ success: true, message: 'Rate plan deleted' });
@@ -117,7 +123,8 @@ router.get('/rules', authenticate, authorizeAppAccess('pms'), async (req: AuthRe
 
 router.post('/rules', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
   try {
-    const rule = await PricingRule.create(req.body);
+    // Calendar adjustments are written only by the Calendar (rate-calendar API)
+    const rule = await PricingRule.create({ ...req.body, origin: 'manual' });
     res.status(201).json({ success: true, data: rule });
   } catch (error: any) {
     res.status(400).json({ success: false, message: error.message || 'Failed to create pricing rule' });
@@ -126,7 +133,8 @@ router.post('/rules', authenticate, authorize('admin'), async (req: AuthRequest,
 
 router.put('/rules/:id', authenticate, authorize('admin'), async (req: AuthRequest, res: Response) => {
   try {
-    const rule = await PricingRule.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    const { origin: _origin, ...changes } = req.body ?? {};
+    const rule = await PricingRule.findByIdAndUpdate(req.params.id, changes, { new: true, runValidators: true });
     if (!rule) return res.status(404).json({ success: false, message: 'Pricing rule not found' });
     res.status(200).json({ success: true, data: rule });
   } catch (error: any) {

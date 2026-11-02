@@ -3,7 +3,7 @@ import Reservation from '../models/Reservation';
 import Room from '../models/Room';
 import RatePlan from '../models/RatePlan';
 import Role from '../models/Role';
-import { authenticate, authorize, authorizePermission, authorizeAppAccess, AuthRequest } from '../middleware/auth';
+import { authenticate, authorize, authorizePermission, authorizeAppAccess, AuthRequest, userHasPermission } from '../middleware/auth';
 import { validateReservation } from '../middleware/validation';
 import { getSortObject } from '../utils/helpers';
 import { sendReservationConfirmationEmail, sendInvoiceEmail, sendCorporatePriceRequestEmail } from '../utils/email';
@@ -12,22 +12,32 @@ import { calculateTieredPrice } from '../utils/pricing';
 import AppSettings from '../models/AppSettings';
 import Company from '../models/Company';
 import Guest from '../models/Guest';
-import Folio from '../models/Folio';
 import Charge from '../models/Charge';
 import Payment from '../models/Payment';
 import CreditAccount from '../models/CreditAccount';
 import User from '../models/User';
 import { postChargeAddedEntry, postPaymentCompletedEntry, reversePaymentEntry, tenantHasAccounting } from '../services/accounting/pmsLedgerHooks';
 import { transferFolioBalanceToCityLedger } from '../services/accounting/cityLedger.service';
+import { validateRoomAssignment } from '../services/roomAssignment';
+import { stayRestrictionWarnings, toStay, StayWarning } from '../services/stayQuote';
+import { BOOKING_ENGINE_TOKEN_RE, ensureFolio, generateReservationCode } from '../services/reservationRecords';
+import { loadChannelHistory } from '../services/channex/tenantViews';
+import { actorFromRequest, diffSnapshots, GUEST_ACTOR, loadReservationHistory, recordReservationEvent, snapshotReservation } from '../services/reservationHistory';
 
 const router = express.Router();
 
-async function ensureFolio(reservationId: string | any) {
-  return Folio.findOneAndUpdate(
-    { reservationId },
-    { $setOnInsert: { reservationId, status: 'open' } },
-    { upsert: true, new: true, setDefaultsOnInsert: true }
-  );
+/**
+ * The signed-in user on a route that also accepts anonymous calls (public booking, email
+ * action links); null when there is no token or it is rejected. A rejected token answers on a
+ * stand-in response, never the real one, so the caller carries on as anonymous.
+ */
+function optionalUser(req: Request): Promise<any> {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const rejected: any = { status: () => rejected, json: () => { resolve(null); return rejected; } };
+    authenticate(req as AuthRequest, rejected, (err?: any) => resolve(err ? null : (req as AuthRequest).user ?? null));
+  });
 }
 
 async function getFolioSummary(folioId: string | any) {
@@ -107,6 +117,7 @@ router.get('/', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest
       search,
       dateFrom,
       dateTo,
+      source,
       page = 1,
       limit = 10,
       sort = '-createdAt'
@@ -143,6 +154,17 @@ router.get('/', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest
 
     if (status) filter.status = status;
     if (type) filter.type = type;
+
+    // Where the reservation came from: direct (front desk), booking engine, any channel, or one OTA
+    if (typeof source === 'string' && source) {
+      const sourceCondition =
+        source === 'direct' ? { channelSource: { $exists: false }, confirmationToken: { $not: BOOKING_ENGINE_TOKEN_RE } }
+        : source === 'booking_engine' ? { channelSource: { $exists: false }, confirmationToken: BOOKING_ENGINE_TOKEN_RE }
+        : source === 'channel' ? { 'channelSource.provider': { $exists: true } }
+        : source.startsWith('ota:') ? { 'channelSource.otaName': source.slice(4) }
+        : null;
+      if (sourceCondition) filter.$and = [...(filter.$and ?? []), sourceCondition];
+    }
 
     // Date filtering
     if (dateFrom || dateTo) {
@@ -209,17 +231,19 @@ router.get('/', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest
       }
     }
 
-    // Basic text search across guest name, contact email, event description, event type, reservation code
+    // Basic text search across guest name, contact email, event description, event type, reservation code.
+    // ANDed with the rest: a user who may only see their own reservations searches within them.
     if (search && typeof search === 'string' && search.trim()) {
       const s = search.trim();
-      filter.$or = (filter.$or || []).concat([
+      filter.$and = [...(filter.$and ?? []), { $or: [
         { 'guestName.firstName': { $regex: s, $options: 'i' } },
         { 'guestName.lastName': { $regex: s, $options: 'i' } },
         { 'contactInfo.email': { $regex: s, $options: 'i' } },
         { eventDescription: { $regex: s, $options: 'i' } },
         { eventType: { $regex: s, $options: 'i' } },
-        { reservationCode: { $regex: s, $options: 'i' } }
-      ]);
+        { reservationCode: { $regex: s, $options: 'i' } },
+        { 'channelSource.otaReservationCode': { $regex: s, $options: 'i' } }
+      ] }];
     }
 
     const pageNumber = parseInt(page as string);
@@ -261,6 +285,50 @@ router.get('/', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest
 // @route   GET /api/reservations/:id
 // @desc    Get single reservation
 // @access  Private
+// @route   GET /api/reservations/channel-sources
+// @desc    OTA names that reservations came from (options for the source filter)
+// @access  Private
+router.get('/channel-sources', authenticate, authorizeAppAccess('pms'), async (_req: AuthRequest, res: Response) => {
+  try {
+    const names = (await Reservation.distinct('channelSource.otaName')).filter((n): n is string => typeof n === 'string' && !!n).sort();
+    res.json({ success: true, data: names });
+  } catch (error) {
+    console.error('Channel sources error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// @route   GET /api/reservations/:id/channel-history
+// @desc    Changes the channel sent for this reservation (new / modified / cancelled), oldest first
+// @access  Private
+router.get('/:id/channel-history', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
+  try {
+    const reservation = await Reservation.findById(req.params.id).select('channelSource.channexBookingId').lean();
+    if (!reservation) return res.status(404).json({ success: false, message: 'Reservation not found' });
+    const bookingId = reservation.channelSource?.channexBookingId;
+    res.json({ success: true, data: bookingId ? await loadChannelHistory(bookingId) : [] });
+  } catch (error) {
+    console.error('Channel history error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// @route   GET /api/reservations/:id/history
+// @desc    Who did what and when on this reservation (milestones, folio activity), newest first
+// @access  Private (roles with admin.reservations)
+router.get('/:id/history', authenticate, authorizePermission('pms', 'admin.reservations'), async (req: AuthRequest, res: Response) => {
+  try {
+    const reservation = await Reservation.findById(req.params.id)
+      .select('user assignedBy assignedAt actualCheckInAt actualCheckOutAt channelSource.provider channelSource.otaName confirmationToken createdAt')
+      .lean();
+    if (!reservation) return res.status(404).json({ success: false, message: 'Reservation not found' });
+    res.json({ success: true, data: await loadReservationHistory(reservation) });
+  } catch (error) {
+    console.error('Reservation history error:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 router.get('/:id', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const reservation = await Reservation.findById(req.params.id)
@@ -344,28 +412,8 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: 'Invalid or missing reservation type' });
     }
 
-    let authenticatedUser: any = null;
-
-    // Check if user is authenticated (optional for all reservation types)
-    const authHeader = req.headers.authorization;
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      try {
-        // Apply authentication middleware
-        await new Promise<void>((resolve, reject) => {
-          authenticate(req as AuthRequest, res, (err: any) => {
-            if (err || !(req as AuthRequest).user) {
-              reject(new Error('Authentication failed'));
-            } else {
-              authenticatedUser = (req as AuthRequest).user;
-              resolve();
-            }
-          });
-        });
-      } catch (authError) {
-        // Authentication failed - treat as guest booking
-        authenticatedUser = null;
-      }
-    }
+    // Authentication is optional for all reservation types; a failed one is a guest booking
+    const authenticatedUser: any = await optionalUser(req);
 
     // Validate required guest information for non-authenticated bookings
     if (!authenticatedUser) {
@@ -422,6 +470,12 @@ router.post('/', async (req: Request, res: Response) => {
           success: false,
           message: 'Check-out date must be after check-in date'
         });
+      }
+
+      // Rooms picked by staff must be free (other stays and room blocks) for every night
+      if (Array.isArray(assignedRoomIds) && assignedRoomIds.length > 0) {
+        const invalid = await validateRoomAssignment({ roomIds: assignedRoomIds, checkIn, checkOut });
+        if (invalid) return res.status(invalid.status).json({ success: false, message: invalid.message });
       }
     }
 
@@ -499,6 +553,8 @@ router.post('/', async (req: Request, res: Response) => {
     let nights = 0;
     let days = 1;
     let pricingSnapshotData: any = undefined;
+    // Rate plans the stay is priced on — checked against booking rules (warnings only)
+    const usedRatePlanIds: string[] = [];
 
     if (normalizedType === 'room') {
       // Room reservation pricing via tiered rate plan
@@ -533,6 +589,7 @@ router.post('/', async (req: Request, res: Response) => {
 
           const ratePlan = await RatePlan.findOne({ roomTypeId, isActive: true }).lean();
           if (!ratePlan) continue;
+          usedRatePlanIds.push(String(ratePlan._id));
 
           const capacity = roomTypeDoc?.capacity ?? 1;
           const roomAdults = Math.min(remainingAdults, capacity);
@@ -586,6 +643,7 @@ router.post('/', async (req: Request, res: Response) => {
         const inboundRatePlanId = req.body.ratePlanId;
         const inboundRoomCount = Math.max(1, Number(roomCount) || 1);
         if (inboundRatePlanId) {
+          usedRatePlanIds.push(String(inboundRatePlanId));
           // Snapshot all prices at booking time so future rate plan changes
           // cannot retroactively affect this reservation.
           const priceResult = await calculateTieredPrice({
@@ -811,6 +869,17 @@ router.post('/', async (req: Request, res: Response) => {
       reservationData.totalDays = 1;
     }
 
+    // Booking rules (stop sell, no arrivals/departures, min/max stay) never block staff: a
+    // broken rule comes back as a warning so the front desk can override it knowingly.
+    let warnings: StayWarning[] = [];
+    if (normalizedType === 'room' && checkOut) {
+      for (const item of Array.isArray(items) ? items : []) {
+        if (item?.kind === 'room' && item.ratePlanId) usedRatePlanIds.push(String(item.ratePlanId));
+      }
+      warnings = await stayRestrictionWarnings({ ...toStay(checkIn, checkOut), ratePlanIds: usedRatePlanIds })
+        .catch((err) => { console.warn('Booking-rule check failed (reservation still created):', err); return []; });
+    }
+
     // Create reservation
     const reservation = await Reservation.create(reservationData);
 
@@ -825,6 +894,10 @@ router.post('/', async (req: Request, res: Response) => {
 
     // Create empty folio at reservation creation
     await ensureFolio(reservation._id);
+    await recordReservationEvent(reservation._id as any, 'created', {
+      actor: actorFromRequest({ user: authenticatedUser }),
+      ...(appliedDiscount > 0 ? { note: `Discount ${appliedDiscount}${discountReason ? `: ${discountReason}` : ''}` } : {}),
+    });
 
     // Populate the reservation before sending response and email
     const populatedReservation = await Reservation.findById(reservation._id)
@@ -878,7 +951,8 @@ router.post('/', async (req: Request, res: Response) => {
     res.status(201).json({
       success: true,
       message: 'Reservation created successfully. A confirmation email has been sent.',
-      data: populatedReservation
+      data: populatedReservation,
+      warnings,
     });
   } catch (error: any) {
     console.error('Create reservation error:', error);
@@ -976,6 +1050,7 @@ router.put('/:id', authenticate, authorizeAppAccess('pms'), async (req: AuthRequ
         message: 'Cannot update reservation that is already completed or cancelled'
       });
     }
+    const before = snapshotReservation(reservation);
 
     const { checkInDate, checkOutDate, guestDetails, specialRequests, contactInfo, totalPrice: totalPriceUpdate } = req.body;
 
@@ -1030,20 +1105,17 @@ router.put('/:id', authenticate, authorizeAppAccess('pms'), async (req: AuthRequ
         });
       }
 
-      // Check for overlapping reservations only for room type (excluding current reservation)
+      // The assigned rooms must stay free (other stays and room blocks) on the new nights
       if (reservation.type === 'room' && checkOut) {
-        const overlappingReservation = await Reservation.findOne({
-          _id: { $ne: reservation._id },
-          room: reservation.room,
-          status: { $in: ['confirmed'] },
-          $or: [
-            { checkInDate: { $lte: checkIn }, checkOutDate: { $gt: checkIn } },
-            { checkInDate: { $lt: checkOut }, checkOutDate: { $gte: checkOut } },
-            { checkInDate: { $gte: checkIn }, checkOutDate: { $lte: checkOut } }
-          ]
+        const assigned = [reservation.room, ...(reservation.rooms || [])].filter(Boolean).map(String);
+        const conflict = await validateRoomAssignment({
+          roomIds: assigned,
+          checkIn,
+          checkOut,
+          reservationId: reservation._id,
         });
-        if (overlappingReservation) {
-          return res.status(400).json({ success: false, message: 'Room is not available for the selected dates' });
+        if (conflict) {
+          return res.status(400).json({ success: false, message: conflict.message });
         }
       }
 
@@ -1176,6 +1248,10 @@ router.put('/:id', authenticate, authorizeAppAccess('pms'), async (req: AuthRequ
     }
 
     await reservation.save();
+    await recordReservationEvent(reservation._id as any, 'updated', {
+      actor: actorFromRequest(req),
+      changes: diffSnapshots(before, snapshotReservation(reservation)),
+    });
 
     // Populate the reservation before sending response
     const populatedReservation = await Reservation.findById(reservation._id)
@@ -1209,6 +1285,11 @@ router.delete('/:id', authenticate, authorize('admin'), async (req: AuthRequest,
     }
 
     await Reservation.findByIdAndDelete(reservation._id);
+    // Kept after the reservation is gone: a hard delete is the event an audit most needs
+    await recordReservationEvent(reservation._id as any, 'deleted', {
+      actor: actorFromRequest(req),
+      note: [reservation.reservationCode, reservation.contactInfo?.email].filter(Boolean).join(' · '),
+    });
 
     res.status(200).json({ success: true, message: 'Reservation removed successfully' });
   } catch (error: any) {
@@ -1259,8 +1340,15 @@ router.patch('/:id/status', authenticate, authorizeAppAccess('pms'), async (req:
       }
     }
 
+    const previousStatus = reservation.status;
     reservation.status = status;
     await reservation.save();
+    if (reservation.status !== previousStatus) {
+      await recordReservationEvent(reservation._id as any, status === 'cancelled' ? 'cancelled' : 'status_changed', {
+        actor: actorFromRequest(req),
+        changes: [{ field: 'status', from: previousStatus, to: reservation.status }],
+      });
+    }
 
     // Populate the reservation before sending response
     const populatedReservation = await Reservation.findById(reservation._id)
@@ -1299,6 +1387,12 @@ router.put('/:id/assign-room', authenticate, authorizePermission('pms', 'admin.r
       });
     }
 
+    const before = snapshotReservation(reservation);
+    const recordRooms = () => recordReservationEvent(reservation._id as any, 'rooms_changed', {
+      actor: actorFromRequest(req),
+      changes: diffSnapshots(before, snapshotReservation(reservation)),
+    });
+
     // If roomId is null/empty, clear existing assignment
     if (!roomId) {
       const previousRoomId = reservation.room as any;
@@ -1311,6 +1405,7 @@ router.put('/:id/assign-room', authenticate, authorizePermission('pms', 'admin.r
       reservation.assignedAt = undefined as any;
       // Do not change totalPrice or status here; admin may update separately
       await reservation.save();
+      await recordRooms();
 
       // If there was a previously assigned room, no status changes are needed (availability is derived)
       if (previousRoomId) {
@@ -1334,7 +1429,6 @@ router.put('/:id/assign-room', authenticate, authorizePermission('pms', 'admin.r
 
     // At this point, roomId is provided and we are assigning/reassigning
 
-    // Check if room exists and is available
     const room = await Room.findById(roomId);
     if (!room) {
       return res.status(404).json({
@@ -1343,47 +1437,29 @@ router.put('/:id/assign-room', authenticate, authorizePermission('pms', 'admin.r
       });
     }
 
-    if (room.status !== 'active') {
-      return res.status(400).json({
-        success: false,
-        message: 'Room is inactive'
-      });
-    }
-
-    // Check room capacity
-    // Capacity logic removed
-
-    // Check for overlapping reservations on this specific room
-    const overlappingReservation = await Reservation.findOne({
-      _id: { $ne: reservationId },
-      status: { $in: ['confirmed'] },
-      $and: [
-        { $or: [ { room: roomId }, { rooms: roomId } ] },
-        { $or: [
-          { checkInDate: { $lte: reservation.checkInDate }, checkOutDate: { $gt: reservation.checkInDate } },
-          { checkInDate: { $lt: reservation.checkOutDate }, checkOutDate: { $gte: reservation.checkOutDate } },
-          { checkInDate: { $gte: reservation.checkInDate }, checkOutDate: { $lte: reservation.checkOutDate } }
-        ] }
-      ]
-    });
-
-    if (overlappingReservation) {
-      return res.status(400).json({
-        success: false,
-        message: 'Room is not available for the selected dates'
-      });
-    }
-
     // Track previous room to free if reassigning
     const previousRoomId = reservation.room as any;
 
+    // Resulting assignment: the new room replaces the previous primary room
+    const nextRoomIds = (Array.isArray(reservation.rooms) ? reservation.rooms.map(r => String(r)) : [])
+      .filter(id => !previousRoomId || id !== String(previousRoomId));
+    if (!nextRoomIds.includes(String(roomId))) nextRoomIds.push(String(roomId));
+
+    // Room active, free for every night (other stays and room blocks), and matching the booked room types
+    const invalid = await validateRoomAssignment({
+      roomIds: nextRoomIds,
+      checkIn: reservation.checkInDate,
+      checkOut: reservation.checkOutDate,
+      items: reservation.items,
+      reservationId: reservation._id,
+    });
+    if (invalid) {
+      return res.status(invalid.status).json({ success: false, message: invalid.message });
+    }
+
     // Update reservation with room assignment
     reservation.room = roomId as any;
-    // Ensure rooms array contains this room
-    const currentRooms = Array.isArray(reservation.rooms) ? reservation.rooms.map(r => String(r)) : [];
-    if (!currentRooms.includes(String(roomId))) {
-      reservation.rooms = (reservation.rooms || []).concat([roomId as any]);
-    }
+    reservation.rooms = nextRoomIds as any;
     reservation.assignedBy = req.user!.id as any;
     reservation.assignedAt = new Date();
 
@@ -1397,6 +1473,7 @@ router.put('/:id/assign-room', authenticate, authorizePermission('pms', 'admin.r
     reservation.status = 'confirmed'; // Automatically confirm when room is assigned
 
     await reservation.save();
+    await recordRooms();
 
     // Do not change room status; status only reflects active/inactive
     await room.save();
@@ -1443,6 +1520,12 @@ router.put('/:id/assign-rooms', authenticate, authorizePermission('pms', 'admin.
       return res.status(404).json({ success: false, message: 'Reservation not found' });
     }
 
+    const before = snapshotReservation(reservation);
+    const recordRooms = () => recordReservationEvent(reservation._id as any, 'rooms_changed', {
+      actor: actorFromRequest(req),
+      changes: diffSnapshots(before, snapshotReservation(reservation)),
+    });
+
     const ids = Array.isArray(roomIds) ? roomIds.filter(Boolean) : [];
     if (ids.length === 0) {
       reservation.rooms = [] as any;
@@ -1450,6 +1533,7 @@ router.put('/:id/assign-rooms', authenticate, authorizePermission('pms', 'admin.
       reservation.assignedBy = undefined as any;
       reservation.assignedAt = undefined as any;
       await reservation.save();
+      await recordRooms();
       const populatedReservation = await Reservation.findById(reservation._id)
         .populate('user', 'firstName lastName email')
         .populate('room', 'name status')
@@ -1458,26 +1542,17 @@ router.put('/:id/assign-rooms', authenticate, authorizePermission('pms', 'admin.
       return res.status(200).json({ success: true, message: 'Rooms assignment cleared', data: populatedReservation });
     }
 
-    // Validate each room and overlapping reservations
-    const uniqueIds = Array.from(new Set(ids));
-    for (const rid of uniqueIds) {
-      const room = await Room.findById(rid);
-      if (!room) return res.status(404).json({ success: false, message: `Room not found: ${rid}` });
-      if (room.status !== 'active') return res.status(400).json({ success: false, message: `Room is inactive: ${room.name}` });
-      const overlapping = await Reservation.findOne({
-        _id: { $ne: reservationId },
-        status: { $in: ['confirmed'] },
-        $and: [
-          { $or: [ { room: rid }, { rooms: rid } ] },
-          { $or: [
-            { checkInDate: { $lte: reservation.checkInDate }, checkOutDate: { $gt: reservation.checkInDate } },
-            { checkInDate: { $lt: reservation.checkOutDate }, checkOutDate: { $gte: reservation.checkOutDate } },
-            { checkInDate: { $gte: reservation.checkInDate }, checkOutDate: { $lte: reservation.checkOutDate } }
-          ] }
-        ]
-      });
-      if (overlapping) return res.status(400).json({ success: false, message: `Room not available for selected dates: ${room.name}` });
-    }
+    // Each room active, free for every night (other stays and room blocks), and — for
+    // reservations with room items — one room per booked room of a matching type or capacity
+    const uniqueIds = Array.from(new Set(ids.map(String)));
+    const invalid = await validateRoomAssignment({
+      roomIds: uniqueIds,
+      checkIn: reservation.checkInDate,
+      checkOut: reservation.checkOutDate,
+      items: reservation.items,
+      reservationId: reservation._id,
+    });
+    if (invalid) return res.status(invalid.status).json({ success: false, message: invalid.message });
 
     reservation.rooms = uniqueIds as any;
     reservation.room = uniqueIds[0] as any; // Backward compatibility
@@ -1485,6 +1560,7 @@ router.put('/:id/assign-rooms', authenticate, authorizePermission('pms', 'admin.
     reservation.assignedAt = new Date();
     reservation.status = 'confirmed';
     await reservation.save();
+    await recordRooms();
 
     const populatedReservation = await Reservation.findById(reservation._id)
       .populate('user', 'firstName lastName email')
@@ -1496,6 +1572,122 @@ router.put('/:id/assign-rooms', authenticate, authorizePermission('pms', 'admin.
   } catch (error: any) {
     console.error('Assign rooms error:', error);
     res.status(500).json({ success: false, message: 'Server error while assigning rooms' });
+  }
+});
+
+// @route   PUT /api/reservations/:id/move
+// @desc    Booking calendar drag and drop: shift a stay to a new check-in (same number of nights)
+//          and/or swap one of its rooms (`fromRoomId`, null for an unassigned booked room) for
+//          `toRoomId`. Validated as one change: the resulting rooms must be active, match the
+//          booked room types and be free on the resulting nights.
+// @access  Private — date changes need admin.reservations, room changes admin.reservations.assignRoom
+router.put('/:id/move', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
+  try {
+    const { checkInDate, fromRoomId, toRoomId } = req.body as { checkInDate?: string; fromRoomId?: string | null; toRoomId?: string | null };
+    if (checkInDate !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(checkInDate))) {
+      return res.status(400).json({ success: false, message: 'checkInDate must be YYYY-MM-DD' });
+    }
+
+    const reservation = await Reservation.findById(req.params.id);
+    if (!reservation) {
+      return res.status(404).json({ success: false, message: 'Reservation not found' });
+    }
+    if (reservation.type !== 'room' || !reservation.checkOutDate) {
+      return res.status(400).json({ success: false, message: 'Only room reservations can be moved' });
+    }
+    if (!['pending', 'confirmed', 'checked-in'].includes(reservation.status)) {
+      return res.status(400).json({ success: false, message: 'Only pending, confirmed or checked-in reservations can be moved' });
+    }
+
+    const from = fromRoomId ? String(fromRoomId) : null;
+    const to = toRoomId ? String(toRoomId) : null;
+    const currentIds = [...new Set([reservation.room, ...(reservation.rooms || [])].filter(Boolean).map(String))];
+    if (from && !currentIds.includes(from)) {
+      return res.status(400).json({ success: false, message: 'That room is not assigned to this reservation' });
+    }
+    if (from && !to) {
+      return res.status(400).json({ success: false, message: 'Choose a room to move the reservation to' });
+    }
+    const roomChange = !!to && to !== from;
+    if (roomChange && currentIds.includes(to!)) {
+      return res.status(400).json({ success: false, message: 'That room is already assigned to this reservation' });
+    }
+
+    // Same number of nights; dates stored at noon UTC
+    const oldCheckIn = new Date(reservation.checkInDate);
+    const nightMs = 24 * 60 * 60 * 1000;
+    const nights = Math.max(1, Math.round((new Date(reservation.checkOutDate).getTime() - oldCheckIn.getTime()) / nightMs));
+    const checkIn = checkInDate
+      ? (() => { const [y, m, d] = checkInDate.split('-').map(Number); return new Date(Date.UTC(y, m - 1, d, 12, 0, 0)); })()
+      : oldCheckIn;
+    const checkOut = new Date(checkIn.getTime() + nights * nightMs);
+    const dateChange = checkIn.toISOString().slice(0, 10) !== oldCheckIn.toISOString().slice(0, 10);
+
+    if (!dateChange && !roomChange) {
+      return res.status(400).json({ success: false, message: 'Nothing to move' });
+    }
+
+    const tenantProducts = (req.tenant as any)?.products;
+    if (dateChange && !(await userHasPermission(req.user, 'pms', ['admin.reservations'], req.tenantId, tenantProducts))) {
+      return res.status(403).json({ success: false, message: 'Access denied. Missing permission to change reservation dates.' });
+    }
+    if (roomChange && !(await userHasPermission(req.user, 'pms', ['admin.reservations.assignRoom'], req.tenantId, tenantProducts))) {
+      return res.status(403).json({ success: false, message: 'Access denied. Missing permission to assign rooms.' });
+    }
+
+    if (dateChange) {
+      if (reservation.status === 'checked-in') {
+        return res.status(400).json({ success: false, message: 'The guest is already checked in; only the room can be changed' });
+      }
+      const now = new Date();
+      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      if (checkIn < startOfToday) {
+        return res.status(400).json({ success: false, message: 'Check-in date cannot be in the past' });
+      }
+    }
+
+    const nextIds = roomChange
+      ? (from ? currentIds.map(id => (id === from ? to! : id)) : [...currentIds, to!])
+      : currentIds;
+    const invalid = await validateRoomAssignment({
+      roomIds: nextIds,
+      checkIn,
+      checkOut,
+      items: reservation.items,
+      reservationId: reservation._id,
+    });
+    if (invalid) return res.status(invalid.status).json({ success: false, message: invalid.message });
+
+    const before = snapshotReservation(reservation);
+    if (dateChange) {
+      reservation.checkInDate = checkIn;
+      reservation.checkOutDate = checkOut;
+    }
+    if (roomChange) {
+      const primary = reservation.room ? String(reservation.room) : null;
+      reservation.rooms = nextIds as any;
+      reservation.room = (!primary || primary === from ? to : primary) as any;
+      reservation.assignedBy = req.user!.id as any;
+      reservation.assignedAt = new Date();
+      // Assigning a waiting booked room confirms the reservation, as assign-room does
+      if (!from && reservation.status === 'pending') reservation.status = 'confirmed';
+    }
+    await reservation.save();
+    await recordReservationEvent(reservation._id as any, 'moved', {
+      actor: actorFromRequest(req),
+      changes: diffSnapshots(before, snapshotReservation(reservation)),
+    });
+
+    const populatedReservation = await Reservation.findById(reservation._id)
+      .populate('user', 'firstName lastName email')
+      .populate('room', 'name status')
+      .populate('rooms', 'name status')
+      .populate('guestRecord', 'firstName lastName email phone');
+
+    res.status(200).json({ success: true, message: 'Reservation moved', data: populatedReservation });
+  } catch (error: any) {
+    console.error('Move reservation error:', error);
+    res.status(500).json({ success: false, message: 'Server error while moving reservation' });
   }
 });
 
@@ -1599,9 +1791,15 @@ router.put('/public/:confirmationToken/cancel', async (req: Request, res: Respon
     }
 
     // Update reservation status
+    const previousStatus = reservation.status;
     reservation.status = 'cancelled';
     reservation.cancellationReason = cancellationReason || 'Cancelled by guest';
     await reservation.save();
+    await recordReservationEvent(reservation._id as any, 'cancelled', {
+      actor: GUEST_ACTOR,
+      changes: [{ field: 'status', from: previousStatus, to: 'cancelled' }],
+      note: reservation.cancellationReason,
+    });
 
     const populatedReservation = await Reservation.findById(reservation._id)
       .populate('user', 'firstName lastName email')
@@ -1659,9 +1857,15 @@ router.put('/public/code/:reservationCode/cancel', async (req: Request, res: Res
     }
 
     // Update reservation status
+    const previousStatus = reservation.status;
     reservation.status = 'cancelled';
     reservation.cancellationReason = cancellationReason || 'Cancelled by guest';
     await reservation.save();
+    await recordReservationEvent(reservation._id as any, 'cancelled', {
+      actor: GUEST_ACTOR,
+      changes: [{ field: 'status', from: previousStatus, to: 'cancelled' }],
+      note: reservation.cancellationReason,
+    });
 
     const populatedReservation = await Reservation.findById(reservation._id)
       .populate('user', 'firstName lastName email')
@@ -1680,19 +1884,6 @@ router.put('/public/code/:reservationCode/cancel', async (req: Request, res: Res
     });
   }
 });
-
-// Utility: Generate reservation code (B + YY + 4 alphanumeric uppercase)
-const generateReservationCode = (): string => {
-  const prefix = 'B';
-  const now = new Date();
-  const year = String(now.getFullYear()).slice(-2); // Last two digits of current year
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-  let rand = '';
-  for (let i = 0; i < 4; i++) {
-    rand += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return `${prefix}${year}${rand}`;
-};
 
 // Operational actions: Check-In / Check-Out
 // @route   PATCH /api/reservations/:id/check-in
@@ -1741,11 +1932,19 @@ router.patch('/:id/check-in', authenticate, authorizePermission('pms', 'admin.re
         folioId: folio._id,
         description: `Reservation base charge: ${summary}`,
         amount,
+        createdBy: req.user?.id as any,
       });
       await postChargeAddedEntry(req.tenant, baseCharge, req.user?.id as any);
     }
 
+    const previousStatus = reservation.status;
     await reservation.save();
+    // The ID type only — the document number itself stays on the reservation, not in the log
+    await recordReservationEvent(reservation._id as any, 'checked_in', {
+      actor: actorFromRequest(req),
+      changes: [{ field: 'status', from: previousStatus, to: reservation.status }],
+      ...(reservation.identificationType ? { note: reservation.identificationType } : {}),
+    });
 
     const populatedReservation = await Reservation.findById(reservation._id)
       .populate('user', 'firstName lastName email')
@@ -1890,6 +2089,7 @@ router.patch('/:id/check-out', authenticate, authorizeAppAccess('pms'), async (r
       };
     }
 
+    const previousStatus = reservation.status;
     reservation.actualCheckOutAt = checkOutAt ? new Date(checkOutAt) : new Date();
     reservation.status = 'completed';
 
@@ -1908,6 +2108,11 @@ router.patch('/:id/check-out', authenticate, authorizeAppAccess('pms'), async (r
     }
 
     await reservation.save();
+    await recordReservationEvent(reservation._id as any, 'checked_out', {
+      actor: actorFromRequest(req),
+      changes: [{ field: 'status', from: previousStatus, to: 'completed' }],
+      ...(cityLedgerOutcome ? { amount: financial.totals.balance, note: `City Ledger ${cityLedgerOutcome.invoiceNumber}` } : {}),
+    });
 
     const populatedReservation = await Reservation.findById(reservation._id)
       .populate('user', 'firstName lastName email')
@@ -1964,6 +2169,7 @@ router.post('/:id/charges', authenticate, authorizePermission('pms', 'admin.rese
       amount: amt,
       type: 'manual',
       category: category || undefined,
+      createdBy: req.user?.id as any,
     });
     await postChargeAddedEntry(req.tenant, charge, req.user?.id as any);
 
@@ -1990,6 +2196,12 @@ router.delete('/:id/charges/:chargeId', authenticate, authorizePermission('pms',
     }
 
     await charge.deleteOne();
+    await recordReservationEvent(reservation._id as any, 'charge_deleted', {
+      actor: actorFromRequest(req),
+      ref: { kind: 'charge', id: charge._id as any },
+      amount: charge.amount,
+      note: charge.description,
+    });
     res.json({ success: true, message: 'Charge deleted' });
   } catch (error: any) {
     console.error('Delete charge error:', error);
@@ -2136,6 +2348,8 @@ router.patch('/:id/payments/:paymentId', authenticate, authorizePermission('pms'
     if (!payment) return res.status(404).json({ success: false, message: 'Payment not found' });
 
     const previousStatus = payment.status;
+    const paymentFields = (p: any) => ({ amount: p.amount, method: p.method, status: p.status, reference: p.reference || undefined });
+    const paymentBefore = paymentFields(payment);
 
     if (amount !== undefined) {
       const amt = Number(amount);
@@ -2148,6 +2362,11 @@ router.patch('/:id/payments/:paymentId', authenticate, authorizePermission('pms'
     if (status) payment.status = status;
 
     await payment.save();
+    await recordReservationEvent(reservation._id as any, 'payment_updated', {
+      actor: actorFromRequest(req),
+      ref: { kind: 'payment', id: payment._id as any },
+      changes: diffSnapshots(paymentBefore, paymentFields(payment)),
+    });
 
     // Phase 7.2: mirror the status transition onto the GL — a completed payment gaining
     // a GL entry, a completed→reversed one flipping it. A same-status edit (e.g. just the
@@ -2190,6 +2409,12 @@ router.delete('/:id/payments/:paymentId', authenticate, authorizePermission('pms
     const financial = await getReservationFinancialSnapshot(reservation);
     const deleted = await Payment.findOneAndDelete({ _id: req.params.paymentId, folioId: financial.folio._id });
     if (!deleted) return res.status(404).json({ success: false, message: 'Payment not found' });
+    await recordReservationEvent(reservation._id as any, 'payment_deleted', {
+      actor: actorFromRequest(req),
+      ref: { kind: 'payment', id: deleted._id as any },
+      amount: deleted.amount,
+      note: deleted.method,
+    });
 
     const updatedFinancial = await getReservationFinancialSnapshot(reservation);
     reservation.totalPayments = updatedFinancial.totals.totalPayments;
@@ -2249,11 +2474,18 @@ router.post('/:id/use-credit', authenticate, authorizePermission('pms', 'admin.r
     financial.folio.status = 'in_ar';
     await financial.folio.save();
 
+    const previousStatus = reservation.status;
     reservation.actualCheckOutAt = new Date();
     reservation.status = 'completed';
     const refreshed = await getReservationFinancialSnapshot(reservation);
     reservation.totalPayments = refreshed.totals.totalPayments;
     await reservation.save();
+    await recordReservationEvent(reservation._id as any, 'checked_out', {
+      actor: actorFromRequest(req),
+      changes: [{ field: 'status', from: previousStatus, to: 'completed' }],
+      amount: financial.totals.balance,
+      note: 'credit',
+    });
 
     const populated = await Reservation.findById(reservation._id)
       .populate('user', 'firstName lastName email')
@@ -2297,6 +2529,7 @@ router.post('/:id/send-email', authenticate, authorize('admin'), async (req: Aut
       const financial = await getReservationFinancialSnapshot(reservation);
       await sendInvoiceEmail(financial.folio._id as string);
     }
+    await recordReservationEvent(reservation._id as any, 'email_sent', { actor: actorFromRequest(req), note: type });
 
     res.status(200).json({ success: true, message: `${type} email sent` });
   } catch (error: any) {
@@ -2423,6 +2656,22 @@ async function recalculateCorporatePrice(reservation: any, companyId: string): P
   if (newSnapshot) reservation.pricingSnapshot = newSnapshot;
 }
 
+/**
+ * These routes are also reached from the buttons in the request email, without a session:
+ * those decisions are recorded as staff without a name, marked `email_link`.
+ */
+async function recordCorporateDecision(
+  req: Request, reservation: any,
+  action: 'corporate_rate_approved' | 'corporate_rate_declined', before: ReturnType<typeof snapshotReservation>,
+) {
+  const user = await optionalUser(req);
+  await recordReservationEvent(reservation._id, action, {
+    actor: user ? actorFromRequest({ user }) : { kind: 'user' },
+    changes: diffSnapshots(before, snapshotReservation(reservation)),
+    ...(user ? {} : { note: 'email_link' }),
+  });
+}
+
 // @route   POST /api/reservations/:id/corporate-price/approve
 // @desc    Approve a pending corporate price request (via email link or admin UI)
 // @access  Public (stateless action link) — token-based in production
@@ -2447,6 +2696,7 @@ router.post('/:id/corporate-price/approve', async (req: Request, res: Response) 
       }
     }
 
+    const before = snapshotReservation(reservation);
     reservation.corporatePriceStatus = 'approved';
     if (companyId) {
       reservation.company = companyId;
@@ -2460,6 +2710,7 @@ router.post('/:id/corporate-price/approve', async (req: Request, res: Response) 
       await recalculateCorporatePrice(reservation, String(companyId));
     }
     await reservation.save();
+    await recordCorporateDecision(req, reservation, 'corporate_rate_approved', before);
 
     // If accessed from an email link (GET-like), redirect to a friendly page
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -2487,6 +2738,7 @@ router.get('/:id/corporate-price/approve', async (req: Request, res: Response) =
       return res.redirect(`${frontendUrl}/admin/reservations?info=already_${reservation.corporatePriceStatus || 'processed'}`);
     }
 
+    const before = snapshotReservation(reservation);
     reservation.corporatePriceStatus = 'approved';
 
     // Try to auto-link guest's company
@@ -2505,6 +2757,7 @@ router.get('/:id/corporate-price/approve', async (req: Request, res: Response) =
     }
 
     await reservation.save();
+    await recordCorporateDecision(req, reservation, 'corporate_rate_approved', before);
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     res.redirect(`${frontendUrl}/admin/reservations?corporateApproved=${reservation.reservationCode}`);
@@ -2528,8 +2781,10 @@ router.post('/:id/corporate-price/decline', async (req: Request, res: Response) 
       return res.status(400).json({ success: false, message: `Corporate price is already ${reservation.corporatePriceStatus || 'not requested'}` });
     }
 
+    const before = snapshotReservation(reservation);
     reservation.corporatePriceStatus = 'declined';
     await reservation.save();
+    await recordCorporateDecision(req, reservation, 'corporate_rate_declined', before);
 
     if (req.headers.accept?.includes('text/html')) {
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
@@ -2556,8 +2811,10 @@ router.get('/:id/corporate-price/decline', async (req: Request, res: Response) =
       return res.redirect(`${frontendUrl}/admin/reservations?info=already_${reservation.corporatePriceStatus || 'processed'}`);
     }
 
+    const before = snapshotReservation(reservation);
     reservation.corporatePriceStatus = 'declined';
     await reservation.save();
+    await recordCorporateDecision(req, reservation, 'corporate_rate_declined', before);
 
     const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
     res.redirect(`${frontendUrl}/admin/reservations?corporateDeclined=${reservation.reservationCode}`);

@@ -12,6 +12,7 @@ import BlockIcon from '@mui/icons-material/Block';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import EditIcon from '@mui/icons-material/Edit';
+import ForwardToInboxIcon from '@mui/icons-material/ForwardToInbox';
 import { platformService, TenantRecord, ProvisionTenantPayload, TenantProduct, AccountingPlanSlug } from '../../services/api';
 import PlatformLayout from './PlatformLayout';
 import { toast } from 'react-toastify';
@@ -28,9 +29,15 @@ const ACCOUNTING_PLAN_COLORS: Record<string, 'default' | 'primary' | 'secondary'
   plus: 'secondary',
 };
 
+const INVITATION_CHIP: Record<string, { label: string; color: 'default' | 'success' | 'warning' | 'error' }> = {
+  pending: { label: 'Invitation sent', color: 'warning' },
+  expired: { label: 'Invitation expired', color: 'error' },
+  accepted: { label: 'Password set', color: 'success' },
+};
+
 const defaultForm: ProvisionTenantPayload = {
   name: '', slug: '', plan: 'basic',
-  ownerEmail: '', adminFirstName: '', adminLastName: '', adminPassword: '',
+  ownerEmail: '', adminFirstName: '', adminLastName: '',
   products: ['pms'],
 };
 
@@ -136,7 +143,8 @@ const TenantsPage: React.FC = () => {
     setSubmitting(true);
     try {
       const res = await platformService.createTenant(form);
-      toast.success(`Tenant "${form.name}" created! Login URL: ${res.data.data?.loginUrl}`);
+      if (res.data.data?.invitation?.sent) toast.success(`Tenant "${form.name}" created. An invitation to choose a password was emailed to ${form.ownerEmail}.`);
+      else toast.warning(res.data.message || `Tenant "${form.name}" created, but the invitation email could not be sent. Use "Resend invitation".`);
       setCreateOpen(false);
       setForm(defaultForm);
       load();
@@ -144,6 +152,16 @@ const TenantsPage: React.FC = () => {
       setCreateError(err.response?.data?.message || 'Failed to create tenant');
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleResendInvitation = async (t: TenantRecord) => {
+    try {
+      const res = await platformService.resendInvitation(t._id);
+      toast.success(res.data.message || `Invitation sent to ${t.ownerEmail}`);
+      load();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to resend the invitation');
     }
   };
 
@@ -200,7 +218,14 @@ const TenantsPage: React.FC = () => {
                       ))}
                     </Stack>
                   </TableCell>
-                  <TableCell>{t.ownerEmail}</TableCell>
+                  <TableCell>
+                    {t.ownerEmail}
+                    {t.ownerInvitation && INVITATION_CHIP[t.ownerInvitation.status] && (
+                      <Box mt={0.5}>
+                        <Chip size="small" variant="outlined" label={INVITATION_CHIP[t.ownerInvitation.status].label} color={INVITATION_CHIP[t.ownerInvitation.status].color} />
+                      </Box>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Chip
                       label={t.isActive ? 'Active' : 'Inactive'}
@@ -215,6 +240,13 @@ const TenantsPage: React.FC = () => {
                         <EditIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
+                    {(t.ownerInvitation?.status === 'pending' || t.ownerInvitation?.status === 'expired') && (
+                      <Tooltip title="Resend invitation">
+                        <IconButton size="small" onClick={() => handleResendInvitation(t)}>
+                          <ForwardToInboxIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
                     <Tooltip title="View stats">
                       <IconButton size="small" onClick={() => handleStats(t)}>
                         <BarChartIcon fontSize="small" />
@@ -315,14 +347,7 @@ const TenantsPage: React.FC = () => {
             <TextField label="Admin First Name" value={form.adminFirstName} onChange={fieldChange('adminFirstName')} required fullWidth />
             <TextField label="Admin Last Name" value={form.adminLastName} onChange={fieldChange('adminLastName')} required fullWidth />
           </Box>
-          <TextField
-            label="Initial Admin Password"
-            type="password"
-            value={form.adminPassword}
-            onChange={fieldChange('adminPassword')}
-            helperText="The tenant admin will use this to log in for the first time"
-            required fullWidth
-          />
+          <Alert severity="info">The owner receives an email with a link to choose their own password (valid for 72 hours).</Alert>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCreateOpen(false)}>Cancel</Button>

@@ -13,6 +13,10 @@ import MongoStore from 'connect-mongo';
 // Import routes
 import authRoutes from './routes/auth';
 import roomRoutes from './routes/rooms';
+import roomBlockRoutes from './routes/roomBlocks';
+import restrictionRuleRoutes from './routes/restrictionRules';
+import channelManagerRoutes from './routes/channelManager';
+import rateCalendarRoutes from './routes/rateCalendar';
 import reservationRoutes from './routes/reservations';
 import mediaRoutes from './routes/media';
 import adminRoutes from './routes/admin';
@@ -21,6 +25,7 @@ import eventTypeRoutes from './routes/eventTypes';
 import roleRoutes from './routes/roles';
 import pricingRoutes from './routes/pricing';
 import settingsRoutes from './routes/settings';
+import propertyProfileRoutes from './routes/propertyProfile';
 import companyRoutes from './routes/companies';
 import guestRoutes from './routes/guests';
 import creditAccountRoutes from './routes/creditAccounts';
@@ -32,8 +37,7 @@ import chargeTemplateRoutes from './routes/chargeTemplates';
 import chargeRuleRoutes from './routes/chargeRules';
 import auditRoutes from './routes/audit';
 import resendWebhookRoutes from './routes/resendWebhook';
-import otaRoutes from './routes/ota';
-import otaFeedRoutes from './routes/otaFeed';
+import channexWebhookRoutes from './routes/channexWebhook';
 import privacyRoutes from './routes/privacy';
 import bookingRoutes from './routes/booking';
 import reviewRoutes from './routes/reviews';
@@ -43,10 +47,10 @@ import accountingRoutes from './routes/accounting';
 import { syncUploadsToMedia } from './utils/mediaSync';
 import { migrateReservationStatuses } from './models/Reservation';
 import { runAudit } from './utils/chargeWorker';
-import { initOtaCron, stopOtaCron } from './utils/otaCron';
-import PlatformSettings from './models/PlatformSettings';
 import cron from 'node-cron';
 import { resolveTenant } from './middleware/tenantContext';
+import { logChannexConfigWarnings } from './services/channex/config';
+import { startChannexWorkers, stopChannexWorkers } from './utils/channexCron';
 import { requireTenantProduct } from './middleware/auth';
 import Tenant from './models/Tenant';
 
@@ -155,6 +159,12 @@ app.use(session({
 }));
 
 app.use(morgan('combined'));
+
+// ── Channex webhook (raw body, no tenant context, no JWT) ───────────────────
+// MUST be registered BEFORE express.json() (the HMAC covers the raw bytes) and before
+// resolveTenant (the tenant comes from the verified payload, not the Host).
+app.use('/api/webhooks/channex', channexWebhookRoutes);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -183,11 +193,6 @@ app.get('/api/health', (_req, res) => {
   res.status(200).json({ status: 'OK', message: 'Pilloto API is running', timestamp: new Date().toISOString() });
 });
 
-// Public outbound iCal feed — no JWT, no tenant context, token is the auth.
-// MUST be registered BEFORE resolveTenant to avoid Render's internal hostname
-// ("pilloto-pms.onrender.com") being extracted as a tenant slug and returning 404.
-app.use('/api/ota/feed', otaFeedRoutes);
-
 // ── Tenant resolution middleware (runs before all API routes) ─────────────────
 // Must come after cookie-parser and body-parser but before routes
 app.use('/api', resolveTenant);
@@ -209,14 +214,19 @@ app.use('/api/webhooks', resendWebhookRoutes);
 app.use('/api/platform', platformRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/rooms', requireTenantProduct('pms'), roomRoutes);
+app.use('/api/room-blocks', requireTenantProduct('pms'), roomBlockRoutes);
 app.use('/api/reservations', requireTenantProduct('pms'), reservationRoutes);
 app.use('/api/media', requireTenantProduct('pms'), mediaRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/amenities', requireTenantProduct('pms'), amenityRoutes);
 app.use('/api/event-types', requireTenantProduct('pms'), eventTypeRoutes);
 app.use('/api/pricing', requireTenantProduct('pms'), pricingRoutes);
+app.use('/api/restriction-rules', requireTenantProduct('pms'), restrictionRuleRoutes);
+app.use('/api/channel-manager', requireTenantProduct('pms'), channelManagerRoutes);
+app.use('/api/rate-calendar', requireTenantProduct('pms'), rateCalendarRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/settings', requireTenantProduct('pms'), settingsRoutes);
+app.use('/api/property-profile', requireTenantProduct('pms'), propertyProfileRoutes);
 app.use('/api/companies', requireTenantProduct('pms'), companyRoutes);
 app.use('/api/guests', requireTenantProduct('pms'), guestRoutes);
 app.use('/api/credit-accounts', requireTenantProduct('pms'), creditAccountRoutes);
@@ -226,14 +236,12 @@ app.use('/api/service-prices', requireTenantProduct('pms'), servicePriceRoutes);
 app.use('/api/charge-templates', requireTenantProduct('pms'), chargeTemplateRoutes);
 app.use('/api/charge-rules', requireTenantProduct('pms'), chargeRuleRoutes);
 app.use('/api/audit', requireTenantProduct('pms'), auditRoutes);
-app.use('/api/ota', requireTenantProduct('pms'), otaRoutes);
 app.use('/api/privacy', privacyRoutes);
 app.use('/api/booking', requireTenantProduct('pms'), bookingRoutes);
 app.use('/api/reviews', requireTenantProduct('pms'), reviewRoutes);
 app.use('/api/ecf', requireTenantProduct('pms'), ecfRoutes);
 app.use('/api/admin/reports', requireTenantProduct('pms'), reportsRoutes);
 app.use('/api/accounting', requireTenantProduct('accounting'), accountingRoutes);
-// (outbound iCal feed is registered before resolveTenant above)
 
 // Public endpoint: returns tenant info from the Host/X-Tenant-Slug header (no auth required)
 app.get('/api/tenant/info', async (req, res) => {
@@ -299,6 +307,7 @@ const connectDB = async () => {
 // Triggered by: SIGTERM (Render/Docker stop), SIGINT (Ctrl+C in dev).
 const gracefulShutdown = (signal: string, server: ReturnType<typeof app.listen>) => {
   console.log(`\n${signal} received — shutting down gracefully…`);
+  stopChannexWorkers();
   server.close(async () => {
     try {
       await mongoose.connection.close();
@@ -338,6 +347,10 @@ const startServer = async () => {
     console.log(`📚 API Documentation: http://localhost:${PORT}/api/health`);
   });
 
+  // Channex channel manager — warn about missing/odd config; the app runs without it.
+  logChannexConfigWarnings();
+  startChannexWorkers();
+
   // Night audit cron — fires every hour.
   // Each tenant's configured time (Settings → Night Audit) determines which hour it actually runs.
   // Tenants without a configured time default to 03:00 (or NIGHT_AUDIT_DEFAULT_TIME env var).
@@ -362,20 +375,8 @@ const startServer = async () => {
     console.log('⚠️  Night audit disabled via NIGHT_AUDIT_DISABLED=true');
   }
 
-  // OTA iCal sync cron — interval and enabled-state are stored in PlatformSettings.
-  // Disable entirely with OTA_SYNC_DISABLED=true (env override, e.g. for workers that
-  // should not run the cron).
-  if (process.env.OTA_SYNC_DISABLED !== 'true') {
-    const platformCfg = await PlatformSettings.findOne({ key: 'global' }).lean();
-    const otaCronEnabled  = platformCfg?.otaSync?.globalEnabled  ?? true;
-    const otaCronInterval = platformCfg?.otaSync?.cronIntervalMinutes ?? 5;
-    initOtaCron(otaCronInterval, otaCronEnabled);
-  } else {
-    console.log('⚠️  OTA sync disabled via OTA_SYNC_DISABLED=true');
-  }
-
-  process.on('SIGTERM', () => { stopOtaCron(); gracefulShutdown('SIGTERM', server); });
-  process.on('SIGINT',  () => { stopOtaCron(); gracefulShutdown('SIGINT',  server); });
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM', server));
+  process.on('SIGINT',  () => gracefulShutdown('SIGINT',  server));
 };
 
 startServer().catch(console.error);

@@ -51,6 +51,8 @@ export interface User {
   isSuperAdmin?: boolean;
   /** Joined role name + permissions per app, as returned by `GET /auth/me`. Absent on the raw login/register response. */
   resolvedAppRoles?: Partial<Record<AppCode, ResolvedAppRole>>;
+  /** Where the "choose your password" invitation stands (Users list only) */
+  invitation?: { status: 'none' | 'pending' | 'expired' | 'accepted'; invitedAt?: string; expiresAt?: string; acceptedAt?: string };
   createdAt: string;
   updatedAt: string;
 }
@@ -96,6 +98,8 @@ export interface RoomType {
   capacity: number;
   image?: string;
   isActive: boolean;
+  /** Offered on OTAs through the channel manager (default true) */
+  sellOnChannels?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -166,6 +170,61 @@ export interface Room {
   updatedAt: string;
 }
 
+/** A booked room or service line on a reservation (room items carry the booked room type). */
+export interface ReservationItem {
+  kind: 'room' | 'service';
+  roomTypeId?: string | null;
+  ratePlanId?: string | null;
+  checkIn?: string;
+  checkOut?: string;
+  serviceId?: string;
+  date?: string;
+  adults?: number;
+  children?: number;
+  quantity: number;
+  unitPrice?: number;
+  subtotal?: number;
+  total?: number;
+}
+
+export type RoomBlockReason = 'maintenance' | 'out_of_order' | 'owner_use' | 'other';
+
+/** A room out of service over a range of nights; `endDate` is the day it is back (exclusive). */
+export interface RoomBlock {
+  _id: string;
+  roomId: string | (Pick<Room, '_id' | 'name'> & { roomTypeId?: string });
+  startDate: string; // YYYY-MM-DD
+  endDate: string;   // YYYY-MM-DD, exclusive
+  reason: RoomBlockReason;
+  notes?: string;
+  createdBy?: string | Pick<User, 'firstName' | 'lastName'>;
+  createdAt?: string;
+}
+
+/** Where an OTA reservation came from (Channex ids are never sent to tenant screens) */
+export interface ChannelSource {
+  provider: 'channex' | 'ical_legacy';
+  otaName?: string;
+  otaCode?: string;
+  otaReservationCode?: string;
+  uniqueId?: string;
+  lastRevisionInsertedAt?: string;
+  paymentCollect?: 'property' | 'ota';
+  paymentType?: string;
+  otaCommission?: number;
+  currency?: string;
+  guaranteeSummary?: {
+    cardType?: string;
+    last4?: string;
+    expirationDate?: string;
+    isVirtual?: boolean;
+    virtualCardCurrency?: string;
+    virtualCardBalance?: number;
+    virtualCardActivationDate?: string;
+  };
+  importedAt?: string;
+}
+
 export interface Reservation {
   _id: string;
   reservationCode?: string;
@@ -186,6 +245,8 @@ export interface Reservation {
   // Room-specific fields (required for room reservations)
   room?: string | Room; // Specific room assigned by admin
   rooms?: Array<string | Room>; // Multiple rooms assigned
+  roomCount?: number;
+  items?: ReservationItem[];
   roomType?: 'standard' | 'deluxe' | 'suite' | 'villa'; // For compatibility during transition
 
   // Event-specific fields (required for event reservations)
@@ -238,6 +299,9 @@ export interface Reservation {
   company?: string | Company;
   corporatePriceStatus?: 'pending' | 'approved' | 'declined';
   guestRecord?: string | Guest;
+
+  /** Set only for reservations that arrived from an OTA */
+  channelSource?: ChannelSource;
 
   createdAt: string;
   updatedAt: string;
@@ -478,11 +542,8 @@ export type EcfEstadoECF =
   | 'Emitido Contingencia'
   | 'Pendiente';
 
+/** Legal name, RNC and phone are the property profile's (propertyProfileService) */
 export interface TenantEcfConfig {
-  rnc: string;
-  razonSocial: string;
-  nombreComercial?: string;
-  phone?: string;
   ambiente: EcfAmbiente;
   isActive: boolean;
   sucursal?: string;

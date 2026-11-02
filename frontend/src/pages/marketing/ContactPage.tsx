@@ -1,31 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import {
   Box, Typography, Button, Container, Grid, TextField,
-  MenuItem, Select, Link, Stack, Alert, CircularProgress, Chip, Divider,
+  MenuItem, Link, Stack, Alert, CircularProgress, Chip, Divider,
 } from '@mui/material';
 import EmailIcon from '@mui/icons-material/Email';
 import PhoneIcon from '@mui/icons-material/Phone';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useTranslation } from 'react-i18next';
 import axios from 'axios';
-import PillotoLogo from '../../components/marketing/PillotoLogo';
-import MarketingFooter from '../../components/marketing/MarketingFooter';
+import MarketingLayout from '../../components/marketing/MarketingLayout';
 
-const BRAND = '#1A3C34';
-const BRAND_LIGHT = '#E8F0EE';
+const BRAND = '#121A33';
+const BRAND_LIGHT = '#EEF0F5';
 
 const PLAN_OPTIONS = [
-  { value: 'basic',      label: 'Basic — up to 20 rooms' },
+  { value: 'basic',      label: 'Basic — up to 15 rooms' },
   { value: 'pro',        label: 'Pro — up to 50 rooms' },
-  { value: 'enterprise', label: 'Enterprise — up to 200 rooms' },
+  { value: 'enterprise', label: 'Enterprise — up to 100 rooms' },
   { value: 'general',    label: 'General inquiry' },
 ];
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 
 const ContactPage: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
 
   // Pre-fill plan from URL query param
   const initialPlan = (() => {
@@ -65,32 +63,8 @@ const ContactPage: React.FC = () => {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', backgroundColor: '#F8FAFC' }}>
-      {/* Minimal nav */}
-      <Box sx={{ backgroundColor: 'white', borderBottom: '1px solid #E5E7EB', py: 2, px: { xs: 2, md: 5 } }}>
-        <Stack direction="row" alignItems="center" justifyContent="space-between">
-          <Link href="https://pilloto.com" underline="none">
-            <PillotoLogo iconHeight={32} />
-          </Link>
-          <Stack direction="row" alignItems="center" spacing={2}>
-            <Select
-              size="small"
-              value={i18n.language.startsWith('en') ? 'en' : 'es'}
-              onChange={e => i18n.changeLanguage(e.target.value as string)}
-              sx={{ minWidth: 64, '& .MuiSelect-select': { py: 0.75, fontSize: '0.875rem' } }}
-            >
-              <MenuItem value="en">EN</MenuItem>
-              <MenuItem value="es">ES</MenuItem>
-            </Select>
-            <Link href="https://pilloto.com" underline="hover"
-              sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.875rem', color: 'text.secondary' }}>
-              <ArrowBackIcon fontSize="small" />
-              {t('marketing.contact.backToSite')}
-            </Link>
-          </Stack>
-        </Stack>
-      </Box>
-
+    <MarketingLayout>
+      <Box sx={{ backgroundColor: '#F5F6F8' }}>
       <Container maxWidth="lg" sx={{ py: { xs: 6, md: 10 } }}>
         <Grid container spacing={8} alignItems="flex-start">
 
@@ -100,7 +74,7 @@ const ContactPage: React.FC = () => {
               <Typography variant="overline" fontWeight={700} color={BRAND} letterSpacing={1.5} display="block" mb={2}>
                 {t('marketing.contact.label')}
               </Typography>
-              <Typography variant="h3" fontWeight={800} color="#0F172A" mb={2} lineHeight={1.15}>
+              <Typography variant="h3" fontWeight={800} color="#121A33" mb={2} lineHeight={1.15}>
                 {t('marketing.contact.heading')}
               </Typography>
               <Typography color="text.secondary" mb={5} lineHeight={1.8}>
@@ -115,7 +89,7 @@ const ContactPage: React.FC = () => {
                       sx={{ textTransform: 'uppercase', letterSpacing: 1 }} display="block" mb={0.5}>
                       {t('marketing.contact.phone')}
                     </Typography>
-                    <Link href="tel:+18299679441" underline="hover" sx={{ fontSize: '1rem', fontWeight: 600, color: '#0F172A' }}>
+                    <Link href="tel:+18299679441" underline="hover" sx={{ fontSize: '1rem', fontWeight: 600, color: '#121A33' }}>
                       +1 (829) 967-9441
                     </Link>
                   </Box>
@@ -128,7 +102,7 @@ const ContactPage: React.FC = () => {
                       sx={{ textTransform: 'uppercase', letterSpacing: 1 }} display="block" mb={0.5}>
                       {t('marketing.contact.email')}
                     </Typography>
-                    <Link href="mailto:info@pilloto.com" underline="hover" sx={{ fontSize: '1rem', fontWeight: 600, color: '#0F172A' }}>
+                    <Link href="mailto:info@pilloto.com" underline="hover" sx={{ fontSize: '1rem', fontWeight: 600, color: '#121A33' }}>
                       info@pilloto.com
                     </Link>
                   </Box>
@@ -153,7 +127,7 @@ const ContactPage: React.FC = () => {
           <Grid item xs={12} md={8}>
             <Box sx={{
               backgroundColor: 'white',
-              border: '1px solid #E5E7EB',
+              border: '1px solid #E3E6EE',
               borderRadius: 3,
               p: { xs: 3, md: 5 },
               boxShadow: '0 4px 24px rgba(15,23,42,0.06)',
@@ -161,7 +135,7 @@ const ContactPage: React.FC = () => {
               {success ? (
                 <Stack alignItems="center" spacing={3} py={4} textAlign="center">
                   <CheckCircleOutlineIcon sx={{ fontSize: 64, color: BRAND }} />
-                  <Typography variant="h5" fontWeight={800} color="#0F172A">
+                  <Typography variant="h5" fontWeight={800} color="#121A33">
                     {t('marketing.contact.successTitle')}
                   </Typography>
                   <Typography color="text.secondary" sx={{ maxWidth: 400 }}>
@@ -174,7 +148,7 @@ const ContactPage: React.FC = () => {
                 </Stack>
               ) : (
                 <>
-                  <Typography variant="h5" fontWeight={800} color="#0F172A" mb={0.5}>
+                  <Typography variant="h5" fontWeight={800} color="#121A33" mb={0.5}>
                     {t('marketing.contact.formTitle')}
                   </Typography>
                   <Typography variant="body2" color="text.secondary" mb={4}>
@@ -242,7 +216,7 @@ const ContactPage: React.FC = () => {
                           fullWidth
                           disabled={loading || !name.trim() || !email.trim() || !message.trim()}
                           endIcon={loading ? <CircularProgress size={18} color="inherit" /> : undefined}
-                          sx={{ backgroundColor: BRAND, '&:hover': { backgroundColor: '#14302A' }, py: 1.5 }}
+                          sx={{ backgroundColor: BRAND, '&:hover': { backgroundColor: '#2A3352' }, py: 1.5 }}
                         >
                           {loading ? t('marketing.contact.sending') : t('marketing.contact.submitButton')}
                         </Button>
@@ -255,10 +229,8 @@ const ContactPage: React.FC = () => {
           </Grid>
         </Grid>
       </Container>
-
-      {/* Footer */}
-      <MarketingFooter />
-    </Box>
+      </Box>
+    </MarketingLayout>
   );
 };
 

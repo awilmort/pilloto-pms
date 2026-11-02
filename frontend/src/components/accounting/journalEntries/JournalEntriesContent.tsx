@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { usePermission } from '../../../lib/permissions';
 import { journalEntriesService, accountsService, JournalEntryLineInput } from '../../../services/api';
 import { JournalEntry, JournalEntrySource, Account } from '../../../types';
-import { formatMoney } from '../../../utils/currency';
+import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 

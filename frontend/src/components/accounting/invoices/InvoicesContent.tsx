@@ -20,7 +20,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { usePermission } from '../../../lib/permissions';
 import { invoicesService, accountingCustomersService, productsService, InvoiceLineItemInput } from '../../../services/api';
 import { Invoice, InvoiceStatus, InvoicePaymentMethod, Customer, Product, ElectronicInvoice } from '../../../types';
-import { formatMoney } from '../../../utils/currency';
+import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 

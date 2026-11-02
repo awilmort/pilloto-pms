@@ -31,6 +31,7 @@ import AdminLayout from '../../components/admin/AdminLayout';
 import { adminService, rolesService } from '../../services/api';
 import { User, AppCode } from '../../types';
 import { useTranslation } from 'react-i18next';
+import { toast } from 'react-toastify';
 import { APP_METADATA, useAccessibleApps } from '../../lib/apps';
 import { getAppFromPath } from '../../lib/permissions';
 
@@ -84,7 +85,7 @@ export const UsersContent: React.FC = () => {
   const [saving, setSaving] = useState<boolean>(false);
 
   const [createDialog, setCreateDialog] = useState<{ open: boolean }>({ open: false });
-  const [createForm, setCreateForm] = useState({ firstName: '', lastName: '', email: '', phone: '', password: '' });
+  const [createForm, setCreateForm] = useState({ firstName: '', lastName: '', email: '', phone: '' });
   const [createAppRoles, setCreateAppRoles] = useState<AppRolesFormState>({});
 
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; user: User | null }>({ open: false, user: null });
@@ -240,7 +241,7 @@ export const UsersContent: React.FC = () => {
               {t('admin.users.subtitle')}
           </Typography>
           <Button variant="contained" onClick={() => {
-            setCreateForm({ firstName: '', lastName: '', email: '', phone: '', password: '' });
+            setCreateForm({ firstName: '', lastName: '', email: '', phone: '' });
             setCreateAppRoles(buildEmptyAppRolesForm(accessibleApps));
             setCreateDialog({ open: true });
           }}>{t('admin.users.actions.createUser')}</Button>
@@ -276,6 +277,7 @@ export const UsersContent: React.FC = () => {
                     <TableCell>{t('admin.users.table.email')}</TableCell>
                     <TableCell>{t('admin.users.table.phone')}</TableCell>
                     <TableCell>{t('admin.users.table.role')}</TableCell>
+                    <TableCell>{t('admin.users.table.access')}</TableCell>
                     <TableCell align="right">{t('admin.users.table.actions')}</TableCell>
                 </TableRow>
               </TableHead>
@@ -298,7 +300,25 @@ export const UsersContent: React.FC = () => {
                         variant="outlined"
                       />
                     </TableCell>
+                    <TableCell>
+                      {user.invitation && user.invitation.status !== 'none' && (
+                        <Chip size="small" variant="outlined"
+                          color={user.invitation.status === 'accepted' ? 'success' : user.invitation.status === 'expired' ? 'error' : 'warning'}
+                          label={t(`admin.users.invitation.${user.invitation.status}`)} />
+                      )}
+                    </TableCell>
                     <TableCell align="right">
+                        {(user.invitation?.status === 'pending' || user.invitation?.status === 'expired') && (
+                          <Button size="small" onClick={async () => {
+                            try {
+                              await adminService.resendInvitation(user._id);
+                              toast.success(t('admin.users.invitation.resent', { email: user.email }));
+                              setUsers(prev => prev.map(u => u._id === user._id ? { ...u, invitation: { ...u.invitation!, status: 'pending' } } : u));
+                            } catch (e: any) {
+                              setError(e.response?.data?.message || t('admin.users.invitation.resendFailed'));
+                            }
+                          }}>{t('admin.users.invitation.resend')}</Button>
+                        )}
                         <Button size="small" onClick={() => openEdit(user)}>{t('admin.users.actions.edit')}</Button>
                         <Button size="small" color="error" onClick={() => setDeleteDialog({ open: true, user })}>{t('admin.users.actions.delete')}</Button>
                     </TableCell>
@@ -403,7 +423,7 @@ export const UsersContent: React.FC = () => {
                 <TextField label={t('admin.users.form.lastName')} value={createForm.lastName} onChange={(e) => setCreateForm({ ...createForm, lastName: e.target.value })} />
                 <TextField label={t('admin.users.form.email')} value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} />
                 <TextField label={t('admin.users.form.phone')} value={createForm.phone} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} />
-                <TextField label={t('admin.users.form.password')} type="password" value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} />
+                <Alert severity="info">{t('admin.users.invitation.createHint')}</Alert>
               {renderAppRoleRows(createAppRoles, setCreateAppRoles)}
             </Box>
           </DialogContent>
@@ -417,8 +437,9 @@ export const UsersContent: React.FC = () => {
                   lastName: createForm.lastName,
                   email: createForm.email,
                   phone: createForm.phone,
-                  password: createForm.password,
                 });
+                if (res.data.invitation?.sent) toast.success(t('admin.users.invitation.sent', { email: createForm.email }));
+                else toast.warning(t('admin.users.invitation.notSent'));
                 let created = res.data.data as User;
 
                 for (const app of accessibleApps) {
@@ -431,7 +452,7 @@ export const UsersContent: React.FC = () => {
 
                 setUsers(prev => [created, ...prev]);
                 setCreateDialog({ open: false });
-                setCreateForm({ firstName: '', lastName: '', email: '', phone: '', password: '' });
+                setCreateForm({ firstName: '', lastName: '', email: '', phone: '' });
                 setCreateAppRoles(buildEmptyAppRolesForm(accessibleApps));
               } catch (e: any) {
                   setError(e.response?.data?.message || t('admin.users.messages.createFailed'));

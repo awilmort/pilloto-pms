@@ -57,7 +57,7 @@ const BookingResultsWidget: React.FC = () => {
     load();
   }, [checkIn, checkOut, adults, children]);
 
-  const primaryColor = config?.primaryColor || '#2D3748';
+  const primaryColor = config?.primaryColor || '#121A33';
   const currency = config?.currency || 'USD';
 
   const nights = checkIn && checkOut

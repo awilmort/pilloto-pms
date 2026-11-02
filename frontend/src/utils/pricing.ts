@@ -16,6 +16,8 @@ export interface RatePlan {
   pricingMode: 'tiered';
   occupancyTiers: OccupancyTier[];
   isActive?: boolean;
+  /** Offered on OTAs through the channel manager (default true) */
+  sellOnChannels?: boolean;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -59,6 +61,9 @@ export interface PricingRule {
   minimumNights?: number;
   blackoutDates?: IBlackoutRange[];
   isActive?: boolean;
+  /** 'calendar' = a price typed in Pricing → Calendar ("Ajustes del calendario") */
+  origin?: 'manual' | 'calendar';
+  updatedAt?: string;
 }
 
 export interface TaxConfig {

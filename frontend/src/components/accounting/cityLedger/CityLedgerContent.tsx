@@ -8,14 +8,14 @@ import { useTranslation } from 'react-i18next';
 import { usePermission } from '../../../lib/permissions';
 import { cityLedgerService } from '../../../services/api';
 import { Invoice } from '../../../types';
-import { formatMoney } from '../../../utils/currency';
+import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
 
 /**
  * City Ledger pending-authorization queue (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md
  * Phase 10.4). Every row here was created automatically at checkout by an ad hoc
  * (non-pre-approved) unpaid guest departure — this page never creates a transfer,
- * it only lets a manager authorize or decline one. Modeled on `OtaConflictQueue.tsx`'s
- * pending-badge/table/dialog pattern.
+ * it only lets a manager authorize or decline one (pending badge, table, and a
+ * decision dialog per row).
  */
 interface SnackbarState { open: boolean; message: string; severity: 'success' | 'error' }
 

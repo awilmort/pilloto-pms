@@ -28,6 +28,13 @@ export interface IUser extends Document {
   emailVerificationExpires?: Date;
   passwordResetToken?: string;
   passwordResetExpires?: Date;
+  /** SHA-256 of the invitation token emailed to choose a first password (never selected by default) */
+  invitationToken?: string;
+  invitationExpires?: Date;
+  /** When the last invitation was sent */
+  invitedAt?: Date;
+  /** When the user chose their password from an invitation */
+  invitationAcceptedAt?: Date;
   loginAttempts: number;
   lockUntil?: Date;
   lastLogin?: Date;
@@ -36,6 +43,7 @@ export interface IUser extends Document {
   comparePassword(candidatePassword: string): Promise<boolean>;
   generateEmailVerificationToken(): string;
   generatePasswordResetToken(): string;
+  generateInvitationToken(): string;
   isLocked: boolean;
   incLoginAttempts(): Promise<void>;
   resetLoginAttempts(): Promise<void>;
@@ -111,6 +119,19 @@ const userSchema = new Schema<IUser>({
   passwordResetExpires: {
     type: Date
   },
+  invitationToken: {
+    type: String,
+    select: false
+  },
+  invitationExpires: {
+    type: Date
+  },
+  invitedAt: {
+    type: Date
+  },
+  invitationAcceptedAt: {
+    type: Date
+  },
   loginAttempts: {
     type: Number,
     default: 0
@@ -169,6 +190,21 @@ userSchema.methods.generatePasswordResetToken = function (): string {
   return token;
 };
 
+/** How long an invitation link stays valid */
+export const INVITATION_TTL_MS = 72 * 60 * 60 * 1000;
+
+// Generate an invitation token (first password). Until it is accepted the account has a random,
+// unknown password, so nobody — including whoever created the account — can log in with it.
+userSchema.methods.generateInvitationToken = function (): string {
+  const token = crypto.randomBytes(32).toString('hex');
+  this.invitationToken = crypto.createHash('sha256').update(token).digest('hex');
+  const now = new Date();
+  this.invitedAt = now;
+  this.invitationExpires = new Date(now.getTime() + INVITATION_TTL_MS);
+  if (!this.password) this.password = crypto.randomBytes(32).toString('hex');
+  return token;
+};
+
 // Check if account is locked
 userSchema.virtual('isLocked').get(function () {
   return !!(this.lockUntil && this.lockUntil > new Date());
@@ -205,6 +241,7 @@ userSchema.methods.resetLoginAttempts = async function () {
 userSchema.methods.toJSON = function () {
   const userObject = this.toObject();
   delete userObject.password;
+  delete userObject.invitationToken;
   return userObject;
 };
 

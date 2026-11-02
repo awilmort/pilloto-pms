@@ -91,13 +91,14 @@ const EditReservationDialog: React.FC<Props> = ({
 
   const loadAvailableRoomsForDates = useCallback(async (checkIn: string, checkOut: string) => {
     try {
-      const res = await roomsService.getAvailableRooms(checkIn, checkOut);
+      // Leave this reservation out, so its own rooms and room-type booking don't count against it
+      const res = await roomsService.getAvailableRooms(checkIn, checkOut, { excludeReservationId: reservation?._id });
       const list = res.data.data ?? [];
       setAvailableRooms(Array.isArray(list) ? list : []);
     } catch {
       setAvailableRooms([]);
     }
-  }, []);
+  }, [reservation?._id]);
 
   // Populate form when dialog opens
   useEffect(() => {

@@ -33,6 +33,7 @@ import {
 import { Reservation } from '../../../types';
 import { useTranslation } from 'react-i18next';
 import { formatMoney } from '../../../utils/currency';
+import ChannelBadge from './ChannelBadge';
 
 // ─── Local helpers ────────────────────────────────────────────────────────────
 const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString();
@@ -122,6 +123,7 @@ const ReservationTable: React.FC<Props> = ({
                   <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', wordBreak: 'break-word' }}>
                     {reservation.contactInfo?.email}
                   </Typography>
+                  {reservation.channelSource && <Box sx={{ mt: 0.5 }}><ChannelBadge source={reservation.channelSource} /></Box>}
                 </Box>
               </TableCell>
 

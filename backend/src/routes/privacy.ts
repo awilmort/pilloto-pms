@@ -5,6 +5,7 @@ import { handleValidationErrors } from '../middleware/validation';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 import PrivacyRequest from '../models/PrivacyRequest';
 import TermsAcceptance from '../models/TermsAcceptance';
+import { eraseChannelGuestData } from '../services/channex/privacy';
 
 const router = express.Router();
 
@@ -122,6 +123,12 @@ router.patch(
       const request = await PrivacyRequest.findByIdAndUpdate(req.params.id, update, { new: true });
       if (!request) {
         return res.status(404).json({ success: false, message: 'Privacy request not found' });
+      }
+
+      // A completed deletion also erases the guest from the channel manager's OTA booking copies (every tenant)
+      if (request.status === 'completed' && request.requestType === 'deletion') {
+        const erased = await eraseChannelGuestData({ email: request.email });
+        console.log(`[Privacy] request ${request._id}: ${erased.revisions} channel booking revision(s) erased, ${erased.webhookEvents} webhook event(s) deleted`);
       }
 
       res.json({ success: true, data: request });

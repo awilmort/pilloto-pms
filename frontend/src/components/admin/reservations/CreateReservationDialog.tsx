@@ -56,6 +56,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import NumberField from '../../common/NumberField';
 import DateRangePicker from '../../common/DateRangePicker';
 import { formatMoney } from '../../../utils/currency';
+import BookingRuleWarnings from './BookingRuleWarnings';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const addOneDay = (dateStr: string): string => {
@@ -398,7 +399,9 @@ const CreateReservationDialog: React.FC<Props> = ({
       }
       const res = await reservationsService.createReservation(payload);
       onCreated(res.data.data as Reservation);
-      onSnackbar(t('admin.reservations.messages.createSuccess', 'Reservation created successfully!'), 'success');
+      onSnackbar((res.data as any)?.warnings?.length
+        ? t('admin.reservations.bookingRuleWarnings.createdWithWarnings')
+        : t('admin.reservations.messages.createSuccess', 'Reservation created successfully!'), 'success');
       handleClose();
     } catch (error: any) {
       const detail = error.response?.data?.errors?.join(', ')
@@ -742,6 +745,9 @@ const CreateReservationDialog: React.FC<Props> = ({
                           )}
                         </Paper>
                       )}
+                      {selectedRooms.length > 0 && (
+                        <BookingRuleWarnings checkIn={createForm.checkInDate} checkOut={createForm.checkOutDate} roomIds={selectedRooms.map(r => r._id)} />
+                      )}
                     </Box>
                   );
                 })()}
@@ -926,6 +932,9 @@ const CreateReservationDialog: React.FC<Props> = ({
         {/* ── Step 3: Summary ── */}
         {createStep === 3 && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {createForm.type === 'room' && selectedRooms.length > 0 && (
+              <BookingRuleWarnings checkIn={createForm.checkInDate} checkOut={createForm.checkOutDate} roomIds={selectedRooms.map(r => r._id)} />
+            )}
             {createCorporatePriceApplied && (
               <Alert severity="success">
                 {t('admin.reservations.create.corporatePriceApplied', 'A corporate rate has been applied for {{company}}.', { company: createCompanyName })}

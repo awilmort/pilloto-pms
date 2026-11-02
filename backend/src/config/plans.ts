@@ -34,6 +34,8 @@ export interface PlanFeatures {
   customRoles: boolean;
   /** Public booking engine for direct guest reservations */
   bookingEngine: boolean;
+  /** Channex channel manager (OTA distribution: Booking.com, Expedia, Airbnb, …) */
+  channelManager: boolean;
 }
 
 export interface PlanConfig {
@@ -64,6 +66,7 @@ export const PLANS: Record<PlanSlug, PlanConfig> = {
       nightAudit: false,
       customRoles: false,
       bookingEngine: false,
+      channelManager: false,
     },
   },
 
@@ -84,6 +87,7 @@ export const PLANS: Record<PlanSlug, PlanConfig> = {
       nightAudit: false,
       customRoles: false,
       bookingEngine: true,
+      channelManager: true,
     },
   },
 
@@ -104,6 +108,7 @@ export const PLANS: Record<PlanSlug, PlanConfig> = {
       nightAudit: true,
       customRoles: true,
       bookingEngine: true,
+      channelManager: true,
     },
   },
 };
