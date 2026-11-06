@@ -202,6 +202,7 @@ export function renderInvoice(params: InvoiceTemplateParams): { html: string; te
 
   return applyLayout({
     hotelName: tenantName,
+    variant: 'property',
     logoUrl: tenantLogoUrl,
     bodyHtml,
     bodyText,

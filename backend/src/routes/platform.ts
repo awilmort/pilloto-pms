@@ -36,6 +36,7 @@
  *     PUT  channel-connection ({ setting: 'default' | 'tenant' | 'platform_only' })
  */
 
+import { tenantBaseUrl } from '../utils/appUrls';
 import express, { Response } from 'express';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
 import Tenant from '../models/Tenant';
@@ -146,7 +147,7 @@ router.post('/tenants', async (req: AuthRequest, res: Response) => {
         tenant,
         adminUser,
         invitation,
-        loginUrl: `https://${tenant.slug}.pilloto.com/login`,
+        loginUrl: `${tenantBaseUrl(tenant.slug)}/login`,
       },
     });
   } catch (error: any) {

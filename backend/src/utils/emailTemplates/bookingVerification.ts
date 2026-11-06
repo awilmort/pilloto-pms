@@ -29,7 +29,7 @@ export function renderBookingVerification(params: BookingVerificationEmailParams
   const bodyHtml = `
 <tr>
   <td style="padding:30px 40px 10px 40px;">
-    <h1 style="margin:0 0 10px 0;font-size:22px;color:#111111;">Código de verificación</h1>
+    <h1 style="margin:0 0 10px 0;font-size:22px;color:#121A33;">Código de verificación</h1>
     <p style="margin:0 0 20px 0;font-size:15px;line-height:1.6;color:#555555;">
       ¡Ya casi terminas! Usa el código de abajo para verificar tu correo electrónico
       y confirmar tu reserva en <strong>${escapeHtml(tenantName)}</strong>.
@@ -39,7 +39,7 @@ export function renderBookingVerification(params: BookingVerificationEmailParams
 <tr>
   <td align="center" style="padding:10px 40px 10px 40px;">
     <div style="display:inline-block;background-color:#fafafa;border:2px solid #dddddd;border-radius:10px;padding:20px 40px;">
-      <span style="font-size:36px;font-weight:bold;letter-spacing:12px;color:#111111;font-family:monospace;">${escapeHtml(code)}</span>
+      <span style="font-size:36px;font-weight:bold;letter-spacing:12px;color:#121A33;font-family:monospace;">${escapeHtml(code)}</span>
     </div>
   </td>
 </tr>
@@ -64,6 +64,7 @@ Si no solicitaste esto, puedes ignorar este correo sin problema.`;
 
   return applyLayout({
     hotelName: tenantName,
+    variant: 'property',
     logoUrl: tenantLogoUrl,
     bodyHtml,
     bodyText,

@@ -1,3 +1,4 @@
+import { tenantBaseUrl } from '../utils/appUrls';
 import express, { Request, Response } from 'express';
 import Reservation from '../models/Reservation';
 import Room from '../models/Room';
@@ -2713,7 +2714,7 @@ router.post('/:id/corporate-price/approve', async (req: Request, res: Response) 
     await recordCorporateDecision(req, reservation, 'corporate_rate_approved', before);
 
     // If accessed from an email link (GET-like), redirect to a friendly page
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = tenantBaseUrl((req as any).tenant?.slug);
     if (req.headers.accept?.includes('text/html')) {
       return res.redirect(`${frontendUrl}/admin/reservations?corporateApproved=${reservation.reservationCode}`);
     }
@@ -2730,11 +2731,11 @@ router.get('/:id/corporate-price/approve', async (req: Request, res: Response) =
   try {
     const reservation = await Reservation.findById(req.params.id);
     if (!reservation) {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const frontendUrl = tenantBaseUrl((req as any).tenant?.slug);
       return res.redirect(`${frontendUrl}/admin/reservations?error=not_found`);
     }
     if (reservation.corporatePriceStatus !== 'pending') {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const frontendUrl = tenantBaseUrl((req as any).tenant?.slug);
       return res.redirect(`${frontendUrl}/admin/reservations?info=already_${reservation.corporatePriceStatus || 'processed'}`);
     }
 
@@ -2759,11 +2760,11 @@ router.get('/:id/corporate-price/approve', async (req: Request, res: Response) =
     await reservation.save();
     await recordCorporateDecision(req, reservation, 'corporate_rate_approved', before);
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = tenantBaseUrl((req as any).tenant?.slug);
     res.redirect(`${frontendUrl}/admin/reservations?corporateApproved=${reservation.reservationCode}`);
   } catch (error: any) {
     console.error('Corporate price approve error:', error);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = tenantBaseUrl((req as any).tenant?.slug);
     res.redirect(`${frontendUrl}/admin/reservations?error=approve_failed`);
   }
 });
@@ -2787,7 +2788,7 @@ router.post('/:id/corporate-price/decline', async (req: Request, res: Response) 
     await recordCorporateDecision(req, reservation, 'corporate_rate_declined', before);
 
     if (req.headers.accept?.includes('text/html')) {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const frontendUrl = tenantBaseUrl((req as any).tenant?.slug);
       return res.redirect(`${frontendUrl}/admin/reservations?corporateDeclined=${reservation.reservationCode}`);
     }
 
@@ -2803,11 +2804,11 @@ router.get('/:id/corporate-price/decline', async (req: Request, res: Response) =
   try {
     const reservation = await Reservation.findById(req.params.id);
     if (!reservation) {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const frontendUrl = tenantBaseUrl((req as any).tenant?.slug);
       return res.redirect(`${frontendUrl}/admin/reservations?error=not_found`);
     }
     if (reservation.corporatePriceStatus !== 'pending') {
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      const frontendUrl = tenantBaseUrl((req as any).tenant?.slug);
       return res.redirect(`${frontendUrl}/admin/reservations?info=already_${reservation.corporatePriceStatus || 'processed'}`);
     }
 
@@ -2816,11 +2817,11 @@ router.get('/:id/corporate-price/decline', async (req: Request, res: Response) =
     await reservation.save();
     await recordCorporateDecision(req, reservation, 'corporate_rate_declined', before);
 
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = tenantBaseUrl((req as any).tenant?.slug);
     res.redirect(`${frontendUrl}/admin/reservations?corporateDeclined=${reservation.reservationCode}`);
   } catch (error: any) {
     console.error('Corporate price decline error:', error);
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    const frontendUrl = tenantBaseUrl((req as any).tenant?.slug);
     res.redirect(`${frontendUrl}/admin/reservations?error=decline_failed`);
   }
 });

@@ -54,7 +54,7 @@ export function renderChannelAlertDigest(params: ChannelAlertDigestParams): { su
 <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
   <tr>
     <td style="padding:0 0 16px 0;">
-      <h1 style="margin:0 0 8px 0;font-size:20px;color:#111111;">Tus canales necesitan atención</h1>
+      <h1 style="margin:0 0 8px 0;font-size:20px;color:#121A33;">Tus canales necesitan atención</h1>
       <p style="margin:0;font-size:15px;line-height:1.6;color:#555555;">
         ${alerts.length === 1 ? 'Hay una alerta crítica nueva' : `Hay ${alerts.length} alertas críticas nuevas`} en <strong>${escapeHtml(tenantName)}</strong>:
       </p>
@@ -71,7 +71,7 @@ export function renderChannelAlertDigest(params: ChannelAlertDigestParams): { su
     <td align="center" style="padding:0 0 24px 0;">
       <table role="presentation" border="0" cellpadding="0" cellspacing="0">
         <tr>
-          <td style="background-color:#111111;border-radius:6px;">
+          <td style="background-color:#121A33;border-radius:6px;">
             <a href="${safeUrl}" target="_blank" rel="noopener noreferrer"
                style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;">
               Ver alertas de canales

@@ -27,6 +27,8 @@ import { renderInvoice } from './emailTemplates/invoice';
 import { renderCorporatePriceRequest } from './emailTemplates/corporatePriceRequest';
 import { renderEmailVerification } from './emailTemplates/emailVerification';
 import { getTenantId } from '../middleware/tenantContext';
+import { tenantBaseUrl } from './appUrls';
+import { applyLayout, escapeHtml } from './emailTemplates/layout';
 
 // ── Resend client ─────────────────────────────────────────────────────────────
 // Lazy initialization: dotenv.config() runs after module imports are hoisted,
@@ -176,20 +178,7 @@ async function getTenantInfo(): Promise<{ name: string; slug?: string; logoUrl?:
 
 // ── Public email functions ────────────────────────────────────────────────────
 
-/** The tenant's own app origin: `FRONTEND_URL` with the tenant slug as subdomain (keeps the dev port). */
-export function tenantBaseUrl(slug?: string): string {
-  const rawBase = process.env.FRONTEND_URL || 'http://localhost:3000';
-  if (!slug) return rawBase;
-  try {
-    const parsed = new URL(rawBase);
-    if (parsed.hostname.startsWith(`${slug}.`)) return rawBase;
-    parsed.hostname = `${slug}.${parsed.hostname}`;
-    // Preserve port for dev (e.g. banana-ranch.localhost:3000)
-    return `${parsed.protocol}//${parsed.host}`;
-  } catch {
-    return rawBase;
-  }
-}
+export { tenantBaseUrl };
 
 export const sendVerificationEmail = async (user: any, token: string): Promise<void> => {
   const [tenantInfo, emailCfg] = await Promise.all([getTenantInfo(), getTenantEmailConfig()]);
@@ -240,43 +229,73 @@ export const sendInvitationEmail = async (user: any, token: string, opts: { isOw
 };
 
 export const sendPasswordResetEmail = async (user: any, token: string): Promise<void> => {
-  const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${token}`;
-  const year = new Date().getFullYear();
+  const [tenantInfo, emailCfg] = await Promise.all([getTenantInfo(), getTenantEmailConfig()]);
+  const resetUrl = `${tenantBaseUrl(tenantInfo.slug)}/reset-password?token=${token}`;
+  const safeUrl = escapeHtml(resetUrl);
 
-  const html = '<!DOCTYPE html>'
-    + '<html lang="es"><head><meta charset="UTF-8" /><title>Restablecer contraseña - Pilloto</title></head>'
-    + '<body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background:#f4f4f4;">'
-    + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background:#f4f4f4;">'
-    + '<tr><td align="center" style="padding:24px 12px;">'
-    + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:#ffffff;border-radius:6px;border:1px solid #e0e0e0;">'
-    + '<tr><td style="background:#c62828;padding:24px;text-align:center;border-radius:6px 6px 0 0;">'
-    + '<p style="margin:0;font-size:22px;font-weight:bold;color:#ffffff;">Pilloto</p>'
-    + '<p style="margin:6px 0 0;font-size:13px;color:#ffcdd2;">Restablecimiento de contraseña</p>'
-    + '</td></tr>'
-    + '<tr><td style="padding:32px 40px;">'
-    + '<p style="font-size:15px;margin:0 0 12px;">Hola <strong>' + user.firstName + '</strong>,</p>'
-    + '<p style="font-size:14px;color:#555;margin:0 0 24px;">Recibimos una solicitud para restablecer tu contraseña.</p>'
-    + '<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">'
-    + '<tr><td align="center">'
-    + '<a href="' + resetUrl + '" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:12px 32px;background:#c62828;color:#ffffff;text-decoration:none;border-radius:4px;font-size:15px;font-weight:bold;">Restablecer contraseña</a>'
-    + '</td></tr></table>'
-    + '<p style="font-size:13px;color:#777;margin:24px 0 6px;">Si el botón no funciona, copia este enlace:</p>'
-    + '<p style="font-size:12px;background:#f5f5f5;padding:10px;border-radius:4px;word-break:break-all;">' + resetUrl + '</p>'
-    + '<p style="font-size:13px;color:#777;margin:16px 0 0;">Este enlace expira en <strong>1 hora</strong>. Si no solicitaste esto, ignora este correo.</p>'
-    + '</td></tr>'
-    + '<tr><td style="background:#fafafa;border-top:1px solid #eee;padding:16px;text-align:center;">'
-    + '<p style="margin:0;font-size:11px;color:#aaa;">&copy; ' + year + ' Pilloto. Todos los derechos reservados.</p>'
-    + '<p style="margin:4px 0 0;font-size:11px;color:#aaa;">Correo transaccional. <a href="mailto:noreply@pilloto.com?subject=unsubscribe" style="color:#aaa;">Cancelar suscripción</a></p>'
-    + '</td></tr>'
-    + '</table>'
-    + '</td></tr></table>'
-    + '</body></html>';
+  const bodyHtml = `
+<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+  <tr>
+    <td style="padding:0 0 20px 0;">
+      <h1 style="margin:0 0 8px 0;font-size:22px;color:#121A33;text-align:center;">Restablece tu contraseña</h1>
+      <p style="padding:20px 0 0 0;margin:0;font-size:15px;line-height:1.6;color:#5B6278;">
+        Hola <strong>${escapeHtml(user.firstName)}</strong>. Recibimos una solicitud para restablecer tu contraseña.
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" style="padding:0 0 24px 0;">
+      <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+        <tr>
+          <td style="background-color:#121A33;border-radius:6px;">
+            <a href="${safeUrl}" target="_blank" rel="noopener noreferrer"
+               style="display:inline-block;padding:14px 36px;font-size:15px;font-weight:bold;color:#ffffff;text-decoration:none;letter-spacing:0.3px;">
+              Restablecer contraseña
+            </a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td style="padding:10px 0 12px 0;border-top:1px solid #E3E6EE;">
+      <p style="margin:25px 0 15px;font-size:13px;color:#5B6278;">
+        Si el botón no funciona, copia y pega este enlace en tu navegador:
+      </p>
+      <p style="margin:0;font-size:12px;background-color:#F5F6F8;border:1px solid #E3E6EE;border-radius:4px;padding:10px 12px;word-break:break-all;color:#5B6278;">
+        ${safeUrl}
+      </p>
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <p style="margin:25px 0 0;font-size:13px;line-height:1.6;color:#8A90A3;">
+        Este enlace expira en <strong>1 hora</strong>. Si no solicitaste esto, puedes ignorar este correo.
+      </p>
+    </td>
+  </tr>
+</table>`;
 
-  const text = 'Restablecimiento de contraseña - Pilloto\n\nHola ' + user.firstName + ',\n\nRestablece tu contraseña visitando:\n' + resetUrl + '\n\nEste enlace expira en 1 hora. Si no solicitaste esto, ignora este correo.';
+  const bodyText = `Restablece tu contraseña
+
+Hola ${user.firstName}. Recibimos una solicitud para restablecer tu contraseña.
+Hazlo desde este enlace:
+
+${resetUrl}
+
+Este enlace expira en 1 hora. Si no solicitaste esto, puedes ignorar este correo.`;
+
+  const { html, text } = applyLayout({
+    hotelName: emailCfg.fromDisplayName || tenantInfo.name,
+    bodyHtml,
+    bodyText,
+    customFooterHtml: emailCfg.footerHtml,
+    customFooterText: emailCfg.footerText,
+  });
 
   await sendEmail({
     to: user.email,
-    subject: 'Restablecimiento de contraseña - Pilloto',
+    subject: 'Restablece tu contraseña — Pilloto',
     html,
     text,
     _logMeta: { emailType: 'password_reset' },
@@ -292,6 +311,7 @@ export const sendReservationConfirmationEmail = async (reservation: any): Promis
   const { html, text } = renderReservationConfirmation({
     reservation,
     tenantName: emailCfg.fromDisplayName || tenantInfo.name,
+    tenantSlug: tenantInfo.slug,
     tenantLogoUrl: tenantInfo.logoUrl,
     currency: tenantInfo.currency,
     customFooterHtml: emailCfg.footerHtml,
@@ -408,20 +428,7 @@ export const sendCorporatePriceRequestEmail = async (
   const guestEmail = reservation.contactInfo?.email || '';
   const resId = String(reservation._id);
 
-  const rawBase = process.env.FRONTEND_URL || 'http://localhost:3000';
-  let tenantBase = rawBase;
-  if (tenantInfo.slug) {
-    try {
-      const parsed = new URL(rawBase);
-      const hostname = parsed.hostname;
-      if (!hostname.startsWith(`${tenantInfo.slug}.`)) {
-        parsed.hostname = `${tenantInfo.slug}.${hostname}`;
-        tenantBase = `${parsed.protocol}//${parsed.host}`;
-      }
-    } catch {
-      // fallback: use rawBase unchanged
-    }
-  }
+  const tenantBase = tenantBaseUrl(tenantInfo.slug);
   const approveUrl = `${tenantBase}/reservations/${resId}/corporate-price/approve`;
   const declineUrl = `${tenantBase}/reservations/${resId}/corporate-price/decline`;
 

@@ -1,12 +1,15 @@
 /**
  * Email layout — tables-based, max-width 600px, all CSS inlined.
  * Compatible with Outlook, Gmail, Apple Mail, and major mobile clients.
+ * Visual language follows the Pilloto brand kit (ink / vermilion / paper / mist, Inter).
  */
 
+import { platformBaseUrl } from '../appUrls';
+
 export interface LayoutParams {
-  /** Hotel name shown in the header */
+  /** Property name (header of property emails; sub-line of platform emails) */
   hotelName: string;
-  /** Absolute URL to the hotel logo (CDN/media URL). Optional. */
+  /** Absolute URL to the property logo (CDN/media URL). Optional. */
   logoUrl?: string;
   /** Pre-rendered inner HTML body content */
   bodyHtml: string;
@@ -18,24 +21,58 @@ export interface LayoutParams {
   customFooterText?: string;
   /** Locale for date/number formatting. Defaults to 'es-ES'. */
   locale?: string;
+  /**
+   * `platform` (default): a message from Pilloto itself (invitations, account, alerts) — the Pilloto
+   * wordmark leads the header and the property name sits beneath it.
+   * `property`: a message from the hotel to its guest — the hotel's logo/name leads, Pilloto is a quiet
+   * "powered by" mark in the footer.
+   */
+  variant?: 'platform' | 'property';
 }
 
-/** Header background — matches footer pale gray for a clean, unified look. */
-const HEADER_BG = '#fafafa';
+/** Brand tokens (mirror frontend/src/brand.ts). */
+export const EMAIL_BRAND = {
+  ink: '#121A33',
+  vermilion: '#E4572E',
+  paper: '#F5F6F8',
+  mist: '#E3E6EE',
+  slate: '#5B6278',
+} as const;
+
+const FONT = `Inter,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif`;
 const CURRENT_YEAR = new Date().getFullYear();
 
+/** Public URL of the wordmark PNG (served from the frontend's `public/email/`). */
+function wordmarkUrl(tone: 'color' | 'white' = 'color'): string {
+  return `${platformBaseUrl()}/email/pilloto-wordmark${tone === 'white' ? '-white' : ''}.png`;
+}
+
 /**
- * Wraps arbitrary body content with the Pilloto email shell:
- * top bar with logo + hotel name, body slot, Pilloto-branded footer,
- * and an optional tenant custom footer.
+ * Wraps arbitrary body content with the Pilloto email shell: brand header, body slot,
+ * optional tenant custom footer and the Pilloto footer.
  *
  * Returns both HTML and plain-text versions.
  */
 export function applyLayout(params: LayoutParams): { html: string; text: string } {
-  const { hotelName, logoUrl, bodyHtml, bodyText, customFooterHtml, customFooterText } = params;
+  const { hotelName, logoUrl, bodyHtml, bodyText, customFooterHtml, customFooterText, variant = 'platform' } = params;
+  const { ink, vermilion, paper, mist, slate } = EMAIL_BRAND;
 
-  const logoBlock = logoUrl
-    ? `<img src="${logoUrl}" alt="${escapeHtml(hotelName)}" width="120" style="display:block;max-width:120px;height:auto;border:0;" />`
+  const pilloto = (w: number) =>
+    `<img src="${wordmarkUrl()}" alt="Pilloto" width="${w}" style="display:block;border:0;outline:none;height:auto;width:${w}px;" />`;
+
+  const headerInner = variant === 'property'
+    ? `${logoUrl
+        ? `<img src="${logoUrl}" alt="${escapeHtml(hotelName)}" width="120" style="display:block;margin:0 auto;max-width:120px;height:auto;border:0;" />`
+        : ''}
+                    <p style="margin:${logoUrl ? '12px' : '0'} 0 0;font-size:22px;line-height:1.3;font-weight:700;color:${ink};letter-spacing:-0.01em;">${escapeHtml(hotelName)}</p>`
+    : `<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center"><tr><td>${pilloto(132)}</td></tr></table>
+                    <p style="margin:12px 0 0;font-size:13px;line-height:1.4;color:${slate};">${escapeHtml(hotelName)}</p>`;
+
+  const footerBrand = variant === 'property'
+    ? `<table role="presentation" border="0" cellpadding="0" cellspacing="0" align="center" style="margin:0 auto 10px;"><tr>
+                      <td style="font-size:11px;color:${slate};padding-right:8px;vertical-align:middle;">Con tecnología de</td>
+                      <td style="vertical-align:middle;">${pilloto(64)}</td>
+                    </tr></table>`
     : '';
 
   const html = `<!DOCTYPE html>
@@ -44,25 +81,27 @@ export function applyLayout(params: LayoutParams): { html: string; text: string 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="color-scheme" content="light" />
   <title>${escapeHtml(hotelName)} - Pilloto</title>
 </head>
-<body style="margin:0;padding:0;background-color:#f4f4f4;font-family:Arial,Helvetica,sans-serif;color:#333333;">
+<body style="margin:0;padding:0;background-color:${paper};font-family:${FONT};color:${ink};">
   <!-- Outer wrapper -->
-  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f4f4f4;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color:${paper};">
     <tr>
-      <td align="center" style="padding:24px 12px;">
+      <td align="center" style="padding:32px 12px;">
         <!-- Email card — max 600px -->
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:6px;overflow:hidden;border:1px solid #e0e0e0;">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;width:100%;background-color:#ffffff;border-radius:12px;overflow:hidden;border:1px solid ${mist};">
 
-          <!-- Header bar -->
+          <!-- Brand accent -->
+          <tr><td height="4" style="height:4px;line-height:4px;font-size:0;background-color:${vermilion};">&nbsp;</td></tr>
+
+          <!-- Header -->
           <tr>
-            <td align="center" style="background-color:${HEADER_BG};padding:24px 32px;border-bottom:1px solid #e0e0e0;">
+            <td align="center" style="background-color:#ffffff;padding:28px 32px 24px;border-bottom:1px solid ${mist};">
               <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
                 <tr>
-                  <td align="center">
-                    ${logoBlock}
-                    <p style="margin:${logoUrl ? '12px' : '0'} 0 0;font-size:22px;font-weight:bold;color:#111111;letter-spacing:0.5px;">${escapeHtml(hotelName)}</p>
-                    <p style="margin:4px 0 0;font-size:12px;color:#888888;font-style:italic;">vía Pilloto</p>
+                  <td align="center" style="font-family:${FONT};">
+                    ${headerInner}
                   </td>
                 </tr>
               </table>
@@ -71,7 +110,7 @@ export function applyLayout(params: LayoutParams): { html: string; text: string 
 
           <!-- Body content -->
           <tr>
-            <td style="padding:32px 40px;">
+            <td style="padding:32px 40px;font-family:${FONT};">
               ${bodyHtml}
             </td>
           </tr>
@@ -79,30 +118,25 @@ export function applyLayout(params: LayoutParams): { html: string; text: string 
           ${customFooterHtml ? `
           <!-- Tenant custom footer -->
           <tr>
-            <td style="padding:0 40px 16px;border-top:1px solid #f0f0f0;">
-              <div style="font-size:13px;color:#666666;">
+            <td style="padding:0 40px 16px;border-top:1px solid ${mist};">
+              <div style="font-size:13px;color:${slate};">
                 ${customFooterHtml}
               </div>
             </td>
           </tr>` : ''}
 
-          <!-- Pilloto branded footer -->
+          <!-- Pilloto footer -->
           <tr>
-            <td align="center" style="background-color:#fafafa;border-top:1px solid #eeeeee;padding:20px 32px;">
-              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
-                <tr>
-                  <td align="center">
-                    <p style="margin:0 0 6px;font-size:12px;color:#999999;">&copy; ${CURRENT_YEAR} Pilloto &mdash; ${escapeHtml(hotelName)}. Todos los derechos reservados.</p>
-                    <p style="margin:0 0 6px;font-size:11px;color:#bbbbbb;">Este es un correo transaccional enviado en respuesta a una acción en tu cuenta.</p>
-                    <p style="margin:0;font-size:11px;color:#bbbbbb;">
-                      ¿Preguntas? Contáctanos en
-                      <a href="mailto:info@pilloto.com" style="color:#999999;text-decoration:underline;">info@pilloto.com</a>
-                      &nbsp;|&nbsp;
-                      <a href="mailto:noreply@pilloto.com?subject=unsubscribe" style="color:#999999;text-decoration:underline;">Cancelar suscripción</a>
-                    </p>
-                  </td>
-                </tr>
-              </table>
+            <td align="center" style="background-color:${paper};border-top:1px solid ${mist};padding:20px 32px;font-family:${FONT};">
+              ${footerBrand}
+              <p style="margin:0 0 6px;font-size:12px;color:${slate};">&copy; ${CURRENT_YEAR} Pilloto &mdash; ${escapeHtml(hotelName)}. Todos los derechos reservados.</p>
+              <p style="margin:0 0 6px;font-size:11px;color:#8A90A3;">Este es un correo transaccional enviado en respuesta a una acción en tu cuenta.</p>
+              <p style="margin:0;font-size:11px;color:#8A90A3;">
+                ¿Preguntas? Escríbenos a
+                <a href="mailto:info@pilloto.com" style="color:${slate};text-decoration:underline;">info@pilloto.com</a>
+                &nbsp;|&nbsp;
+                <a href="mailto:noreply@pilloto.com?subject=unsubscribe" style="color:${slate};text-decoration:underline;">Cancelar suscripción</a>
+              </p>
             </td>
           </tr>
 
@@ -114,9 +148,8 @@ export function applyLayout(params: LayoutParams): { html: string; text: string 
 </html>`;
 
   const text = [
-    `╔══════════════════════════════════════════╗`,
-    `  ${hotelName} — vía Pilloto`,
-    `╚══════════════════════════════════════════╝`,
+    variant === 'property' ? `${hotelName}` : `Pilloto — ${hotelName}`,
+    `──────────────────────────────────────────`,
     ``,
     bodyText,
     ``,
