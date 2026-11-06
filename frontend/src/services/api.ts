@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
+import i18n from '../i18n';
 import { User, Room, Reservation, MediaItem, Amenity, EventType, Company, Guest, CreditAccount, AppCode } from '../types';
 import type { OccupancyReportData, ManagerFlashData, ForecastData, SegmentationData, SegmentBy, BookingInsightsData } from '../types/reports';
 import type { DashboardData } from '../types/dashboard';
@@ -85,7 +86,7 @@ apiClient.interceptors.response.use(
   (error) => {
     // Gracefully handle rate limiting without forcing logout
     if (error.response?.status === 429) {
-      const msg = error.response?.data?.message || 'Too many requests. Please try again later.';
+      const msg = error.response?.data?.message || i18n.t('common.tooManyRequests');
       // Surface to UI if available; avoid clearing auth token
       if (typeof window !== 'undefined' && (window as any).toast?.error) {
         (window as any).toast.error(msg);
@@ -1883,7 +1884,7 @@ export const platformChannexService = {
   // ── plan 9.3 ──
   overview: (): Promise<AxiosResponse<ApiResponse<PlatformChannexOverview>>> => apiClient.get('/platform/channex/overview'),
   webhook: (): Promise<AxiosResponse<ApiResponse<PlatformWebhookStatus>>> => apiClient.get('/platform/channex/webhook'),
-  createSigningKey: (billingAccountId: string): Promise<AxiosResponse<ApiResponse<{ signingKeyId: string; secret: string; message: string }>>> =>
+  createSigningKey: (billingAccountId?: string): Promise<AxiosResponse<ApiResponse<{ signingKeyId: string; secret: string; message: string }>>> =>
     apiClient.post('/platform/channex/signing-key', { billingAccountId }),
   upsertWebhook: (): Promise<AxiosResponse<ApiResponse<{ webhookId: string; created: boolean; callbackUrl: string }>>> => apiClient.put('/platform/channex/webhook', {}),
   testWebhook: (): Promise<AxiosResponse<ApiResponse<{ webhookId: string; result: any }>>> => apiClient.post('/platform/channex/webhook/test'),

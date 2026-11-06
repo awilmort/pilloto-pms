@@ -153,7 +153,7 @@ describe('BookingContext', () => {
     );
 
     await waitFor(() => expect(capturedCtx.configLoading).toBe(false));
-    expect(capturedCtx.configError).toMatch(/not currently available/i);
+    expect(capturedCtx.configError).toBe('bookingEngine.config.unavailable');
   });
 
   it('should set configError on API failure', async () => {

@@ -18,7 +18,7 @@ const LanguageSwitcher: React.FC = () => {
       <IconButton
         size="small"
         onClick={e => setAnchor(e.currentTarget)}
-        aria-label="select language"
+        aria-label={t('common.selectLanguage')}
         sx={{
           border: `1px solid ${BRAND.mist}`,
           bgcolor: BRAND.white,

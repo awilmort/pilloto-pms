@@ -46,6 +46,7 @@ import { productsService, warehousesService } from '../../../services/api';
 import { Product, InventoryTransaction, InventoryAdjustmentReason, Warehouse } from '../../../types';
 import { UNIT_OF_MEASURE_CODES } from '../../../lib/unitsOfMeasure';
 import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
+import i18n from '../../../i18n';
 
 interface ProductFormState {
   name: string;
@@ -654,7 +655,7 @@ const ProductsContent: React.FC = () => {
                 <TableBody>
                   {history.map(tx => (
                     <TableRow key={tx._id}>
-                      <TableCell>{new Date(tx.createdAt).toLocaleString()}</TableCell>
+                      <TableCell>{new Date(tx.createdAt).toLocaleString(i18n.language)}</TableCell>
                       <TableCell>
                         {t(`accounting.inventory.history.types.${tx.type}`)}
                         {tx.reason ? ` (${t(`accounting.inventory.reason.${tx.reason === 'count-correction' ? 'countCorrection' : tx.reason}`)})` : ''}

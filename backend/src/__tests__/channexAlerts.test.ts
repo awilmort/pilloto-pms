@@ -9,6 +9,7 @@ import mongoose from 'mongoose';
 import {
   ALERT_DEFINITIONS, alertAction, alertFilter, alertSummary, airbnbRequestFacts, listTenantAlerts, nextStatus, providerMessages, raiseAlert,
   reconcileAlerts, resolveAlerts, scrubProviderText, sendAlertDigests, TENANT_ALERT_TYPES, transitionAlert, EMAIL_DIGEST_INTERVAL_MS,
+  guestLabel, toTenantAlert,
 } from '../services/channex/alerts.service';
 import { digestLine, renderChannelAlertDigest } from '../utils/emailTemplates/channelAlertDigest';
 import { ariTick, isPushFailing } from '../services/channex/ariWorker';
@@ -99,6 +100,21 @@ describe('alert catalog and pure helpers', () => {
     expect(req).toMatchObject({ checkIn: '2026-12-10', checkOut: '2026-12-13', nights: 3, guestName: 'Ana Pérez', adults: 2, children: 1, payout: 450, currency: 'USD', channexRoomTypeId: 'cx-rt', resolved: false });
     const inq = airbnbRequestFacts({ payload: { booking_details: { checkin_date: '2026-12-20', nights: 2, currency: 'USD', guest_name: 'Luis' } } });
     expect(inq).toMatchObject({ checkIn: '2026-12-20', checkOut: '2026-12-22', nights: 2, guestName: 'Luis' });
+  });
+
+  it('guest names reach tenants as plain strings, never as { firstName, lastName } objects', () => {
+    expect(guestLabel({ firstName: 'Ana', lastName: 'Pérez' })).toBe('Ana Pérez');
+    expect(guestLabel({ firstName: 'Ana' })).toBe('Ana');
+    expect(guestLabel('Luis')).toBe('Luis');
+    expect([guestLabel(undefined), guestLabel({}), guestLabel('  ')]).toEqual([undefined, undefined, undefined]);
+
+    const reservation = { _id: 'r1', reservationCode: 'R-1', guestName: { firstName: 'Ana', lastName: 'Pérez' }, status: 'confirmed', channelSource: { otaName: 'Offline', otaReservationCode: '9501' } };
+    const view = toTenantAlert(
+      { _id: 'a1', type: 'overbooking', severity: 'critical', status: 'open', reservationId: 'r1', details: { nights: ['2026-12-05'], competingReservations: [{ reservationId: 'r1' }] } },
+      { reservations: new Map([['r1', reservation]]), channels: new Map() },
+    );
+    expect(view.params.guestName).toBe('Ana Pérez');
+    expect((view.params.competingReservations as any[])[0].guestName).toBe('Ana Pérez');
   });
 
   it('digest lines and email never name the provider', () => {
@@ -273,6 +289,40 @@ describe('channel alerts (local Mongo)', () => {
     expect(summary.openCritical).toBe(1); // bk-2 still has no reservation
     expect(await find('unmapped_booking', 'bk-1')).toMatchObject({ status: 'resolved', autoResolved: true });
     expect(await find('non_acked_booking', 'bk-1')).toMatchObject({ status: 'resolved', autoResolved: true });
+  });
+
+  itDb('overbooking closes by itself once its booking is cancelled or its nights have a free room again', async () => {
+    const rt = new mongoose.Types.ObjectId();
+    await RoomType.collection.insertOne({ _id: rt, tenantId, name: 'Twin', capacity: 2, isActive: true });
+    await Room.collection.insertOne({ tenantId, name: 'T1', roomTypeId: rt, status: 'active' });
+    const noon = (d: string) => new Date(`${d}T12:00:00Z`);
+    const booking = (code: string, status = 'confirmed') => Reservation.collection.insertOne({
+      tenantId, type: 'room', status, reservationCode: code, checkInDate: noon('2026-12-05'), checkOutDate: noon('2026-12-07'),
+      items: [{ kind: 'room', roomTypeId: rt, quantity: 1, checkIn: noon('2026-12-05'), checkOut: noon('2026-12-07') }],
+    }).then((r) => r.insertedId);
+    const first = await booking('A-1');
+    const second = await booking('A-2');
+    const conflicts = ['2026-12-05', '2026-12-06'].map((date) => ({ roomTypeId: String(rt), date, overbooked: 1 }));
+
+    await inTenant(() => raiseAlert({ type: 'overbooking', dedupeKey: 'ob-live', title: 'x', reservationId: second, details: { nights: conflicts.map((c) => c.date), conflicts } }));
+    await inTenant(() => raiseAlert({ type: 'overbooking', dedupeKey: 'ob-simulated', title: 'x', reservationId: first, details: { nights: ['2026-12-05'] } }));
+
+    // Two bookings, one room: still overbooked; an alert with no recorded conflicts stays open while its booking lives
+    expect(await inTenant(() => reconcileAlerts())).toBe(0);
+    expect(await find('overbooking', 'ob-live')).toMatchObject({ status: 'open' });
+
+    // The second booking is cancelled: its own alert closes, and so would any alert whose nights are free
+    await Reservation.collection.updateOne({ _id: second }, { $set: { status: 'cancelled' } });
+    expect(await inTenant(() => reconcileAlerts())).toBe(1);
+    expect(await find('overbooking', 'ob-live')).toMatchObject({ status: 'resolved', autoResolved: true });
+    expect(await find('overbooking', 'ob-simulated')).toMatchObject({ status: 'open' });
+
+    // A conflict list that is clear now (one booking, one room) closes the alert although its booking is live
+    await inTenant(() => raiseAlert({ type: 'overbooking', dedupeKey: 'ob-cleared', title: 'x', reservationId: first, details: { nights: ['2026-12-05'], conflicts: conflicts.slice(0, 1) } }));
+    expect(await inTenant(() => reconcileAlerts())).toBe(1);
+    expect(await find('overbooking', 'ob-cleared')).toMatchObject({ status: 'resolved', autoResolved: true });
+
+    await Promise.all([RoomType.collection.deleteMany({}), Room.collection.deleteMany({}), Reservation.collection.deleteMany({})]);
   });
 
   itDb('resolveAlerts closes only matching active alerts in the current tenant', async () => {

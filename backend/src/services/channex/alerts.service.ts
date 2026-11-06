@@ -11,7 +11,8 @@
  *   transitionAlert   staff actions: acknowledge → resolve | dismiss, with notes.
  *   reconcileAlerts   lazy auto-resolve run before listing: `unmapped_booking` once its
  *                     reservation has a room (any write path), `non_acked_booking` once every
- *                     revision of the booking was acknowledged.
+ *                     revision of the booking was acknowledged, `overbooking` once the booking that
+ *                     raised it is cancelled or none of its nights is overbooked any more.
  *   sendAlertDigests  at most one email per tenant per 15 minutes listing the new critical
  *                     alerts, to users holding `admin.ota.resolve` (cron, every minute).
  *   toTenantAlert     white-label view (architecture §18): type, severity, state, safe
@@ -33,6 +34,7 @@ import Tenant from '../../models/Tenant';
 import User from '../../models/User';
 import { getTenantId, tenantLocalStorage } from '../../middleware/tenantContext';
 import { userHasPermission } from '../../middleware/auth';
+import { getInventory } from './inventory.service';
 import { sendEmail, tenantBaseUrl } from '../../utils/email';
 import { renderChannelAlertDigest } from '../../utils/emailTemplates/channelAlertDigest';
 
@@ -274,7 +276,52 @@ export async function reconcileAlerts(now: Date = new Date()): Promise<number> {
       resolved += r.modifiedCount ?? 0;
     }
   }
+
+  resolved += await reconcileOverbooking(now);
   return resolved;
+}
+
+/**
+ * An `overbooking` alert closes by itself once the booking that raised it is cancelled, or
+ * once every (room type, night) it recorded has a free room again (a cancellation, a date
+ * change, a new room, a lifted block). Alerts without recorded conflicts only close on
+ * cancellation.
+ */
+async function reconcileOverbooking(now: Date): Promise<number> {
+  const alerts = await ChannelAlert.find({ type: 'overbooking', status: { $in: ACTIVE } }).select('_id reservationId details').lean();
+  if (!alerts.length) return 0;
+  const reservationIds = alerts.map((a) => a.reservationId).filter(Boolean);
+  const cancelled = new Set(
+    (await Reservation.find({ _id: { $in: reservationIds }, status: 'cancelled' }).select('_id').lean()).map((r: any) => String(r._id)),
+  );
+
+  type Conflict = { roomTypeId: string; date: string };
+  const conflictsOf = (a: any): Conflict[] => (Array.isArray(a.details?.conflicts) ? a.details.conflicts : [])
+    .filter((c: any) => typeof c?.roomTypeId === 'string' && typeof c?.date === 'string');
+
+  const done: unknown[] = [];
+  const toCheck: { alert: any; conflicts: Conflict[] }[] = [];
+  for (const a of alerts) {
+    if (a.reservationId && cancelled.has(String(a.reservationId))) { done.push(a._id); continue; }
+    const conflicts = conflictsOf(a);
+    if (conflicts.length) toCheck.push({ alert: a, conflicts });
+  }
+
+  for (const { alert, conflicts } of toCheck) {
+    const dates = conflicts.map((c) => c.date).sort();
+    const roomTypeIds = [...new Set(conflicts.map((c) => c.roomTypeId))];
+    try {
+      const grid = await getInventory({ dateFrom: dates[0], dateTo: dates[dates.length - 1], roomTypeIds });
+      if (conflicts.every((c) => !((grid[c.roomTypeId]?.[c.date]?.overbooked ?? 0) > 0))) done.push(alert._id);
+    } catch {
+      // Leave the alert open when the inventory cannot be read
+    }
+  }
+
+  if (!done.length) return 0;
+  const r = await ChannelAlert.updateMany({ _id: { $in: done } },
+    { $set: { status: 'resolved', resolvedAt: now, autoResolved: true, emailPending: false } });
+  return r.modifiedCount ?? 0;
 }
 
 // ─── Queries ─────────────────────────────────────────────────────────────────
@@ -439,6 +486,17 @@ interface ViewContext {
   channels: Map<string, { _id: string; title?: string; otaCode?: string }>;
 }
 
+/** A reservation's `guestName` ({ firstName, lastName }) → "First Last"; tenants and emails read a plain string. */
+export function guestLabel(guest: unknown): string | undefined {
+  if (typeof guest === 'string') return guest.trim() || undefined;
+  if (guest && typeof guest === 'object') {
+    const g = guest as { firstName?: unknown; lastName?: unknown };
+    const full = [g.firstName, g.lastName].filter((x): x is string => typeof x === 'string' && x.trim() !== '').join(' ').trim();
+    return full || undefined;
+  }
+  return undefined;
+}
+
 /** Type-specific values tenants may see (no Channex ids, no raw payloads). */
 function paramsFor(a: IChannelAlert | any, ctx: ViewContext): Record<string, unknown> {
   const d: any = a.details ?? {};
@@ -447,7 +505,7 @@ function paramsFor(a: IChannelAlert | any, ctx: ViewContext): Record<string, unk
   const p: Record<string, unknown> = {};
   if (r) {
     Object.assign(p, {
-      reservationCode: r.reservationCode, guestName: r.guestName, checkIn: day(r.checkInDate?.toISOString?.()), checkOut: day(r.checkOutDate?.toISOString?.()),
+      reservationCode: r.reservationCode, guestName: guestLabel(r.guestName), checkIn: day(r.checkInDate?.toISOString?.()), checkOut: day(r.checkOutDate?.toISOString?.()),
       otaName: r.channelSource?.otaName, otaReservationCode: r.channelSource?.otaReservationCode, reservationStatus: r.status,
     });
   }
@@ -457,7 +515,7 @@ function paramsFor(a: IChannelAlert | any, ctx: ViewContext): Record<string, unk
       p.nights = Array.isArray(d.nights) ? d.nights.slice(0, 31) : [];
       p.competingReservations = (Array.isArray(d.competingReservations) ? d.competingReservations : []).slice(0, 10).map((c: any) => {
         const cr = ctx.reservations.get(String(c.reservationId));
-        return { reservationId: String(c.reservationId), reservationCode: c.reservationCode ?? cr?.reservationCode, guestName: cr?.guestName, otaName: cr?.channelSource?.otaName };
+        return { reservationId: String(c.reservationId), reservationCode: c.reservationCode ?? cr?.reservationCode, guestName: guestLabel(cr?.guestName), otaName: cr?.channelSource?.otaName };
       });
       break;
     case 'unmapped_booking':

@@ -54,6 +54,7 @@ import DateRangePicker from '../../components/booking/DateRangePicker';
 import GuestSelector from '../../components/booking/GuestSelector';
 import SingleDatePicker from '../../components/booking/SingleDatePicker';
 import { RoomIllustration, AmenityIllustration, isIllustrationUrl, getIllustrationByKey, getIllustrationKey } from '../../components/illustrations';
+import i18n from '../../i18n';
 
 // ── Design tokens ────────────────────────────────────────────────────────────
 const ACCENT = '#F06543';         // Sunset Orange — CTA accent
@@ -116,14 +117,6 @@ interface AmenityData {
   category: string;
   order: number;
 }
-
-// ── Charge basis label map (shared across steps) ─────────────────────────────
-const chargeBasisLabelMap: Record<string, string> = {
-  perPerson: 'Por persona',
-  perRoom: 'Por habitación',
-  perStay: 'Por estadía',
-  perEvent: 'Por evento',
-};
 
 // ── Room Type Data for showcase ──────────────────────────────────────────────
 interface RoomTypeShowcase {
@@ -554,7 +547,7 @@ function SearchStep() {
                       <CardContent>
                         <Typography variant="h6" sx={{ fontWeight: 700, fontFamily: FONT }}>{svcResult.name}</Typography>
                         <Typography variant="body2" sx={{ color: TEXT_SECONDARY, fontFamily: FONT, mb: 1.5 }}>
-                          {chargeBasisLabelMap[svcResult.chargeBasis] || svcResult.chargeBasis}
+                          {t(`bookingEngine.chargeBasis.${svcResult.chargeBasis}`, svcResult.chargeBasis)}
                         </Typography>
                         {/* Unit price */}
                         {svcResult.basePrice != null && (
@@ -563,7 +556,7 @@ function SearchStep() {
                               {formatCurrency(svcResult.basePrice, config?.currency || 'USD')}
                             </Typography>
                             <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>
-                              / {chargeBasisLabelMap[svcResult.chargeBasis] || svcResult.chargeBasis}
+                              / {t(`bookingEngine.chargeBasis.${svcResult.chargeBasis}`, svcResult.chargeBasis)}
                             </Typography>
                           </Stack>
                         )}
@@ -771,7 +764,7 @@ function SearchStep() {
                       {svc.name}
                     </Typography>
                     <Typography variant="body2" sx={{ color: TEXT_SECONDARY, fontFamily: FONT, mb: 1 }}>
-                      {chargeBasisLabelMap[svc.chargeBasis] || svc.chargeBasis}
+                      {t(`bookingEngine.chargeBasis.${svc.chargeBasis}`, svc.chargeBasis)}
                     </Typography>
                     {svc.basePrice != null && (
                       <Typography sx={{ fontWeight: 700, color: ACCENT, fontFamily: FONT, fontSize: '1.1rem', mb: 1.5 }}>
@@ -1074,7 +1067,7 @@ function RoomShowcaseCard({ room }: { room: any }) {
           {room.roomType.name}
         </Typography>
         <Typography variant="body2" sx={{ color: TEXT_SECONDARY, fontFamily: FONT, mb: 1.5 }}>
-          {t('bookingEngine.results.upToGuests', { count: room.roomType.capacity })} · {room.bedConfiguration || 'Standard'}
+          {t('bookingEngine.results.upToGuests', { count: room.roomType.capacity })} · {room.bedConfiguration || t('bookingEngine.results.standardBed')}
         </Typography>
 
         {/* Features */}
@@ -1381,7 +1374,7 @@ function ResultsStep() {
                       </Stack>
 
                       <Typography variant="body2" sx={{ color: TEXT_SECONDARY, fontFamily: FONT, mb: 1.5 }}>
-                        {t('bookingEngine.results.upToGuests', { count: room.roomType.capacity })} · {room.bedConfiguration || 'Standard'}
+                        {t('bookingEngine.results.upToGuests', { count: room.roomType.capacity })} · {room.bedConfiguration || t('bookingEngine.results.standardBed')}
                       </Typography>
 
                       {/* Features */}
@@ -1511,7 +1504,7 @@ function ResultsStep() {
                         <CardContent>
                           <Typography variant="subtitle1" sx={{ fontWeight: 600, fontFamily: FONT }}>{service.name}</Typography>
                           <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>
-                            {chargeBasisLabelMap[service.chargeBasis] || service.chargeBasis}
+                            {t(`bookingEngine.chargeBasis.${service.chargeBasis}`, service.chargeBasis)}
                           </Typography>
                           {service.basePrice != null && (
                             <Typography sx={{ fontWeight: 700, color: ACCENT, fontFamily: FONT, fontSize: '1.1rem', mt: 0.5 }}>
@@ -2109,10 +2102,10 @@ function ReviewStep() {
         {searchParams && (
           <Stack spacing={0.5} sx={{ mb: 2 }}>
             <Typography variant="body2" sx={{ fontFamily: FONT }}>
-              <strong>{t('bookingEngine.review.checkInLabel')}</strong> {new Date(searchParams.checkIn).toLocaleDateString()}
+              <strong>{t('bookingEngine.review.checkInLabel')}</strong> {new Date(searchParams.checkIn).toLocaleDateString(i18n.language)}
             </Typography>
             <Typography variant="body2" sx={{ fontFamily: FONT }}>
-              <strong>{t('bookingEngine.review.checkOutLabel')}</strong> {new Date(searchParams.checkOut).toLocaleDateString()}
+              <strong>{t('bookingEngine.review.checkOutLabel')}</strong> {new Date(searchParams.checkOut).toLocaleDateString(i18n.language)}
             </Typography>
             <Typography variant="body2" sx={{ fontFamily: FONT }}>
               <strong>{t('bookingEngine.review.durationLabel')}</strong> {t('bookingEngine.results.nightCount', { count: nights })}
@@ -2270,13 +2263,13 @@ function ConfirmationStep() {
           {bookingResult?.checkIn && (
             <Stack direction="row" justifyContent="space-between">
               <Typography sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>{t('bookingEngine.confirmation.checkIn')}</Typography>
-              <Typography sx={{ fontFamily: FONT }}>{new Date(bookingResult.checkIn).toLocaleDateString()}</Typography>
+              <Typography sx={{ fontFamily: FONT }}>{new Date(bookingResult.checkIn).toLocaleDateString(i18n.language)}</Typography>
             </Stack>
           )}
           {bookingResult?.checkOut && (
             <Stack direction="row" justifyContent="space-between">
               <Typography sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>{t('bookingEngine.confirmation.checkOut')}</Typography>
-              <Typography sx={{ fontFamily: FONT }}>{new Date(bookingResult.checkOut).toLocaleDateString()}</Typography>
+              <Typography sx={{ fontFamily: FONT }}>{new Date(bookingResult.checkOut).toLocaleDateString(i18n.language)}</Typography>
             </Stack>
           )}
         </Stack>

@@ -67,7 +67,7 @@ const Header: React.FC = () => {
               <>
                 <IconButton
                   size="large"
-                  aria-label="account of current user"
+                  aria-label={t('nav.accountOfCurrentUser')}
                   aria-controls="user-menu"
                   aria-haspopup="true"
                   onClick={handleUserMenuOpen}

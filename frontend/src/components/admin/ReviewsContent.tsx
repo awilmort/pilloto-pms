@@ -178,7 +178,7 @@ const ReviewsContent: React.FC = () => {
                   </Typography>
                 </TableCell>
                 <TableCell>
-                  <Chip label={r.source} size="small" variant="outlined" />
+                  <Chip label={t(`admin.reviews.sources.${r.source}`, r.source)} size="small" variant="outlined" />
                 </TableCell>
                 <TableCell>
                   <Chip
@@ -253,7 +253,7 @@ const ReviewsContent: React.FC = () => {
                 onChange={e => setForm(f => ({ ...f, source: e.target.value }))}
               >
                 {SOURCES.map(s => (
-                  <MenuItem key={s} value={s}>{s}</MenuItem>
+                  <MenuItem key={s} value={s}>{t(`admin.reviews.sources.${s}`, s)}</MenuItem>
                 ))}
               </Select>
             </FormControl>

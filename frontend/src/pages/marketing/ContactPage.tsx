@@ -14,10 +14,10 @@ const BRAND = '#121A33';
 const BRAND_LIGHT = '#EEF0F5';
 
 const PLAN_OPTIONS = [
-  { value: 'basic',      label: 'Basic — up to 15 rooms' },
-  { value: 'pro',        label: 'Pro — up to 50 rooms' },
-  { value: 'enterprise', label: 'Enterprise — up to 100 rooms' },
-  { value: 'general',    label: 'General inquiry' },
+  { value: 'basic' },
+  { value: 'pro' },
+  { value: 'enterprise' },
+  { value: 'general' },
 ];
 
 const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
@@ -195,7 +195,7 @@ const ContactPage: React.FC = () => {
                           required fullWidth
                         >
                           {PLAN_OPTIONS.map(o => (
-                            <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
+                            <MenuItem key={o.value} value={o.value}>{t(`marketing.contact.plans.${o.value}`)}</MenuItem>
                           ))}
                         </TextField>
                       </Grid>

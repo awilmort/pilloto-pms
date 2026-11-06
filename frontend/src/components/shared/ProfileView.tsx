@@ -54,10 +54,10 @@ function evaluatePassword(pwd: string): PasswordStrength {
   score = Math.min(score, 4);
   const map: Record<number, { label: string; color: string }> = {
     0: { label: '', color: '#e0e0e0' },
-    1: { label: 'Weak', color: '#ef5350' },
-    2: { label: 'Fair', color: '#ff9800' },
-    3: { label: 'Good', color: '#66bb6a' },
-    4: { label: 'Strong', color: '#2e7d32' },
+    1: { label: 'weak', color: '#ef5350' },
+    2: { label: 'fair', color: '#ff9800' },
+    3: { label: 'good', color: '#66bb6a' },
+    4: { label: 'strong', color: '#2e7d32' },
   };
   return { score, ...map[score] };
 }
@@ -73,11 +73,11 @@ interface PasswordRule {
 
 function roleChip(role: string): { label: string; bg: string; color: string } {
   switch (role) {
-    case 'admin': return { label: 'Administrator', bg: '#EFF6FF', color: '#1D4ED8' };
-    case 'superadmin': return { label: 'Super Admin', bg: '#FDF2F8', color: '#9333EA' };
-    case 'staff': return { label: 'Staff', bg: '#ECFDF5', color: '#065F46' };
-    case 'cashier': return { label: 'Cashier', bg: '#FFF7ED', color: '#C2410C' };
-    default: return { label: role ?? 'Guest', bg: '#F1F5F9', color: '#475569' };
+    case 'admin': return { label: 'admin', bg: '#EFF6FF', color: '#1D4ED8' };
+    case 'superadmin': return { label: 'superadmin', bg: '#FDF2F8', color: '#9333EA' };
+    case 'staff': return { label: 'staff', bg: '#ECFDF5', color: '#065F46' };
+    case 'cashier': return { label: 'cashier', bg: '#FFF7ED', color: '#C2410C' };
+    default: return { label: 'guest', bg: '#F1F5F9', color: '#475569' };
   }
 }
 
@@ -146,11 +146,11 @@ const ProfileView: React.FC = () => {
       const res = await authService.updateProfile({ firstName, lastName, phone, email });
       if (res.data.success) {
         await refreshUser();
-        setProfileSuccess('Profile updated successfully.');
-        toast.success('Profile updated.');
+        setProfileSuccess(t('pages.profile.profileUpdated'));
+        toast.success(t('pages.profile.profileUpdatedToast'));
       }
     } catch (err: any) {
-      setProfileError(err?.response?.data?.message || 'Failed to update profile.');
+      setProfileError(err?.response?.data?.message || t('pages.profile.profileUpdateFailed'));
     } finally {
       setProfileSaving(false);
     }
@@ -160,21 +160,21 @@ const ProfileView: React.FC = () => {
     setPwdError(null);
     setPwdSuccess(null);
     if (newPassword !== confirmPassword) {
-      setPwdError('New password and confirmation do not match.');
+      setPwdError(t('pages.profile.passwordMismatch'));
       return;
     }
     try {
       setPwdSaving(true);
       const res = await authService.changePassword({ currentPassword, newPassword });
       if (res.data.success) {
-        setPwdSuccess('Password changed successfully.');
-        toast.success('Password updated.');
+        setPwdSuccess(t('pages.profile.passwordChanged'));
+        toast.success(t('pages.profile.passwordUpdatedToast'));
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
       }
     } catch (err: any) {
-      setPwdError(err?.response?.data?.message || 'Failed to change password.');
+      setPwdError(err?.response?.data?.message || t('pages.profile.passwordChangeFailed'));
     } finally {
       setPwdSaving(false);
     }
@@ -245,7 +245,7 @@ const ProfileView: React.FC = () => {
               {user?.email}
             </Typography>
             <Chip
-              label={chip.label}
+              label={t(`pages.profile.roles.${chip.label}`)}
               size="small"
               sx={{
                 bgcolor: 'rgba(255,255,255,0.15)',
@@ -400,7 +400,7 @@ const ProfileView: React.FC = () => {
                       <IconButton
                         onClick={() => setShowCurrent((v) => !v)}
                         edge="end"
-                        aria-label={showCurrent ? 'Hide password' : 'Show password'}
+                        aria-label={showCurrent ? t('pages.profile.hidePassword') : t('pages.profile.showPassword')}
                       >
                         {showCurrent ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
@@ -433,7 +433,7 @@ const ProfileView: React.FC = () => {
                       <IconButton
                         onClick={() => setShowNew((v) => !v)}
                         edge="end"
-                        aria-label={showNew ? 'Hide password' : 'Show password'}
+                        aria-label={showNew ? t('pages.profile.hidePassword') : t('pages.profile.showPassword')}
                       >
                         {showNew ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
@@ -464,7 +464,7 @@ const ProfileView: React.FC = () => {
                       variant="caption"
                       sx={{ color: strength.color, fontWeight: 600 }}
                     >
-                      {strength.label}
+                      {t(`pages.profile.strength.${strength.label}`)}
                     </Typography>
                   )}
                 </Box>
@@ -498,7 +498,7 @@ const ProfileView: React.FC = () => {
                       <IconButton
                         onClick={() => setShowConfirm((v) => !v)}
                         edge="end"
-                        aria-label={showConfirm ? 'Hide password' : 'Show password'}
+                        aria-label={showConfirm ? t('pages.profile.hidePassword') : t('pages.profile.showPassword')}
                       >
                         {showConfirm ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
@@ -601,12 +601,12 @@ const ProfileView: React.FC = () => {
                   {t('pages.profile.accessAndPermissions', 'Access & Permissions')}
                 </Typography>
                 <Chip
-                  label={chip.label}
+                  label={t(`pages.profile.roles.${chip.label}`)}
                   size="small"
                   sx={{ bgcolor: chip.bg, color: chip.color, fontWeight: 600, fontSize: 11 }}
                 />
               </Box>
-              <Tooltip title="Toggle permissions list">
+              <Tooltip title={t('pages.profile.togglePermissions')}>
                 <IconButton size="small">
                   {showRules ? <ExpandLess /> : <ExpandMore />}
                 </IconButton>

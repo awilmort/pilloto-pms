@@ -21,6 +21,7 @@ import { reservationsService, servicesService } from '../../services/api';
 import { Reservation } from '../../types';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 
 const ScheduleSummary: React.FC = () => {
   const { t } = useTranslation();
@@ -112,7 +113,7 @@ const ScheduleSummary: React.FC = () => {
     };
   }, [categorized]);
 
-  const formatDate = (d: Date) => d.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  const formatDate = (d: Date) => d.toLocaleDateString(i18n.language, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
   return (
     <AdminLayout title={t('admin.schedule.title')}>

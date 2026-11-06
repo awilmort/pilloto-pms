@@ -142,7 +142,7 @@ const BookingCreateDialog: React.FC<Props> = ({
       onClose();
       onCreated();
     } catch (e: any) {
-      onSnackbar(e?.response?.data?.message || 'Failed to create reservation', 'error');
+      onSnackbar(e?.response?.data?.message || t('admin.reservations.messages.createFailed'), 'error');
     } finally {
       setLoading(false);
     }

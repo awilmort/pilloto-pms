@@ -140,7 +140,7 @@ const InvoicePdfPreviewDialog: React.FC<InvoicePdfPreviewDialogProps> = ({ invoi
         {loading && (
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
             <Typography variant="body2" color="text.secondary">
-              Loading...
+              {t('common.loading')}
             </Typography>
           </Box>
         )}

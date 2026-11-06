@@ -30,6 +30,7 @@ import { reservationsService } from '../../services/api';
 import { useTranslation } from 'react-i18next';
 import { formatMoney } from '../../utils/currency';
 import { Reservation } from '../../types';
+import i18n from '../../i18n';
 
 const ReservationSummaryPage: React.FC = () => {
   const { confirmationToken, reservationCode } = useParams<{ confirmationToken?: string; reservationCode?: string }>();
@@ -90,14 +91,14 @@ const ReservationSummaryPage: React.FC = () => {
       await loadReservation();
     } catch (err: any) {
       console.error('Error cancelling reservation:', err);
-      alert(err.response?.data?.message || 'Failed to cancel reservation');
+      alert(err.response?.data?.message || t('pages.reservationSummary.cancelFailed'));
     } finally {
       setCancelling(false);
     }
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString(i18n.language, {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
@@ -144,7 +145,7 @@ const ReservationSummaryPage: React.FC = () => {
     );
   }
 
-  const guestName = `${reservation.guestName?.firstName || ''} ${reservation.guestName?.lastName || ''}`.trim() || 'Guest';
+  const guestName = `${reservation.guestName?.firstName || ''} ${reservation.guestName?.lastName || ''}`.trim() || t('pages.reservationSummary.guestFallback');
 
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
@@ -237,7 +238,7 @@ const ReservationSummaryPage: React.FC = () => {
                 </Typography>
                 <Box sx={{ pl: 4 }}>
                   {reservation.room && typeof reservation.room === 'object' && (
-                    <Typography><strong>Room Name:</strong> {reservation.room.name}</Typography>
+                    <Typography><strong>{t('pages.reservationSummary.roomName')}:</strong> {reservation.room.name}</Typography>
                   )}
                 </Box>
               </Grid>

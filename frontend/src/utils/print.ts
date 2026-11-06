@@ -173,7 +173,7 @@ function hdr(hotel: PrintHotelInfo, docTitle: string, subLine: string): string {
 }
 
 function ftr(hotelName: string): string {
-  return `<div class="ftr">${esc(hotelName)} &bull; ${pt('printedOn')} ${new Date().toLocaleString()}</div>`;
+  return `<div class="ftr">${esc(hotelName)} &bull; ${pt('printedOn')} ${new Date().toLocaleString(i18n.language)}</div>`;
 }
 
 function esc(s?: string | null): string {
@@ -190,7 +190,7 @@ function fm(v?: number): string { return formatMoney(v ?? 0); }
 function fd(d?: string): string {
   if (!d) return '—';
   try {
-    return new Date(d).toLocaleDateString(undefined, {
+    return new Date(d).toLocaleDateString(i18n.language, {
       year: 'numeric', month: 'long', day: 'numeric',
     });
   } catch { return d; }
@@ -198,7 +198,7 @@ function fd(d?: string): string {
 
 function fdt(d?: string): string {
   if (!d) return '—';
-  try { return new Date(d).toLocaleString(); } catch { return d; }
+  try { return new Date(d).toLocaleString(i18n.language); } catch { return d; }
 }
 
 function badge(status: string): string {
@@ -358,7 +358,7 @@ export function printFolio(
     .join('');
 
   const body = `
-    ${hdr(hotel, pt('folio.title'), `${pt('fields.date')}: ${new Date().toLocaleDateString()}`)}
+    ${hdr(hotel, pt('folio.title'), `${pt('fields.date')}: ${new Date().toLocaleDateString(i18n.language)}`)}
 
     <div class="sec">
       <div class="ig">
@@ -527,7 +527,7 @@ export function printPaymentSummary(
     ${hdr(
       hotel,
       pt('paymentSummary.title'),
-      `${pt('paymentSummary.generated')}: ${new Date().toLocaleString()} &bull; ${pt('paymentSummary.printedBy')}: ${esc(cashierName)}`,
+      `${pt('paymentSummary.generated')}: ${new Date().toLocaleString(i18n.language)} &bull; ${pt('paymentSummary.printedBy')}: ${esc(cashierName)}`,
     )}
 
     <div class="sec">

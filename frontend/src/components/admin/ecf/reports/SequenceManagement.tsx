@@ -29,19 +29,7 @@ import dayjs from 'dayjs';
 import { EcfSequenceInfo, EcfTipo } from '../../../../types';
 import { ecfService } from '../../../../services/api';
 import EcfStatusBadge from '../../EcfStatusBadge';
-
-const TIPO_LABELS: Record<string, string> = {
-  E31: 'Factura de Crédito Fiscal',
-  E32: 'Factura de Consumo',
-  E33: 'Nota de Débito',
-  E34: 'Nota de Crédito',
-  E41: 'Comprobante de Compras',
-  E43: 'Gastos Menores',
-  E44: 'Regímenes Especiales',
-  E45: 'Gubernamental',
-  E46: 'Exportaciones',
-  E47: 'Pagos al Exterior',
-};
+import i18n from '../../../../i18n';
 
 const TIPO_COLORS: Record<string, 'primary' | 'info' | 'warning' | 'error' | 'default'> = {
   E31: 'primary',
@@ -195,7 +183,7 @@ const SequenceManagement: React.FC = () => {
                         size="small"
                       />
                       <Typography variant="body2" color="text.secondary" noWrap>
-                        {TIPO_LABELS[seq.tipo] ?? seq.tipo}
+                        {t(`admin.ecf.tipoNames.${seq.tipo}`, seq.tipo)}
                       </Typography>
                     </Stack>
                     {expiryStatus === 'ok' && <CheckCircleOutlineIcon color="success" fontSize="small" />}
@@ -261,7 +249,7 @@ const SequenceManagement: React.FC = () => {
                         {t('admin.reports.sequences.totalIssued')}
                       </Typography>
                       <Typography variant="body2" fontWeight={600}>
-                        {seq.totalIssued.toLocaleString()}
+                        {seq.totalIssued.toLocaleString(i18n.language)}
                       </Typography>
                     </Grid>
                     <Grid item xs={6}>
@@ -269,7 +257,7 @@ const SequenceManagement: React.FC = () => {
                         {t('admin.reports.sequences.issuedThisMonth')}
                       </Typography>
                       <Typography variant="body2" fontWeight={600}>
-                        {seq.issuedThisMonth.toLocaleString()}
+                        {seq.issuedThisMonth.toLocaleString(i18n.language)}
                       </Typography>
                     </Grid>
                   </Grid>

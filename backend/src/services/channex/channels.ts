@@ -30,6 +30,7 @@ import ChannexSyncLog from '../../models/ChannexSyncLog';
 import PlatformSettings from '../../models/PlatformSettings';
 import { ChannexClient, ChannexError, Unwrapped, unwrapOne } from './channexClient';
 import { assertCurrentEnvironment, ChannexEnvironment } from './config';
+import { parseChannexTimestamp } from './dates';
 import { otaDisplayName } from './otaSettlement';
 
 /** One-time tokens live 15 minutes (Channex docs) */
@@ -299,7 +300,7 @@ export async function createIframeSession(input: IframeSessionInput): Promise<If
 // ─── Channel list (cache + health) ───────────────────────────────────────────
 
 function rowFields(c: Unwrapped, channexPropertyId: string) {
-  const insertedAt = c.inserted_at ? new Date(c.inserted_at) : undefined;
+  const insertedAt = parseChannexTimestamp(c.inserted_at);
   return {
     channexPropertyId,
     title: typeof c.title === 'string' ? c.title.slice(0, 200) : undefined,
@@ -308,7 +309,7 @@ function rowFields(c: Unwrapped, channexPropertyId: string) {
     isActive: Boolean(c.is_active),
     channexStatus: typeof c.status === 'string' ? c.status.slice(0, 40) : undefined,
     expectedRemovalDate: c.expected_removal_date ? String(c.expected_removal_date).slice(0, 40) : undefined,
-    channexInsertedAt: insertedAt && !Number.isNaN(insertedAt.getTime()) ? insertedAt : undefined,
+    channexInsertedAt: insertedAt,
   };
 }
 

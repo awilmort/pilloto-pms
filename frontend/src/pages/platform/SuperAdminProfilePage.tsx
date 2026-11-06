@@ -22,10 +22,12 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { authService } from '../../services/api';
 import { toast } from 'react-toastify';
+import { useTranslation } from 'react-i18next';
 import PlatformLayout from './PlatformLayout';
 
 const SuperAdminProfilePage: React.FC = () => {
   const { user, refreshUser } = useAuth();
+  const { t } = useTranslation();
 
   // ── Profile form ─────────────────────────────────────────────────────────────
   const [firstName, setFirstName] = useState('');
@@ -62,11 +64,11 @@ const SuperAdminProfilePage: React.FC = () => {
       const res = await authService.updateProfile({ firstName, lastName, email });
       if (res.data.success) {
         await refreshUser();
-        setProfileSuccess('Profile updated successfully.');
-        toast.success('Profile updated.');
+        setProfileSuccess(t('pages.profile.profileUpdated'));
+        toast.success(t('pages.profile.profileUpdatedToast'));
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Failed to update profile.';
+      const msg = err?.response?.data?.message || t('pages.profile.profileUpdateFailed');
       setProfileError(msg);
     } finally {
       setProfileSaving(false);
@@ -78,11 +80,11 @@ const SuperAdminProfilePage: React.FC = () => {
     setPwdSuccess(null);
 
     if (newPassword.length < 8) {
-      setPwdError('New password must be at least 8 characters.');
+      setPwdError(t('platform.profile.tooShort'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      setPwdError('New password and confirmation do not match.');
+      setPwdError(t('pages.profile.passwordMismatch'));
       return;
     }
 
@@ -90,14 +92,14 @@ const SuperAdminProfilePage: React.FC = () => {
       setPwdSaving(true);
       const res = await authService.changePassword({ currentPassword, newPassword });
       if (res.data.success) {
-        setPwdSuccess('Password changed successfully.');
-        toast.success('Password updated.');
+        setPwdSuccess(t('pages.profile.passwordChanged'));
+        toast.success(t('pages.profile.passwordUpdatedToast'));
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
       }
     } catch (err: any) {
-      const msg = err?.response?.data?.message || 'Failed to change password.';
+      const msg = err?.response?.data?.message || t('pages.profile.passwordChangeFailed');
       setPwdError(msg);
     } finally {
       setPwdSaving(false);
@@ -116,10 +118,10 @@ const SuperAdminProfilePage: React.FC = () => {
       {/* Page header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" fontWeight={700} color="text.primary" gutterBottom>
-          My Profile
+          {t('platform.profile.title')}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Manage your super-admin account details and security credentials.
+          {t('platform.profile.subtitle')}
         </Typography>
       </Box>
 
@@ -147,7 +149,7 @@ const SuperAdminProfilePage: React.FC = () => {
               </Typography>
               <Chip
                 icon={<AdminPanelSettings sx={{ fontSize: 15 }} />}
-                label="Super Administrator"
+                label={t('platform.profile.role')}
                 size="small"
                 sx={{ bgcolor: '#EFF6FF', color: '#1D4ED8', fontWeight: 600, fontSize: 11 }}
               />
@@ -163,10 +165,10 @@ const SuperAdminProfilePage: React.FC = () => {
       >
         <CardContent sx={{ p: 3 }}>
           <Typography variant="h6" fontWeight={700} gutterBottom>
-            Personal Information
+            {t('platform.profile.personal')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Update your display name and contact email.
+            {t('platform.profile.personalHint')}
           </Typography>
 
           {profileError && (
@@ -183,7 +185,7 @@ const SuperAdminProfilePage: React.FC = () => {
           <Grid container spacing={3}>
             <Grid item xs={12} sm={6}>
               <TextField
-                label="First Name"
+                label={t('platform.profile.firstName')}
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 fullWidth
@@ -192,7 +194,7 @@ const SuperAdminProfilePage: React.FC = () => {
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
-                label="Last Name"
+                label={t('platform.profile.lastName')}
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 fullWidth
@@ -201,7 +203,7 @@ const SuperAdminProfilePage: React.FC = () => {
             </Grid>
             <Grid item xs={12} sm={8}>
               <TextField
-                label="Email Address"
+                label={t('platform.profile.email')}
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -217,7 +219,7 @@ const SuperAdminProfilePage: React.FC = () => {
               onClick={handleSaveProfile}
               disabled={profileSaving || !firstName.trim() || !lastName.trim() || !email.trim()}
             >
-              {profileSaving ? 'Saving…' : 'Save Changes'}
+              {profileSaving ? t('platform.profile.saving') : t('platform.profile.save')}
             </Button>
           </Box>
         </CardContent>
@@ -227,10 +229,10 @@ const SuperAdminProfilePage: React.FC = () => {
       <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
         <CardContent sx={{ p: 3 }}>
           <Typography variant="h6" fontWeight={700} gutterBottom>
-            Change Password
+            {t('platform.profile.changePassword')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Ensure your account uses a strong, unique password.
+            {t('platform.profile.passwordHint')}
           </Typography>
 
           <Divider sx={{ mb: 3 }} />
@@ -249,7 +251,7 @@ const SuperAdminProfilePage: React.FC = () => {
           <Grid container spacing={3}>
             <Grid item xs={12} sm={8}>
               <TextField
-                label="Current Password"
+                label={t('platform.profile.currentPassword')}
                 type={showCurrent ? 'text' : 'password'}
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
@@ -262,7 +264,7 @@ const SuperAdminProfilePage: React.FC = () => {
                       <IconButton
                         onClick={() => setShowCurrent((v) => !v)}
                         edge="end"
-                        aria-label={showCurrent ? 'Hide password' : 'Show password'}
+                        aria-label={showCurrent ? t('pages.profile.hidePassword') : t('pages.profile.showPassword')}
                       >
                         {showCurrent ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
@@ -274,14 +276,14 @@ const SuperAdminProfilePage: React.FC = () => {
 
             <Grid item xs={12} sm={6}>
               <TextField
-                label="New Password"
+                label={t('platform.profile.newPassword')}
                 type={showNew ? 'text' : 'password'}
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 fullWidth
                 required
                 autoComplete="new-password"
-                helperText="Minimum 8 characters"
+                helperText={t('platform.profile.minChars')}
                 error={newPassword.length > 0 && newPassword.length < 8}
                 InputProps={{
                   endAdornment: (
@@ -289,7 +291,7 @@ const SuperAdminProfilePage: React.FC = () => {
                       <IconButton
                         onClick={() => setShowNew((v) => !v)}
                         edge="end"
-                        aria-label={showNew ? 'Hide password' : 'Show password'}
+                        aria-label={showNew ? t('pages.profile.hidePassword') : t('pages.profile.showPassword')}
                       >
                         {showNew ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
@@ -301,7 +303,7 @@ const SuperAdminProfilePage: React.FC = () => {
 
             <Grid item xs={12} sm={6}>
               <TextField
-                label="Confirm New Password"
+                label={t('platform.profile.confirmPassword')}
                 type={showConfirm ? 'text' : 'password'}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -311,7 +313,7 @@ const SuperAdminProfilePage: React.FC = () => {
                 error={confirmPassword.length > 0 && confirmPassword !== newPassword}
                 helperText={
                   confirmPassword.length > 0 && confirmPassword !== newPassword
-                    ? 'Passwords do not match'
+                    ? t('platform.profile.mismatchHelp')
                     : ' '
                 }
                 InputProps={{
@@ -320,7 +322,7 @@ const SuperAdminProfilePage: React.FC = () => {
                       <IconButton
                         onClick={() => setShowConfirm((v) => !v)}
                         edge="end"
-                        aria-label={showConfirm ? 'Hide password' : 'Show password'}
+                        aria-label={showConfirm ? t('pages.profile.hidePassword') : t('pages.profile.showPassword')}
                       >
                         {showConfirm ? <VisibilityOff /> : <Visibility />}
                       </IconButton>
@@ -338,7 +340,7 @@ const SuperAdminProfilePage: React.FC = () => {
               onClick={handleChangePassword}
               disabled={pwdSaving || !passwordCanSubmit}
             >
-              {pwdSaving ? 'Updating…' : 'Update Password'}
+              {pwdSaving ? t('platform.profile.updating') : t('platform.profile.update')}
             </Button>
           </Box>
         </CardContent>

@@ -21,6 +21,7 @@ import { usePermission } from '../../../lib/permissions';
 import { creditNotesService, invoicesService, warehousesService, CreditNoteLineItemInput } from '../../../services/api';
 import { CreditNote, CreditNoteStatus, CreditNoteReason, CreditNoteFiscalModificationCode, CreditNoteRefundMethod, Invoice, Warehouse, ElectronicInvoice } from '../../../types';
 import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
+import i18n from '../../../i18n';
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
@@ -476,7 +477,7 @@ const CreditNotesContent: React.FC = () => {
                   </TableCell>
                   <TableCell>{customerLabel(cn)}</TableCell>
                   <TableCell>{typeof cn.invoice === 'object' ? cn.invoice.invoiceNumber : '—'}</TableCell>
-                  <TableCell>{new Date(cn.issueDate).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(cn.issueDate).toLocaleDateString(i18n.language)}</TableCell>
                   <TableCell align="right">{formatMoney(cn.total)}</TableCell>
                   <TableCell align="right">{formatMoney(cn.remainingCredit)}</TableCell>
                   <TableCell>
@@ -648,7 +649,7 @@ const CreditNotesContent: React.FC = () => {
                 <Chip size="small" label={t(`accounting.creditNotes.status.${viewCreditNote.status}`)} color={STATUS_COLOR[viewCreditNote.status]} />
               </Box>
               <Typography variant="body2" color="text.secondary">
-                {t('accounting.creditNotes.table.issueDate')}: {new Date(viewCreditNote.issueDate).toLocaleDateString()}
+                {t('accounting.creditNotes.table.issueDate')}: {new Date(viewCreditNote.issueDate).toLocaleDateString(i18n.language)}
                 {' · '}{t('accounting.creditNotes.table.invoice')}: {typeof viewCreditNote.invoice === 'object' ? viewCreditNote.invoice.invoiceNumber : '—'}
                 {' · '}{t('accounting.creditNotes.form.reason')}: {t(`accounting.creditNotes.reason.${viewCreditNote.reason}`)}
               </Typography>
@@ -695,7 +696,7 @@ const CreditNotesContent: React.FC = () => {
                   {viewCreditNote.applications.map((a, i) => (
                     <Box key={a._id || i} sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
                       <Typography variant="body2">
-                        {new Date(a.createdAt).toLocaleDateString()} · {a.type === 'invoice'
+                        {new Date(a.createdAt).toLocaleDateString(i18n.language)} · {a.type === 'invoice'
                           ? `${t('accounting.creditNotes.applicationType.invoice')}${a.invoice && typeof a.invoice === 'object' ? ` (${a.invoice.invoiceNumber})` : ''}`
                           : `${t('accounting.creditNotes.applicationType.refund')}${a.method ? ` — ${t(`accounting.creditNotes.refundMethod.${a.method}`)}` : ''}`}
                       </Typography>

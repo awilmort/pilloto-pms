@@ -57,6 +57,7 @@ import { useTranslation } from 'react-i18next';
 import dayjs, { Dayjs } from 'dayjs';
 import { getRoomIds, roomTypeIdOf, unassignedEntry, packLanes, UnassignedEntry, isoDay, occupancyByDay, moveConflict } from '../../utils/bookingCalendar';
 import { channelText, otaShortTag } from '../../utils/channels';
+import i18n from '../../i18n';
 
 // ─── Layout constants ────────────────────────────────────────────────────────
 const CELL_W = 130;   // px per day column
@@ -402,7 +403,7 @@ const BookingCalendar: React.FC = () => {
 
     const color     = STATUS_COLORS[res.status] ?? '#94A3B8';
     const guestName = getGuestName(res, t('admin.dashboard.recentReservations.guestFallback'));
-    const dates     = `${res.checkInDate ? new Date(res.checkInDate).toLocaleDateString() : ''} → ${res.checkOutDate ? new Date(res.checkOutDate).toLocaleDateString() : '–'}`;
+    const dates     = `${res.checkInDate ? new Date(res.checkInDate).toLocaleDateString(i18n.language) : ''} → ${res.checkOutDate ? new Date(res.checkOutDate).toLocaleDateString(i18n.language) : '–'}`;
 
     return (
       <Tooltip

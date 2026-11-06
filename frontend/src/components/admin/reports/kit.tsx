@@ -4,6 +4,7 @@
  * between the chart and its data table, and a client-side CSV export.
  */
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import i18n from '../../../i18n';
 import { useReactToPrint } from 'react-to-print';
 import {
   Alert,
@@ -42,8 +43,8 @@ import { formatMoney } from '../../../utils/currency';
 // ─── Formatting ───────────────────────────────────────────────────────────────
 
 export const fmtPct = (v?: number | null, digits = 1) => (v == null ? '–' : `${v.toFixed(digits)}%`);
-export const fmtInt = (v?: number | null) => (v == null ? '–' : Math.round(v).toLocaleString());
-export const fmtNum = (v?: number | null, digits = 1) => (v == null ? '–' : v.toLocaleString(undefined, { maximumFractionDigits: digits }));
+export const fmtInt = (v?: number | null) => (v == null ? '–' : Math.round(v).toLocaleString(i18n.language));
+export const fmtNum = (v?: number | null, digits = 1) => (v == null ? '–' : v.toLocaleString(i18n.language, { maximumFractionDigits: digits }));
 export const fmtMoney = (v?: number | null) => formatMoney(v ?? 0);
 
 /** Relative change in %, null when there is no base */
@@ -75,7 +76,7 @@ export function useReportData<T>(load: () => Promise<T>, deps: React.DependencyL
     try {
       setData(await run());
     } catch (e: any) {
-      setError(e?.response?.data?.message || e?.message || 'Error');
+      setError(e?.response?.data?.message || e?.message || i18n.t('common.error'));
     } finally {
       setLoading(false);
     }

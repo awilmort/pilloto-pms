@@ -50,6 +50,20 @@ export function fromChannexDate(value: string): Date {
   return new Date(Date.UTC(y, m - 1, d, 12));
 }
 
+/**
+ * A Channex timestamp (`inserted_at`, …) → Date. Channex sends UTC without a zone marker
+ * (`2026-11-05T01:02:48.701175`), which `new Date()` would read as the server's local time.
+ * A value that carries `Z` or an offset keeps it. Undefined for anything unparseable.
+ */
+export function parseChannexTimestamp(value: unknown): Date | undefined {
+  if (typeof value !== 'string' || !value.trim()) return undefined;
+  const [datePart, timePart] = value.trim().replace(' ', 'T').split('T');
+  const hasZone = timePart !== undefined && /(?:Z|[+-]\d{2}(?::?\d{2})?)$/i.test(timePart);
+  const iso = timePart === undefined ? `${datePart}T00:00:00Z` : `${datePart}T${timePart}${hasZone ? '' : 'Z'}`;
+  const date = new Date(iso);
+  return Number.isNaN(date.getTime()) ? undefined : date;
+}
+
 function toDate(value: Date | ChannexDate): ChannexDate {
   return typeof value === 'string' ? (assertChannexDate(value), value) : toChannexDate(value);
 }

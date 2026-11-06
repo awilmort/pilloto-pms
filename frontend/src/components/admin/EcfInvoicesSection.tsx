@@ -29,6 +29,7 @@ import CreditNoteModal from './CreditNoteModal';
 import DebitNoteModal from './DebitNoteModal';
 import InvoicePdfPreviewDialog from './ecf/InvoicePdfPreviewDialog';
 import InvoiceDetailDrawer from './ecf/InvoiceDetailDrawer';
+import i18n from '../../i18n';
 
 interface EcfInvoicesSectionProps {
   invoices: ElectronicInvoice[];
@@ -176,7 +177,7 @@ const EcfInvoicesSection: React.FC<EcfInvoicesSectionProps> = ({
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2" fontSize="0.8rem">
-                    {new Date(inv.issuedAt).toLocaleString()}
+                    {new Date(inv.issuedAt).toLocaleString(i18n.language)}
                   </Typography>
                 </TableCell>
                 <TableCell>

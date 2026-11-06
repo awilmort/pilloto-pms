@@ -2,6 +2,7 @@ import React, { createContext, useContext, useReducer, useEffect, ReactNode } fr
 import { AppCode, AuthContextType, RegisterData, ResolvedAppRole, User } from '../types';
 import { authService } from '../services/api';
 import { toast } from 'react-toastify';
+import i18n from '../i18n';
 
 interface AuthState {
   user: User | null;
@@ -165,13 +166,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Re-fetch through /auth/me for the resolved appRoles the login response doesn't include
         const user = (await fetchResolvedUser()) || response.data.user;
         dispatch({ type: 'LOGIN_SUCCESS', payload: { user, token } });
-        toast.success('Login successful!');
+        toast.success(i18n.t('auth.messages.loginSuccess'));
       } else {
-        throw new Error(response.data.message || 'Login failed');
+        throw new Error(response.data.message || i18n.t('auth.messages.loginFailed'));
       }
     } catch (error: any) {
       dispatch({ type: 'SET_LOADING', payload: false });
-      const message = error.response?.data?.message || error.message || 'Login failed';
+      const message = error.response?.data?.message || error.message || i18n.t('auth.messages.loginFailed');
       toast.error(message);
       throw error;
     }
@@ -186,13 +187,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         const { user, token } = response.data;
         localStorage.setItem('token', token);
         dispatch({ type: 'LOGIN_SUCCESS', payload: { user, token } });
-        toast.success('Registration successful!');
+        toast.success(i18n.t('auth.messages.registerSuccess'));
       } else {
-        throw new Error(response.data.message || 'Registration failed');
+        throw new Error(response.data.message || i18n.t('auth.messages.registerFailed'));
       }
     } catch (error: any) {
       dispatch({ type: 'SET_LOADING', payload: false });
-      const message = error.response?.data?.message || error.message || 'Registration failed';
+      const message = error.response?.data?.message || error.message || i18n.t('auth.messages.registerFailed');
       toast.error(message);
       throw error;
     }
@@ -207,7 +208,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       localStorage.removeItem('token');
       dispatch({ type: 'LOGOUT' });
-      toast.success('Logged out successfully');
+      toast.success(i18n.t('auth.messages.logoutSuccess'));
     }
   };
 

@@ -156,7 +156,7 @@ const LoginPageSimple: React.FC = () => {
                 endAdornment: (
                   <InputAdornment position="end">
                     <IconButton
-                      aria-label="toggle password visibility"
+                      aria-label={t('auth.togglePasswordVisibility')}
                       onClick={handleTogglePassword}
                       edge="end"
                     >

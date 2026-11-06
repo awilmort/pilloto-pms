@@ -33,6 +33,7 @@ import { reservationsService } from '../../../services/api';
 import { Reservation } from '../../../types';
 import { useTranslation } from 'react-i18next';
 import { formatMoney } from '../../../utils/currency';
+import i18n from '../../../i18n';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type FinancialData = {
@@ -81,7 +82,7 @@ const CalendarReservationModal: React.FC<Props> = ({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { tenant } = useTenant();
-  const hotelInfo = { name: tenant?.name ?? 'Hotel', logoUrl: tenant?.settings?.logoUrl };
+  const hotelInfo = { name: tenant?.name ?? t('common.hotelFallback'), logoUrl: tenant?.settings?.logoUrl };
 
   const [financial, setFinancial] = useState<FinancialData | null>(null);
   const [financialLoading, setFinancialLoading] = useState(false);
@@ -212,11 +213,11 @@ const CalendarReservationModal: React.FC<Props> = ({
               <Box sx={{ mt: 0.5, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
                 <Box>
                   <Typography variant="caption" color="text.secondary">{t('admin.reservations.table.checkIn', 'Check-in')}</Typography>
-                  <Typography variant="body2" fontWeight={600}>{reservation.checkInDate ? new Date(reservation.checkInDate).toLocaleDateString() : '–'}</Typography>
+                  <Typography variant="body2" fontWeight={600}>{reservation.checkInDate ? new Date(reservation.checkInDate).toLocaleDateString(i18n.language) : '–'}</Typography>
                 </Box>
                 <Box>
                   <Typography variant="caption" color="text.secondary">{t('admin.reservations.table.checkOut', 'Check-out')}</Typography>
-                  <Typography variant="body2" fontWeight={600}>{reservation.checkOutDate ? new Date(reservation.checkOutDate).toLocaleDateString() : '–'}</Typography>
+                  <Typography variant="body2" fontWeight={600}>{reservation.checkOutDate ? new Date(reservation.checkOutDate).toLocaleDateString(i18n.language) : '–'}</Typography>
                 </Box>
                 {nights && (
                   <Box>
@@ -247,7 +248,7 @@ const CalendarReservationModal: React.FC<Props> = ({
                 {reservation.actualCheckInAt && (
                   <Box>
                     <Typography variant="caption" color="text.secondary">{t('admin.reservations.details.checkedInAt', 'Checked-in at')}</Typography>
-                    <Typography variant="body2" fontWeight={600}>{new Date(reservation.actualCheckInAt).toLocaleString()}</Typography>
+                    <Typography variant="body2" fontWeight={600}>{new Date(reservation.actualCheckInAt).toLocaleString(i18n.language)}</Typography>
                   </Box>
                 )}
               </Box>
@@ -319,7 +320,7 @@ const CalendarReservationModal: React.FC<Props> = ({
                         {financial.payments.map((p: any) => (
                           <Box key={p._id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography variant="caption" color="text.secondary">
-                              {new Date(p.createdAt).toLocaleDateString()} · {p.method}
+                              {new Date(p.createdAt).toLocaleDateString(i18n.language)} · {p.method}
                               {p.paymentStage === 'deposit' && (
                                 <Box component="span" sx={{ ml: 0.5, color: 'info.main', fontWeight: 600 }}>
                                   ({t('admin.reservations.financial.deposit', 'deposit')})
@@ -439,7 +440,7 @@ const CalendarReservationModal: React.FC<Props> = ({
                       onUpdated(res.data.data as Reservation);
                       onSnackbar(t('admin.reservations.messages.checkoutSuccess', 'Checked out'), 'success');
                     } catch (e: any) {
-                      onSnackbar(e?.response?.data?.message || 'Checkout failed', 'error');
+                      onSnackbar(e?.response?.data?.message || t('admin.reservations.messages.checkoutFailed'), 'error');
                     } finally {
                       setCheckinLoading(false);
                     }
@@ -491,7 +492,7 @@ const CalendarReservationModal: React.FC<Props> = ({
                 onSnackbar(t('admin.reservations.messages.checkinSuccess', 'Checked in successfully'), 'success');
                 setCheckinOpen(false);
               } catch (e: any) {
-                onSnackbar(e?.response?.data?.message || 'Check-in failed', 'error');
+                onSnackbar(e?.response?.data?.message || t('admin.reservations.messages.checkinFailed'), 'error');
               } finally {
                 setCheckinLoading(false);
               }
@@ -579,7 +580,7 @@ const CalendarReservationModal: React.FC<Props> = ({
                 );
                 setPaymentOpen(false);
               } catch (e: any) {
-                onSnackbar(e?.response?.data?.message || 'Payment failed', 'error');
+                onSnackbar(e?.response?.data?.message || t('admin.reservations.messages.paymentFailed'), 'error');
               } finally {
                 setPaySubmitting(false);
               }

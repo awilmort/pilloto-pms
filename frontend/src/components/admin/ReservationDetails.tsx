@@ -77,27 +77,27 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
   useEffect(() => { setCurrent(reservation); }, [reservation]);
   const { user, permissions } = useAuth();
   const { tenant } = useTenant();
-  const hotelInfo = { name: tenant?.name ?? 'Hotel', logoUrl: tenant?.settings?.logoUrl };
-  const cashierName = [(user as any)?.firstName, (user as any)?.lastName].filter(Boolean).join(' ') || 'Front Desk';
   const isAdmin = String(user?.role).toLowerCase() === 'admin';
   const canManagePayments = isAdmin || (permissions || []).includes('admin.reservations.managePayments');
   const canViewHistory = isAdmin || (permissions || []).includes('admin.reservations');
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const hotelInfo = { name: tenant?.name ?? t('common.hotelFallback'), logoUrl: tenant?.settings?.logoUrl };
+  const cashierName = [(user as any)?.firstName, (user as any)?.lastName].filter(Boolean).join(' ') || t('admin.reservations.details.frontDesk');
   const paymentsDisabled = current.status === 'cancelled';
 
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'N/A';
+    if (!dateString) return t('admin.reservations.na');
     try {
-      return new Date(dateString).toLocaleDateString();
+      return new Date(dateString).toLocaleDateString(i18n.language);
     } catch {
       return String(dateString);
     }
   };
 
   const formatDateTime = (dateString?: string) => {
-    if (!dateString) return 'N/A';
+    if (!dateString) return t('admin.reservations.na');
     try {
-      return new Date(dateString).toLocaleString();
+      return new Date(dateString).toLocaleString(i18n.language);
     } catch {
       return String(dateString);
     }
@@ -126,8 +126,8 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
 
   const linkedGuest = (current.guestRecord && typeof current.guestRecord === 'object') ? current.guestRecord : null;
   const guestName = linkedGuest
-    ? `${linkedGuest.firstName || ''} ${linkedGuest.lastName || ''}`.trim() || 'Guest'
-    : `${current.guestName?.firstName || ''} ${current.guestName?.lastName || ''}`.trim() || 'Guest';
+    ? `${linkedGuest.firstName || ''} ${linkedGuest.lastName || ''}`.trim() || t('admin.reservations.details.guestFallback')
+    : `${current.guestName?.firstName || ''} ${current.guestName?.lastName || ''}`.trim() || t('admin.reservations.details.guestFallback');
   const guestEmail = linkedGuest?.email || current.contactInfo?.email || '-';
   const guestPhone = linkedGuest?.phone || current.contactInfo?.phone || '-';
 
@@ -210,7 +210,7 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
           <Grid item xs={12} md={6}>
             <Typography variant="subtitle2" gutterBottom>{t('admin.reservations.details.section.reservation')}</Typography>
             <Box sx={{ pl: 1 }}>
-              <Typography variant="body2"><strong>{t('admin.reservations.details.labels.type')}:</strong> {current.type}</Typography>
+              <Typography variant="body2"><strong>{t('admin.reservations.details.labels.type')}:</strong> {t(`admin.reservations.typeLabels.${current.type}`, current.type)}</Typography>
               <Typography variant="body2"><strong>{t('admin.reservations.details.labels.dates')}:</strong> {formatDate(current.checkInDate)} {current.checkOutDate ? `- ${formatDate(current.checkOutDate)}` : ''}</Typography>
               <Typography variant="body2"><strong>{t('admin.reservations.details.labels.guests')}:</strong> {current.guestDetails.adults} {t('admin.schedule.cards.adults')}, {current.guestDetails.children} {t('admin.schedule.cards.children')}, {current.guestDetails.infants} {t('admin.schedule.cards.infants')}</Typography>
               {current.reservationCode && (
@@ -238,7 +238,7 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
                 </>
               )}
               <Typography variant="body2"><strong>{t('admin.reservations.details.labels.creditAvailability', 'Credit Availability')}:</strong> {formatCurrency(summary.creditAvailability)}</Typography>
-              <Typography variant="body2"><strong>{t('admin.reservations.details.labels.folioStatus', 'Folio Status')}:</strong> {folioStatus}</Typography>
+              <Typography variant="body2"><strong>{t('admin.reservations.details.labels.folioStatus', 'Folio Status')}:</strong> {t(`admin.reservations.details.folioStatusValues.${folioStatus}`, folioStatus)}</Typography>
               {paymentsDisabled && (
                 <Typography variant="caption" color="error">{t('admin.reservations.details.paymentDialog.blockedForCancelled')}</Typography>
               )}
@@ -363,10 +363,10 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
                 <TableBody>
                   {charges.length > 0 ? charges.map((c) => (
                     <TableRow key={c._id}>
-                      <TableCell>{new Date(c.createdAt).toLocaleString()}</TableCell>
+                      <TableCell>{new Date(c.createdAt).toLocaleString(i18n.language)}</TableCell>
                       <TableCell>{c.description}</TableCell>
                       <TableCell>
-                        <Chip size="small" label={c.type ?? 'base'} color={c.type === 'auto_rule' ? 'warning' : c.type === 'manual' ? 'info' : 'default'} />
+                        <Chip size="small" label={t(`admin.reservations.details.chargeType.${c.type ?? 'base'}`, c.type ?? 'base')} color={c.type === 'auto_rule' ? 'warning' : c.type === 'manual' ? 'info' : 'default'} />
                       </TableCell>
                       <TableCell align="right">{formatCurrency(c.amount)}</TableCell>
                       {canManagePayments && (
@@ -425,9 +425,9 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
                   {Array.isArray(payments) && payments.length > 0 ? (
                     payments.map((p) => (
                       <TableRow key={(p as any)._id || `${p.createdAt}-${p.amount}`}>
-                        <TableCell>{new Date(p.createdAt).toLocaleString()}</TableCell>
+                        <TableCell>{new Date(p.createdAt).toLocaleString(i18n.language)}</TableCell>
                         <TableCell sx={{ textTransform: 'capitalize' }}>{t(`admin.reservations.details.paymentDialog.method${p.method.charAt(0).toUpperCase() + p.method.slice(1)}`)}</TableCell>
-                        <TableCell sx={{ textTransform: 'capitalize' }}>{p.status || 'completed'}</TableCell>
+                        <TableCell sx={{ textTransform: 'capitalize' }}>{t(`admin.reservations.details.paymentStatus.${p.status || 'completed'}`, p.status || 'completed')}</TableCell>
                         <TableCell align="right">{formatCurrency(p.amount)}</TableCell>
                         <TableCell>
                           {p.createdBy
@@ -768,7 +768,7 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
         folioId={folioId}
         paymentId={selectedPaymentId}
         totalAmount={summary.totalCharges}
-        prefillBuyerName={guestName !== 'Guest' ? guestName : undefined}
+        prefillBuyerName={guestName !== t('admin.reservations.details.guestFallback') ? guestName : undefined}
         prefillBuyerEmail={guestEmail !== '-' ? guestEmail : undefined}
         prefillBuyerRnc={(linkedGuest as any)?.fiscalInfo?.rnc}
         prefillBuyerRazonSocial={(linkedGuest as any)?.fiscalInfo?.razonSocial}

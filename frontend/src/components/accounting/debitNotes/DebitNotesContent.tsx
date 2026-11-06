@@ -19,6 +19,7 @@ import { usePermission } from '../../../lib/permissions';
 import { debitNotesService, invoicesService, DebitNoteLineItemInput } from '../../../services/api';
 import { DebitNote, DebitNoteStatus, DebitNoteReason, DebitNoteFiscalModificationCode, DebitNotePaymentMethod, Invoice, ElectronicInvoice } from '../../../types';
 import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
+import i18n from '../../../i18n';
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
@@ -365,7 +366,7 @@ const DebitNotesContent: React.FC = () => {
                   </TableCell>
                   <TableCell>{customerLabel(dn)}</TableCell>
                   <TableCell>{typeof dn.invoice === 'object' ? dn.invoice.invoiceNumber : '—'}</TableCell>
-                  <TableCell>{new Date(dn.issueDate).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(dn.issueDate).toLocaleDateString(i18n.language)}</TableCell>
                   <TableCell align="right">{formatMoney(dn.total)}</TableCell>
                   <TableCell align="right">{formatMoney(dn.balanceDue)}</TableCell>
                   <TableCell>
@@ -494,7 +495,7 @@ const DebitNotesContent: React.FC = () => {
                 <Chip size="small" label={t(`accounting.debitNotes.status.${viewDebitNote.status}`)} color={STATUS_COLOR[viewDebitNote.status]} />
               </Box>
               <Typography variant="body2" color="text.secondary">
-                {t('accounting.debitNotes.table.issueDate')}: {new Date(viewDebitNote.issueDate).toLocaleDateString()}
+                {t('accounting.debitNotes.table.issueDate')}: {new Date(viewDebitNote.issueDate).toLocaleDateString(i18n.language)}
                 {' · '}{t('accounting.debitNotes.table.invoice')}: {typeof viewDebitNote.invoice === 'object' ? viewDebitNote.invoice.invoiceNumber : '—'}
                 {' · '}{t('accounting.debitNotes.form.reason')}: {t(`accounting.debitNotes.reason.${viewDebitNote.reason}`)}
               </Typography>
@@ -533,7 +534,7 @@ const DebitNotesContent: React.FC = () => {
                   <Typography variant="subtitle2" sx={{ mb: 1 }}>{t('accounting.invoices.dialog.paymentsTitle')}</Typography>
                   {viewDebitNote.payments.map((p, i) => (
                     <Box key={p._id || i} sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-                      <Typography variant="body2">{new Date(p.date).toLocaleDateString()} · {t(`accounting.invoices.paymentMethod.${p.method}`)}{p.reference ? ` (${p.reference})` : ''}</Typography>
+                      <Typography variant="body2">{new Date(p.date).toLocaleDateString(i18n.language)} · {t(`accounting.invoices.paymentMethod.${p.method}`)}{p.reference ? ` (${p.reference})` : ''}</Typography>
                       <Typography variant="body2">{formatMoney(p.amount)}</Typography>
                     </Box>
                   ))}

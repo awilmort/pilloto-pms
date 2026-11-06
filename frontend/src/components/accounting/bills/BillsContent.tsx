@@ -20,6 +20,7 @@ import { billsService, suppliersService, productsService, accountsService, BillL
 import { Bill, BillStatus, BillPaymentMethod, Supplier, Product, Account } from '../../../types';
 import { UNIT_OF_MEASURE_CODES } from '../../../lib/unitsOfMeasure';
 import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
+import i18n from '../../../i18n';
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
@@ -442,8 +443,8 @@ const BillsContent: React.FC = () => {
                     </Typography>
                   </TableCell>
                   <TableCell>{supplierLabel(bill)}</TableCell>
-                  <TableCell>{new Date(bill.issueDate).toLocaleDateString()}</TableCell>
-                  <TableCell>{new Date(bill.dueDate).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(bill.issueDate).toLocaleDateString(i18n.language)}</TableCell>
+                  <TableCell>{new Date(bill.dueDate).toLocaleDateString(i18n.language)}</TableCell>
                   <TableCell align="right">{formatMoney(bill.total)}</TableCell>
                   <TableCell align="right">{formatMoney(bill.balanceDue)}</TableCell>
                   <TableCell>
@@ -605,8 +606,8 @@ const BillsContent: React.FC = () => {
                 <Chip size="small" label={t(`accounting.bills.status.${viewBill.status}`)} color={STATUS_COLOR[viewBill.status]} />
               </Box>
               <Typography variant="body2" color="text.secondary">
-                {t('accounting.bills.table.issueDate')}: {new Date(viewBill.issueDate).toLocaleDateString()}
-                {' · '}{t('accounting.bills.table.dueDate')}: {new Date(viewBill.dueDate).toLocaleDateString()}
+                {t('accounting.bills.table.issueDate')}: {new Date(viewBill.issueDate).toLocaleDateString(i18n.language)}
+                {' · '}{t('accounting.bills.table.dueDate')}: {new Date(viewBill.dueDate).toLocaleDateString(i18n.language)}
                 {viewBill.vendorInvoiceNumber ? ` · ${t('accounting.bills.form.vendorInvoiceNumber')}: ${viewBill.vendorInvoiceNumber}` : ''}
               </Typography>
 
@@ -651,7 +652,7 @@ const BillsContent: React.FC = () => {
                   <Typography variant="subtitle2" sx={{ mb: 1 }}>{t('accounting.invoices.dialog.paymentsTitle')}</Typography>
                   {viewBill.payments.map((p, i) => (
                     <Box key={p._id || i} sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-                      <Typography variant="body2">{new Date(p.date).toLocaleDateString()} · {t(`accounting.bills.paymentMethod.${p.method}`)}{p.reference ? ` (${p.reference})` : ''}</Typography>
+                      <Typography variant="body2">{new Date(p.date).toLocaleDateString(i18n.language)} · {t(`accounting.bills.paymentMethod.${p.method}`)}{p.reference ? ` (${p.reference})` : ''}</Typography>
                       <Typography variant="body2">{formatMoney(p.amount)}</Typography>
                     </Box>
                   ))}

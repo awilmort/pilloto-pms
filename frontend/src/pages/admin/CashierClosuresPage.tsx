@@ -62,7 +62,7 @@ const CashierClosuresPage: React.FC = () => {
       const res = await cashierClosuresService.getClosures({ from, to });
       setClosures(res.data.data || []);
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Failed to load cashier closures');
+      setError(e?.response?.data?.message || t('admin.cashierClosures.errors.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -96,7 +96,7 @@ const CashierClosuresPage: React.FC = () => {
       (data.denominations || DEFAULT_DENOMINATIONS).forEach((d) => { initial[String(d)] = ''; });
       setCashDistribution(initial);
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Failed to build closure preview');
+      setError(e?.response?.data?.message || t('admin.cashierClosures.errors.previewFailed'));
     } finally {
       setPreviewLoading(false);
     }
@@ -114,7 +114,7 @@ const CashierClosuresPage: React.FC = () => {
       setNote('');
       await loadClosures();
     } catch (e: any) {
-      setError(e?.response?.data?.message || 'Failed to create cashier closure');
+      setError(e?.response?.data?.message || t('admin.cashierClosures.errors.createFailed'));
     } finally {
       setGenerating(false);
     }

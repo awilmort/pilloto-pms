@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { formatMoney } from '../../utils/currency';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { adminService, servicesService } from '../../services/api';
+import i18n from '../../i18n';
 
 type ReservationEntry = {
   id: string;
@@ -34,11 +35,11 @@ const CombinedStatCard = ({ title, adults, children, revenue, color }: { title: 
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Group sx={{ color }} />
-          <Typography variant="h6">{adults.toLocaleString()}</Typography>
+          <Typography variant="h6">{adults.toLocaleString(i18n.language)}</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Group sx={{ color: 'warning.main' }} />
-          <Typography variant="h6">{children.toLocaleString()}</Typography>
+          <Typography variant="h6">{children.toLocaleString(i18n.language)}</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <AttachMoney sx={{ color: 'success.main' }} />
@@ -58,7 +59,7 @@ const StatCard = ({ title, guests, revenue, color }: { title: string; guests: nu
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Group sx={{ color }} />
-          <Typography variant="h6">{guests.toLocaleString()}</Typography>
+          <Typography variant="h6">{guests.toLocaleString(i18n.language)}</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <AttachMoney sx={{ color: 'success.main' }} />
@@ -334,10 +335,10 @@ const Revenue: React.FC = () => {
                   value={creditPaymentMethod}
                   onChange={(e) => setCreditPaymentMethod(e.target.value as CreditPaymentMethod)}
                 >
-                  <MenuItem value="cash">Cash</MenuItem>
-                  <MenuItem value="card">Card</MenuItem>
-                  <MenuItem value="transfer">Transfer</MenuItem>
-                  <MenuItem value="check">Check</MenuItem>
+                  <MenuItem value="cash">{t('admin.revenue.methods.cash')}</MenuItem>
+                  <MenuItem value="card">{t('admin.revenue.methods.card')}</MenuItem>
+                  <MenuItem value="transfer">{t('admin.revenue.methods.transfer')}</MenuItem>
+                  <MenuItem value="check">{t('admin.revenue.methods.check')}</MenuItem>
                 </Select>
               </FormControl>
               <TextField

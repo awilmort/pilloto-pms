@@ -43,6 +43,7 @@ import { formatMoney } from '../../../utils/currency';
 import { axisTooltip, barSeries, categoryAxis, lineSeries, valueAxis } from '../../charts/EChart';
 import { SERIES } from '../../charts/chartTheme';
 import { ChartCard, Column, fmtMoney, fmtPct } from './kit';
+import i18n from '../../../i18n';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -187,7 +188,7 @@ function addDaysToStr(dateStr: string, n: number): string {
 
 function formatDateTime(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString(i18n.language, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -499,7 +500,7 @@ const NightAuditReport: React.FC = () => {
                 />
                 <Typography variant="body2" color="text.secondary">
                   {t('admin.reports.nightAudit.generatedAt')}{' '}
-                  {new Date().toLocaleTimeString()}
+                  {new Date().toLocaleTimeString(i18n.language)}
                 </Typography>
               </Stack>
 

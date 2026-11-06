@@ -1,8 +1,10 @@
 import React from 'react';
 import { Box, Typography, Button, Paper } from '@mui/material';
 import SearchOffIcon from '@mui/icons-material/SearchOff';
+import { Trans, useTranslation } from 'react-i18next';
 
 const TenantNotFoundPage: React.FC = () => {
+  const { t } = useTranslation();
   const slug = window.location.hostname.split('.')[0];
 
   return (
@@ -16,16 +18,16 @@ const TenantNotFoundPage: React.FC = () => {
       <Paper elevation={3} sx={{ p: 6, maxWidth: 480, textAlign: 'center' }}>
         <SearchOffIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
         <Typography variant="h5" fontWeight={700} gutterBottom>
-          Property not found
+          {t('errors.tenantNotFound.title')}
         </Typography>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
-          <strong>{slug}</strong> is not registered on Pilloto.
+          <Trans i18nKey="errors.tenantNotFound.notRegistered" values={{ slug }} components={{ strong: <strong /> }} />
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-          The property may have been removed, renamed, or the link may be incorrect.
+          {t('errors.tenantNotFound.hint')}
         </Typography>
         <Button variant="outlined" onClick={() => window.location.href = 'https://pilloto.com'}>
-          Go to pilloto.com
+          {t('errors.tenantNotFound.goHome')}
         </Button>
       </Paper>
     </Box>

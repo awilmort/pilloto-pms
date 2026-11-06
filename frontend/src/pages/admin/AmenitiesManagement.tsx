@@ -386,7 +386,7 @@ export const AmenitiesContent: React.FC = () => {
                             })() : (
                               <img
                                 src={imagePreview}
-                                alt="Preview"
+                                alt={t('admin.media.labels.preview')}
                                 style={{
                                   maxWidth: '100%',
                                   maxHeight: '200px',

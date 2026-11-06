@@ -26,6 +26,7 @@ import { reservationsService, roomsService } from '../../../services/api';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import NumberField from '../../common/NumberField';
+import i18n from '../../../i18n';
 
 // ─── Local helpers ────────────────────────────────────────────────────────────
 const toInputDate = (dateString: string): string => {
@@ -50,7 +51,7 @@ const isImmutableStatus = (res: Reservation | null): boolean =>
 
 const formatDateTime = (dateString?: string): string => {
   if (!dateString) return 'N/A';
-  try { return new Date(dateString).toLocaleString(); } catch { return dateString; }
+  try { return new Date(dateString).toLocaleString(i18n.language); } catch { return dateString; }
 };
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -220,10 +221,10 @@ const EditReservationDialog: React.FC<Props> = ({
       }
 
       onSaved(updated);
-      onSnackbar('Reservation updated successfully!', 'success');
+      onSnackbar(t('admin.reservations.messages.updateSuccess'), 'success');
       onClose();
     } catch (error: any) {
-      onSnackbar(error.response?.data?.message || 'Failed to update reservation', 'error');
+      onSnackbar(error.response?.data?.message || t('admin.reservations.messages.updateFailed'), 'error');
     } finally {
       setLoading(false);
     }

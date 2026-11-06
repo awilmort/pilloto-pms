@@ -4,7 +4,7 @@
 
 import {
   toChannexDate, fromChannexDate, isChannexDate, todayInTz, addDays, diffDays,
-  eachDate, eachNight, nightsRange, clampRange, mergeRanges, weekdayCode,
+  eachDate, eachNight, nightsRange, clampRange, mergeRanges, weekdayCode, parseChannexTimestamp,
 } from '../services/channex/dates';
 
 describe('YYYY-MM-DD ↔ noon UTC', () => {
@@ -107,5 +107,27 @@ describe('arithmetic and iteration', () => {
   it('weekdayCode uses Channex codes', () => {
     expect(['2026-11-02', '2026-11-03', '2026-11-04', '2026-11-05', '2026-11-06', '2026-11-07', '2026-11-08'].map(weekdayCode))
       .toEqual(['mo', 'tu', 'we', 'th', 'fr', 'sa', 'su']);
+  });
+});
+
+describe('parseChannexTimestamp', () => {
+  const original = process.env.TZ;
+  afterEach(() => { if (original === undefined) delete process.env.TZ; else process.env.TZ = original; });
+
+  it('reads a zone-less Channex timestamp as UTC whatever the server timezone is', () => {
+    for (const tz of ['UTC', 'America/Santo_Domingo', 'Asia/Tokyo']) {
+      process.env.TZ = tz;
+      expect(parseChannexTimestamp('2026-11-05T01:02:48.701175')?.toISOString()).toBe('2026-11-05T01:02:48.701Z');
+    }
+  });
+
+  it('keeps an explicit zone', () => {
+    expect(parseChannexTimestamp('2026-11-05T01:02:48Z')?.toISOString()).toBe('2026-11-05T01:02:48.000Z');
+    expect(parseChannexTimestamp('2026-11-05T01:02:48.5+02:00')?.toISOString()).toBe('2026-11-04T23:02:48.500Z');
+    expect(parseChannexTimestamp('2026-11-05 01:02:48')?.toISOString()).toBe('2026-11-05T01:02:48.000Z');
+  });
+
+  it('is undefined for empty or invalid input', () => {
+    for (const v of [undefined, null, '', '   ', 'yesterday', 12345]) expect(parseChannexTimestamp(v)).toBeUndefined();
   });
 });

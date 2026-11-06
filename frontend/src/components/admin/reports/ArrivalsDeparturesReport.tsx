@@ -34,6 +34,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { reportsService } from '../../../services/api';
 import { formatMoney } from '../../../utils/currency';
+import i18n from '../../../i18n';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -86,7 +87,7 @@ function addDays(d: Date, n: number): Date {
 }
 
 function fmtShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
+  return new Date(iso).toLocaleDateString(i18n.language, {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -94,7 +95,7 @@ function fmtShortDate(iso: string): string {
 }
 
 function fmtTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, {
+  return new Date(iso).toLocaleTimeString(i18n.language, {
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -368,7 +369,7 @@ const ArrivalsDeparturesReport: React.FC = () => {
                   </TableCell>
                   <TableCell>{row.roomName ?? '—'}</TableCell>
                   <TableCell>
-                    <Chip label={row.type} size="small" variant="outlined" />
+                    <Chip label={t(`admin.reservations.typeLabels.${row.type}`, row.type)} size="small" variant="outlined" />
                   </TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>
                     {fmtShortDate(row.checkInDate)}
@@ -499,7 +500,7 @@ const ArrivalsDeparturesReport: React.FC = () => {
                   </TableCell>
                   <TableCell>{row.roomName ?? '—'}</TableCell>
                   <TableCell>
-                    <Chip label={row.type} size="small" variant="outlined" />
+                    <Chip label={t(`admin.reservations.typeLabels.${row.type}`, row.type)} size="small" variant="outlined" />
                   </TableCell>
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>
                     {fmtShortDate(row.checkInDate)}

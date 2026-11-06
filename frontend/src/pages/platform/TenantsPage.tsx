@@ -16,6 +16,7 @@ import ForwardToInboxIcon from '@mui/icons-material/ForwardToInbox';
 import { platformService, TenantRecord, ProvisionTenantPayload, TenantProduct, AccountingPlanSlug } from '../../services/api';
 import PlatformLayout from './PlatformLayout';
 import { toast } from 'react-toastify';
+import { useTranslation } from 'react-i18next';
 
 const PLAN_COLORS: Record<string, 'default' | 'primary' | 'secondary'> = {
   basic: 'default',
@@ -29,10 +30,10 @@ const ACCOUNTING_PLAN_COLORS: Record<string, 'default' | 'primary' | 'secondary'
   plus: 'secondary',
 };
 
-const INVITATION_CHIP: Record<string, { label: string; color: 'default' | 'success' | 'warning' | 'error' }> = {
-  pending: { label: 'Invitation sent', color: 'warning' },
-  expired: { label: 'Invitation expired', color: 'error' },
-  accepted: { label: 'Password set', color: 'success' },
+const INVITATION_CHIP: Record<string, { color: 'default' | 'success' | 'warning' | 'error' }> = {
+  pending: { color: 'warning' },
+  expired: { color: 'error' },
+  accepted: { color: 'success' },
 };
 
 const defaultForm: ProvisionTenantPayload = {
@@ -42,6 +43,7 @@ const defaultForm: ProvisionTenantPayload = {
 };
 
 const TenantsPage: React.FC = () => {
+  const { t: tr, i18n } = useTranslation();
   const [tenants, setTenants] = useState<TenantRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [createOpen, setCreateOpen] = useState(false);
@@ -87,14 +89,14 @@ const TenantsPage: React.FC = () => {
       });
       toast.success(
         addingAccounting
-          ? `Accounting (${editAccountingPlan}) added to ${editingTenant.name} — Chart of Accounts and roles provisioned.`
-          : `Plan updated for ${editingTenant.name}`
+          ? tr('platform.tenants.accountingAdded', { plan: editAccountingPlan, name: editingTenant.name })
+          : tr('platform.tenants.planUpdated', { name: editingTenant.name })
       );
       setEditPlanOpen(false);
       setEditingTenant(null);
       load();
     } catch {
-      toast.error('Failed to update plan');
+      toast.error(tr('platform.tenants.planUpdateFailed'));
     } finally {
       setEditPlanSaving(false);
     }
@@ -106,7 +108,7 @@ const TenantsPage: React.FC = () => {
       const res = await platformService.listTenants();
       setTenants(res.data.data || []);
     } catch {
-      toast.error('Failed to load tenants');
+      toast.error(tr('platform.tenants.loadFailed'));
     } finally {
       setLoading(false);
     }
@@ -117,10 +119,10 @@ const TenantsPage: React.FC = () => {
   const handleToggle = async (t: TenantRecord) => {
     try {
       await platformService.updateTenant(t._id, { isActive: !t.isActive });
-      toast.success(`Tenant ${t.isActive ? 'deactivated' : 'activated'}`);
+      toast.success(tr(`platform.tenants.toggled.${t.isActive ? 'deactivated' : 'activated'}`));
       load();
     } catch {
-      toast.error('Update failed');
+      toast.error(tr('platform.tenants.updateFailed'));
     }
   };
 
@@ -130,26 +132,26 @@ const TenantsPage: React.FC = () => {
       setStats(res.data.data!);
       setStatsOpen(true);
     } catch {
-      toast.error('Failed to fetch stats');
+      toast.error(tr('platform.tenants.statsFailed'));
     }
   };
 
   const handleCreate = async () => {
     setCreateError('');
     if (!form.products?.length) {
-      setCreateError('Select at least one product (PMS and/or Accounting).');
+      setCreateError(tr('platform.tenants.selectProduct'));
       return;
     }
     setSubmitting(true);
     try {
       const res = await platformService.createTenant(form);
-      if (res.data.data?.invitation?.sent) toast.success(`Tenant "${form.name}" created. An invitation to choose a password was emailed to ${form.ownerEmail}.`);
-      else toast.warning(res.data.message || `Tenant "${form.name}" created, but the invitation email could not be sent. Use "Resend invitation".`);
+      if (res.data.data?.invitation?.sent) toast.success(tr('platform.tenants.created', { name: form.name, email: form.ownerEmail }));
+      else toast.warning(res.data.message || tr('platform.tenants.createdNoEmail', { name: form.name }));
       setCreateOpen(false);
       setForm(defaultForm);
       load();
     } catch (err: any) {
-      setCreateError(err.response?.data?.message || 'Failed to create tenant');
+      setCreateError(err.response?.data?.message || tr('platform.tenants.createFailed'));
     } finally {
       setSubmitting(false);
     }
@@ -158,10 +160,10 @@ const TenantsPage: React.FC = () => {
   const handleResendInvitation = async (t: TenantRecord) => {
     try {
       const res = await platformService.resendInvitation(t._id);
-      toast.success(res.data.message || `Invitation sent to ${t.ownerEmail}`);
+      toast.success(res.data.message || tr('platform.tenants.invitationSent', { email: t.ownerEmail }));
       load();
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Failed to resend the invitation');
+      toast.error(err.response?.data?.message || tr('platform.tenants.resendFailed'));
     }
   };
 
@@ -171,9 +173,9 @@ const TenantsPage: React.FC = () => {
   return (
     <PlatformLayout>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h5" fontWeight={700}>Tenants</Typography>
+        <Typography variant="h5" fontWeight={700}>{tr('platform.tenants.title')}</Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-          New Tenant
+          {tr('platform.tenants.newTenant')}
         </Button>
       </Box>
 
@@ -184,14 +186,14 @@ const TenantsPage: React.FC = () => {
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>Name</TableCell>
-                <TableCell>Slug</TableCell>
-                <TableCell>Plan</TableCell>
-                <TableCell>Products</TableCell>
-                <TableCell>Owner</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Created</TableCell>
-                <TableCell align="center">Actions</TableCell>
+                <TableCell>{tr('platform.tenants.cols.name')}</TableCell>
+                <TableCell>{tr('platform.tenants.cols.slug')}</TableCell>
+                <TableCell>{tr('platform.tenants.cols.plan')}</TableCell>
+                <TableCell>{tr('platform.tenants.cols.products')}</TableCell>
+                <TableCell>{tr('platform.tenants.cols.owner')}</TableCell>
+                <TableCell>{tr('platform.tenants.cols.status')}</TableCell>
+                <TableCell>{tr('platform.tenants.cols.created')}</TableCell>
+                <TableCell align="center">{tr('platform.tenants.cols.actions')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -202,14 +204,14 @@ const TenantsPage: React.FC = () => {
                     <Typography variant="body2" fontFamily="monospace">{t.slug}</Typography>
                   </TableCell>
                   <TableCell>
-                    <Chip label={t.plan} color={PLAN_COLORS[t.plan] ?? 'default'} size="small" />
+                    <Chip label={tr(`platform.tenants.plans.${t.plan}`, t.plan)} color={PLAN_COLORS[t.plan] ?? 'default'} size="small" />
                   </TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={0.5}>
                       {(t.products?.length ? t.products : ['pms']).map((p) => (
-                        <Tooltip key={p} title={p === 'accounting' && t.plans?.accounting ? `Accounting — ${t.plans.accounting}` : undefined}>
+                        <Tooltip key={p} title={p === 'accounting' && t.plans?.accounting ? tr('platform.tenants.accountingTooltip', { plan: tr(`platform.tenants.plans.${t.plans.accounting}`) }) : undefined}>
                           <Chip
-                            label={p === 'accounting' ? `Accounting (${t.plans?.accounting ?? 'starter'})` : 'PMS'}
+                            label={p === 'accounting' ? tr('platform.tenants.accountingChip', { plan: tr(`platform.tenants.plans.${t.plans?.accounting ?? 'starter'}`) }) : tr('platform.tenants.create.pms')}
                             color={p === 'accounting' ? (ACCOUNTING_PLAN_COLORS[t.plans?.accounting ?? 'starter'] ?? 'default') : 'default'}
                             size="small"
                             variant={p === 'accounting' ? 'filled' : 'outlined'}
@@ -222,42 +224,42 @@ const TenantsPage: React.FC = () => {
                     {t.ownerEmail}
                     {t.ownerInvitation && INVITATION_CHIP[t.ownerInvitation.status] && (
                       <Box mt={0.5}>
-                        <Chip size="small" variant="outlined" label={INVITATION_CHIP[t.ownerInvitation.status].label} color={INVITATION_CHIP[t.ownerInvitation.status].color} />
+                        <Chip size="small" variant="outlined" label={tr(`platform.tenants.invitation.${t.ownerInvitation.status}`)} color={INVITATION_CHIP[t.ownerInvitation.status].color} />
                       </Box>
                     )}
                   </TableCell>
                   <TableCell>
                     <Chip
-                      label={t.isActive ? 'Active' : 'Inactive'}
+                      label={t.isActive ? tr('platform.tenants.active') : tr('platform.tenants.inactive')}
                       color={t.isActive ? 'success' : 'error'}
                       size="small"
                     />
                   </TableCell>
-                  <TableCell>{new Date(t.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(t.createdAt).toLocaleDateString(i18n.language)}</TableCell>
                   <TableCell align="center">
-                    <Tooltip title="Edit plan">
+                    <Tooltip title={tr('platform.tenants.actions.editPlan')}>
                       <IconButton size="small" onClick={() => handleOpenEditPlan(t)}>
                         <EditIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     {(t.ownerInvitation?.status === 'pending' || t.ownerInvitation?.status === 'expired') && (
-                      <Tooltip title="Resend invitation">
+                      <Tooltip title={tr('platform.tenants.actions.resend')}>
                         <IconButton size="small" onClick={() => handleResendInvitation(t)}>
                           <ForwardToInboxIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                     )}
-                    <Tooltip title="View stats">
+                    <Tooltip title={tr('platform.tenants.actions.stats')}>
                       <IconButton size="small" onClick={() => handleStats(t)}>
                         <BarChartIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title={t.isActive ? 'Deactivate' : 'Activate'}>
+                    <Tooltip title={t.isActive ? tr('platform.tenants.actions.deactivate') : tr('platform.tenants.actions.activate')}>
                       <IconButton size="small" onClick={() => handleToggle(t)}>
                         {t.isActive ? <BlockIcon fontSize="small" color="error" /> : <CheckCircleIcon fontSize="small" color="success" />}
                       </IconButton>
                     </Tooltip>
-                    <Tooltip title="Open tenant app">
+                    <Tooltip title={tr('platform.tenants.actions.open')}>
                       <IconButton
                         size="small"
                         onClick={() => window.open(`https://${t.slug}.pilloto.com`, '_blank')}
@@ -270,7 +272,7 @@ const TenantsPage: React.FC = () => {
               ))}
               {tenants.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">No tenants yet. Create your first one!</TableCell>
+                  <TableCell colSpan={8} align="center">{tr('platform.tenants.empty')}</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -280,24 +282,24 @@ const TenantsPage: React.FC = () => {
 
       {/* Create Tenant Dialog */}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Create New Tenant</DialogTitle>
+        <DialogTitle>{tr('platform.tenants.create.title')}</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
           {createError && <Alert severity="error">{createError}</Alert>}
-          <TextField label="Hotel / Property Name" value={form.name} onChange={fieldChange('name')} required fullWidth />
+          <TextField label={tr('platform.tenants.create.name')} value={form.name} onChange={fieldChange('name')} required fullWidth />
           <TextField
-            label="Slug (subdomain)"
+            label={tr('platform.tenants.create.slug')}
             value={form.slug}
             onChange={fieldChange('slug')}
-            helperText="Used as subdomain: {slug}.pilloto.com — lowercase letters, numbers, hyphens only"
+            helperText={tr('platform.tenants.create.slugHelp')}
             required fullWidth
           />
-          <TextField select label="PMS Plan" value={form.plan} onChange={fieldChange('plan')} fullWidth>
+          <TextField select label={tr('platform.tenants.create.pmsPlan')} value={form.plan} onChange={fieldChange('plan')} fullWidth>
             {['basic', 'pro', 'enterprise'].map(p => (
-              <MenuItem key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</MenuItem>
+              <MenuItem key={p} value={p}>{tr(`platform.tenants.plans.${p}`)}</MenuItem>
             ))}
           </TextField>
           <Box>
-            <Typography variant="body2" color="text.secondary" gutterBottom>Products</Typography>
+            <Typography variant="body2" color="text.secondary" gutterBottom>{tr('platform.tenants.create.products')}</Typography>
             <FormGroup row>
               <FormControlLabel
                 control={
@@ -311,7 +313,7 @@ const TenantsPage: React.FC = () => {
                     }))}
                   />
                 }
-                label="PMS"
+                label={tr('platform.tenants.create.pms')}
               />
               <FormControlLabel
                 control={
@@ -325,68 +327,68 @@ const TenantsPage: React.FC = () => {
                     }))}
                   />
                 }
-                label="Accounting"
+                label={tr('platform.tenants.create.accounting')}
               />
             </FormGroup>
           </Box>
           {form.products?.includes('accounting') && (
             <TextField
               select
-              label="Accounting Plan"
+              label={tr('platform.tenants.create.accountingPlan')}
               value={form.plans?.accounting ?? 'starter'}
               onChange={(e) => setForm(f => ({ ...f, plans: { ...f.plans, accounting: e.target.value as AccountingPlanSlug } }))}
               fullWidth
             >
               {['starter', 'pro', 'plus'].map(p => (
-                <MenuItem key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</MenuItem>
+                <MenuItem key={p} value={p}>{tr(`platform.tenants.plans.${p}`)}</MenuItem>
               ))}
             </TextField>
           )}
-          <TextField label="Owner Email" type="email" value={form.ownerEmail} onChange={fieldChange('ownerEmail')} required fullWidth />
+          <TextField label={tr('platform.tenants.create.ownerEmail')} type="email" value={form.ownerEmail} onChange={fieldChange('ownerEmail')} required fullWidth />
           <Box display="flex" gap={2}>
-            <TextField label="Admin First Name" value={form.adminFirstName} onChange={fieldChange('adminFirstName')} required fullWidth />
-            <TextField label="Admin Last Name" value={form.adminLastName} onChange={fieldChange('adminLastName')} required fullWidth />
+            <TextField label={tr('platform.tenants.create.adminFirstName')} value={form.adminFirstName} onChange={fieldChange('adminFirstName')} required fullWidth />
+            <TextField label={tr('platform.tenants.create.adminLastName')} value={form.adminLastName} onChange={fieldChange('adminLastName')} required fullWidth />
           </Box>
-          <Alert severity="info">The owner receives an email with a link to choose their own password (valid for 72 hours).</Alert>
+          <Alert severity="info">{tr('platform.tenants.create.invitationInfo')}</Alert>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCreateOpen(false)}>Cancel</Button>
+          <Button onClick={() => setCreateOpen(false)}>{tr('platform.tenants.create.cancel')}</Button>
           <Button
             variant="contained"
             onClick={handleCreate}
             disabled={submitting}
             startIcon={submitting ? <CircularProgress size={16} /> : undefined}
           >
-            Create & Provision
+            {tr('platform.tenants.create.submit')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Edit Plan & Products Dialog */}
       <Dialog open={editPlanOpen} onClose={() => setEditPlanOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Change Plan & Products — {editingTenant?.name}</DialogTitle>
+        <DialogTitle>{tr('platform.tenants.edit.title', { name: editingTenant?.name ?? '' })}</DialogTitle>
         <DialogContent sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TextField
             select
-            label="PMS Plan"
+            label={tr('platform.tenants.create.pmsPlan')}
             value={editPlanValue}
             onChange={(e) => setEditPlanValue(e.target.value)}
             fullWidth
           >
             {['basic', 'pro', 'enterprise'].map(p => (
-              <MenuItem key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</MenuItem>
+              <MenuItem key={p} value={p}>{tr(`platform.tenants.plans.${p}`)}</MenuItem>
             ))}
           </TextField>
           <Box>
-            <Typography variant="body2" color="text.secondary" gutterBottom>Products</Typography>
+            <Typography variant="body2" color="text.secondary" gutterBottom>{tr('platform.tenants.create.products')}</Typography>
             <FormGroup row>
               <FormControlLabel
                 control={<Checkbox checked={editProducts.includes('pms')} onChange={() => toggleEditProduct('pms')} />}
-                label="PMS"
+                label={tr('platform.tenants.create.pms')}
               />
               <FormControlLabel
                 control={<Checkbox checked={editProducts.includes('accounting')} onChange={() => toggleEditProduct('accounting')} />}
-                label="Accounting"
+                label={tr('platform.tenants.create.accounting')}
               />
             </FormGroup>
           </Box>
@@ -394,53 +396,53 @@ const TenantsPage: React.FC = () => {
             <>
               <TextField
                 select
-                label="Accounting Plan"
+                label={tr('platform.tenants.create.accountingPlan')}
                 value={editAccountingPlan}
                 onChange={(e) => setEditAccountingPlan(e.target.value as AccountingPlanSlug)}
                 fullWidth
               >
                 {['starter', 'pro', 'plus'].map(p => (
-                  <MenuItem key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</MenuItem>
+                  <MenuItem key={p} value={p}>{tr(`platform.tenants.plans.${p}`)}</MenuItem>
                 ))}
               </TextField>
               {!editingTenant?.products?.includes('accounting') && (
                 <Alert severity="info">
-                  Saving will provision the Chart of Accounts and default Accounting roles for this tenant.
+                  {tr('platform.tenants.edit.provisionInfo')}
                 </Alert>
               )}
             </>
           )}
           {!editProducts.length && (
-            <Alert severity="warning">A tenant needs at least one product.</Alert>
+            <Alert severity="warning">{tr('platform.tenants.edit.needProduct')}</Alert>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditPlanOpen(false)}>Cancel</Button>
+          <Button onClick={() => setEditPlanOpen(false)}>{tr('platform.tenants.create.cancel')}</Button>
           <Button
             variant="contained"
             onClick={handleSavePlan}
             disabled={editPlanSaving || !editProducts.length}
             startIcon={editPlanSaving ? <CircularProgress size={16} /> : undefined}
           >
-            Save
+            {tr('platform.tenants.edit.save')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Stats Dialog */}
       <Dialog open={statsOpen} onClose={() => setStatsOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>{stats?.tenant.name} — Stats</DialogTitle>
+        <DialogTitle>{tr('platform.tenants.stats.title', { name: stats?.tenant.name ?? '' })}</DialogTitle>
         <DialogContent>
           {stats && (
             <Box display="flex" flexDirection="column" gap={1} pt={1}>
-              <Typography>Users: <strong>{stats.stats.users}</strong></Typography>
-              <Typography>Reservations: <strong>{stats.stats.reservations}</strong></Typography>
-              <Typography>Rooms: <strong>{stats.stats.rooms}</strong></Typography>
+              <Typography>{tr('platform.tenants.stats.users')}: <strong>{stats.stats.users}</strong></Typography>
+              <Typography>{tr('platform.tenants.stats.reservations')}: <strong>{stats.stats.reservations}</strong></Typography>
+              <Typography>{tr('platform.tenants.stats.rooms')}: <strong>{stats.stats.rooms}</strong></Typography>
             </Box>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setStatsOpen(false)}>Close</Button>
+          <Button onClick={() => setStatsOpen(false)}>{tr('platform.tenants.stats.close')}</Button>
         </DialogActions>
       </Dialog>
     </PlatformLayout>

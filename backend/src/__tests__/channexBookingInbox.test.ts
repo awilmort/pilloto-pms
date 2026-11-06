@@ -58,6 +58,11 @@ describe('card scrubbing', () => {
     expect((out.rooms as any[])[0].guarantee.last4).toBe('1111');
   });
 
+  it('revisionFacts reads a zone-less Channex inserted_at as UTC', () => {
+    const f = revisionFacts(rev('r-2', 'b-2', 'new', '2026-11-05T01:02:48.701175') as any)!;
+    expect(f.insertedAt?.toISOString()).toBe('2026-11-05T01:02:48.701Z');
+  });
+
   it('revisionFacts reads ids, status, time and OTA codes', () => {
     const f = revisionFacts(rev('r-1', 'b-1', 'modified', '2026-11-01T10:00:00Z') as any)!;
     expect(f).toMatchObject({ revisionId: 'r-1', bookingId: 'b-1', propertyId: PROP, status: 'modified', otaName: 'BookingCom', otaReservationCode: 'BDC-b-1' });

@@ -38,7 +38,18 @@
     "rowsPerPage": "Filas por página",
     "reset": "Restablecer",
     "errorOccurred": "Ocurrió un error",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "isRequired": "es obligatorio",
+    "errorGeneric": "Algo salió mal. Inténtalo de nuevo.",
+    "remove": "Quitar",
+    "firstNameRequired": "El nombre es obligatorio",
+    "lastNameRequired": "El apellido es obligatorio",
+    "none": "—",
+    "add": "Agregar",
+    "tooManyRequests": "Demasiadas solicitudes. Inténtalo de nuevo más tarde.",
+    "error": "Error",
+    "hotelFallback": "Hotel",
+    "selectLanguage": "Seleccionar idioma"
   },
   "nav": {
     "home": "Inicio",
@@ -48,7 +59,12 @@
     "events": "Eventos",
     "collapseSidebar": "Contraer menú",
     "expandSidebar": "Expandir menú",
-    "switchApp": "Cambiar de app"
+    "switchApp": "Cambiar de app",
+    "closeMenu": "Cerrar menú",
+    "accountMenu": "Menú de cuenta",
+    "openMenu": "Abrir menú",
+    "accountOfCurrentUser": "Cuenta del usuario actual",
+    "accountingSettingsTabs": "Pestañas de configuración de contabilidad"
   },
   "auth": {
     "welcome": "¡Bienvenido, {{name}}!",
@@ -57,7 +73,15 @@
     "adminDashboard": "Panel de administración",
     "logout": "Cerrar sesión",
     "login": "Ingresar",
-    "signup": "Registrarse"
+    "signup": "Registrarse",
+    "messages": {
+      "loginSuccess": "¡Inicio de sesión exitoso!",
+      "loginFailed": "Error al iniciar sesión",
+      "registerSuccess": "¡Registro exitoso!",
+      "registerFailed": "Error en el registro",
+      "logoutSuccess": "Sesión cerrada correctamente"
+    },
+    "togglePasswordVisibility": "Mostrar u ocultar contraseña"
   },
   "daypass": {
     "heroTitle": "Experiencia Day Pass",
@@ -220,6 +244,12 @@
         "childPrice": "Precio niño",
         "total": "Total",
         "noRecords": "Sin registros"
+      },
+      "methods": {
+        "cash": "Efectivo",
+        "card": "Tarjeta",
+        "transfer": "Transferencia",
+        "check": "Cheque"
       }
     },
     "common": {
@@ -473,6 +503,13 @@
         "deleteSuccess": "Entrega de pulseras eliminada",
         "deleteFailed": "No se pudo eliminar la entrega de pulseras",
         "confirmDelete": "¿Eliminar esta entrega de pulseras?"
+      },
+      "type": "Tipo",
+      "actionsColumn": "Acciones",
+      "noDeliveries": "No se encontraron entregas",
+      "types": {
+        "delivery": "Entrega (agregar)",
+        "collection": "Recolección (quitar)"
       }
     },
     "amenities": {
@@ -634,6 +671,9 @@
         "createHint": "Le enviaremos un correo para que elija su propia contraseña. El enlace vence en 72 horas.",
         "sent": "Usuario creado. Enviamos a {{email}} un correo para elegir su contraseña.",
         "notSent": "Usuario creado, pero no se pudo enviar la invitación. Usa «Reenviar invitación»."
+      },
+      "errors": {
+        "loadFailed": "No se pudieron cargar los usuarios"
       }
     },
     "media": {
@@ -643,7 +683,8 @@
         "upload": "Subir",
         "syncUploads": "Sincronizar subidas",
         "cancel": "Cancelar",
-        "save": "Guardar"
+        "save": "Guardar",
+        "chooseFile": "Elegir archivo"
       },
       "labels": {
         "featured": "Destacado",
@@ -654,7 +695,8 @@
         "title": "Título",
         "description": "Descripción",
         "filename": "Nombre de archivo (único, sin extensión)",
-        "filenameHelper": "Solo letras, números, - y _; la extensión se mantendrá"
+        "filenameHelper": "Solo letras, números, - y _; la extensión se mantendrá",
+        "preview": "Vista previa"
       },
       "categories": {
         "general": "General",
@@ -686,6 +728,37 @@
       },
       "confirm": {
         "deleteItem": "¿Eliminar este elemento de medios?"
+      },
+      "picker": {
+        "title": "Seleccionar medios",
+        "uploadedTab": "Imágenes subidas",
+        "illustrationsTab": "Ilustraciones",
+        "searchTitle": "Buscar por título",
+        "searchIllustrations": "Buscar ilustraciones",
+        "select": "Seleccionar",
+        "all": "Todas"
+      },
+      "illustrations": {
+        "room": "Habitación",
+        "amenity": "Amenidad",
+        "service": "Servicio",
+        "event": "Evento",
+        "guest": "Huésped",
+        "media": "Medios",
+        "pool": "Piscina",
+        "food": "Comida y gastronomía",
+        "basketball": "Cancha de baloncesto",
+        "bar": "Bar",
+        "restaurant": "Restaurante",
+        "spa": "Spa y bienestar",
+        "gym": "Gimnasio y fitness",
+        "beach": "Playa",
+        "parking": "Estacionamiento",
+        "wifi": "Wi-Fi",
+        "laundry": "Lavandería",
+        "kids": "Área infantil",
+        "meeting-room": "Sala de reuniones",
+        "garden": "Jardín"
       }
     },
     "reservations": {
@@ -746,7 +819,10 @@
         "assignedRoom": "Habitación asignada",
         "total": "Total",
         "payment": "Pago",
-        "actions": "Acciones"
+        "actions": "Acciones",
+        "checkIn": "Check-in",
+        "checkOut": "Check-out",
+        "nights": "Noches"
       },
       "actions": {
         "viewDetails": "Ver detalles",
@@ -787,7 +863,11 @@
         "firstName": "Nombre",
         "lastName": "Apellido",
         "checkIn": "Fecha de check-in",
-        "checkOut": "Fecha de check-out"
+        "checkOut": "Fecha de check-out",
+        "amount": "Monto",
+        "note": "Nota (opcional)",
+        "paymentMethod": "Método",
+        "save": "Guardar"
       },
       "create": {
         "step1Title": "Fechas y huéspedes",
@@ -816,7 +896,29 @@
         "discount": "Descuento",
         "calculatingPrice": "Calculando precio...",
         "pricePreview": "Vista previa de precio",
-        "basePrice": "Base"
+        "basePrice": "Base",
+        "assignRooms": "Asignar habitaciones",
+        "bookReservation": "Reservar",
+        "capacityGauge": "{{accommodated}} de {{total}} huéspedes acomodados",
+        "capacityOf": "Capacidad para {{cap}} huéspedes",
+        "checkingAvailability": "Verificando disponibilidad...",
+        "filterRooms": "Filtrar habitaciones...",
+        "guest": "huésped",
+        "guests": "huéspedes",
+        "insufficientCapacity": "Las habitaciones seleccionadas alojan a {{cap}} huéspedes, pero se necesitan {{needed}}.",
+        "nights": "noches",
+        "noMatchingRooms": "No hay habitaciones que coincidan",
+        "noRatePlan": "Ninguno (precio manual)",
+        "noService": "Ninguno",
+        "otherRooms": "Otras",
+        "ratePlan": "Plan de tarifa",
+        "roomBreakdown": "Desglose por habitación",
+        "selectRatePlan": "Selecciona un plan de tarifa",
+        "selectService": "Selecciona un servicio",
+        "selected": "seleccionadas",
+        "serviceTitle": "Servicio",
+        "step3Title": "Resumen",
+        "stepSummary": "Resumen"
       },
       "none": "Ninguna",
       "tooltips": {
@@ -836,7 +938,15 @@
         "checkoutSuccess": "Check-Out realizado exitosamente",
         "checkoutCityLedgerPreApproved": "Check-out realizado. Saldo aplicado a la cuenta de facturación directa ({{invoiceNumber}}).",
         "checkoutCityLedgerPending": "Check-out realizado. Saldo enviado a Cuenta de Ciudad (City Ledger), pendiente de autorización gerencial ({{invoiceNumber}}).",
-        "operationFailed": "La operación falló"
+        "operationFailed": "La operación falló",
+        "createSuccess": "¡Reserva creada exitosamente!",
+        "paymentAdded": "Pago agregado",
+        "checkoutFailed": "Falló el check-out",
+        "checkinFailed": "Falló el check-in",
+        "paymentFailed": "Falló el pago",
+        "createFailed": "No se pudo crear la reserva",
+        "updateSuccess": "¡Reserva actualizada exitosamente!",
+        "updateFailed": "No se pudo actualizar la reserva"
       },
       "empty": {
         "title": "No se encontraron reservas",
@@ -868,7 +978,9 @@
         "useCredit": "Usar Crédito y Hacer Check-Out",
         "pendingHint": "Hay un saldo pendiente. Por favor cobra el pago o aplica el crédito disponible antes de hacer check-out.",
         "pendingHintPreApproved": "Este saldo se aplicará automáticamente a la cuenta de facturación directa del huésped al hacer check-out — no se requiere ningún paso adicional.",
-        "pendingHintCityLedger": "Este saldo se enviará automáticamente a Cuenta de Ciudad (City Ledger) al hacer check-out, pendiente de autorización gerencial. Aún puedes cobrar el pago o usar crédito manualmente abajo."
+        "pendingHintCityLedger": "Este saldo se enviará automáticamente a Cuenta de Ciudad (City Ledger) al hacer check-out, pendiente de autorización gerencial. Aún puedes cobrar el pago o usar crédito manualmente abajo.",
+        "pendingBalance": "Se detectó un saldo pendiente antes del check-out.",
+        "creditAvailable": "Crédito disponible"
       },
       "financial": {
         "estimatedTotal": "Total Estimado",
@@ -896,7 +1008,9 @@
           "event": "Evento",
           "room": "Habitación",
           "specialRequests": "Peticiones especiales",
-          "payments": "Pagos"
+          "payments": "Pagos",
+          "financial": "Financiero",
+          "charges": "Cargos"
         },
         "labels": {
           "type": "Tipo",
@@ -911,7 +1025,10 @@
           "actualCheckOut": "Check-Out real",
           "eventType": "Tipo de evento",
           "description": "Descripción",
-          "assignedRoom": "Habitación asignada"
+          "assignedRoom": "Habitación asignada",
+          "totalCharges": "Total de cargos",
+          "creditAvailability": "Crédito disponible",
+          "folioStatus": "Estado del folio"
         },
         "table": {
           "date": "Fecha",
@@ -919,14 +1036,20 @@
           "amount": "Monto",
           "note": "Nota",
           "actions": "Acciones",
-          "noPayments": "No hay pagos registrados"
+          "noPayments": "No hay pagos registrados",
+          "description": "Descripción",
+          "type": "Tipo",
+          "status": "Estado",
+          "receptionist": "Recepcionista",
+          "noCharges": "No hay cargos"
         },
         "actions": {
           "addPayment": "Agregar pago",
           "edit": "Editar",
           "delete": "Eliminar",
           "cancel": "Cancelar",
-          "saveChanges": "Guardar cambios"
+          "saveChanges": "Guardar cambios",
+          "addCharge": "Agregar cargo"
         },
         "paymentDialog": {
           "titleAdd": "Agregar pago",
@@ -942,12 +1065,16 @@
           "afterPayment": "Después del pago: {{amount}}",
           "recorded": "Pago registrado",
           "failed": "No se pudo registrar el pago",
-          "blockedForCancelled": "Los pagos están bloqueados para reservas canceladas"
+          "blockedForCancelled": "Los pagos están bloqueados para reservas canceladas",
+          "methodCheck": "Cheque",
+          "methodCredit": "Crédito"
         },
         "errors": {
           "deletePaymentConfirm": "¿Eliminar este pago?",
           "deletePaymentFailed": "No se pudo eliminar el pago",
-          "deleteReservationFailed": "No se pudo eliminar la reserva"
+          "deleteReservationFailed": "No se pudo eliminar la reserva",
+          "deleteChargeConfirm": "¿Eliminar este cargo?",
+          "deleteChargeFailed": "No se pudo eliminar el cargo"
         },
         "status": {
           "pending": "Pendiente",
@@ -956,7 +1083,44 @@
           "completed": "Completada",
           "checked-in": "Check-In",
           "checked-out": "Check-Out"
-        }
+        },
+        "chargeDialog": {
+          "title": "Agregar cargo",
+          "description": "Descripción",
+          "amount": "Monto",
+          "category": "Categoría",
+          "categoryNone": "— Ninguna —",
+          "categoryRoom": "Habitación",
+          "categoryLateFee": "Recargo por demora",
+          "categoryService": "Servicio",
+          "categoryDamage": "Daños",
+          "categoryAdjustment": "Ajuste",
+          "failed": "No se pudo agregar el cargo",
+          "submit": "Agregar cargo"
+        },
+        "guestFallback": "Huésped",
+        "chargeType": {
+          "base": "Base",
+          "manual": "Manual",
+          "auto_rule": "Regla automática"
+        },
+        "paymentStatus": {
+          "completed": "Completado",
+          "pending": "Pendiente",
+          "reversed": "Revertido"
+        },
+        "folioStatusValues": {
+          "open": "Abierto",
+          "in_ar": "En cuentas por cobrar",
+          "closed": "Cerrado"
+        },
+        "frontDesk": "Recepción",
+        "checkedInAt": "Check-in realizado el",
+        "paymentSummary": "Pago",
+        "payments": "Pagos",
+        "primaryContact": "Contacto principal",
+        "reservationDetails": "Detalles de la reserva",
+        "reservationTitle": "Reserva"
       },
       "bookingRuleWarnings": {
         "title": "Esta reserva no cumple una regla de reserva",
@@ -1011,6 +1175,8 @@
           "staff": "Personal",
           "guest": "Huésped",
           "channel": "Canal",
+          "channelNamed": "Canal: {{name}}",
+          "channelOffline": "Canal: Offline (reserva cargada directamente en el channel manager)",
           "system": "Sistema"
         },
         "actions": {
@@ -1071,6 +1237,13 @@
           "transfer": "Transferencia",
           "check": "Cheque"
         }
+      },
+      "paymentMethods": {
+        "card": "Tarjeta",
+        "cash": "Efectivo",
+        "check": "Cheque",
+        "credit": "Crédito",
+        "transfer": "Transferencia"
       }
     },
     "settings": {
@@ -1189,7 +1362,8 @@
           "citrusBaseUrl": "URL base de Citrus API",
           "citrusToken": "Token de API Citrus",
           "citrusTokenHelp": "Obtenido en el portal Citrus. Se almacena cifrado y no puede recuperarse una vez guardado.",
-          "isActive": "Activar emisión de e-CF para este establecimiento"
+          "isActive": "Activar emisión de e-CF para este establecimiento",
+          "citrusBaseUrlHelp": "Administrado por Pilloto — contacta a soporte para cambiarlo"
         },
         "ambiente": {
           "Simulacion": "Simulación (sin contacto con DGII)",
@@ -1590,6 +1764,21 @@
         "errorRncRequired": "RNC requerido para este tipo de comprobante",
         "errorCountryRequired": "País requerido para este tipo de comprobante",
         "errorNameRequired": "Nombre o razón social requerido"
+      },
+      "filters": {
+        "nameOrRnc": "Nombre o RNC"
+      },
+      "tipoNames": {
+        "E31": "Factura de Crédito Fiscal",
+        "E32": "Factura de Consumo",
+        "E33": "Nota de Débito",
+        "E34": "Nota de Crédito",
+        "E41": "Comprobante de Compras",
+        "E43": "Gastos Menores",
+        "E44": "Regímenes Especiales",
+        "E45": "Gubernamental",
+        "E46": "Exportaciones",
+        "E47": "Pagos al Exterior"
       }
     },
     "ecfInvoices": {
@@ -1659,7 +1848,13 @@
         "emailSent": "Correo enviado exitosamente.",
         "emailFailed": "Error al enviar el correo. Intente nuevamente.",
         "pdfFailed": "Error al abrir el PDF. Intente nuevamente.",
-        "xmlFailed": "Error al descargar el XML. Intente nuevamente."
+        "xmlFailed": "Error al descargar el XML. Intente nuevamente.",
+        "previewTitle": "Vista previa del PDF de la factura",
+        "close": "Cerrar"
+      },
+      "actions": {
+        "openInNewTab": "Abrir en una pestaña nueva",
+        "downloadPdf": "Descargar PDF"
       }
     },
     "reports": {
@@ -2063,7 +2258,12 @@
       "created": "Creado",
       "denomination": "Denominación",
       "count": "Cantidad",
-      "subtotal": "Subtotal"
+      "subtotal": "Subtotal",
+      "errors": {
+        "loadFailed": "No se pudieron cargar los cierres de caja",
+        "previewFailed": "No se pudo generar la vista previa del cierre",
+        "createFailed": "No se pudo crear el cierre de caja"
+      }
     },
     "dashboard": {
       "title": "Panel",
@@ -2397,7 +2597,10 @@
         },
         "form": {
           "name": "Nombre del tipo",
-          "capacity": "Máximo de huéspedes (Capacidad)"
+          "capacity": "Máximo de huéspedes (Capacidad)",
+          "image": "Imagen",
+          "selectImage": "Seleccionar imagen",
+          "removeImage": "Quitar"
         },
         "table": {
           "name": "Nombre",
@@ -2472,7 +2675,13 @@
           "adjustmentValue": "Valor del ajuste",
           "adjustmentValuePercent": "Descuento / Recargo (%)",
           "adjustmentScope": "Aplica sobre",
-          "priority": "Prioridad (mayor número se aplica primero)"
+          "priority": "Prioridad (mayor número se aplica primero)",
+          "category": "Categoría",
+          "validity": "Vigencia",
+          "startDate": "Fecha de inicio",
+          "endDate": "Fecha de fin",
+          "adultPrice": "Precio adulto",
+          "childrenPrice": "Precio niños"
         },
         "dialog": {
           "newTitle": "Nueva regla de precio",
@@ -2563,6 +2772,19 @@
           "pos": "POS",
           "active": "Activo",
           "actions": "Acciones"
+        },
+        "kinds": {
+          "daypass": "Day Pass",
+          "pasatarde": "Pasa Tarde",
+          "event": "Evento",
+          "roomAddon": "Extra de habitación",
+          "generic": "Genérico"
+        },
+        "bases": {
+          "perPerson": "Por persona",
+          "perRoom": "Por habitación",
+          "perStay": "Por estadía",
+          "perEvent": "Por evento"
         }
       },
       "servicePrices": {
@@ -2586,6 +2808,18 @@
           "childrenPrice": "Precio niño",
           "active": "Activo",
           "actions": "Acciones"
+        },
+        "categories": {
+          "standard": "Estándar",
+          "special": "Especial",
+          "guest": "Huésped",
+          "company": "Empresa"
+        },
+        "validities": {
+          "everyday": "Todos los días",
+          "weekdays": "Entre semana",
+          "weekend": "Fin de semana",
+          "custom": "Personalizada"
         }
       },
       "chargePolicies": {
@@ -2640,7 +2874,8 @@
       "auditLog": {
         "actions": {
           "run": "Ejecutar auditoría ahora",
-          "refresh": "Actualizar"
+          "refresh": "Actualizar",
+          "dryRun": "Vista previa (simulación)"
         },
         "summary": "Tenant {{id}}: {{chargesPosted}} cobrados, {{errors}} errores",
         "columns": {
@@ -2649,6 +2884,28 @@
           "businessDate": "Fecha de negocio",
           "status": "Estado",
           "executedAt": "Ejecutado el",
+          "error": "Error"
+        },
+        "dryRunLabel": "[SIMULACIÓN] ",
+        "runsTitle": "Ejecuciones de auditoría",
+        "runs": {
+          "businessDate": "Fecha de negocio",
+          "status": "Estado",
+          "trigger": "Iniciado por",
+          "dryRun": "Simulación",
+          "charged": "Cobrados",
+          "skipped": "Omitidos",
+          "errors": "Errores",
+          "duration": "Duración",
+          "empty": "Aún no hay ejecuciones de auditoría"
+        },
+        "executionsTitle": "Registro de ejecuciones",
+        "statuses": {
+          "running": "En ejecución",
+          "completed": "Completada",
+          "failed": "Fallida",
+          "skipped": "Omitida",
+          "success": "Exitosa",
           "error": "Error"
         }
       },
@@ -2909,6 +3166,118 @@
         "off": "No se vende en canales",
         "roomTypeHint": "Se ofrece en Booking.com, Expedia, Airbnb y los demás canales. Apágalo para venderlo solo directamente (recepción y tu motor de reservas).",
         "ratePlanHint": "Se ofrece en los canales. Apágalo para tarifas solo para venta directa (por ejemplo, tarifas de empresas o de recepción)."
+      },
+      "ruleWizard": {
+        "name": "Nombre de la regla",
+        "target": "Destino",
+        "ratePlan": "Plan de tarifa",
+        "rule": "Regla",
+        "period": "Período",
+        "custom": "Personalizada",
+        "whoFor": "¿Para quién es esta regla?",
+        "targets": {
+          "company": "Empresa",
+          "guest": "Huésped",
+          "promotional": "Promocional"
+        },
+        "companyHelp": "Escribe para buscar empresas",
+        "guestHelp": "Buscar por nombre",
+        "guestEmail": "Email del huésped",
+        "guestEmailHelp": "También puedes escribir un email directamente",
+        "baseRatePlan": "Plan de tarifa base",
+        "baseRatePlanHelp": "El plan de tarifa que modificará esta regla",
+        "ruleModel": "Modelo de regla",
+        "models": {
+          "percentage": "Porcentaje",
+          "fixed": "Monto fijo",
+          "custom": "Personalizada"
+        },
+        "customInfo": "Las reglas personalizadas reemplazan el plan de tarifa por completo con los precios específicos que defines abajo.",
+        "direction": "Dirección",
+        "directions": {
+          "discount": "Descuento (reduce el precio)",
+          "surcharge": "Recargo (aumenta el precio)"
+        },
+        "discountsOnly": "Las reglas de empresa y de huésped siempre se aplican como descuentos.",
+        "amountPercent": "Monto (%)",
+        "amountFixed": "Monto ($)",
+        "appliesTo": "Aplica sobre",
+        "scopes": {
+          "base": "Solo precio base",
+          "occupancy": "Solo cargos por ocupación",
+          "both": "Ambos (base + ocupación)"
+        },
+        "customBasePrice": "Precio base por noche ($)",
+        "tiersTitle": "Precios por nivel de ocupación",
+        "addTier": "Agregar nivel",
+        "tiersHint": "Pon el precio en 0 para incluir a ese huésped en el precio base.",
+        "tierType": "Tipo",
+        "tierPrice": "Precio",
+        "adult": "Adulto",
+        "child": "Niño",
+        "included": "Incluido",
+        "remove": "Quitar",
+        "noTiers": "No se han agregado niveles",
+        "periodPattern": "Patrón de período",
+        "patterns": {
+          "all_days": "Todos los días",
+          "weekdays": "Solo entre semana (lun–vie)",
+          "weekends": "Solo fines de semana (sáb–dom)",
+          "specific_days": "Días específicos"
+        },
+        "selectDays": "Selecciona los días que aplican:",
+        "validityStart": "Inicio de vigencia",
+        "validityEnd": "Fin de vigencia",
+        "openEnded": "Dejar vacío para vigencia abierta",
+        "minNights": "Noches mínimas",
+        "minNightsHelp": "Dejar vacío para sin mínimo",
+        "blackoutTitle": "Fechas bloqueadas",
+        "addPeriod": "Agregar período",
+        "blackoutHint": "La regla nunca aplica durante los períodos bloqueados, aunque coincidan con la vigencia.",
+        "from": "Desde",
+        "to": "Hasta",
+        "noBlackouts": "No hay períodos bloqueados configurados",
+        "frontDeskOnly": "Aplica solo cuando la reserva la crea el personal de recepción.",
+        "summary": "{{kind}} de {{amount}} sobre {{scope}}",
+        "kinds": {
+          "discount": "Descuento",
+          "surcharge": "Recargo"
+        },
+        "scopeNames": {
+          "base": "precio base",
+          "occupancy": "cargos por ocupación",
+          "both": "base + ocupación"
+        },
+        "validRange": "Vigente: {{start}} → {{end}}",
+        "blackoutPeriods": "Períodos bloqueados:",
+        "back": "Atrás",
+        "next": "Siguiente",
+        "onScope": "sobre {{scope}}",
+        "errors": {
+          "serviceName": "El nombre del servicio es obligatorio",
+          "serviceCode": "El código del servicio es obligatorio",
+          "selectService": "Selecciona un servicio",
+          "ratePlan": "Selecciona un plan de tarifa base",
+          "company": "Selecciona una empresa",
+          "guestEmail": "Selecciona o escribe el email de un huésped",
+          "startRequired": "La fecha de inicio es obligatoria cuando se define la fecha de fin",
+          "days": "Selecciona al menos un día",
+          "blackout": "Las fechas bloqueadas requieren fecha de inicio y de fin"
+        },
+        "dry": "simulación",
+        "openEndedShort": "sin fecha de fin",
+        "minStay_one": "Estadía mínima: {{count}} noche",
+        "minStay_other": "Estadía mínima: {{count}} noches",
+        "plusNights_one": "{{count}}+ noche",
+        "plusNights_other": "{{count}}+ noches",
+        "customSummary_one": "Reemplaza el plan de tarifa por completo. Base: {{price}}/noche + {{count}} nivel de ocupación.",
+        "customSummary_other": "Reemplaza el plan de tarifa por completo. Base: {{price}}/noche + {{count}} niveles de ocupación.",
+        "steps": {
+          "target": "Destino",
+          "model": "Modelo de regla",
+          "period": "Período",
+          "preview": "Vista previa"
+        }
       }
     },
     "bookingCalendar": {
@@ -3644,6 +4013,78 @@
           "todo": "Si quieres recibirlo, preaprueba la consulta para que pueda reservar. Si no, no respondas: las consultas vencen solas."
         }
       }
+    },
+    "reviews": {
+      "messages": {
+        "loadFailed": "No se pudieron cargar las reseñas.",
+        "saveFailed": "No se pudo guardar la reseña.",
+        "deleteFailed": "No se pudo eliminar la reseña."
+      },
+      "heading": "Reseñas de huéspedes",
+      "description": "Administra las reseñas de clientes que se muestran en tu página pública de reservas. Las reseñas activas aparecen en la barra de Confianza y Credibilidad.",
+      "actions": {
+        "add": "Agregar reseña"
+      },
+      "table": {
+        "guest": "Huésped",
+        "rating": "Calificación",
+        "comment": "Comentario",
+        "source": "Origen",
+        "status": "Estado",
+        "actions": "Acciones"
+      },
+      "empty": "Aún no hay reseñas. Agrega tu primera reseña de cliente.",
+      "dialog": {
+        "editTitle": "Editar reseña",
+        "newTitle": "Nueva reseña"
+      },
+      "form": {
+        "guestName": "Nombre del huésped",
+        "rating": "Calificación",
+        "comment": "Comentario",
+        "source": "Origen",
+        "displayOrder": "Orden de visualización",
+        "active": "Activa (visible en la página de reservas)"
+      },
+      "sources": {
+        "Direct": "Directo",
+        "Other": "Otro"
+      }
+    },
+    "imageUpload": {
+      "maxImages": "Máximo {{count}} imágenes permitidas",
+      "uploadFailed": "Falló la carga",
+      "uploadFailedRetry": "No se pudieron subir las imágenes. Inténtalo de nuevo.",
+      "enterUrl": "Ingresa la URL de la imagen:",
+      "title": "Imágenes de la habitación (máx. {{max}})",
+      "uploading": "Subiendo imágenes...",
+      "upload": "Subir imágenes",
+      "addUrl": "Agregar URL",
+      "primaryHint": "La primera imagen se mostrará como imagen principal de la habitación en las tarjetas",
+      "primary": "Principal",
+      "imageAlt": "Imagen de la habitación {{n}}",
+      "setPrimary": "Establecer como imagen principal",
+      "moveUp": "Mover arriba",
+      "moveDown": "Mover abajo",
+      "removeImage": "Quitar imagen",
+      "emptyTitle": "Aún no hay imágenes subidas",
+      "emptyHint": "Sube imágenes o agrega URLs para mostrar esta habitación",
+      "emptyPrimary": "La primera imagen será la imagen principal que se muestra en las tarjetas de habitaciones",
+      "photoTitle": "Imagen de habitación - {{name}}"
+    },
+    "corporatePriceAction": {
+      "invalidAction": "Acción no válida.",
+      "genericError": "Ocurrió un error al procesar la solicitud.",
+      "processing": "Procesando solicitud...",
+      "approvedTitle": "Precio corporativo aprobado",
+      "approvedBody": "La reserva ha sido aprobada con precio corporativo. Puedes asignar la empresa específica desde el panel de administración.",
+      "viewReservations": "Ver reservas",
+      "declinedTitle": "Solicitud rechazada",
+      "declinedBody": "La solicitud de precio corporativo ha sido rechazada. La reserva permanecerá con la tarifa estándar. El huésped será notificado.",
+      "alreadyTitle": "Solicitud ya procesada",
+      "alreadyBody": "Esta solicitud ya fue procesada anteriormente y no requiere ninguna acción adicional.",
+      "errorTitle": "No se pudo procesar la solicitud",
+      "goToReservations": "Ir al panel de reservas"
     }
   },
   "accounting": {
@@ -4148,7 +4589,8 @@
         "lineTotalRequired": "Cada línea de gasto necesita un monto válido",
         "lineDescriptionRequired": "Cada línea de gasto necesita una descripción",
         "addInventoryLine": "Agregar Línea de Inventario",
-        "addExpenseLine": "Agregar Línea de Gasto"
+        "addExpenseLine": "Agregar Línea de Gasto",
+        "paymentAmountRequired": "Ingresa un monto de pago mayor que cero."
       },
       "messages": {
         "loadFailed": "Error al cargar las facturas de compra",
@@ -4543,7 +4985,13 @@
       "keepReservation": "Mantener reserva",
       "cancelButton": "Cancelar reserva",
       "empty": "No se encontraron reservas",
-      "browseRooms": "Ver habitaciones"
+      "browseRooms": "Ver habitaciones",
+      "roomFallback": "Habitación",
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "specialRequests": "Solicitudes especiales",
+      "totalAmount": "Monto total",
+      "cancelBooking": "Cancelar reserva"
     },
     "events": {
       "heroTitle": "Eventos inolvidables",
@@ -4591,7 +5039,30 @@
       "updateSuccess": "Perfil actualizado exitosamente",
       "updateError": "Error al actualizar el perfil",
       "passwordSuccess": "Contraseña cambiada exitosamente",
-      "passwordError": "Error al cambiar la contraseña"
+      "passwordError": "Error al cambiar la contraseña",
+      "strength": {
+        "weak": "Débil",
+        "fair": "Regular",
+        "good": "Buena",
+        "strong": "Fuerte"
+      },
+      "roles": {
+        "admin": "Administrador",
+        "superadmin": "Super administrador",
+        "staff": "Personal",
+        "cashier": "Cajero",
+        "guest": "Huésped"
+      },
+      "profileUpdated": "Perfil actualizado correctamente.",
+      "profileUpdatedToast": "Perfil actualizado.",
+      "profileUpdateFailed": "No se pudo actualizar el perfil.",
+      "passwordMismatch": "La nueva contraseña y la confirmación no coinciden.",
+      "passwordChanged": "Contraseña cambiada correctamente.",
+      "passwordUpdatedToast": "Contraseña actualizada.",
+      "passwordChangeFailed": "No se pudo cambiar la contraseña.",
+      "hidePassword": "Ocultar contraseña",
+      "showPassword": "Mostrar contraseña",
+      "togglePermissions": "Mostrar u ocultar la lista de permisos"
     },
     "login": {
       "title": "Bienvenido de nuevo",
@@ -4747,7 +5218,10 @@
         "keepReservation": "Mantener reserva",
         "cancelButton": "Cancelar reserva",
         "cancelling": "Cancelando..."
-      }
+      },
+      "cancelFailed": "No se pudo cancelar la reserva",
+      "guestFallback": "Huésped",
+      "roomName": "Nombre de la habitación"
     },
     "registrationSuccess": {
       "title": "¡Registro exitoso!",
@@ -4932,6 +5406,16 @@
       "expired": "Este enlace venció. Pide a quien te invitó que te envíe uno nuevo.",
       "failed": "No se pudo guardar la contraseña. Inténtalo de nuevo.",
       "goToLogin": "Ir a iniciar sesión"
+    },
+    "crossTenantLogin": {
+      "noWorkspace": "No se encontró un espacio de trabajo para este correo.",
+      "subtitle": "Inicia sesión en tu espacio de trabajo",
+      "title": "Encuentra tu espacio de trabajo",
+      "hint": "Ingresa tu correo y te llevaremos al lugar correcto.",
+      "email": "Correo electrónico",
+      "continue": "Continuar",
+      "noAccount": "¿No tienes una cuenta?",
+      "seePlans": "Ver planes"
     }
   },
   "companies": {
@@ -4992,7 +5476,9 @@
       "signIn": "Iniciar sesión",
       "getStarted": "Solicitar demo",
       "product": "Productos",
-      "faq": "Preguntas"
+      "faq": "Preguntas",
+      "menu": "Menú",
+      "close": "Cerrar"
     },
     "hero": {
       "badge": "PMS + Contabilidad, una sola plataforma",
@@ -5102,7 +5588,13 @@
       "successTitle": "¡Mensaje enviado!",
       "successBody": "Gracias por comunicarte. Revisaremos tu mensaje y te responderemos en un día hábil.",
       "backToSite": "Volver al sitio web",
-      "errorGeneric": "Error al enviar el mensaje. Inténtalo de nuevo o escríbenos a info@pilloto.com."
+      "errorGeneric": "Error al enviar el mensaje. Inténtalo de nuevo o escríbenos a info@pilloto.com.",
+      "plans": {
+        "basic": "Basic — hasta 15 habitaciones",
+        "pro": "Pro — hasta 50 habitaciones",
+        "enterprise": "Enterprise — hasta 100 habitaciones",
+        "general": "Consulta general"
+      }
     },
     "footer": {
       "copyright": "© {{year}} Pilloto. Todos los derechos reservados."
@@ -5738,7 +6230,11 @@
       "clearDates": "Borrar fechas",
       "errorSelectDates": "Por favor selecciona las fechas de entrada y salida.",
       "errorCheckoutAfter": "La fecha de salida debe ser posterior a la de entrada.",
-      "errorSearchFailed": "Error al buscar disponibilidad."
+      "errorSearchFailed": "Error al buscar disponibilidad.",
+      "selectDate": "Seleccionar fecha",
+      "clearDate": "Limpiar",
+      "noServices": "No hay servicios disponibles",
+      "totalEstimate": "total estimado"
     },
     "guests": {
       "guests": "huéspedes",
@@ -5788,7 +6284,8 @@
       "total": "Total",
       "payAtProperty": "Paga en el hotel — no se requiere pago ahora.",
       "continueToDetails": "Continuar a datos del huésped",
-      "youWontBeCharged": "No se realizará ningún cobro aún"
+      "youWontBeCharged": "No se realizará ningún cobro aún",
+      "standardBed": "Estándar"
     },
     "details": {
       "heading": "Datos del huésped",
@@ -5881,6 +6378,94 @@
       "heading": "Nuestras habitaciones",
       "subtitle": "Descubre nuestras habitaciones y comienza tu estadía",
       "bookNow": "Reservar Ahora"
+    },
+    "services": {
+      "heading": "Nuestros Servicios",
+      "subtitle": "Elige un servicio y consulta disponibilidad",
+      "selected": "Seleccionado",
+      "select": "Seleccionar"
+    },
+    "reviews": {
+      "heading": "Lo que dicen nuestros huéspedes",
+      "subtitle": "Reseñas reales de huéspedes verificados"
+    },
+    "widget": {
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "adults": "Adultos",
+      "children": "Niños",
+      "bookAt": "Reserva en {{name}}",
+      "search": "Buscar disponibilidad",
+      "poweredBy": "Con tecnología de Pilloto",
+      "loadFailed": "No se pudo cargar la disponibilidad.",
+      "missingDates": "Indica las fechas checkIn y checkOut como parámetros de la URL.",
+      "checkInDate": "Check-in: {{date}}",
+      "checkOutDate": "Check-out: {{date}}",
+      "nights_one": "{{count}} noche",
+      "nights_other": "{{count}} noches",
+      "availableRooms": "Habitaciones disponibles",
+      "upToGuests": "Hasta {{count}} huéspedes",
+      "perNight": "{{price}}/noche",
+      "bookNow": "Reservar ahora",
+      "noRooms": "No hay habitaciones disponibles para las fechas seleccionadas.",
+      "services": "Servicios",
+      "basis": {
+        "perPerson": "Por persona",
+        "perRoom": "Por habitación",
+        "perStay": "Por estadía",
+        "perEvent": "Por evento"
+      }
+    },
+    "reservationPage": {
+      "invalidLink": "El enlace de tu reserva no es válido. Por favor revisa el correo de confirmación.",
+      "expiredLink": "Enlace de acceso inválido o expirado. Por favor revisa el correo de confirmación.",
+      "notFound": "No encontramos una reserva con ese código.",
+      "loadFailed": "No pudimos cargar tu reserva. Inténtalo de nuevo.",
+      "back": "Volver",
+      "hello": "¡Hola, {{name}}!",
+      "confirmed": "¡Tu reserva está confirmada!",
+      "code": "Código de reserva",
+      "accommodation": "Alojamiento",
+      "nights_one": "{{count}} noche",
+      "nights_other": "{{count}} noches",
+      "service": "Servicio",
+      "dates": "Fechas",
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "holder": "Titular",
+      "guests": "Huéspedes",
+      "adults_one": "{{count}} adulto",
+      "adults_other": "{{count}} adultos",
+      "children_one": "{{count}} niño",
+      "children_other": "{{count}} niños",
+      "infants_one": "{{count}} bebé",
+      "infants_other": "{{count}} bebés",
+      "specialRequests": "Solicitudes especiales",
+      "estimatedTotal": "Total estimado",
+      "payAtProperty": "El pago se realiza al llegar a la propiedad. No se cobra ningún monto en línea.",
+      "bookAnother": "Hacer otra reserva",
+      "status": {
+        "confirmed": "Confirmada",
+        "pending": "Pendiente",
+        "cancelled": "Cancelada",
+        "checked_in": "En estadía",
+        "checked_out": "Completada",
+        "no_show": "No show"
+      }
+    },
+    "chargeBasis": {
+      "perPerson": "Por persona",
+      "perRoom": "Por habitación",
+      "perStay": "Por estadía",
+      "perEvent": "Por evento"
+    },
+    "config": {
+      "unavailable": "La reserva en línea no está disponible por el momento.",
+      "loadFailed": "No se pudo cargar la configuración de reservas."
+    },
+    "datePicker": {
+      "selectCheckIn": "Selecciona la fecha de check-in",
+      "selectCheckOut": "Selecciona la fecha de check-out"
     }
   },
   "creditAccounts": {
@@ -5925,6 +6510,126 @@
       "sections": {
         "workspace": "Plataforma"
       }
+    },
+    "tenants": {
+      "invitation": {
+        "pending": "Invitación enviada",
+        "expired": "Invitación vencida",
+        "accepted": "Contraseña establecida"
+      },
+      "accountingAdded": "Contabilidad ({{plan}}) agregada a {{name}} — Catálogo de cuentas y roles creados.",
+      "planUpdated": "Plan actualizado para {{name}}",
+      "planUpdateFailed": "No se pudo actualizar el plan",
+      "loadFailed": "No se pudieron cargar los clientes",
+      "toggled": {
+        "deactivated": "Cliente desactivado",
+        "activated": "Cliente activado"
+      },
+      "updateFailed": "Falló la actualización",
+      "statsFailed": "No se pudieron obtener las estadísticas",
+      "selectProduct": "Selecciona al menos un producto (PMS y/o Contabilidad).",
+      "created": "Cliente \"{{name}}\" creado. Se envió un correo a {{email}} con una invitación para elegir su contraseña.",
+      "createdNoEmail": "Cliente \"{{name}}\" creado, pero no se pudo enviar el correo de invitación. Usa \"Reenviar invitación\".",
+      "createFailed": "No se pudo crear el cliente",
+      "invitationSent": "Invitación enviada a {{email}}",
+      "resendFailed": "No se pudo reenviar la invitación",
+      "title": "Clientes",
+      "newTenant": "Nuevo cliente",
+      "cols": {
+        "name": "Nombre",
+        "slug": "Slug",
+        "plan": "Plan",
+        "products": "Productos",
+        "owner": "Propietario",
+        "status": "Estado",
+        "created": "Creado",
+        "actions": "Acciones"
+      },
+      "accountingChip": "Contabilidad ({{plan}})",
+      "accountingTooltip": "Contabilidad — {{plan}}",
+      "active": "Activo",
+      "inactive": "Inactivo",
+      "actions": {
+        "editPlan": "Editar plan",
+        "resend": "Reenviar invitación",
+        "stats": "Ver estadísticas",
+        "deactivate": "Desactivar",
+        "activate": "Activar",
+        "open": "Abrir aplicación del cliente"
+      },
+      "empty": "Aún no hay clientes. ¡Crea el primero!",
+      "create": {
+        "title": "Crear nuevo cliente",
+        "name": "Nombre del hotel / propiedad",
+        "slug": "Slug (subdominio)",
+        "slugHelp": "Se usa como subdominio: {slug}.pilloto.com — solo letras minúsculas, números y guiones",
+        "pmsPlan": "Plan de PMS",
+        "products": "Productos",
+        "pms": "PMS",
+        "accounting": "Contabilidad",
+        "accountingPlan": "Plan de Contabilidad",
+        "ownerEmail": "Correo del propietario",
+        "adminFirstName": "Nombre del administrador",
+        "adminLastName": "Apellido del administrador",
+        "invitationInfo": "El propietario recibe un correo con un enlace para elegir su propia contraseña (válido por 72 horas).",
+        "cancel": "Cancelar",
+        "submit": "Crear y aprovisionar"
+      },
+      "edit": {
+        "title": "Cambiar plan y productos — {{name}}",
+        "provisionInfo": "Al guardar se crearán el catálogo de cuentas y los roles de Contabilidad predeterminados para este cliente.",
+        "needProduct": "Un cliente necesita al menos un producto.",
+        "save": "Guardar"
+      },
+      "stats": {
+        "title": "{{name}} — Estadísticas",
+        "users": "Usuarios",
+        "reservations": "Reservas",
+        "rooms": "Habitaciones",
+        "close": "Cerrar"
+      },
+      "plans": {
+        "basic": "Basic",
+        "pro": "Pro",
+        "enterprise": "Enterprise",
+        "starter": "Starter",
+        "plus": "Plus"
+      }
+    },
+    "profile": {
+      "title": "Mi perfil",
+      "subtitle": "Administra los datos de tu cuenta de super administrador y tus credenciales de seguridad.",
+      "role": "Super administrador",
+      "personal": "Información personal",
+      "personalHint": "Actualiza tu nombre visible y tu correo de contacto.",
+      "firstName": "Nombre",
+      "lastName": "Apellido",
+      "email": "Correo electrónico",
+      "saving": "Guardando…",
+      "save": "Guardar cambios",
+      "changePassword": "Cambiar contraseña",
+      "passwordHint": "Asegúrate de que tu cuenta use una contraseña fuerte y única.",
+      "currentPassword": "Contraseña actual",
+      "newPassword": "Nueva contraseña",
+      "minChars": "Mínimo 8 caracteres",
+      "confirmPassword": "Confirmar nueva contraseña",
+      "mismatchHelp": "Las contraseñas no coinciden",
+      "updating": "Actualizando…",
+      "update": "Actualizar contraseña",
+      "tooShort": "La nueva contraseña debe tener al menos 8 caracteres."
+    }
+  },
+  "errors": {
+    "notFound": {
+      "title": "Página no encontrada",
+      "description": "La página que buscas no existe o fue movida.",
+      "returnHome": "Volver al inicio"
+    },
+    "tenantNotFound": {
+      "title": "Propiedad no encontrada",
+      "notRegistered": "<strong>{{slug}}</strong> no está registrado en Pilloto.",
+      "hint": "Es posible que la propiedad haya sido eliminada o renombrada, o que el enlace sea incorrecto.",
+      "goHome": "Ir a pilloto.com"
     }
   }
 }

@@ -32,6 +32,7 @@ import PlatformSettings from '../../models/PlatformSettings';
 import { tenantLocalStorage } from '../../middleware/tenantContext';
 import { ChannexClient, createChannexClient, JsonApiResource } from './channexClient';
 import { getChannexConfig, isChannexConfigured } from './config';
+import { parseChannexTimestamp } from './dates';
 import { runInTenant } from './provisioning';
 import { applyBookingRevision } from './bookingMapper';
 
@@ -95,14 +96,14 @@ export function revisionFacts(resource: JsonApiResource | (Record<string, any> &
   const revisionId = text(r?.id, 64) ?? text(attrs?.revision_id, 64) ?? text(attrs?.id, 64);
   const bookingId = text(attrs?.booking_id, 64);
   if (!revisionId || !bookingId) return null;
-  const insertedAt = attrs?.inserted_at ? new Date(attrs.inserted_at) : undefined;
+  const insertedAt = parseChannexTimestamp(attrs?.inserted_at);
   const status = (BOOKING_REVISION_STATUSES as readonly string[]).includes(attrs?.status) ? attrs.status as BookingRevisionStatus : undefined;
   return {
     revisionId,
     bookingId,
     propertyId: text(attrs?.property_id, 64),
     status,
-    insertedAt: insertedAt && !Number.isNaN(insertedAt.getTime()) ? insertedAt : undefined,
+    insertedAt,
     otaName: text(attrs?.ota_name, 80),
     otaReservationCode: text(attrs?.ota_reservation_code, 120),
     payload: scrubRevisionPayload({ ...attrs, id: revisionId }),

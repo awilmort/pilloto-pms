@@ -21,6 +21,7 @@ import {
   ArrowUpward,
   ArrowDownward,
 } from '@mui/icons-material';
+import { useTranslation } from 'react-i18next';
 import { mediaService, resolveMediaUrl } from '../../services/api';
 
 interface ImageUploadProps {
@@ -34,6 +35,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   onImagesChange,
   maxImages = 5
 }) => {
+  const { t } = useTranslation();
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,7 +44,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
     if (!files || files.length === 0) return;
 
     if (images.length + files.length > maxImages) {
-      setError(`Maximum ${maxImages} images allowed`);
+      setError(t('admin.imageUpload.maxImages', { count: maxImages }));
       return;
     }
 
@@ -53,7 +55,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       const uploadPromises = Array.from(files).map(async (file) => {
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('title', `Room Image - ${file.name}`);
+        formData.append('title', t('admin.imageUpload.photoTitle', { name: file.name }));
         formData.append('category', 'rooms');
         formData.append('isPublic', 'true');
 
@@ -61,14 +63,14 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         if (response.data.success && response.data.data) {
           return response.data.data.url || '/api/placeholder/400/300';
         }
-        throw new Error('Upload failed');
+        throw new Error(t('admin.imageUpload.uploadFailed'));
       });
 
       const uploadedUrls = await Promise.all(uploadPromises);
       onImagesChange([...images, ...uploadedUrls]);
     } catch (error: any) {
       console.error('Upload error:', error);
-      setError('Failed to upload images. Please try again.');
+      setError(t('admin.imageUpload.uploadFailedRetry'));
     } finally {
       setUploading(false);
     }
@@ -102,10 +104,10 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   };
 
   const handleUrlAdd = () => {
-    const url = prompt('Enter image URL:');
+    const url = prompt(t('admin.imageUpload.enterUrl'));
     if (url && url.trim()) {
       if (images.length >= maxImages) {
-        setError(`Maximum ${maxImages} images allowed`);
+        setError(t('admin.imageUpload.maxImages', { count: maxImages }));
         return;
       }
       onImagesChange([...images, url.trim()]);
@@ -115,7 +117,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
   return (
     <Box>
       <Typography variant="subtitle1" gutterBottom>
-        Room Images (max {maxImages})
+        {t('admin.imageUpload.title', { max: maxImages })}
       </Typography>
 
       {error && (
@@ -127,7 +129,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       {uploading && (
         <Box sx={{ mb: 2 }}>
           <Typography variant="body2" color="text.secondary" gutterBottom>
-            Uploading images...
+            {t('admin.imageUpload.uploading')}
           </Typography>
           <LinearProgress variant="indeterminate" />
         </Box>
@@ -141,7 +143,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           startIcon={<CloudUpload />}
           disabled={uploading || images.length >= maxImages}
         >
-          Upload Images
+          {t('admin.imageUpload.upload')}
           <input
             type="file"
             hidden
@@ -157,7 +159,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
           onClick={handleUrlAdd}
           disabled={images.length >= maxImages}
         >
-          Add URL
+          {t('admin.imageUpload.addUrl')}
         </Button>
       </Box>
 
@@ -165,7 +167,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
       {images.length > 0 && (
         <Box>
           <Typography variant="body2" color="text.secondary" gutterBottom>
-            The first image will be displayed as the room's main image on cards
+            {t('admin.imageUpload.primaryHint')}
           </Typography>
           <Grid container spacing={2}>
             {images.map((image, index) => (
@@ -173,7 +175,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                 <Card sx={{ position: 'relative' }}>
                   {index === 0 && (
                     <Chip
-                      label="Primary"
+                      label={t('admin.imageUpload.primary')}
                       color="primary"
                       size="small"
                       icon={<Star />}
@@ -189,7 +191,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                     component="img"
                     height="150"
                     image={resolveMediaUrl(image)}
-                    alt={`Room image ${index + 1}`}
+                    alt={t('admin.imageUpload.imageAlt', { n: index + 1 })}
                     sx={{
                       objectFit: 'cover',
                       backgroundColor: 'grey.100'
@@ -205,7 +207,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                         <IconButton
                           size="small"
                           onClick={() => handleSetPrimary(index)}
-                          title="Set as primary image"
+                          title={t('admin.imageUpload.setPrimary')}
                         >
                           <StarBorder />
                         </IconButton>
@@ -214,7 +216,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                         <IconButton
                           size="small"
                           onClick={() => handleMoveUp(index)}
-                          title="Move up"
+                          title={t('admin.imageUpload.moveUp')}
                         >
                           <ArrowUpward />
                         </IconButton>
@@ -223,7 +225,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                         <IconButton
                           size="small"
                           onClick={() => handleMoveDown(index)}
-                          title="Move down"
+                          title={t('admin.imageUpload.moveDown')}
                         >
                           <ArrowDownward />
                         </IconButton>
@@ -233,7 +235,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
                       size="small"
                       color="error"
                       onClick={() => handleRemoveImage(index)}
-                      title="Remove image"
+                      title={t('admin.imageUpload.removeImage')}
                     >
                       <Delete />
                     </IconButton>
@@ -258,13 +260,13 @@ const ImageUpload: React.FC<ImageUploadProps> = ({
         >
           <Image sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
           <Typography variant="body1" color="text.secondary" gutterBottom>
-            No images uploaded yet
+            {t('admin.imageUpload.emptyTitle')}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            Upload images or add URLs to showcase this room
+            {t('admin.imageUpload.emptyHint')}
           </Typography>
           <Typography variant="caption" color="text.secondary">
-            The first image will be the main image displayed on room cards
+            {t('admin.imageUpload.emptyPrimary')}
           </Typography>
         </Box>
       )}

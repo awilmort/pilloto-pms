@@ -36,7 +36,7 @@ const AccountingSettingsPage: React.FC = () => {
 
         <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
           <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs value={activeTab} onChange={(_e, v) => setActiveTab(v)} aria-label="accounting settings tabs">
+            <Tabs value={activeTab} onChange={(_e, v) => setActiveTab(v)} aria-label={t('nav.accountingSettingsTabs')}>
               <Tab label={t('accounting.settings.tabs.roles', 'Roles')} id="accounting-settings-tab-0" />
               <Tab label={t('accounting.settings.tabs.users', 'Users')} id="accounting-settings-tab-1" />
             </Tabs>

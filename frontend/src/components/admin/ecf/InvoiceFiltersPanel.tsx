@@ -126,7 +126,7 @@ const InvoiceFiltersPanel: React.FC<InvoiceFiltersPanelProps> = ({
             label={t('admin.ecfInvoices.filters.buyerSearch')}
             value={filters.buyerSearch}
             onChange={set('buyerSearch')}
-            placeholder="Nombre o RNC"
+            placeholder={t('admin.ecf.filters.nameOrRnc')}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={1.5}>

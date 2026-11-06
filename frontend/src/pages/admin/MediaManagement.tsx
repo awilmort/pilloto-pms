@@ -195,7 +195,7 @@ export const MediaContent: React.FC = () => {
                 <CardContent>
                   <Typography variant="subtitle1" noWrap>{item.title}</Typography>
                   <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-                    <Chip size="small" label={item.category} />
+                    <Chip size="small" label={t(`admin.media.categories.${item.category}`, item.category)} />
                     {item.isFeatured && <Chip size="small" color="warning" label={t('admin.media.labels.featured')} />}
                     {!item.isPublic && <Chip size="small" color="error" label={t('admin.media.labels.private')} />}
                   </Box>
@@ -216,7 +216,7 @@ export const MediaContent: React.FC = () => {
           <DialogContent>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
               <Button variant="outlined" component="label">
-                {file ? file.name : 'Choose file'}
+                {file ? file.name : t('admin.media.buttons.chooseFile')}
                 <input type="file" hidden accept="image/*,video/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
               </Button>
               <TextField label={t('admin.media.labels.title')} value={title} onChange={(e) => setTitle(e.target.value)} />

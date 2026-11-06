@@ -7,6 +7,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { bookingService } from '../services/api';
+import { useTranslation } from 'react-i18next';
 
 export interface BookingConfig {
   enabled: boolean;
@@ -132,6 +133,7 @@ const BookingContext = createContext<BookingContextValue>({} as BookingContextVa
 export const useBooking = () => useContext(BookingContext);
 
 export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { t } = useTranslation();
   const [config, setConfig] = useState<BookingConfig | null>(null);
   const [configLoading, setConfigLoading] = useState(true);
   const [configError, setConfigError] = useState<string | null>(null);
@@ -161,15 +163,16 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         if (res.data?.data) {
           setConfig(res.data.data);
           if (!res.data.data.enabled) {
-            setConfigError('Online booking is not currently available.');
+            setConfigError(t('bookingEngine.config.unavailable'));
           }
         }
       })
       .catch(err => {
-        const msg = err?.response?.data?.message || 'Failed to load booking configuration.';
+        const msg = err?.response?.data?.message || t('bookingEngine.config.loadFailed');
         setConfigError(msg);
       })
       .finally(() => setConfigLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const searchAvailability = useCallback(async (params: { checkIn: string; checkOut: string; adults: number; children: number }) => {

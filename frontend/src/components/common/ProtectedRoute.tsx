@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { CircularProgress, Box, Typography } from '@mui/material';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useTenant } from '../../contexts/TenantContext';
@@ -23,6 +24,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requiredSection,
   redirectTo = '/login',
 }) => {
+  const { t } = useTranslation();
   const { user, isAuthenticated, loading, permissions, resolvedAppRoles } = useAuth();
   const { activeSections, loading: sectionsLoading } = useSettings();
   const { tenant } = useTenant();
@@ -41,7 +43,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       >
         <CircularProgress size={60} />
         <Typography variant="h6" color="text.secondary">
-          Loading...
+          {t('common.loading')}
         </Typography>
       </Box>
     );

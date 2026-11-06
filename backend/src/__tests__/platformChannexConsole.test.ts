@@ -72,6 +72,7 @@ const OPTIONS: Record<string, { roomTypes: any[]; ratePlans: any[] }> = {
 fake.get('/api/v1/properties', (_req, res) => res.json({ data: [], meta: { total: 0 } }));
 fake.get('/api/v1/room_types/options', (req, res) => res.json({ data: (OPTIONS[String(req.query['filter[property_id]'] ?? (req.query as any).filter?.property_id)]?.roomTypes ?? []).map((o) => ({ attributes: o })) }));
 fake.get('/api/v1/rate_plans/options', (req, res) => res.json({ data: (OPTIONS[String(req.query['filter[property_id]'] ?? (req.query as any).filter?.property_id)]?.ratePlans ?? []).map((o) => ({ attributes: o })) }));
+fake.get('/api/v1/billing_accounts', (_req, res) => res.json({ data: { id: '11111111-2222-3333-4444-555555555555', type: 'billing_account', attributes: { id: '11111111-2222-3333-4444-555555555555' } } }));
 fake.post('/api/v1/signing_keys', (_req, res) => res.json({ data: { id: 'sk-123', type: 'signing_key', attributes: { id: 'sk-123', secret: 'shown-once-secret' } } }));
 fake.get('/api/v1/webhooks', (_req, res) => res.json({ data: [], meta: { total: 0 } }));
 fake.post('/api/v1/webhooks', (_req, res) => res.json({ data: { id: 'wh-9', type: 'webhook', attributes: {} } }));
@@ -148,8 +149,10 @@ describe('platform Channex console (fake Channex server)', () => {
   });
 
   itDb('webhook setup: signing key (secret shown once, not stored), global webhook, test delivery', async () => {
-    await request(app).post('/api/platform/channex/signing-key').send({}).expect(400);
-    const key = await request(app).post('/api/platform/channex/signing-key').send({ billingAccountId: '11111111-2222-3333-4444-555555555555' }).expect(200);
+    await request(app).post('/api/platform/channex/signing-key').send({ billingAccountId: 'not-a-uuid' }).expect(400);
+    // No id given: the API key owner's billing account is looked up in Channex
+    const key = await request(app).post('/api/platform/channex/signing-key').send({}).expect(200);
+    expect(calls.find((c) => c.method === 'POST' && c.path === '/api/v1/signing_keys')!.body.signing_key.billing_account_id).toBe('11111111-2222-3333-4444-555555555555');
     expect(key.headers['cache-control']).toBe('no-store');
     expect(key.body.data).toMatchObject({ signingKeyId: 'sk-123', secret: 'shown-once-secret' });
     expect(JSON.stringify(await PlatformSettings.collection.findOne({ key: 'global' }))).not.toContain('shown-once-secret');

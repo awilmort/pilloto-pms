@@ -42,7 +42,11 @@ const ReservationHistorySection: React.FC<Props> = ({ reservationId, version, fo
 
   const actor = (a: ReservationHistoryEntry['actor']) => {
     if (a.kind === 'user') return a.name || t(k('actor.staff'));
-    if (a.kind === 'channel') return a.name || t(k('actor.channel'));
+    if (a.kind === 'channel') {
+      if (!a.name) return t(k('actor.channel'));
+      // "Offline" is the source of bookings entered directly in the channel manager, not an OTA
+      return a.name.trim().toLowerCase() === 'offline' ? t(k('actor.channelOffline')) : t(k('actor.channelNamed'), { name: a.name });
+    }
     return t(k(`actor.${a.kind}`));
   };
 

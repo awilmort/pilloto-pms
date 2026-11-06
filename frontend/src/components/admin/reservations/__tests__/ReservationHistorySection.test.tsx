@@ -44,9 +44,20 @@ describe('reservation history UI', () => {
     expect(screen.getByText('Status: Pending → Confirmed')).toBeInTheDocument();
     expect(screen.getByText('RD$100')).toBeInTheDocument();
     expect(screen.getByText('Deposit · Cash')).toBeInTheDocument();
-    expect(screen.getByText('Booking.com')).toBeInTheDocument();
+    expect(screen.getByText('Channel: Booking.com')).toBeInTheDocument();
     expect(screen.getByText('(earlier record)')).toBeInTheDocument();
     expect(screen.getByText('Guest')).toBeInTheDocument();
     expect(screen.getByText('Flight cancelled')).toBeInTheDocument();
+  });
+
+  it('names a channel actor, and explains "Offline" (bookings entered in the channel manager)', async () => {
+    mockHistory.mockResolvedValue({ data: { data: [
+      { id: 'e2', at: '2026-11-05T10:00:00Z', action: 'channel_modified', actor: { kind: 'channel', name: 'Offline' } },
+      { id: 'e1', at: '2026-11-05T09:00:00Z', action: 'created', actor: { kind: 'channel' } },
+    ] } });
+    render(<ReservationHistorySection reservationId="r2" formatCurrency={(v) => `RD$${v}`} />);
+    fireEvent.click(screen.getByText('History'));
+    expect(await screen.findByText('Channel: Offline (booking entered directly in the channel manager)')).toBeInTheDocument();
+    expect(screen.getByText('Channel')).toBeInTheDocument();
   });
 });

@@ -12,6 +12,8 @@ i18n
       en: { translation: enTranslations },
       es: { translation: esTranslations },
     },
+    // Resources are bundled, so initialise synchronously: non-React callers (contexts, api layer) can use i18n.t immediately
+    initAsync: false,
     fallbackLng: 'es',
     supportedLngs: ['en', 'es'],
     interpolation: { escapeValue: false },

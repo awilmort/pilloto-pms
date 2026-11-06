@@ -29,10 +29,10 @@ import { useTranslation } from 'react-i18next';
 import { EcfMonthlyTaxRow, EcfTipo } from '../../../../types';
 import { ecfService } from '../../../../services/api';
 
-const MONTH_NAMES = [
-  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-];
+const monthName = (month: number, locale: string): string => {
+  const name = new Date(2000, month - 1, 1).toLocaleString(locale, { month: 'long' });
+  return name.charAt(0).toUpperCase() + name.slice(1);
+};
 
 const TIPO_COLORS: Record<string, 'primary' | 'info' | 'warning' | 'error' | 'default'> = {
   E31: 'primary',
@@ -48,7 +48,7 @@ const currentYear = new Date().getFullYear();
 const YEAR_OPTIONS = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
 const MonthlyTaxReport: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [year, setYear] = useState<string>(String(currentYear));
   const [rows, setRows] = useState<EcfMonthlyTaxRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -90,7 +90,7 @@ const MonthlyTaxReport: React.FC = () => {
       // grand total row
       csvRows.push([
         row.year,
-        MONTH_NAMES[row.month - 1],
+        monthName(row.month, i18n.language),
         'TOTAL',
         row.totalInvoices,
         row.totalFactura,
@@ -100,7 +100,7 @@ const MonthlyTaxReport: React.FC = () => {
       row.byTipo.forEach((bt) => {
         csvRows.push([
           row.year,
-          MONTH_NAMES[row.month - 1],
+          monthName(row.month, i18n.language),
           bt.tipo,
           bt.count,
           bt.totalFactura,
@@ -201,7 +201,7 @@ const MonthlyTaxReport: React.FC = () => {
               {t('admin.reports.monthlyTax.totalInvoices')}
             </Typography>
             <Typography variant="h5" fontWeight={700}>
-              {grandTotal.invoices.toLocaleString()}
+              {grandTotal.invoices.toLocaleString(i18n.language)}
             </Typography>
           </Box>
           <Box>
@@ -281,7 +281,7 @@ const MonthlyTaxReport: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" fontWeight={600}>
-                            {MONTH_NAMES[row.month - 1]} {row.year}
+                            {monthName(row.month, i18n.language)} {row.year}
                           </Typography>
                         </TableCell>
                         <TableCell align="right">

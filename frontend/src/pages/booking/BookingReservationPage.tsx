@@ -18,6 +18,7 @@ import BedIcon from '@mui/icons-material/Bed';
 import RoomServiceIcon from '@mui/icons-material/RoomService';
 import CommentIcon from '@mui/icons-material/Comment';
 import { useParams, useSearchParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import BookingLayout from '../../components/booking/BookingLayout';
 import { bookingService } from '../../services/api';
 
@@ -32,13 +33,13 @@ const CARD_RADIUS   = '12px';
 const BTN_RADIUS    = '8px';
 const FONT          = '"Inter", "Plus Jakarta Sans", "Helvetica", sans-serif';
 
-function formatCurrency(amount: number, currency: string = 'DOP'): string {
-  return new Intl.NumberFormat('es-DO', { style: 'currency', currency }).format(amount);
+function formatCurrency(amount: number, currency: string = 'DOP', locale: string = 'es-DO'): string {
+  return new Intl.NumberFormat(locale, { style: 'currency', currency }).format(amount);
 }
 
-function formatDate(value: string | Date | undefined): string {
+function formatDate(value: string | Date | undefined, locale: string = 'es-DO'): string {
   if (!value) return '—';
-  return new Date(value).toLocaleDateString('es-DO', {
+  return new Date(value).toLocaleDateString(locale, {
     year: 'numeric', month: 'long', day: 'numeric',
   });
 }
@@ -73,15 +74,6 @@ interface ReservationData {
 }
 
 // ── Status helpers ────────────────────────────────────────────────────────────
-const STATUS_LABELS: Record<string, string> = {
-  confirmed: 'Confirmada',
-  pending: 'Pendiente',
-  cancelled: 'Cancelada',
-  checked_in: 'En estadía',
-  checked_out: 'Completada',
-  no_show: 'No show',
-};
-
 const STATUS_COLORS: Record<string, 'success' | 'warning' | 'error' | 'info' | 'default'> = {
   confirmed:   'success',
   pending:     'warning',
@@ -93,6 +85,8 @@ const STATUS_COLORS: Record<string, 'success' | 'warning' | 'error' | 'info' | '
 
 // ── Page Component ────────────────────────────────────────────────────────────
 export default function BookingReservationPage() {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language?.startsWith('en') ? 'en-US' : 'es-DO';
   const { code } = useParams<{ code: string }>();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token');
@@ -103,7 +97,7 @@ export default function BookingReservationPage() {
 
   useEffect(() => {
     if (!code || !token) {
-      setError('El enlace de tu reserva no es válido. Por favor revisa el correo de confirmación.');
+      setError(t('bookingEngine.reservationPage.invalidLink'));
       setLoading(false);
       return;
     }
@@ -115,11 +109,11 @@ export default function BookingReservationPage() {
       .catch((err: any) => {
         const status = err?.response?.status;
         if (status === 403 || status === 401) {
-          setError('Enlace de acceso inválido o expirado. Por favor revisa el correo de confirmación.');
+          setError(t('bookingEngine.reservationPage.expiredLink'));
         } else if (status === 404) {
-          setError('No encontramos una reserva con ese código.');
+          setError(t('bookingEngine.reservationPage.notFound'));
         } else {
-          setError('No pudimos cargar tu reserva. Inténtalo de nuevo.');
+          setError(t('bookingEngine.reservationPage.loadFailed'));
         }
       })
       .finally(() => setLoading(false));
@@ -141,7 +135,7 @@ export default function BookingReservationPage() {
             sx={{ borderRadius: BTN_RADIUS, fontFamily: FONT }}
             action={
               <Button color="inherit" size="small" href="/booking" sx={{ fontFamily: FONT, textTransform: 'none' }}>
-                Volver
+                {t('bookingEngine.reservationPage.back')}
               </Button>
             }
           >
@@ -180,10 +174,10 @@ export default function BookingReservationPage() {
             >
               <CheckCircleIcon sx={{ fontSize: 56, color: BRAND, mb: 1.5 }} />
               <Typography variant="h5" sx={{ fontWeight: 700, fontFamily: FONT, color: TEXT_PRIMARY, mb: 0.5 }}>
-                {data.guestName.firstName ? `¡Hola, ${data.guestName.firstName}!` : '¡Tu reserva está confirmada!'}
+                {data.guestName.firstName ? t('bookingEngine.reservationPage.hello', { name: data.guestName.firstName }) : t('bookingEngine.reservationPage.confirmed')}
               </Typography>
               <Chip
-                label={STATUS_LABELS[data.status] ?? data.status}
+                label={t(`bookingEngine.reservationPage.status.${data.status}`, data.status)}
                 color={STATUS_COLORS[data.status] ?? 'default'}
                 size="small"
                 sx={{ fontFamily: FONT, fontWeight: 600, mt: 0.5 }}
@@ -204,7 +198,7 @@ export default function BookingReservationPage() {
                 {/* Code */}
                 <Box>
                   <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT, textTransform: 'uppercase', letterSpacing: 1 }}>
-                    Código de reserva
+                    {t('bookingEngine.reservationPage.code')}
                   </Typography>
                   <Typography
                     variant="h4"
@@ -221,12 +215,12 @@ export default function BookingReservationPage() {
                   <Stack direction="row" alignItems="flex-start" spacing={1.5}>
                     <BedIcon sx={{ color: BRAND, fontSize: 20, mt: 0.25 }} />
                     <Box>
-                      <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>Alojamiento</Typography>
+                      <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>{t('bookingEngine.reservationPage.accommodation')}</Typography>
                       <Typography sx={{ fontWeight: 600, fontFamily: FONT, color: TEXT_PRIMARY, fontSize: 14 }}>
                         {data.roomTypeName}
                         {data.totalNights != null && data.totalNights > 0 && (
                           <Typography component="span" sx={{ fontWeight: 400, color: TEXT_SECONDARY, fontSize: 13, ml: 1 }}>
-                            · {data.totalNights} {data.totalNights === 1 ? 'noche' : 'noches'}
+                            · {t('bookingEngine.reservationPage.nights', { count: data.totalNights })}
                           </Typography>
                         )}
                       </Typography>
@@ -244,7 +238,7 @@ export default function BookingReservationPage() {
                   <Stack key={idx} direction="row" alignItems="center" spacing={1.5}>
                     <RoomServiceIcon sx={{ color: BRAND, fontSize: 20 }} />
                     <Box>
-                      <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>Servicio</Typography>
+                      <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>{t('bookingEngine.reservationPage.service')}</Typography>
                       <Typography sx={{ fontWeight: 600, fontFamily: FONT, color: TEXT_PRIMARY, fontSize: 14 }}>
                         {item.serviceName}
                         {item.quantity > 1 && (
@@ -262,21 +256,21 @@ export default function BookingReservationPage() {
                   <Stack direction="row" alignItems="flex-start" spacing={1.5}>
                     <CalendarTodayIcon sx={{ color: BRAND, fontSize: 20, mt: 0.25 }} />
                     <Box sx={{ flex: 1 }}>
-                      <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>Fechas</Typography>
+                      <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>{t('bookingEngine.reservationPage.dates')}</Typography>
                       <Stack direction="row" spacing={3} sx={{ mt: 0.25 }}>
                         {data.checkInDate && (
                           <Box>
-                            <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>Check-in</Typography>
+                            <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>{t('bookingEngine.reservationPage.checkIn')}</Typography>
                             <Typography sx={{ fontFamily: FONT, fontWeight: 600, fontSize: 14, color: TEXT_PRIMARY }}>
-                              {formatDate(data.checkInDate)}
+                              {formatDate(data.checkInDate, locale)}
                             </Typography>
                           </Box>
                         )}
                         {data.checkOutDate && (
                           <Box>
-                            <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>Check-out</Typography>
+                            <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>{t('bookingEngine.reservationPage.checkOut')}</Typography>
                             <Typography sx={{ fontFamily: FONT, fontWeight: 600, fontSize: 14, color: TEXT_PRIMARY }}>
-                              {formatDate(data.checkOutDate)}
+                              {formatDate(data.checkOutDate, locale)}
                             </Typography>
                           </Box>
                         )}
@@ -289,7 +283,7 @@ export default function BookingReservationPage() {
                 <Stack direction="row" alignItems="flex-start" spacing={1.5}>
                   <PersonIcon sx={{ color: BRAND, fontSize: 20, mt: 0.25 }} />
                   <Box>
-                    <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>Titular</Typography>
+                    <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>{t('bookingEngine.reservationPage.holder')}</Typography>
                     <Typography sx={{ fontFamily: FONT, fontWeight: 600, fontSize: 14, color: TEXT_PRIMARY }}>
                       {[data.guestName.firstName, data.guestName.lastName].filter(Boolean).join(' ')}
                     </Typography>
@@ -301,12 +295,12 @@ export default function BookingReservationPage() {
                   <Stack direction="row" alignItems="center" spacing={1.5}>
                     <GroupIcon sx={{ color: BRAND, fontSize: 20 }} />
                     <Box>
-                      <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>Huéspedes</Typography>
+                      <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>{t('bookingEngine.reservationPage.guests')}</Typography>
                       <Typography sx={{ fontFamily: FONT, fontSize: 14, color: TEXT_PRIMARY }}>
                         {[
-                          data.guestDetails.adults > 0 ? `${data.guestDetails.adults} ${data.guestDetails.adults === 1 ? 'adulto' : 'adultos'}` : null,
-                          data.guestDetails.children > 0 ? `${data.guestDetails.children} ${data.guestDetails.children === 1 ? 'niño' : 'niños'}` : null,
-                          data.guestDetails.infants > 0 ? `${data.guestDetails.infants} ${data.guestDetails.infants === 1 ? 'bebé' : 'bebés'}` : null,
+                          data.guestDetails.adults > 0 ? t('bookingEngine.reservationPage.adults', { count: data.guestDetails.adults }) : null,
+                          data.guestDetails.children > 0 ? t('bookingEngine.reservationPage.children', { count: data.guestDetails.children }) : null,
+                          data.guestDetails.infants > 0 ? t('bookingEngine.reservationPage.infants', { count: data.guestDetails.infants }) : null,
                         ].filter(Boolean).join(' · ')}
                       </Typography>
                     </Box>
@@ -318,7 +312,7 @@ export default function BookingReservationPage() {
                   <Stack direction="row" alignItems="flex-start" spacing={1.5}>
                     <CommentIcon sx={{ color: BRAND, fontSize: 20, mt: 0.25 }} />
                     <Box>
-                      <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>Solicitudes especiales</Typography>
+                      <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>{t('bookingEngine.reservationPage.specialRequests')}</Typography>
                       <Typography sx={{ fontFamily: FONT, fontSize: 14, color: TEXT_PRIMARY, fontStyle: 'italic' }}>
                         {data.specialRequests}
                       </Typography>
@@ -331,10 +325,10 @@ export default function BookingReservationPage() {
                 {/* Total */}
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Typography sx={{ color: TEXT_SECONDARY, fontFamily: FONT, fontSize: 14 }}>
-                    Total estimado
+                    {t('bookingEngine.reservationPage.estimatedTotal')}
                   </Typography>
                   <Typography sx={{ fontWeight: 700, fontFamily: FONT, fontSize: 18, color: BRAND }}>
-                    {formatCurrency(data.estimatedTotal, data.currency)}
+                    {formatCurrency(data.estimatedTotal, data.currency, locale)}
                   </Typography>
                 </Stack>
               </Stack>
@@ -351,7 +345,7 @@ export default function BookingReservationPage() {
                 '& .MuiAlert-message': { fontFamily: FONT, fontSize: 13 },
               }}
             >
-              El pago se realiza al llegar a la propiedad. No se cobra ningún monto en línea.
+              {t('bookingEngine.reservationPage.payAtProperty')}
             </Alert>
 
             {/* Back button */}
@@ -370,7 +364,7 @@ export default function BookingReservationPage() {
                 '&:hover': { bgcolor: BRAND_LIGHT, borderColor: BRAND },
               }}
             >
-              Hacer otra reserva
+              {t('bookingEngine.reservationPage.bookAnother')}
             </Button>
           </Stack>
         )}

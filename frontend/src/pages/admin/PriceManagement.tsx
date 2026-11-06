@@ -18,6 +18,7 @@ import { Company, RoomType, ChargeTemplate, ChargeRule, ChargeRuleExecution, Cha
 import { useTranslation } from 'react-i18next';
 import { getCurrencyConfig } from '../../utils/currency';
 import type { OccupancyTier, RatePlan, PricingRule, RuleTarget, RuleModel, RuleDirection, RuleScope, PeriodPattern, IOccupancyTierOverride, IBlackoutRange, TaxConfig } from '../../utils/pricing';
+import i18n from '../../i18n';
 
 // ─────────────────────────────────────────────────────────────
 // Tab panel helper
@@ -434,16 +435,16 @@ const PriceManagement: React.FC = () => {
   const validateRuleWizardStep = (): string | null => {
     if (ruleWizardStep === 0) {
       if (!ruleForm.name.trim()) return t('admin.pricing.rules.errors.nameRequired', 'Rule name is required');
-      if (!ruleForm.ratePlanId) return 'Please select a base rate plan';
-      if (ruleForm.ruleTarget === 'company' && !ruleForm.companyId) return 'Please select a company';
-      if (ruleForm.ruleTarget === 'guest' && !ruleForm.guestEmail.trim()) return 'Please select or enter a guest email';
+      if (!ruleForm.ratePlanId) return t('admin.pricing.ruleWizard.errors.ratePlan');
+      if (ruleForm.ruleTarget === 'company' && !ruleForm.companyId) return t('admin.pricing.ruleWizard.errors.company');
+      if (ruleForm.ruleTarget === 'guest' && !ruleForm.guestEmail.trim()) return t('admin.pricing.ruleWizard.errors.guestEmail');
     }
     if (ruleWizardStep === 2) {
       if (ruleForm.dateStart && !ruleForm.dateEnd) return t('admin.pricing.rules.errors.endDateRequired', 'End date is required when start date is set');
-      if (!ruleForm.dateStart && ruleForm.dateEnd) return 'Start date is required when end date is set';
-      if (ruleForm.periodPattern === 'specific_days' && ruleForm.specificDays.length === 0) return 'Please select at least one day';
+      if (!ruleForm.dateStart && ruleForm.dateEnd) return t('admin.pricing.ruleWizard.errors.startRequired');
+      if (ruleForm.periodPattern === 'specific_days' && ruleForm.specificDays.length === 0) return t('admin.pricing.ruleWizard.errors.days');
       for (const bo of ruleForm.blackoutDates) {
-        if (!bo.start || !bo.end) return 'Blackout dates require both start and end dates';
+        if (!bo.start || !bo.end) return t('admin.pricing.ruleWizard.errors.blackout');
       }
     }
     return null;
@@ -599,8 +600,8 @@ const PriceManagement: React.FC = () => {
 
   const saveService = async () => {
     try {
-      if (!serviceForm.name?.trim()) { setError('Service name is required'); return; }
-      if (!serviceForm.code?.trim()) { setError('Service code is required'); return; }
+      if (!serviceForm.name?.trim()) { setError(t('admin.pricing.ruleWizard.errors.serviceName')); return; }
+      if (!serviceForm.code?.trim()) { setError(t('admin.pricing.ruleWizard.errors.serviceCode')); return; }
       setError(null);
       if ((serviceForm as any)._id) {
         await servicesService.updateService((serviceForm as any)._id, serviceForm as ServiceRecord);
@@ -651,7 +652,7 @@ const PriceManagement: React.FC = () => {
 
   const saveServicePrice = async () => {
     try {
-      if (!servicePriceForm.serviceId) { setError('Please select a service'); return; }
+      if (!servicePriceForm.serviceId) { setError(t('admin.pricing.ruleWizard.errors.selectService')); return; }
       setError(null);
       const payload = {
         ...servicePriceForm,
@@ -774,18 +775,18 @@ const PriceManagement: React.FC = () => {
 
   // ── Helper: label for service kind ────────────────────────
   const serviceKindLabel: Record<string, string> = {
-    daypass: 'Day Pass',
-    pasatarde: 'Pasa Tarde',
-    event: 'Event',
-    roomAddon: 'Room Add-on',
-    generic: 'Generic',
+    daypass: t('admin.pricing.services.kinds.daypass'),
+    pasatarde: t('admin.pricing.services.kinds.pasatarde'),
+    event: t('admin.pricing.services.kinds.event'),
+    roomAddon: t('admin.pricing.services.kinds.roomAddon'),
+    generic: t('admin.pricing.services.kinds.generic'),
   };
 
   const chargeBasisLabel: Record<string, string> = {
-    perPerson: 'Per Person',
-    perRoom: 'Per Room',
-    perStay: 'Per Stay',
-    perEvent: 'Per Event',
+    perPerson: t('admin.pricing.services.bases.perPerson'),
+    perRoom: t('admin.pricing.services.bases.perRoom'),
+    perStay: t('admin.pricing.services.bases.perStay'),
+    perEvent: t('admin.pricing.services.bases.perEvent'),
   };
 
   // ─────────────────────────────────────────────────────────────
@@ -926,11 +927,11 @@ const PriceManagement: React.FC = () => {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Target</TableCell>
-                  <TableCell>Rate Plan</TableCell>
-                  <TableCell>Rule</TableCell>
-                  <TableCell>Period</TableCell>
+                  <TableCell>{t('admin.pricing.rules.table.name')}</TableCell>
+                  <TableCell>{t('admin.pricing.ruleWizard.target')}</TableCell>
+                  <TableCell>{t('admin.pricing.ruleWizard.ratePlan')}</TableCell>
+                  <TableCell>{t('admin.pricing.ruleWizard.rule')}</TableCell>
+                  <TableCell>{t('admin.pricing.ruleWizard.period')}</TableCell>
                   <TableCell>{t('admin.pricing.rules.table.active')}</TableCell>
                   <TableCell>{t('admin.pricing.rules.table.actions')}</TableCell>
                 </TableRow>
@@ -947,7 +948,7 @@ const PriceManagement: React.FC = () => {
                       <TableCell>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                           <Chip size="small"
-                            label={rule.ruleTarget}
+                            label={t(`admin.pricing.ruleWizard.targets.${rule.ruleTarget}`, rule.ruleTarget)}
                             color={rule.ruleTarget === 'guest' ? 'success' : rule.ruleTarget === 'company' ? 'primary' : 'default'}
                           />
                           {rule.ruleTarget === 'company' && companyName && (
@@ -963,25 +964,25 @@ const PriceManagement: React.FC = () => {
                       </TableCell>
                       <TableCell>
                         {rule.ruleModel === 'custom' ? (
-                          <Chip size="small" label="Custom" />
+                          <Chip size="small" label={t('admin.pricing.ruleWizard.custom')} />
                         ) : (
                           <Box>
                             <Typography variant="body2">
                               {rule.direction === 'surcharge' ? '+' : '−'}
                               {rule.ruleModel === 'percentage' ? `${rule.value}%` : `${cur}${rule.value}`}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">on {rule.scope}</Typography>
+                            <Typography variant="caption" color="text.secondary">{t('admin.pricing.ruleWizard.onScope', { scope: t(`admin.pricing.ruleWizard.scopeNames.${rule.scope || 'both'}`) })}</Typography>
                           </Box>
                         )}
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                          <Chip size="small" label={(rule.periodPattern || 'all_days').replace('_', ' ')} variant="outlined" />
+                          <Chip size="small" label={t(`admin.pricing.ruleWizard.patterns.${rule.periodPattern || 'all_days'}`)} variant="outlined" />
                           {rule.dateStart && (
                             <Typography variant="caption">{rule.dateStart.substring(0, 10)} → {rule.dateEnd?.substring(0, 10)}</Typography>
                           )}
                           {rule.minimumNights && (
-                            <Typography variant="caption">{rule.minimumNights}+ nights</Typography>
+                            <Typography variant="caption">{t('admin.pricing.ruleWizard.plusNights', { count: Number(rule.minimumNights) })}</Typography>
                           )}
                         </Box>
                       </TableCell>
@@ -1017,7 +1018,7 @@ const PriceManagement: React.FC = () => {
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Rate Plan</TableCell>
+                    <TableCell>{t('admin.pricing.ruleWizard.ratePlan')}</TableCell>
                     <TableCell>{t('admin.pricing.calendar.adjustments.dates')}</TableCell>
                     <TableCell>{t('admin.pricing.calendar.adjustments.price')}</TableCell>
                     <TableCell>{t('admin.pricing.calendar.adjustments.savedAt')}</TableCell>
@@ -1037,7 +1038,7 @@ const PriceManagement: React.FC = () => {
                         <TableCell>{plan}</TableCell>
                         <TableCell>{rule.dateStart?.substring(0, 10)} → {rule.dateEnd?.substring(0, 10)}{days}</TableCell>
                         <TableCell>${rule.customBasePrice}</TableCell>
-                        <TableCell>{rule.updatedAt ? new Date(rule.updatedAt).toLocaleString() : ''}</TableCell>
+                        <TableCell>{rule.updatedAt ? new Date(rule.updatedAt).toLocaleString(i18n.language) : ''}</TableCell>
                         <TableCell align="right">
                           <IconButton size="small" color="error" onClick={() => deleteRule(rule._id!)}><DeleteIcon fontSize="small" /></IconButton>
                         </TableCell>
@@ -1078,7 +1079,7 @@ const PriceManagement: React.FC = () => {
                 {taxes.map(tax => (
                   <TableRow key={tax._id}>
                     <TableCell>{tax.name}</TableCell>
-                    <TableCell><Chip size="small" label={tax.type} /></TableCell>
+                    <TableCell><Chip size="small" label={t(`admin.pricing.taxes.typeLabels.${tax.type}`, tax.type)} /></TableCell>
                     <TableCell>{tax.type === 'percentage' ? `${tax.value}%` : `${cur}${tax.value}`}</TableCell>
                     <TableCell>{taxAppliesToLabel[tax.appliesTo]}</TableCell>
                     <TableCell>
@@ -1180,8 +1181,8 @@ const PriceManagement: React.FC = () => {
                   return (
                     <TableRow key={sp._id} hover>
                       <TableCell>{svcName}</TableCell>
-                      <TableCell><Chip size="small" label={sp.category} /></TableCell>
-                      <TableCell>{sp.validity}</TableCell>
+                      <TableCell><Chip size="small" label={t(`admin.pricing.servicePrices.categories.${sp.category}`, sp.category)} /></TableCell>
+                      <TableCell>{t(`admin.pricing.servicePrices.validities.${sp.validity}`, sp.validity)}</TableCell>
                       <TableCell>{dateRange}</TableCell>
                       <TableCell>{sp.adultPrice}</TableCell>
                       <TableCell>{sp.childrenPrice}</TableCell>
@@ -1338,8 +1339,8 @@ const PriceManagement: React.FC = () => {
           <DialogContent>
             <Box sx={{ pt: 1 }}>
               <Stepper activeStep={ruleWizardStep} sx={{ mb: 3 }}>
-                {['Target', 'Rule Model', 'Period', 'Preview'].map(label => (
-                  <Step key={label}><StepLabel>{label}</StepLabel></Step>
+                {['target', 'model', 'period', 'preview'].map(step => (
+                  <Step key={step}><StepLabel>{t(`admin.pricing.ruleWizard.steps.${step}`)}</StepLabel></Step>
                 ))}
               </Stepper>
 
@@ -1347,21 +1348,21 @@ const PriceManagement: React.FC = () => {
               {ruleWizardStep === 0 && (
                 <Box sx={{ display: 'grid', gap: 2 }}>
                   <TextField
-                    label="Rule Name"
+                    label={t('admin.pricing.ruleWizard.name')}
                     value={ruleForm.name}
                     onChange={e => setRuleForm(p => ({ ...p, name: e.target.value }))}
                     required fullWidth
                   />
                   <FormControl fullWidth>
-                    <InputLabel>Who is this rule for?</InputLabel>
+                    <InputLabel>{t('admin.pricing.ruleWizard.whoFor')}</InputLabel>
                     <Select
                       value={ruleForm.ruleTarget}
-                      label="Who is this rule for?"
+                      label={t('admin.pricing.ruleWizard.whoFor')}
                       onChange={e => setRuleForm(p => ({ ...p, ruleTarget: e.target.value as RuleTarget, companyId: '', guestEmail: '' }))}
                     >
-                      <MenuItem value="company">Company</MenuItem>
-                      <MenuItem value="guest">Guest</MenuItem>
-                      <MenuItem value="promotional">Promotional</MenuItem>
+                      <MenuItem value="company">{t('admin.pricing.ruleWizard.targets.company')}</MenuItem>
+                      <MenuItem value="guest">{t('admin.pricing.ruleWizard.targets.guest')}</MenuItem>
+                      <MenuItem value="promotional">{t('admin.pricing.ruleWizard.targets.promotional')}</MenuItem>
                     </Select>
                   </FormControl>
 
@@ -1376,7 +1377,7 @@ const PriceManagement: React.FC = () => {
                       }}
                       onInputChange={(_, v) => setRuleCompanySearch(v)}
                       renderInput={params => (
-                        <TextField {...params} label="Company" required helperText="Type to search companies" />
+                        <TextField {...params} label={t('admin.pricing.ruleWizard.targets.company')} required helperText={t('admin.pricing.ruleWizard.companyHelp')} />
                       )}
                     />
                   )}
@@ -1400,18 +1401,18 @@ const PriceManagement: React.FC = () => {
                         </li>
                       )}
                       renderInput={params => (
-                        <TextField {...params} label="Guest" required helperText="Search by name" />
+                        <TextField {...params} label={t('admin.pricing.ruleWizard.targets.guest')} required helperText={t('admin.pricing.ruleWizard.guestHelp')} />
                       )}
                     />
                   )}
 
                   {ruleForm.ruleTarget === 'guest' && ruleForm.guestEmail && (
                     <TextField
-                      label="Guest Email"
+                      label={t('admin.pricing.ruleWizard.guestEmail')}
                       value={ruleForm.guestEmail}
                       onChange={e => setRuleForm(p => ({ ...p, guestEmail: e.target.value }))}
                       size="small"
-                      helperText="You can also type an email directly"
+                      helperText={t('admin.pricing.ruleWizard.guestEmailHelp')}
                     />
                   )}
 
@@ -1424,7 +1425,7 @@ const PriceManagement: React.FC = () => {
                       setRuleForm(p => ({ ...p, ratePlanId: val?._id || '' }));
                     }}
                     renderInput={params => (
-                      <TextField {...params} label="Base Rate Plan" required helperText="The rate plan this rule will modify" />
+                      <TextField {...params} label={t('admin.pricing.ruleWizard.baseRatePlan')} required helperText={t('admin.pricing.ruleWizard.baseRatePlanHelp')} />
                     )}
                   />
                 </Box>
@@ -1434,56 +1435,56 @@ const PriceManagement: React.FC = () => {
               {ruleWizardStep === 1 && (
                 <Box sx={{ display: 'grid', gap: 2 }}>
                   <FormControl fullWidth>
-                    <InputLabel>Rule Model</InputLabel>
+                    <InputLabel>{t('admin.pricing.ruleWizard.ruleModel')}</InputLabel>
                     <Select
                       value={ruleForm.ruleModel}
-                      label="Rule Model"
+                      label={t('admin.pricing.ruleWizard.ruleModel')}
                       onChange={e => setRuleForm(p => ({ ...p, ruleModel: e.target.value as RuleModel }))}
                     >
-                      <MenuItem value="percentage">Percentage</MenuItem>
-                      <MenuItem value="fixed">Fixed Amount</MenuItem>
-                      <MenuItem value="custom">Custom</MenuItem>
+                      <MenuItem value="percentage">{t('admin.pricing.ruleWizard.models.percentage')}</MenuItem>
+                      <MenuItem value="fixed">{t('admin.pricing.ruleWizard.models.fixed')}</MenuItem>
+                      <MenuItem value="custom">{t('admin.pricing.ruleWizard.models.custom')}</MenuItem>
                     </Select>
                   </FormControl>
 
                   {ruleForm.ruleModel === 'custom' && (
-                    <Alert severity="info">Custom rules replace the rate plan entirely with specific prices you define below.</Alert>
+                    <Alert severity="info">{t('admin.pricing.ruleWizard.customInfo')}</Alert>
                   )}
 
                   {(ruleForm.ruleModel === 'percentage' || ruleForm.ruleModel === 'fixed') && (
                     <>
                       {ruleForm.ruleTarget === 'promotional' ? (
                         <FormControl fullWidth>
-                          <InputLabel>Direction</InputLabel>
+                          <InputLabel>{t('admin.pricing.ruleWizard.direction')}</InputLabel>
                           <Select
                             value={ruleForm.direction}
-                            label="Direction"
+                            label={t('admin.pricing.ruleWizard.direction')}
                             onChange={e => setRuleForm(p => ({ ...p, direction: e.target.value as RuleDirection }))}
                           >
-                            <MenuItem value="discount">Discount (reduces price)</MenuItem>
-                            <MenuItem value="surcharge">Surcharge (increases price)</MenuItem>
+                            <MenuItem value="discount">{t('admin.pricing.ruleWizard.directions.discount')}</MenuItem>
+                            <MenuItem value="surcharge">{t('admin.pricing.ruleWizard.directions.surcharge')}</MenuItem>
                           </Select>
                         </FormControl>
                       ) : (
-                        <Alert severity="info">Company and Guest rules always apply as discounts.</Alert>
+                        <Alert severity="info">{t('admin.pricing.ruleWizard.discountsOnly')}</Alert>
                       )}
                       <NumberField
-                        label={ruleForm.ruleModel === 'percentage' ? 'Amount (%)' : 'Amount ($)'}
+                        label={ruleForm.ruleModel === 'percentage' ? t('admin.pricing.ruleWizard.amountPercent') : t('admin.pricing.ruleWizard.amountFixed')}
                         value={ruleForm.value}
                         onChange={val => setRuleForm(p => ({ ...p, value: val ?? 0 }))}
                         min={0}
                         allowDecimal
                       />
                       <FormControl fullWidth>
-                        <InputLabel>Applies to</InputLabel>
+                        <InputLabel>{t('admin.pricing.ruleWizard.appliesTo')}</InputLabel>
                         <Select
                           value={ruleForm.scope}
-                          label="Applies to"
+                          label={t('admin.pricing.ruleWizard.appliesTo')}
                           onChange={e => setRuleForm(p => ({ ...p, scope: e.target.value as RuleScope }))}
                         >
-                          <MenuItem value="base">Base Price only</MenuItem>
-                          <MenuItem value="occupancy">Occupancy charges only</MenuItem>
-                          <MenuItem value="both">Both (base + occupancy)</MenuItem>
+                          <MenuItem value="base">{t('admin.pricing.ruleWizard.scopes.base')}</MenuItem>
+                          <MenuItem value="occupancy">{t('admin.pricing.ruleWizard.scopes.occupancy')}</MenuItem>
+                          <MenuItem value="both">{t('admin.pricing.ruleWizard.scopes.both')}</MenuItem>
                         </Select>
                       </FormControl>
                     </>
@@ -1492,7 +1493,7 @@ const PriceManagement: React.FC = () => {
                   {ruleForm.ruleModel === 'custom' && (
                     <>
                       <NumberField
-                        label="Base Price per night ($)"
+                        label={t('admin.pricing.ruleWizard.customBasePrice')}
                         value={ruleForm.customBasePrice}
                         onChange={val => setRuleForm(p => ({ ...p, customBasePrice: val ?? 0 }))}
                         min={0}
@@ -1500,19 +1501,19 @@ const PriceManagement: React.FC = () => {
                       />
                       <Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                          <Typography variant="subtitle2">Occupancy Tier Prices</Typography>
-                          <Button size="small" startIcon={<AddIcon />} onClick={addRuleTier}>Add Tier</Button>
+                          <Typography variant="subtitle2">{t('admin.pricing.ruleWizard.tiersTitle')}</Typography>
+                          <Button size="small" startIcon={<AddIcon />} onClick={addRuleTier}>{t('admin.pricing.ruleWizard.addTier')}</Button>
                         </Box>
                         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                          Set price to 0 to include that guest in the base price.
+                          {t('admin.pricing.ruleWizard.tiersHint')}
                         </Typography>
                         <TableContainer component={Paper} variant="outlined">
                           <Table size="small">
                             <TableHead>
                               <TableRow>
-                                <TableCell>Type</TableCell>
+                                <TableCell>{t('admin.pricing.ruleWizard.tierType')}</TableCell>
                                 <TableCell>#</TableCell>
-                                <TableCell>Price</TableCell>
+                                <TableCell>{t('admin.pricing.ruleWizard.tierPrice')}</TableCell>
                                 <TableCell />
                               </TableRow>
                             </TableHead>
@@ -1522,8 +1523,8 @@ const PriceManagement: React.FC = () => {
                                   <TableCell>
                                     <FormControl size="small" fullWidth>
                                       <Select value={tier.guestType} onChange={e => updateRuleTier(idx, 'guestType', e.target.value)}>
-                                        <MenuItem value="adult">Adult</MenuItem>
-                                        <MenuItem value="child">Child</MenuItem>
+                                        <MenuItem value="adult">{t('admin.pricing.ruleWizard.adult')}</MenuItem>
+                                        <MenuItem value="child">{t('admin.pricing.ruleWizard.child')}</MenuItem>
                                       </Select>
                                     </FormControl>
                                   </TableCell>
@@ -1532,15 +1533,15 @@ const PriceManagement: React.FC = () => {
                                   </TableCell>
                                   <TableCell>
                                     <NumberField size="small" allowDecimal value={tier.price} onChange={v => updateRuleTier(idx, 'price', v ?? 0)} min={0}
-                                      helperText={tier.price === 0 ? 'Included' : undefined} sx={{ width: 100 }} />
+                                      helperText={tier.price === 0 ? t('admin.pricing.ruleWizard.included') : undefined} sx={{ width: 100 }} />
                                   </TableCell>
                                   <TableCell>
-                                    <Tooltip title="Remove"><IconButton size="small" onClick={() => removeRuleTier(idx)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                                    <Tooltip title={t('admin.pricing.ruleWizard.remove')}><IconButton size="small" onClick={() => removeRuleTier(idx)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
                                   </TableCell>
                                 </TableRow>
                               ))}
                               {ruleForm.customOccupancyTiers.length === 0 && (
-                                <TableRow><TableCell colSpan={4} align="center"><Typography variant="caption" color="text.secondary">No tiers added</Typography></TableCell></TableRow>
+                                <TableRow><TableCell colSpan={4} align="center"><Typography variant="caption" color="text.secondary">{t('admin.pricing.ruleWizard.noTiers')}</Typography></TableCell></TableRow>
                               )}
                             </TableBody>
                           </Table>
@@ -1555,27 +1556,27 @@ const PriceManagement: React.FC = () => {
               {ruleWizardStep === 2 && (
                 <Box sx={{ display: 'grid', gap: 2 }}>
                   <FormControl fullWidth>
-                    <InputLabel>Period Pattern</InputLabel>
+                    <InputLabel>{t('admin.pricing.ruleWizard.periodPattern')}</InputLabel>
                     <Select
                       value={ruleForm.periodPattern}
-                      label="Period Pattern"
+                      label={t('admin.pricing.ruleWizard.periodPattern')}
                       onChange={e => setRuleForm(p => ({ ...p, periodPattern: e.target.value as PeriodPattern, specificDays: [] }))}
                     >
-                      <MenuItem value="all_days">All Days</MenuItem>
-                      <MenuItem value="weekdays">Weekdays Only (Mon–Fri)</MenuItem>
-                      <MenuItem value="weekends">Weekends Only (Sat–Sun)</MenuItem>
-                      <MenuItem value="specific_days">Specific Days</MenuItem>
+                      <MenuItem value="all_days">{t('admin.pricing.ruleWizard.patterns.all_days')}</MenuItem>
+                      <MenuItem value="weekdays">{t('admin.pricing.ruleWizard.patterns.weekdays')}</MenuItem>
+                      <MenuItem value="weekends">{t('admin.pricing.ruleWizard.patterns.weekends')}</MenuItem>
+                      <MenuItem value="specific_days">{t('admin.pricing.ruleWizard.patterns.specific_days')}</MenuItem>
                     </Select>
                   </FormControl>
 
                   {ruleForm.periodPattern === 'specific_days' && (
                     <Box>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>Select which days apply:</Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>{t('admin.pricing.ruleWizard.selectDays')}</Typography>
                       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day, i) => (
+                        {['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa'].map((day, i) => (
                           <Chip
                             key={i}
-                            label={day}
+                            label={t(`admin.pricing.calendar.weekdays.${day}`)}
                             clickable
                             color={ruleForm.specificDays.includes(i) ? 'primary' : 'default'}
                             onClick={() => toggleRuleDay(i)}
@@ -1588,15 +1589,15 @@ const PriceManagement: React.FC = () => {
                   <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
                     <TextField
                       type="date"
-                      label="Validity Start"
+                      label={t('admin.pricing.ruleWizard.validityStart')}
                       value={ruleForm.dateStart}
                       onChange={e => setRuleForm(p => ({ ...p, dateStart: e.target.value }))}
                       InputLabelProps={{ shrink: true }}
-                      helperText="Leave blank for open-ended"
+                      helperText={t('admin.pricing.ruleWizard.openEnded')}
                     />
                     <TextField
                       type="date"
-                      label="Validity End"
+                      label={t('admin.pricing.ruleWizard.validityEnd')}
                       value={ruleForm.dateEnd}
                       onChange={e => setRuleForm(p => ({ ...p, dateEnd: e.target.value }))}
                       InputLabelProps={{ shrink: true }}
@@ -1604,31 +1605,31 @@ const PriceManagement: React.FC = () => {
                   </Box>
 
                   <TextField
-                    label="Minimum Nights"
+                    label={t('admin.pricing.ruleWizard.minNights')}
                     type="number"
                     value={ruleForm.minimumNights}
                     onChange={e => setRuleForm(p => ({ ...p, minimumNights: e.target.value }))}
                     inputProps={{ min: 1, step: 1 }}
-                    helperText="Leave blank for no minimum"
+                    helperText={t('admin.pricing.ruleWizard.minNightsHelp')}
                   />
 
                   <Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="subtitle2">Blackout Dates</Typography>
-                      <Button size="small" startIcon={<AddIcon />} onClick={addRuleBlackout}>Add Period</Button>
+                      <Typography variant="subtitle2">{t('admin.pricing.ruleWizard.blackoutTitle')}</Typography>
+                      <Button size="small" startIcon={<AddIcon />} onClick={addRuleBlackout}>{t('admin.pricing.ruleWizard.addPeriod')}</Button>
                     </Box>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                      Rule never applies during blackout periods, even if they overlap with the validity window.
+                      {t('admin.pricing.ruleWizard.blackoutHint')}
                     </Typography>
                     {ruleForm.blackoutDates.map((bo, i) => (
                       <Box key={i} sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 1, mb: 1, alignItems: 'center' }}>
                         <TextField
-                          type="date" label="From" value={bo.start}
+                          type="date" label={t('admin.pricing.ruleWizard.from')} value={bo.start}
                           onChange={e => updateRuleBlackout(i, 'start', e.target.value)}
                           InputLabelProps={{ shrink: true }} size="small"
                         />
                         <TextField
-                          type="date" label="To" value={bo.end}
+                          type="date" label={t('admin.pricing.ruleWizard.to')} value={bo.end}
                           onChange={e => updateRuleBlackout(i, 'end', e.target.value)}
                           InputLabelProps={{ shrink: true }} size="small"
                         />
@@ -1636,7 +1637,7 @@ const PriceManagement: React.FC = () => {
                       </Box>
                     ))}
                     {ruleForm.blackoutDates.length === 0 && (
-                      <Typography variant="caption" color="text.secondary">No blackout periods configured</Typography>
+                      <Typography variant="caption" color="text.secondary">{t('admin.pricing.ruleWizard.noBlackouts')}</Typography>
                     )}
                   </Box>
                 </Box>
@@ -1648,10 +1649,10 @@ const PriceManagement: React.FC = () => {
                   <Typography variant="h6">{ruleForm.name || '—'}</Typography>
 
                   <Paper variant="outlined" sx={{ p: 2, display: 'grid', gap: 1 }}>
-                    <Typography variant="subtitle2" color="text.secondary">Target</Typography>
+                    <Typography variant="subtitle2" color="text.secondary">{t('admin.pricing.ruleWizard.target')}</Typography>
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
                       <Chip
-                        label={ruleForm.ruleTarget}
+                        label={t(`admin.pricing.ruleWizard.targets.${ruleForm.ruleTarget}`, ruleForm.ruleTarget)}
                         color={ruleForm.ruleTarget === 'guest' ? 'success' : ruleForm.ruleTarget === 'company' ? 'primary' : 'default'}
                       />
                       {ruleForm.ruleTarget === 'company' && selectedRuleCompany && (
@@ -1663,54 +1664,55 @@ const PriceManagement: React.FC = () => {
                     </Box>
                     {(ruleForm.ruleTarget === 'company' || ruleForm.ruleTarget === 'guest') && (
                       <Typography variant="caption" color="text.secondary">
-                        Applies only when reservation is created by front desk staff.
+                        {t('admin.pricing.ruleWizard.frontDeskOnly')}
                       </Typography>
                     )}
                   </Paper>
 
                   <Paper variant="outlined" sx={{ p: 2, display: 'grid', gap: 1 }}>
-                    <Typography variant="subtitle2" color="text.secondary">Base Rate Plan</Typography>
+                    <Typography variant="subtitle2" color="text.secondary">{t('admin.pricing.ruleWizard.baseRatePlan')}</Typography>
                     <Typography>{selectedRuleRatePlan?.name || ruleForm.ratePlanId || '—'}</Typography>
                   </Paper>
 
                   <Paper variant="outlined" sx={{ p: 2, display: 'grid', gap: 1 }}>
-                    <Typography variant="subtitle2" color="text.secondary">Pricing Rule</Typography>
+                    <Typography variant="subtitle2" color="text.secondary">{t('admin.pricing.ruleWizard.rule')}</Typography>
                     {ruleForm.ruleModel === 'custom' ? (
                       <Box>
-                        <Chip label="Custom" size="small" />
+                        <Chip label={t('admin.pricing.ruleWizard.custom')} size="small" />
                         <Typography variant="body2" sx={{ mt: 0.5 }}>
-                          Replaces rate plan entirely. Base: ${ruleForm.customBasePrice}/night + {ruleForm.customOccupancyTiers.length} occupancy tiers.
+                          {t('admin.pricing.ruleWizard.customSummary', { price: `${cur}${ruleForm.customBasePrice}`, count: ruleForm.customOccupancyTiers.length })}
                         </Typography>
                       </Box>
                     ) : (
                       <Typography variant="body2">
-                        {ruleForm.ruleTarget !== 'promotional' ? 'Discount' : ruleForm.direction === 'discount' ? 'Discount' : 'Surcharge'} of{' '}
-                        {ruleForm.ruleModel === 'percentage' ? `${ruleForm.value}%` : `${cur}${ruleForm.value}`}
-                        {' '}on{' '}
-                        {ruleForm.scope === 'base' ? 'base price' : ruleForm.scope === 'occupancy' ? 'occupancy charges' : 'base + occupancy'}
+                        {t('admin.pricing.ruleWizard.summary', {
+                          kind: t(`admin.pricing.ruleWizard.kinds.${ruleForm.ruleTarget !== 'promotional' || ruleForm.direction === 'discount' ? 'discount' : 'surcharge'}`),
+                          amount: ruleForm.ruleModel === 'percentage' ? `${ruleForm.value}%` : `${cur}${ruleForm.value}`,
+                          scope: t(`admin.pricing.ruleWizard.scopeNames.${ruleForm.scope}`),
+                        })}
                       </Typography>
                     )}
                   </Paper>
 
                   <Paper variant="outlined" sx={{ p: 2, display: 'grid', gap: 1 }}>
-                    <Typography variant="subtitle2" color="text.secondary">Period</Typography>
+                    <Typography variant="subtitle2" color="text.secondary">{t('admin.pricing.ruleWizard.period')}</Typography>
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                      <Chip size="small" label={(ruleForm.periodPattern || 'all_days').replace(/_/g, ' ')} />
+                      <Chip size="small" label={t(`admin.pricing.ruleWizard.patterns.${ruleForm.periodPattern || 'all_days'}`)} />
                       {ruleForm.periodPattern === 'specific_days' && ruleForm.specificDays.length > 0 && (
                         <Typography variant="body2">
-                          {ruleForm.specificDays.map(d => ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d]).join(', ')}
+                          {ruleForm.specificDays.map(d => t(`admin.pricing.calendar.weekdays.${['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa'][d]}`)).join(', ')}
                         </Typography>
                       )}
                     </Box>
                     {ruleForm.dateStart && (
-                      <Typography variant="body2">Valid: {ruleForm.dateStart} → {ruleForm.dateEnd || 'open-ended'}</Typography>
+                      <Typography variant="body2">{t('admin.pricing.ruleWizard.validRange', { start: ruleForm.dateStart, end: ruleForm.dateEnd || t('admin.pricing.ruleWizard.openEndedShort') })}</Typography>
                     )}
                     {ruleForm.minimumNights && (
-                      <Typography variant="body2">Minimum stay: {ruleForm.minimumNights} nights</Typography>
+                      <Typography variant="body2">{t('admin.pricing.ruleWizard.minStay', { count: Number(ruleForm.minimumNights) })}</Typography>
                     )}
                     {ruleForm.blackoutDates.length > 0 && (
                       <Box>
-                        <Typography variant="caption" color="text.secondary">Blackout periods:</Typography>
+                        <Typography variant="caption" color="text.secondary">{t('admin.pricing.ruleWizard.blackoutPeriods')}</Typography>
                         {ruleForm.blackoutDates.map((b, i) => (
                           <Typography key={i} variant="caption" display="block">&nbsp;• {b.start} → {b.end}</Typography>
                         ))}
@@ -1730,10 +1732,10 @@ const PriceManagement: React.FC = () => {
             <Button onClick={() => { setRuleDialog(false); setError(null); }}>{t('admin.pricing.actions.cancel')}</Button>
             <Box sx={{ flex: 1 }} />
             {ruleWizardStep > 0 && (
-              <Button onClick={() => { setError(null); setRuleWizardStep(s => s - 1); }}>Back</Button>
+              <Button onClick={() => { setError(null); setRuleWizardStep(s => s - 1); }}>{t('admin.pricing.ruleWizard.back')}</Button>
             )}
             {ruleWizardStep < 3 ? (
-              <Button variant="contained" onClick={handleRuleWizardNext}>Next</Button>
+              <Button variant="contained" onClick={handleRuleWizardNext}>{t('admin.pricing.ruleWizard.next')}</Button>
             ) : (
               <Button variant="contained" onClick={saveRule}>{t('admin.pricing.actions.save')}</Button>
             )}
@@ -1908,7 +1910,7 @@ const PriceManagement: React.FC = () => {
                   onChange={e => setServicePriceForm(p => ({ ...p, category: e.target.value as ServicePriceCategory }))}
                 >
                   {(['standard', 'special', 'guest', 'company'] as ServicePriceCategory[]).map(c => (
-                    <MenuItem key={c} value={c}>{c}</MenuItem>
+                    <MenuItem key={c} value={c}>{t(`admin.pricing.servicePrices.categories.${c}`)}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -1920,7 +1922,7 @@ const PriceManagement: React.FC = () => {
                   onChange={e => setServicePriceForm(p => ({ ...p, validity: e.target.value as ServicePriceValidity }))}
                 >
                   {(['everyday', 'weekdays', 'weekend', 'custom'] as ServicePriceValidity[]).map(v => (
-                    <MenuItem key={v} value={v}>{v}</MenuItem>
+                    <MenuItem key={v} value={v}>{t(`admin.pricing.servicePrices.validities.${v}`)}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -2122,13 +2124,13 @@ const PriceManagement: React.FC = () => {
                         <TableCell>{run.businessDate}</TableCell>
                         <TableCell>
                           <Chip
-                            label={run.status}
+                            label={t(`admin.pricing.auditLog.statuses.${run.status}`, run.status)}
                             size="small"
                             color={run.status === 'completed' ? 'success' : run.status === 'failed' ? 'error' : run.status === 'running' ? 'warning' : 'default'}
                           />
                         </TableCell>
                         <TableCell>{run.triggeredBy}</TableCell>
-                        <TableCell>{run.dryRun ? <Chip label="dry" size="small" variant="outlined" /> : '—'}</TableCell>
+                        <TableCell>{run.dryRun ? <Chip label={t('admin.pricing.ruleWizard.dry')} size="small" variant="outlined" /> : '—'}</TableCell>
                         <TableCell>{run.summary?.chargesPosted ?? '—'}</TableCell>
                         <TableCell>{run.summary?.skipped ?? '—'}</TableCell>
                         <TableCell>{run.summary?.errors ?? '—'}</TableCell>
@@ -2165,9 +2167,9 @@ const PriceManagement: React.FC = () => {
                       <TableCell>{typeof ex.chargeRuleId === 'object' && ex.chargeRuleId ? (ex.chargeRuleId as any).name ?? ex.chargeRuleId : ex.chargeRuleId}</TableCell>
                       <TableCell>{ex.businessDate}</TableCell>
                       <TableCell>
-                        <Chip label={ex.status} size="small" color={ex.status === 'success' ? 'success' : ex.status === 'error' ? 'error' : 'default'} />
+                        <Chip label={t(`admin.pricing.auditLog.statuses.${ex.status}`, ex.status)} size="small" color={ex.status === 'success' ? 'success' : ex.status === 'error' ? 'error' : 'default'} />
                       </TableCell>
-                      <TableCell>{new Date(ex.executedAt).toLocaleString()}</TableCell>
+                      <TableCell>{new Date(ex.executedAt).toLocaleString(i18n.language)}</TableCell>
                       <TableCell>{ex.errorMessage || '—'}</TableCell>
                     </TableRow>
                   ))}

@@ -106,7 +106,7 @@ export const UsersContent: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Error loading users:', err);
-      setError(err.response?.data?.message || 'Failed to load users');
+      setError(err.response?.data?.message || t('admin.users.errors.loadFailed'));
     } finally {
       setLoading(false);
     }

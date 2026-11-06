@@ -36,6 +36,7 @@ import ReceivedInvoicesTab from '../../components/admin/ecf/ReceivedInvoicesTab'
 import OtherInvoiceModal from '../../components/admin/ecf/OtherInvoiceModal';
 import { ElectronicInvoice } from '../../types';
 import { ecfService } from '../../services/api';
+import i18n from '../../i18n';
 
 type SortField = 'issuedAt' | 'totalFactura' | 'totalImpuestos' | 'tipo' | 'estadoECF';
 type SortOrder = 'asc' | 'desc';
@@ -165,7 +166,7 @@ const EcfInvoicesPage: React.FC = () => {
     const rows = invoices.map((inv) => [
       inv.eNCF,
       inv.tipo,
-      new Date(inv.issuedAt).toLocaleDateString(),
+      new Date(inv.issuedAt).toLocaleDateString(i18n.language),
       inv.buyerName || inv.buyerRnc || '',
       inv.totalFactura,
       inv.totalImpuestos,
@@ -301,7 +302,7 @@ const EcfInvoicesPage: React.FC = () => {
                     {t('admin.ecfInvoices.summary.count')}
                   </Typography>
                   <Typography variant="h5" fontWeight={700}>
-                    {total.toLocaleString()}
+                    {total.toLocaleString(i18n.language)}
                   </Typography>
                 </CardContent>
               </Card>

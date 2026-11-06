@@ -406,7 +406,7 @@ const CreateReservationDialog: React.FC<Props> = ({
     } catch (error: any) {
       const detail = error.response?.data?.errors?.join(', ')
         || error.response?.data?.message
-        || 'Failed to create reservation';
+        || t('admin.reservations.messages.createFailed');
       onSnackbar(detail, 'error');
     } finally {
       setCreateLoading(false);
@@ -756,7 +756,7 @@ const CreateReservationDialog: React.FC<Props> = ({
 
             {createForm.type !== 'room' && serviceOptions.length > 1 && (
               <Box>
-                <Typography variant="subtitle2" gutterBottom>{t('admin.reservations.create.selectService', 'Service')}</Typography>
+                <Typography variant="subtitle2" gutterBottom>{t('admin.reservations.create.serviceTitle', 'Service')}</Typography>
                 <FormControl fullWidth size="small">
                   <InputLabel>{t('admin.reservations.create.selectService', 'Select service')}</InputLabel>
                   <Select

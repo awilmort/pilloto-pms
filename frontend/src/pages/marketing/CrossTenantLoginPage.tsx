@@ -5,6 +5,7 @@ import {
 } from '@mui/material';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import axios from 'axios';
+import { useTranslation } from 'react-i18next';
 import PillotoLogo from '../../components/brand/PillotoLogo';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
@@ -14,6 +15,7 @@ function getOrigin(): string {
 }
 
 const CrossTenantLoginPage: React.FC = () => {
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -45,7 +47,7 @@ const CrossTenantLoginPage: React.FC = () => {
       window.location.href = redirectUrl;
     } catch (err: any) {
       const msg = err?.response?.data?.message;
-      setError(msg || 'No workspace found for this email address.');
+      setError(msg || t('pages.crossTenantLogin.noWorkspace'));
     } finally {
       setLoading(false);
     }
@@ -66,7 +68,7 @@ const CrossTenantLoginPage: React.FC = () => {
         <Stack alignItems="center" mb={5}>
           <PillotoLogo height={38} />
           <Typography variant="body2" color="text.secondary" mt={1.5}>
-            Sign in to your workspace
+            {t('pages.crossTenantLogin.subtitle')}
           </Typography>
         </Stack>
 
@@ -76,10 +78,10 @@ const CrossTenantLoginPage: React.FC = () => {
           boxShadow: '0 4px 24px rgba(15,23,42,0.06)',
         }}>
           <Typography variant="h6" fontWeight={700} mb={0.5}>
-            Find your workspace
+            {t('pages.crossTenantLogin.title')}
           </Typography>
           <Typography variant="body2" color="text.secondary" mb={3}>
-            Enter your email and we'll take you to the right place.
+            {t('pages.crossTenantLogin.hint')}
           </Typography>
 
           {error && (
@@ -88,7 +90,7 @@ const CrossTenantLoginPage: React.FC = () => {
 
           <Box component="form" onSubmit={handleSubmit}>
             <TextField
-              label="Email"
+              label={t('pages.crossTenantLogin.email')}
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
@@ -105,15 +107,15 @@ const CrossTenantLoginPage: React.FC = () => {
               disabled={loading || !email.trim()}
               endIcon={loading ? <CircularProgress size={18} color="inherit" /> : <ArrowForwardIcon />}
             >
-              Continue
+              {t('pages.crossTenantLogin.continue')}
             </Button>
           </Box>
         </Paper>
 
         <Typography variant="caption" color="text.secondary" textAlign="center" display="block" mt={4}>
-          Don't have an account?{' '}
+          {t('pages.crossTenantLogin.noAccount')}{' '}
           <Link href="https://pilloto.com/#pricing" underline="hover">
-            See plans
+            {t('pages.crossTenantLogin.seePlans')}
           </Link>
         </Typography>
       </Container>

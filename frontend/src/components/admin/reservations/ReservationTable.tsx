@@ -34,9 +34,10 @@ import { Reservation } from '../../../types';
 import { useTranslation } from 'react-i18next';
 import { formatMoney } from '../../../utils/currency';
 import ChannelBadge from './ChannelBadge';
+import i18n from '../../../i18n';
 
 // ─── Local helpers ────────────────────────────────────────────────────────────
-const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString();
+const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString(i18n.language);
 
 const getStatusColor = (status: string) => {
   switch (status) {

@@ -16,10 +16,11 @@ import {
   SupplierStatementReport, CustomerStatementReport,
 } from '../../../types';
 import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
+import i18n from '../../../i18n';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const yearStartStr = () => `${new Date().getFullYear()}-01-01`;
-const fmtDate = (d?: string) => (d ? new Date(d).toLocaleDateString() : '—');
+const fmtDate = (d?: string) => (d ? new Date(d).toLocaleDateString(i18n.language) : '—');
 
 const AGING_BUCKETS: AgingBucketKey[] = ['current', 'd1_30', 'd31_60', 'd61_90', 'd90_plus'];
 

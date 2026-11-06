@@ -19,12 +19,14 @@ import {
 } from '@mui/material';
 import { CheckCircle, Cancel, ErrorOutline } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { reservationsService } from '../../services/api';
 
 type PageState = 'loading' | 'success' | 'already_processed' | 'error';
 
 const CorporatePriceActionPage: React.FC = () => {
   const { id, action } = useParams<{ id: string; action: string }>();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [state, setState] = useState<PageState>('loading');
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -34,7 +36,7 @@ const CorporatePriceActionPage: React.FC = () => {
   useEffect(() => {
     if (!id || (action !== 'approve' && action !== 'decline')) {
       setState('error');
-      setErrorMessage('Acción no válida.');
+      setErrorMessage(t('admin.corporatePriceAction.invalidAction'));
       return;
     }
 
@@ -45,7 +47,7 @@ const CorporatePriceActionPage: React.FC = () => {
       })
       .catch((err: any) => {
         const message: string =
-          err?.response?.data?.message || 'Ocurrió un error al procesar la solicitud.';
+          err?.response?.data?.message || t('admin.corporatePriceAction.genericError');
         if (message.toLowerCase().includes('already') || err?.response?.status === 400) {
           setState('already_processed');
           setErrorMessage(message);
@@ -75,7 +77,7 @@ const CorporatePriceActionPage: React.FC = () => {
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
             <CircularProgress size={56} />
             <Typography variant="h6" color="text.secondary">
-              Procesando solicitud...
+              {t('admin.corporatePriceAction.processing')}
             </Typography>
           </Box>
         )}
@@ -84,15 +86,14 @@ const CorporatePriceActionPage: React.FC = () => {
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
             <CheckCircle sx={{ ...iconSize, color: 'success.main' }} />
             <Typography variant="h5" fontWeight={700}>
-              Precio corporativo aprobado
+              {t('admin.corporatePriceAction.approvedTitle')}
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 380 }}>
-              La reserva ha sido aprobada con precio corporativo. Puedes asignar la empresa
-              específica desde el panel de administración.
+              {t('admin.corporatePriceAction.approvedBody')}
             </Typography>
             <Divider sx={{ width: '100%', my: 1 }} />
             <Button variant="contained" onClick={() => navigate('/admin/reservations')}>
-              Ver reservas
+              {t('admin.corporatePriceAction.viewReservations')}
             </Button>
           </Box>
         )}
@@ -101,15 +102,14 @@ const CorporatePriceActionPage: React.FC = () => {
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
             <Cancel sx={{ ...iconSize, color: 'error.main' }} />
             <Typography variant="h5" fontWeight={700}>
-              Solicitud rechazada
+              {t('admin.corporatePriceAction.declinedTitle')}
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 380 }}>
-              La solicitud de precio corporativo ha sido rechazada. La reserva permanecerá con la
-              tarifa estándar. El huésped será notificado.
+              {t('admin.corporatePriceAction.declinedBody')}
             </Typography>
             <Divider sx={{ width: '100%', my: 1 }} />
             <Button variant="outlined" onClick={() => navigate('/admin/reservations')}>
-              Ver reservas
+              {t('admin.corporatePriceAction.viewReservations')}
             </Button>
           </Box>
         )}
@@ -118,14 +118,14 @@ const CorporatePriceActionPage: React.FC = () => {
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
             <CheckCircle sx={{ ...iconSize, color: 'info.main' }} />
             <Typography variant="h5" fontWeight={700}>
-              Solicitud ya procesada
+              {t('admin.corporatePriceAction.alreadyTitle')}
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ maxWidth: 380 }}>
-              Esta solicitud ya fue procesada anteriormente y no requiere ninguna acción adicional.
+              {t('admin.corporatePriceAction.alreadyBody')}
             </Typography>
             <Divider sx={{ width: '100%', my: 1 }} />
             <Button variant="outlined" onClick={() => navigate('/admin/reservations')}>
-              Ver reservas
+              {t('admin.corporatePriceAction.viewReservations')}
             </Button>
           </Box>
         )}
@@ -134,7 +134,7 @@ const CorporatePriceActionPage: React.FC = () => {
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
             <ErrorOutline sx={{ ...iconSize, color: 'warning.main' }} />
             <Typography variant="h5" fontWeight={700}>
-              No se pudo procesar la solicitud
+              {t('admin.corporatePriceAction.errorTitle')}
             </Typography>
             {errorMessage && (
               <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 380 }}>
@@ -143,7 +143,7 @@ const CorporatePriceActionPage: React.FC = () => {
             )}
             <Divider sx={{ width: '100%', my: 1 }} />
             <Button variant="outlined" onClick={() => navigate('/admin/reservations')}>
-              Ir al panel de reservas
+              {t('admin.corporatePriceAction.goToReservations')}
             </Button>
           </Box>
         )}

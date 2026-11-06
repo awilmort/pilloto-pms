@@ -202,14 +202,14 @@ const ChannexGlobalPanel: React.FC<{ onChanged?: () => void }> = ({ onChanged })
         <DialogTitle>Create signing key</DialogTitle>
         <DialogContent>
           <DialogContentText sx={{ mb: 2 }}>
-            Channex creates a key that signs every webhook. Its secret is shown once, here; Pilloto stores only the key id. Channex needs the id of the billing account that owns the key (ask Channex support if you cannot find it in their UI).
+            Channex creates a key that signs every webhook. Its secret is shown once, here; Pilloto stores only the key id. The key belongs to the billing account of this server's API key; fill in the field only to use another account.
           </DialogContentText>
-          <TextField fullWidth label="Channex billing account id (UUID)" value={billingAccountId} onChange={(e) => setBillingAccountId(e.target.value)}
+          <TextField fullWidth label="Billing account id (optional)" value={billingAccountId} onChange={(e) => setBillingAccountId(e.target.value)}
             error={Boolean(billingAccountId) && !UUID_RE.test(billingAccountId.trim())} helperText={billingAccountId && !UUID_RE.test(billingAccountId.trim()) ? 'Must be a UUID.' : ' '} />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setKeyDialog(false)}>Cancel</Button>
-          <Button variant="contained" disabled={!UUID_RE.test(billingAccountId.trim()) || busy === 'key'} onClick={createKey}>Create</Button>
+          <Button variant="contained" disabled={(Boolean(billingAccountId.trim()) && !UUID_RE.test(billingAccountId.trim())) || busy === 'key'} onClick={createKey}>Create</Button>
         </DialogActions>
       </Dialog>
 

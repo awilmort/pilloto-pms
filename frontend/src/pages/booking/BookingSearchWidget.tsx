@@ -16,9 +16,11 @@ import {
 import SearchIcon from '@mui/icons-material/Search';
 import PersonIcon from '@mui/icons-material/Person';
 import ChildCareIcon from '@mui/icons-material/ChildCare';
+import { useTranslation } from 'react-i18next';
 import { bookingService } from '../../services/api';
 
 const BookingSearchWidget: React.FC = () => {
+  const { t } = useTranslation();
   const [checkIn, setCheckIn] = useState('');
   const [checkOut, setCheckOut] = useState('');
   const [adults, setAdults] = useState<string>('2');
@@ -78,13 +80,13 @@ const BookingSearchWidget: React.FC = () => {
       <Box sx={{ p: 2, fontFamily: '"Roboto", sans-serif' }}>
         {config?.tenantName && (
           <Typography variant="subtitle2" fontWeight={600} gutterBottom sx={{ color: primaryColor }}>
-            Book at {config.tenantName}
+            {t('bookingEngine.widget.bookAt', { name: config.tenantName })}
           </Typography>
         )}
         <Stack spacing={1.5}>
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
             <TextField
-              label="Check-in"
+              label={t('bookingEngine.widget.checkIn')}
               type="date"
               value={checkIn}
               onChange={e => setCheckIn(e.target.value)}
@@ -94,7 +96,7 @@ const BookingSearchWidget: React.FC = () => {
               size="small"
             />
             <TextField
-              label="Check-out"
+              label={t('bookingEngine.widget.checkOut')}
               type="date"
               value={checkOut}
               onChange={e => setCheckOut(e.target.value)}
@@ -106,7 +108,7 @@ const BookingSearchWidget: React.FC = () => {
           </Stack>
           <Stack direction="row" spacing={1}>
             <TextField
-              label="Adults"
+              label={t('bookingEngine.widget.adults')}
               type="number"
               value={adults}
               onChange={e => setAdults(e.target.value)}
@@ -119,7 +121,7 @@ const BookingSearchWidget: React.FC = () => {
               size="small"
             />
             <TextField
-              label="Children"
+              label={t('bookingEngine.widget.children')}
               type="number"
               value={children}
               onChange={e => setChildren(e.target.value)}
@@ -145,11 +147,11 @@ const BookingSearchWidget: React.FC = () => {
               fontWeight: 600,
             }}
           >
-            Search Availability
+            {t('bookingEngine.widget.search')}
           </Button>
         </Stack>
         <Typography variant="caption" sx={{ display: 'block', mt: 1, textAlign: 'center', opacity: 0.5 }}>
-          Powered by Pilloto
+          {t('bookingEngine.widget.poweredBy')}
         </Typography>
       </Box>
     </ThemeProvider>

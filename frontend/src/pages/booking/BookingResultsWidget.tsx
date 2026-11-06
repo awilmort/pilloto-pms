@@ -15,6 +15,7 @@ import {
   ThemeProvider, createTheme, CssBaseline,
 } from '@mui/material';
 import BedIcon from '@mui/icons-material/Bed';
+import { useTranslation } from 'react-i18next';
 import { bookingService } from '../../services/api';
 import { resolveMediaUrl } from '../../services/api';
 
@@ -23,6 +24,7 @@ function formatCurrency(amount: number, currency: string = 'USD'): string {
 }
 
 const BookingResultsWidget: React.FC = () => {
+  const { t } = useTranslation();
   const [config, setConfig] = useState<any>(null);
   const [availability, setAvailability] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
@@ -49,7 +51,7 @@ const BookingResultsWidget: React.FC = () => {
         setAvailability(availRes.data?.data || []);
         setServices(svcRes.data?.data || []);
       } catch {
-        setError('Unable to load availability.');
+        setError(t('bookingEngine.widget.loadFailed'));
       } finally {
         setLoading(false);
       }
@@ -95,21 +97,21 @@ const BookingResultsWidget: React.FC = () => {
 
         {!checkIn || !checkOut ? (
           <Alert severity="info">
-            Please provide checkIn and checkOut dates as URL parameters.
+            {t('bookingEngine.widget.missingDates')}
           </Alert>
         ) : (
           <>
             {/* Date summary */}
             <Stack direction="row" spacing={1} sx={{ mb: 2 }} flexWrap="wrap" useFlexGap>
-              <Chip label={`Check-in: ${checkIn}`} size="small" variant="outlined" />
-              <Chip label={`Check-out: ${checkOut}`} size="small" variant="outlined" />
-              {nights > 0 && <Chip label={`${nights} night${nights > 1 ? 's' : ''}`} size="small" color="primary" />}
+              <Chip label={t('bookingEngine.widget.checkInDate', { date: checkIn })} size="small" variant="outlined" />
+              <Chip label={t('bookingEngine.widget.checkOutDate', { date: checkOut })} size="small" variant="outlined" />
+              {nights > 0 && <Chip label={t('bookingEngine.widget.nights', { count: nights })} size="small" color="primary" />}
             </Stack>
 
             {/* Rooms */}
             {availability.length > 0 && (
               <>
-                <Typography variant="subtitle1" fontWeight={600} gutterBottom>Available Rooms</Typography>
+                <Typography variant="subtitle1" fontWeight={600} gutterBottom>{t('bookingEngine.widget.availableRooms')}</Typography>
                 <Grid container spacing={2} sx={{ mb: 3 }}>
                   {availability.map((room: any) => (
                     <Grid item xs={12} sm={6} key={room.roomType._id}>
@@ -126,11 +128,11 @@ const BookingResultsWidget: React.FC = () => {
                         <CardContent sx={{ pb: 1 }}>
                           <Typography variant="subtitle1" fontWeight={600}>{room.roomType.name}</Typography>
                           <Typography variant="body2" color="text.secondary">
-                            Up to {room.roomType.capacity} guests
+                            {t('bookingEngine.widget.upToGuests', { count: room.roomType.capacity })}
                           </Typography>
                           <Stack direction="row" justifyContent="space-between" alignItems="flex-end" sx={{ mt: 1 }}>
                             <Typography variant="body2" color="text.secondary">
-                              {formatCurrency(room.pricing.perNight, currency)}/night
+                              {t('bookingEngine.widget.perNight', { price: formatCurrency(room.pricing.perNight, currency) })}
                             </Typography>
                             <Typography variant="h6" fontWeight={700} color={primaryColor}>
                               {formatCurrency(room.pricing.finalTotal, currency)}
@@ -152,7 +154,7 @@ const BookingResultsWidget: React.FC = () => {
                               fontWeight: 600,
                             }}
                           >
-                            Book Now
+                            {t('bookingEngine.widget.bookNow')}
                           </Button>
                         </CardActions>
                       </Card>
@@ -163,14 +165,14 @@ const BookingResultsWidget: React.FC = () => {
             )}
 
             {availability.length === 0 && (
-              <Alert severity="info" sx={{ mb: 2 }}>No rooms available for the selected dates.</Alert>
+              <Alert severity="info" sx={{ mb: 2 }}>{t('bookingEngine.widget.noRooms')}</Alert>
             )}
 
             {/* Services */}
             {services.length > 0 && (
               <>
                 <Divider sx={{ my: 2 }} />
-                <Typography variant="subtitle1" fontWeight={600} gutterBottom>Services</Typography>
+                <Typography variant="subtitle1" fontWeight={600} gutterBottom>{t('bookingEngine.widget.services')}</Typography>
                 <Grid container spacing={2}>
                   {services.map((svc: any) => (
                     <Grid item xs={12} sm={6} key={svc._id}>
@@ -178,9 +180,7 @@ const BookingResultsWidget: React.FC = () => {
                         <CardContent>
                           <Typography variant="subtitle1" fontWeight={600}>{svc.name}</Typography>
                           <Typography variant="caption" color="text.secondary">
-                            {svc.chargeBasis === 'perPerson' ? 'Per person' :
-                             svc.chargeBasis === 'perRoom' ? 'Per room' :
-                             svc.chargeBasis === 'perStay' ? 'Per stay' : 'Per event'}
+                            {t(`bookingEngine.widget.basis.${['perPerson', 'perRoom', 'perStay'].includes(svc.chargeBasis) ? svc.chargeBasis : 'perEvent'}`)}
                           </Typography>
                           {svc.prices?.[0]?.price != null && (
                             <Typography variant="h6" fontWeight={700} color={primaryColor} sx={{ mt: 1 }}>
@@ -198,7 +198,7 @@ const BookingResultsWidget: React.FC = () => {
                             rel="noopener"
                             sx={{ textTransform: 'none', fontWeight: 600 }}
                           >
-                            Book Now
+                            {t('bookingEngine.widget.bookNow')}
                           </Button>
                         </CardActions>
                       </Card>
@@ -211,7 +211,7 @@ const BookingResultsWidget: React.FC = () => {
         )}
 
         <Typography variant="caption" sx={{ display: 'block', mt: 2, textAlign: 'center', opacity: 0.5 }}>
-          Powered by Pilloto
+          {t('bookingEngine.widget.poweredBy')}
         </Typography>
       </Box>
     </ThemeProvider>

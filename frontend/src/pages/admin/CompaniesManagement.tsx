@@ -13,6 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { companiesService } from '../../services/api';
 import { Company, Reservation } from '../../types';
 import AdminLayout from '../../components/admin/AdminLayout';
+import i18n from '../../i18n';
 
 const emptyForm: Partial<Company> = {
   name: '',
@@ -185,8 +186,8 @@ const CompaniesManagement: React.FC = () => {
                   <TableRow key={r._id}>
                     <TableCell>{r.reservationCode || r._id.slice(-6)}</TableCell>
                     <TableCell>{r.type}</TableCell>
-                    <TableCell>{new Date(r.checkInDate).toLocaleDateString()}</TableCell>
-                    <TableCell><Chip size="small" label={r.status} /></TableCell>
+                    <TableCell>{new Date(r.checkInDate).toLocaleDateString(i18n.language)}</TableCell>
+                    <TableCell><Chip size="small" label={t(`admin.reservations.statusLabels.${r.status}`, r.status)} /></TableCell>
                     <TableCell align="right">${(r.estimatedTotal ?? r.totalPrice ?? 0).toFixed(2)}</TableCell>
                   </TableRow>
                 ))}

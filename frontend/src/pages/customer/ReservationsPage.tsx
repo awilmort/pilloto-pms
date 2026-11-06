@@ -32,6 +32,7 @@ import { reservationsService } from '../../services/api';
 import { Reservation } from '../../types';
 import { useTranslation } from 'react-i18next';
 import { formatMoney } from '../../utils/currency';
+import i18n from '../../i18n';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -301,11 +302,11 @@ const ReservationList: React.FC<ReservationListProps> = ({
                 <Grid item xs={12} md={8}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                     <Typography variant="h5" component="h3">
-                      {reservation.room && typeof reservation.room === 'object' ? reservation.room.name : 'Room'}
+                      {reservation.room && typeof reservation.room === 'object' ? reservation.room.name : t('pages.reservations.roomFallback')}
                     </Typography>
                     <Chip
                       icon={<Hotel />}
-                      label={reservation.room && typeof reservation.room === 'object' ? reservation.room.name : 'Room'}
+                      label={reservation.room && typeof reservation.room === 'object' ? reservation.room.name : t('pages.reservations.roomFallback')}
                       size="small"
                       variant="outlined"
                     />
@@ -323,10 +324,10 @@ const ReservationList: React.FC<ReservationListProps> = ({
                         <Event color="action" />
                         <Box>
                           <Typography variant="body2" color="text.secondary">
-                            Check-in
+                            {t('pages.reservations.checkIn')}
                           </Typography>
                           <Typography variant="body1">
-                            {new Date(reservation.checkInDate).toLocaleDateString('en-US', {
+                            {new Date(reservation.checkInDate).toLocaleDateString(i18n.language, {
                               year: 'numeric',
                               month: 'short',
                               day: '2-digit'
@@ -340,10 +341,10 @@ const ReservationList: React.FC<ReservationListProps> = ({
                         <Event color="action" />
                         <Box>
                           <Typography variant="body2" color="text.secondary">
-                            Check-out
+                            {t('pages.reservations.checkOut')}
                           </Typography>
                           <Typography variant="body1">
-                            {reservation.checkOutDate ? new Date(reservation.checkOutDate).toLocaleDateString('en-US', {
+                            {reservation.checkOutDate ? new Date(reservation.checkOutDate).toLocaleDateString(i18n.language, {
                               year: 'numeric',
                               month: 'short',
                               day: '2-digit'
@@ -364,7 +365,7 @@ const ReservationList: React.FC<ReservationListProps> = ({
                   {reservation.specialRequests && (
                     <Box sx={{ mt: 2 }}>
                       <Typography variant="body2" color="text.secondary" gutterBottom>
-                        Special Requests:
+                        {t('pages.reservations.specialRequests')}:
                       </Typography>
                       <Typography variant="body2">
                         {reservation.specialRequests}
@@ -379,7 +380,7 @@ const ReservationList: React.FC<ReservationListProps> = ({
                       <Payment color="action" />
                       <Box>
                         <Typography variant="body2" color="text.secondary">
-                          Total Amount
+                          {t('pages.reservations.totalAmount')}
                         </Typography>
                         <Typography variant="h6" color="primary">
                           {formatMoney(reservation.estimatedTotal ?? reservation.totalPrice ?? 0)}
@@ -395,7 +396,7 @@ const ReservationList: React.FC<ReservationListProps> = ({
                     />
 
                     <Typography variant="caption" color="text.secondary" display="block">
-                      Booked on {new Date(reservation.createdAt).toLocaleDateString('en-US', {
+                      Booked on {new Date(reservation.createdAt).toLocaleDateString(i18n.language, {
                         year: 'numeric',
                         month: 'short',
                         day: '2-digit'
@@ -410,7 +411,7 @@ const ReservationList: React.FC<ReservationListProps> = ({
                         onClick={() => onCancel(reservation)}
                         sx={{ mt: 2 }}
                       >
-                        Cancel Booking
+                        {t('pages.reservations.cancelBooking')}
                       </Button>
                     )}
                   </Box>

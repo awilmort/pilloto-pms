@@ -39,19 +39,6 @@ interface InvoiceDetailDrawerProps {
   formatCurrency: (val?: number) => string;
 }
 
-const TIPO_LABELS: Record<string, string> = {
-  E31: 'Factura de Crédito Fiscal',
-  E32: 'Factura de Consumo',
-  E33: 'Nota de Débito',
-  E34: 'Nota de Crédito',
-  E41: 'Comprobante de Compras',
-  E43: 'Gastos Menores',
-  E44: 'Regímenes Especiales',
-  E45: 'Gubernamental',
-  E46: 'Exportaciones',
-  E47: 'Pagos al Exterior',
-};
-
 const TIPO_COLORS: Record<string, 'primary' | 'secondary' | 'default' | 'warning' | 'error' | 'info' | 'success'> = {
   E31: 'primary',
   E32: 'info',
@@ -220,7 +207,7 @@ const InvoiceDetailDrawer: React.FC<InvoiceDetailDrawerProps> = ({
 
           {/* Invoice type description */}
           <Typography variant="body2" color="text.secondary" mb={2}>
-            {TIPO_LABELS[invoice.tipo] ?? invoice.tipo}
+            {t(`admin.ecf.tipoNames.${invoice.tipo}`, invoice.tipo)}
           </Typography>
 
           {/* Financial summary */}

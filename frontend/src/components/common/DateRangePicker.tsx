@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Typography,
@@ -32,11 +33,10 @@ function todayStr(): string {
   return toStr(new Date());
 }
 
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-const DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+const monthName = (month: number, locale: string) => capitalize(new Date(2000, month, 1).toLocaleString(locale, { month: 'long' }));
+// 2023-01-01 was a Sunday, so day i of that week is the i-th weekday starting from Sunday
+const dayLabels = (locale: string) => Array.from({ length: 7 }, (_, i) => capitalize(new Date(2023, 0, 1 + i).toLocaleString(locale, { weekday: 'short' })).slice(0, 2));
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 const DateRangePicker: React.FC<DateRangePickerProps> = ({
@@ -46,6 +46,7 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
   minDate,
 }) => {
   const theme = useTheme();
+  const { t, i18n } = useTranslation();
   const minDateStr = minDate ?? todayStr();
 
   // Which month the LEFT panel shows (0-indexed month)
@@ -118,12 +119,12 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
           variant="subtitle2"
           sx={{ textAlign: 'center', mb: 1, fontWeight: 700, letterSpacing: '0.03em' }}
         >
-          {MONTH_NAMES[month]} {year}
+          {monthName(month, i18n.language)} {year}
         </Typography>
 
         {/* Day name headers */}
         <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', mb: 0.5 }}>
-          {DAY_LABELS.map(dn => (
+          {dayLabels(i18n.language).map(dn => (
             <Typography
               key={dn}
               variant="caption"
@@ -265,9 +266,9 @@ const DateRangePicker: React.FC<DateRangePickerProps> = ({
         sx={{ display: 'block', textAlign: 'center', mt: 1.5, color: 'text.secondary' }}
       >
         {!startDate
-          ? 'Select check-in date'
+          ? t('bookingEngine.datePicker.selectCheckIn')
           : !endDate
-          ? 'Select check-out date'
+          ? t('bookingEngine.datePicker.selectCheckOut')
           : `${startDate} → ${endDate}`}
       </Typography>
     </Paper>

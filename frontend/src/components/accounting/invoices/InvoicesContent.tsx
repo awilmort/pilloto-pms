@@ -21,6 +21,7 @@ import { usePermission } from '../../../lib/permissions';
 import { invoicesService, accountingCustomersService, productsService, InvoiceLineItemInput } from '../../../services/api';
 import { Invoice, InvoiceStatus, InvoicePaymentMethod, Customer, Product, ElectronicInvoice } from '../../../types';
 import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
+import i18n from '../../../i18n';
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
@@ -420,7 +421,7 @@ const InvoicesContent: React.FC = () => {
                     </Typography>
                   </TableCell>
                   <TableCell>{customerLabel(inv)}</TableCell>
-                  <TableCell>{new Date(inv.issueDate).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(inv.issueDate).toLocaleDateString(i18n.language)}</TableCell>
                   <TableCell align="right">{formatMoney(inv.total)}</TableCell>
                   <TableCell align="right">{formatMoney(inv.balanceDue)}</TableCell>
                   <TableCell>
@@ -569,8 +570,8 @@ const InvoicesContent: React.FC = () => {
                 <Chip size="small" label={t(`accounting.invoices.status.${viewInvoice.status}`)} color={STATUS_COLOR[viewInvoice.status]} />
               </Box>
               <Typography variant="body2" color="text.secondary">
-                {t('accounting.invoices.table.issueDate')}: {new Date(viewInvoice.issueDate).toLocaleDateString()}
-                {viewInvoice.dueDate ? ` · ${t('accounting.invoices.form.dueDate')}: ${new Date(viewInvoice.dueDate).toLocaleDateString()}` : ''}
+                {t('accounting.invoices.table.issueDate')}: {new Date(viewInvoice.issueDate).toLocaleDateString(i18n.language)}
+                {viewInvoice.dueDate ? ` · ${t('accounting.invoices.form.dueDate')}: ${new Date(viewInvoice.dueDate).toLocaleDateString(i18n.language)}` : ''}
               </Typography>
 
               <TableContainer component={Paper} variant="outlined">
@@ -611,7 +612,7 @@ const InvoicesContent: React.FC = () => {
                   <Typography variant="subtitle2" sx={{ mb: 1 }}>{t('accounting.invoices.dialog.paymentsTitle')}</Typography>
                   {viewInvoice.payments.map((p, i) => (
                     <Box key={p._id || i} sx={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-                      <Typography variant="body2">{new Date(p.date).toLocaleDateString()} · {t(`accounting.invoices.paymentMethod.${p.method}`)}{p.reference ? ` (${p.reference})` : ''}</Typography>
+                      <Typography variant="body2">{new Date(p.date).toLocaleDateString(i18n.language)} · {t(`accounting.invoices.paymentMethod.${p.method}`)}{p.reference ? ` (${p.reference})` : ''}</Typography>
                       <Typography variant="body2">{formatMoney(p.amount)}</Typography>
                     </Box>
                   ))}

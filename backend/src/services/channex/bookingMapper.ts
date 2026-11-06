@@ -49,7 +49,7 @@ import { sendReservationConfirmationEmail } from '../../utils/email';
 import { ensureFolio, generateReservationCode, RESERVATION_EMAIL_RE } from '../reservationRecords';
 import { IChannexBookingRevision } from '../../models/ChannexBookingRevision';
 import { getChannexConfig } from './config';
-import { ChannexDate, diffDays, eachNight, fromChannexDate, isChannexDate, toChannexDate } from './dates';
+import { ChannexDate, diffDays, eachNight, fromChannexDate, isChannexDate, parseChannexTimestamp, toChannexDate } from './dates';
 import { explainNight, findFreeRooms, getInventory, loadInventoryWindow } from './inventory.service';
 import { ensureOtaCompany, otaDisplayName } from './otaSettlement';
 import type { ApplyResult } from './bookingInbox';
@@ -223,7 +223,7 @@ export function mapRevisionPayload(
   if (services.length) notes.push(`Extras: ${services.join(', ')}`);
 
   const commission = p?.ota_commission === null || p?.ota_commission === undefined ? undefined : money(p.ota_commission);
-  const insertedAt = revision.insertedAt ?? (p?.inserted_at ? new Date(p.inserted_at) : undefined);
+  const insertedAt = revision.insertedAt ?? parseChannexTimestamp(p?.inserted_at);
 
   return {
     status,
@@ -263,7 +263,7 @@ export function mapRevisionPayload(
       channexPropertyId: revision.propertyId ?? str(p?.property_id, 64),
       channelId: str(p?.channel_id, 64),
       lastRevisionId: revision.revisionId,
-      lastRevisionInsertedAt: insertedAt && !Number.isNaN(insertedAt.getTime()) ? insertedAt : undefined,
+      lastRevisionInsertedAt: insertedAt,
       paymentCollect: p?.payment_collect === 'ota' || p?.payment_collect === 'property' ? p.payment_collect : undefined,
       paymentType: str(p?.payment_type, 40),
       otaCommission: commission,

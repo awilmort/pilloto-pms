@@ -32,6 +32,7 @@ import { reservationsService, roomsService, adminService } from '../../services/
 import { Reservation, Room } from '../../types';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
+import i18n from '../../i18n';
 
 const Accommodations: React.FC = () => {
   const { t } = useTranslation();
@@ -249,8 +250,8 @@ const Accommodations: React.FC = () => {
                   : (typeof r.user === 'object' ? `${(r.user as any).firstName} ${(r.user as any).lastName}` : t('admin.dashboard.recentReservations.guestFallback'));
                 const totalGuests = (r.guestDetails?.adults || 0) + (r.guestDetails?.children || 0) + (r.guestDetails?.infants || 0);
                 const dateStr = r.type === 'room'
-                  ? `${new Date(r.checkInDate).toLocaleDateString()} - ${r.checkOutDate ? new Date(r.checkOutDate).toLocaleDateString() : ''}`
-                  : new Date(r.checkInDate).toLocaleDateString();
+                  ? `${new Date(r.checkInDate).toLocaleDateString(i18n.language)} - ${r.checkOutDate ? new Date(r.checkOutDate).toLocaleDateString(i18n.language) : ''}`
+                  : new Date(r.checkInDate).toLocaleDateString(i18n.language);
                 const roomName = (() => {
                   const rooms = (r as any).rooms as any[] | undefined;
                   if (Array.isArray(rooms) && rooms.length > 0) {

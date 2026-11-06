@@ -38,7 +38,18 @@
     "rowsPerPage": "Rows per page",
     "reset": "Reset",
     "errorOccurred": "An error occurred",
-    "close": "Close"
+    "close": "Close",
+    "isRequired": "is required",
+    "errorGeneric": "Something went wrong. Please try again.",
+    "remove": "Remove",
+    "firstNameRequired": "First name is required",
+    "lastNameRequired": "Last name is required",
+    "none": "—",
+    "add": "Add",
+    "tooManyRequests": "Too many requests. Please try again later.",
+    "error": "Error",
+    "hotelFallback": "Hotel",
+    "selectLanguage": "Select language"
   },
   "nav": {
     "home": "Home",
@@ -48,7 +59,12 @@
     "events": "Events",
     "collapseSidebar": "Collapse sidebar",
     "expandSidebar": "Expand sidebar",
-    "switchApp": "Switch app"
+    "switchApp": "Switch app",
+    "closeMenu": "Close menu",
+    "accountMenu": "Account menu",
+    "openMenu": "Open menu",
+    "accountOfCurrentUser": "Account of current user",
+    "accountingSettingsTabs": "Accounting settings tabs"
   },
   "auth": {
     "welcome": "Welcome, {{name}}!",
@@ -57,7 +73,15 @@
     "adminDashboard": "Admin Dashboard",
     "logout": "Logout",
     "login": "Login",
-    "signup": "Sign Up"
+    "signup": "Sign Up",
+    "messages": {
+      "loginSuccess": "Login successful!",
+      "loginFailed": "Login failed",
+      "registerSuccess": "Registration successful!",
+      "registerFailed": "Registration failed",
+      "logoutSuccess": "Logged out successfully"
+    },
+    "togglePasswordVisibility": "Toggle password visibility"
   },
   "daypass": {
     "heroTitle": "Day Pass Experience",
@@ -220,6 +244,12 @@
         "childPrice": "Child Price",
         "total": "Total",
         "noRecords": "No records"
+      },
+      "methods": {
+        "cash": "Cash",
+        "card": "Card",
+        "transfer": "Transfer",
+        "check": "Check"
       }
     },
     "common": {
@@ -473,6 +503,13 @@
         "deleteSuccess": "Wristband delivery deleted",
         "deleteFailed": "Failed to delete wristband delivery",
         "confirmDelete": "Delete this wristband delivery?"
+      },
+      "type": "Type",
+      "actionsColumn": "Actions",
+      "noDeliveries": "No deliveries found",
+      "types": {
+        "delivery": "Delivery (Add)",
+        "collection": "Collection (Remove)"
       }
     },
     "amenities": {
@@ -634,6 +671,9 @@
         "createHint": "We will email them a link to choose their own password. The link expires in 72 hours.",
         "sent": "User created. We emailed {{email}} a link to choose a password.",
         "notSent": "User created, but the invitation could not be sent. Use \"Resend invitation\"."
+      },
+      "errors": {
+        "loadFailed": "Failed to load users"
       }
     },
     "media": {
@@ -643,7 +683,8 @@
         "upload": "Upload",
         "syncUploads": "Sync uploads",
         "cancel": "Cancel",
-        "save": "Save"
+        "save": "Save",
+        "chooseFile": "Choose file"
       },
       "labels": {
         "featured": "Featured",
@@ -654,7 +695,8 @@
         "title": "Title",
         "description": "Description",
         "filename": "Filename (unique, no extension)",
-        "filenameHelper": "Only letters, numbers, - and _; extension will be kept"
+        "filenameHelper": "Only letters, numbers, - and _; extension will be kept",
+        "preview": "Preview"
       },
       "categories": {
         "general": "General",
@@ -686,6 +728,37 @@
       },
       "confirm": {
         "deleteItem": "Delete this media item?"
+      },
+      "picker": {
+        "title": "Select Media",
+        "uploadedTab": "Uploaded Images",
+        "illustrationsTab": "Illustrations",
+        "searchTitle": "Search by title",
+        "searchIllustrations": "Search illustrations",
+        "select": "Select",
+        "all": "All"
+      },
+      "illustrations": {
+        "room": "Room",
+        "amenity": "Amenity",
+        "service": "Service",
+        "event": "Event",
+        "guest": "Guest",
+        "media": "Media",
+        "pool": "Pool",
+        "food": "Food & Dining",
+        "basketball": "Basketball Court",
+        "bar": "Bar",
+        "restaurant": "Restaurant",
+        "spa": "Spa & Wellness",
+        "gym": "Gym & Fitness",
+        "beach": "Beach",
+        "parking": "Parking",
+        "wifi": "Wi-Fi",
+        "laundry": "Laundry",
+        "kids": "Kids Area",
+        "meeting-room": "Meeting Room",
+        "garden": "Garden"
       }
     },
     "reservations": {
@@ -746,7 +819,10 @@
         "assignedRoom": "Assigned Room",
         "total": "Total",
         "payment": "Payment",
-        "actions": "Actions"
+        "actions": "Actions",
+        "checkIn": "Check-in",
+        "checkOut": "Check-out",
+        "nights": "Nights"
       },
       "actions": {
         "viewDetails": "View Details",
@@ -787,7 +863,11 @@
         "firstName": "First Name",
         "lastName": "Last Name",
         "checkIn": "Check-in Date",
-        "checkOut": "Check-out Date"
+        "checkOut": "Check-out Date",
+        "amount": "Amount",
+        "note": "Note (optional)",
+        "paymentMethod": "Method",
+        "save": "Save"
       },
       "create": {
         "step1Title": "Dates & Guests",
@@ -816,7 +896,29 @@
         "discount": "Discount",
         "calculatingPrice": "Calculating price...",
         "pricePreview": "Price Preview",
-        "basePrice": "Base"
+        "basePrice": "Base",
+        "assignRooms": "Assign Rooms",
+        "bookReservation": "Book Reservation",
+        "capacityGauge": "{{accommodated}} of {{total}} guests accommodated",
+        "capacityOf": "{{cap}} guest capacity",
+        "checkingAvailability": "Checking availability...",
+        "filterRooms": "Filter rooms...",
+        "guest": "guest",
+        "guests": "guests",
+        "insufficientCapacity": "Selected rooms fit {{cap}} guests, but {{needed}} are needed.",
+        "nights": "nights",
+        "noMatchingRooms": "No matching rooms",
+        "noRatePlan": "None (manual pricing)",
+        "noService": "None",
+        "otherRooms": "Other",
+        "ratePlan": "Rate Plan",
+        "roomBreakdown": "Room Breakdown",
+        "selectRatePlan": "Select a rate plan",
+        "selectService": "Select service",
+        "selected": "selected",
+        "serviceTitle": "Service",
+        "step3Title": "Summary",
+        "stepSummary": "Summary"
       },
       "none": "None",
       "tooltips": {
@@ -836,7 +938,15 @@
         "checkoutSuccess": "Checked out successfully",
         "checkoutCityLedgerPreApproved": "Checked out. Balance posted to the direct-bill account ({{invoiceNumber}}).",
         "checkoutCityLedgerPending": "Checked out. Balance sent to City Ledger, pending manager authorization ({{invoiceNumber}}).",
-        "operationFailed": "Operation failed"
+        "operationFailed": "Operation failed",
+        "createSuccess": "Reservation created successfully!",
+        "paymentAdded": "Payment added",
+        "checkoutFailed": "Checkout failed",
+        "checkinFailed": "Check-in failed",
+        "paymentFailed": "Payment failed",
+        "createFailed": "Failed to create reservation",
+        "updateSuccess": "Reservation updated successfully!",
+        "updateFailed": "Failed to update reservation"
       },
       "empty": {
         "title": "No reservations found",
@@ -868,7 +978,9 @@
         "useCredit": "Use Credit & Check Out",
         "pendingHint": "There is an outstanding balance. Please collect payment or apply available credit before checking out.",
         "pendingHintPreApproved": "This balance will post automatically to the guest’s direct-bill account on checkout — no extra step needed.",
-        "pendingHintCityLedger": "This balance will be sent to City Ledger automatically on checkout, pending manager authorization. You can still collect payment or use credit manually below."
+        "pendingHintCityLedger": "This balance will be sent to City Ledger automatically on checkout, pending manager authorization. You can still collect payment or use credit manually below.",
+        "pendingBalance": "Pending balance detected before checkout.",
+        "creditAvailable": "Available credit"
       },
       "financial": {
         "estimatedTotal": "Estimated Total",
@@ -896,7 +1008,9 @@
           "event": "Event",
           "room": "Room",
           "specialRequests": "Special Requests",
-          "payments": "Payments"
+          "payments": "Payments",
+          "financial": "Financial",
+          "charges": "Charges"
         },
         "labels": {
           "type": "Type",
@@ -911,7 +1025,10 @@
           "actualCheckOut": "Actual Check-Out",
           "eventType": "Event Type",
           "description": "Description",
-          "assignedRoom": "Assigned Room"
+          "assignedRoom": "Assigned Room",
+          "totalCharges": "Total Charges",
+          "creditAvailability": "Credit Availability",
+          "folioStatus": "Folio Status"
         },
         "table": {
           "date": "Date",
@@ -919,14 +1036,20 @@
           "amount": "Amount",
           "note": "Note",
           "actions": "Actions",
-          "noPayments": "No payments recorded"
+          "noPayments": "No payments recorded",
+          "description": "Description",
+          "type": "Type",
+          "status": "Status",
+          "receptionist": "Receptionist",
+          "noCharges": "No charges"
         },
         "actions": {
           "addPayment": "Add Payment",
           "edit": "Edit",
           "delete": "Delete",
           "cancel": "Cancel",
-          "saveChanges": "Save Changes"
+          "saveChanges": "Save Changes",
+          "addCharge": "Add Charge"
         },
         "paymentDialog": {
           "titleAdd": "Add Payment",
@@ -942,12 +1065,16 @@
           "afterPayment": "After payment: {{amount}}",
           "recorded": "Payment recorded",
           "failed": "Failed to record payment",
-          "blockedForCancelled": "Payments are blocked for cancelled reservations"
+          "blockedForCancelled": "Payments are blocked for cancelled reservations",
+          "methodCheck": "Check",
+          "methodCredit": "Credit"
         },
         "errors": {
           "deletePaymentConfirm": "Delete this payment?",
           "deletePaymentFailed": "Failed to delete payment",
-          "deleteReservationFailed": "Failed to remove reservation"
+          "deleteReservationFailed": "Failed to remove reservation",
+          "deleteChargeConfirm": "Delete this charge?",
+          "deleteChargeFailed": "Could not delete the charge"
         },
         "status": {
           "pending": "Pending",
@@ -956,7 +1083,44 @@
           "completed": "Completed",
           "checked-in": "Checked-in",
           "checked-out": "Checked-out"
-        }
+        },
+        "chargeDialog": {
+          "title": "Add Charge",
+          "description": "Description",
+          "amount": "Amount",
+          "category": "Category",
+          "categoryNone": "— None —",
+          "categoryRoom": "Room",
+          "categoryLateFee": "Late Fee",
+          "categoryService": "Service",
+          "categoryDamage": "Damage",
+          "categoryAdjustment": "Adjustment",
+          "failed": "Failed to add charge",
+          "submit": "Add Charge"
+        },
+        "guestFallback": "Guest",
+        "chargeType": {
+          "base": "Base",
+          "manual": "Manual",
+          "auto_rule": "Automatic rule"
+        },
+        "paymentStatus": {
+          "completed": "Completed",
+          "pending": "Pending",
+          "reversed": "Reversed"
+        },
+        "folioStatusValues": {
+          "open": "Open",
+          "in_ar": "In accounts receivable",
+          "closed": "Closed"
+        },
+        "frontDesk": "Front Desk",
+        "checkedInAt": "Checked-in at",
+        "paymentSummary": "Payment",
+        "payments": "Payments",
+        "primaryContact": "Primary Contact",
+        "reservationDetails": "Reservation Details",
+        "reservationTitle": "Reservation"
       },
       "bookingRuleWarnings": {
         "title": "This booking breaks a booking rule",
@@ -1011,6 +1175,8 @@
           "staff": "Staff",
           "guest": "Guest",
           "channel": "Channel",
+          "channelNamed": "Channel: {{name}}",
+          "channelOffline": "Channel: Offline (booking entered directly in the channel manager)",
           "system": "System"
         },
         "actions": {
@@ -1071,6 +1237,13 @@
           "transfer": "Transfer",
           "check": "Check"
         }
+      },
+      "paymentMethods": {
+        "card": "Card",
+        "cash": "Cash",
+        "check": "Check",
+        "credit": "Credit",
+        "transfer": "Transfer"
       }
     },
     "schedule": {
@@ -1216,7 +1389,8 @@
           "citrusBaseUrl": "Citrus API base URL",
           "citrusToken": "Citrus API Token",
           "citrusTokenHelp": "Obtained from the Citrus portal. Stored encrypted and cannot be retrieved once saved.",
-          "isActive": "Enable e-CF invoicing for this property"
+          "isActive": "Enable e-CF invoicing for this property",
+          "citrusBaseUrlHelp": "Managed by Pilloto — contact support to change"
         },
         "ambiente": {
           "Simulacion": "Simulación (no DGII contact)",
@@ -1617,6 +1791,21 @@
         "errorRncRequired": "RNC is required for this invoice type",
         "errorCountryRequired": "Country is required for this invoice type",
         "errorNameRequired": "Name or legal name is required"
+      },
+      "filters": {
+        "nameOrRnc": "Name or RNC"
+      },
+      "tipoNames": {
+        "E31": "Tax Credit Invoice",
+        "E32": "Consumer Invoice",
+        "E33": "Debit Note",
+        "E34": "Credit Note",
+        "E41": "Purchase Voucher",
+        "E43": "Minor Expenses",
+        "E44": "Special Tax Regimes",
+        "E45": "Government",
+        "E46": "Exports",
+        "E47": "Foreign Payments"
       }
     },
     "ecfInvoices": {
@@ -1686,7 +1875,13 @@
         "emailSent": "Email sent successfully.",
         "emailFailed": "Failed to send email. Please try again.",
         "pdfFailed": "Failed to open the PDF. Please try again.",
-        "xmlFailed": "Failed to download the XML. Please try again."
+        "xmlFailed": "Failed to download the XML. Please try again.",
+        "previewTitle": "Invoice PDF Preview",
+        "close": "Close"
+      },
+      "actions": {
+        "openInNewTab": "Open in new tab",
+        "downloadPdf": "Download PDF"
       }
     },
     "reports": {
@@ -2090,7 +2285,12 @@
       "created": "Created",
       "denomination": "Denomination",
       "count": "Count",
-      "subtotal": "Subtotal"
+      "subtotal": "Subtotal",
+      "errors": {
+        "loadFailed": "Failed to load cashier closures",
+        "previewFailed": "Failed to build closure preview",
+        "createFailed": "Failed to create cashier closure"
+      }
     },
     "dashboard": {
       "title": "Dashboard",
@@ -2397,7 +2597,10 @@
         },
         "form": {
           "name": "Room Type Name",
-          "capacity": "Max Guests (Capacity)"
+          "capacity": "Max Guests (Capacity)",
+          "image": "Image",
+          "selectImage": "Select Image",
+          "removeImage": "Remove"
         },
         "table": {
           "name": "Name",
@@ -2472,7 +2675,13 @@
           "adjustmentValue": "Adjustment Value",
           "adjustmentValuePercent": "Discount / Surcharge (%)",
           "adjustmentScope": "Applies To",
-          "priority": "Priority (higher number runs first)"
+          "priority": "Priority (higher number runs first)",
+          "category": "Category",
+          "validity": "Validity",
+          "startDate": "Start Date",
+          "endDate": "End Date",
+          "adultPrice": "Adult Price",
+          "childrenPrice": "Children Price"
         },
         "dialog": {
           "newTitle": "New Pricing Rule",
@@ -2563,6 +2772,19 @@
           "pos": "POS",
           "active": "Active",
           "actions": "Actions"
+        },
+        "kinds": {
+          "daypass": "Day Pass",
+          "pasatarde": "Pasa Tarde",
+          "event": "Event",
+          "roomAddon": "Room Add-on",
+          "generic": "Generic"
+        },
+        "bases": {
+          "perPerson": "Per Person",
+          "perRoom": "Per Room",
+          "perStay": "Per Stay",
+          "perEvent": "Per Event"
         }
       },
       "servicePrices": {
@@ -2586,6 +2808,18 @@
           "childrenPrice": "Children Price",
           "active": "Active",
           "actions": "Actions"
+        },
+        "categories": {
+          "standard": "Standard",
+          "special": "Special",
+          "guest": "Guest",
+          "company": "Company"
+        },
+        "validities": {
+          "everyday": "Every day",
+          "weekdays": "Weekdays",
+          "weekend": "Weekend",
+          "custom": "Custom"
         }
       },
       "chargePolicies": {
@@ -2640,7 +2874,8 @@
       "auditLog": {
         "actions": {
           "run": "Run Audit Now",
-          "refresh": "Refresh"
+          "refresh": "Refresh",
+          "dryRun": "Preview (Dry Run)"
         },
         "summary": "Tenant {{id}}: {{chargesPosted}} charged, {{errors}} errors",
         "columns": {
@@ -2649,6 +2884,28 @@
           "businessDate": "Business Date",
           "status": "Status",
           "executedAt": "Executed At",
+          "error": "Error"
+        },
+        "dryRunLabel": "[DRY RUN] ",
+        "runsTitle": "Audit Runs",
+        "runs": {
+          "businessDate": "Business Date",
+          "status": "Status",
+          "trigger": "Triggered By",
+          "dryRun": "Dry Run",
+          "charged": "Charged",
+          "skipped": "Skipped",
+          "errors": "Errors",
+          "duration": "Duration",
+          "empty": "No audit runs yet"
+        },
+        "executionsTitle": "Execution Log",
+        "statuses": {
+          "running": "Running",
+          "completed": "Completed",
+          "failed": "Failed",
+          "skipped": "Skipped",
+          "success": "Success",
           "error": "Error"
         }
       },
@@ -2909,6 +3166,118 @@
         "off": "Not sold on channels",
         "roomTypeHint": "Offered on Booking.com, Expedia, Airbnb and the other channels. Turn it off to sell it only directly (front desk and your booking engine).",
         "ratePlanHint": "Offered on the channels. Turn it off for direct-only rates (for example, company or front-desk rates)."
+      },
+      "ruleWizard": {
+        "name": "Rule Name",
+        "target": "Target",
+        "ratePlan": "Rate Plan",
+        "rule": "Rule",
+        "period": "Period",
+        "custom": "Custom",
+        "whoFor": "Who is this rule for?",
+        "targets": {
+          "company": "Company",
+          "guest": "Guest",
+          "promotional": "Promotional"
+        },
+        "companyHelp": "Type to search companies",
+        "guestHelp": "Search by name",
+        "guestEmail": "Guest Email",
+        "guestEmailHelp": "You can also type an email directly",
+        "baseRatePlan": "Base Rate Plan",
+        "baseRatePlanHelp": "The rate plan this rule will modify",
+        "ruleModel": "Rule Model",
+        "models": {
+          "percentage": "Percentage",
+          "fixed": "Fixed Amount",
+          "custom": "Custom"
+        },
+        "customInfo": "Custom rules replace the rate plan entirely with specific prices you define below.",
+        "direction": "Direction",
+        "directions": {
+          "discount": "Discount (reduces price)",
+          "surcharge": "Surcharge (increases price)"
+        },
+        "discountsOnly": "Company and Guest rules always apply as discounts.",
+        "amountPercent": "Amount (%)",
+        "amountFixed": "Amount ($)",
+        "appliesTo": "Applies to",
+        "scopes": {
+          "base": "Base Price only",
+          "occupancy": "Occupancy charges only",
+          "both": "Both (base + occupancy)"
+        },
+        "customBasePrice": "Base Price per night ($)",
+        "tiersTitle": "Occupancy Tier Prices",
+        "addTier": "Add Tier",
+        "tiersHint": "Set price to 0 to include that guest in the base price.",
+        "tierType": "Type",
+        "tierPrice": "Price",
+        "adult": "Adult",
+        "child": "Child",
+        "included": "Included",
+        "remove": "Remove",
+        "noTiers": "No tiers added",
+        "periodPattern": "Period Pattern",
+        "patterns": {
+          "all_days": "All Days",
+          "weekdays": "Weekdays Only (Mon–Fri)",
+          "weekends": "Weekends Only (Sat–Sun)",
+          "specific_days": "Specific Days"
+        },
+        "selectDays": "Select which days apply:",
+        "validityStart": "Validity Start",
+        "validityEnd": "Validity End",
+        "openEnded": "Leave blank for open-ended",
+        "minNights": "Minimum Nights",
+        "minNightsHelp": "Leave blank for no minimum",
+        "blackoutTitle": "Blackout Dates",
+        "addPeriod": "Add Period",
+        "blackoutHint": "Rule never applies during blackout periods, even if they overlap with the validity window.",
+        "from": "From",
+        "to": "To",
+        "noBlackouts": "No blackout periods configured",
+        "frontDeskOnly": "Applies only when reservation is created by front desk staff.",
+        "summary": "{{kind}} of {{amount}} on {{scope}}",
+        "kinds": {
+          "discount": "Discount",
+          "surcharge": "Surcharge"
+        },
+        "scopeNames": {
+          "base": "base price",
+          "occupancy": "occupancy charges",
+          "both": "base + occupancy"
+        },
+        "validRange": "Valid: {{start}} → {{end}}",
+        "blackoutPeriods": "Blackout periods:",
+        "back": "Back",
+        "next": "Next",
+        "onScope": "on {{scope}}",
+        "errors": {
+          "serviceName": "Service name is required",
+          "serviceCode": "Service code is required",
+          "selectService": "Please select a service",
+          "ratePlan": "Please select a base rate plan",
+          "company": "Please select a company",
+          "guestEmail": "Please select or enter a guest email",
+          "startRequired": "Start date is required when end date is set",
+          "days": "Please select at least one day",
+          "blackout": "Blackout dates require both start and end dates"
+        },
+        "dry": "dry",
+        "openEndedShort": "open-ended",
+        "minStay_one": "Minimum stay: {{count}} night",
+        "minStay_other": "Minimum stay: {{count}} nights",
+        "plusNights_one": "{{count}}+ night",
+        "plusNights_other": "{{count}}+ nights",
+        "customSummary_one": "Replaces rate plan entirely. Base: {{price}}/night + {{count}} occupancy tier.",
+        "customSummary_other": "Replaces rate plan entirely. Base: {{price}}/night + {{count}} occupancy tiers.",
+        "steps": {
+          "target": "Target",
+          "model": "Rule Model",
+          "period": "Period",
+          "preview": "Preview"
+        }
       }
     },
     "bookingCalendar": {
@@ -3644,6 +4013,78 @@
           "todo": "If you want to host them, pre-approve the inquiry so they can book. Otherwise, do not answer: inquiries lapse by themselves."
         }
       }
+    },
+    "reviews": {
+      "messages": {
+        "loadFailed": "Failed to load reviews.",
+        "saveFailed": "Failed to save review.",
+        "deleteFailed": "Failed to delete review."
+      },
+      "heading": "Guest Reviews",
+      "description": "Manage customer reviews displayed on your public booking page. Active reviews appear in the Trust & Credibility bar.",
+      "actions": {
+        "add": "Add Review"
+      },
+      "table": {
+        "guest": "Guest",
+        "rating": "Rating",
+        "comment": "Comment",
+        "source": "Source",
+        "status": "Status",
+        "actions": "Actions"
+      },
+      "empty": "No reviews yet. Add your first customer review.",
+      "dialog": {
+        "editTitle": "Edit Review",
+        "newTitle": "New Review"
+      },
+      "form": {
+        "guestName": "Guest Name",
+        "rating": "Rating",
+        "comment": "Comment",
+        "source": "Source",
+        "displayOrder": "Display Order",
+        "active": "Active (visible on booking page)"
+      },
+      "sources": {
+        "Direct": "Direct",
+        "Other": "Other"
+      }
+    },
+    "imageUpload": {
+      "maxImages": "Maximum {{count}} images allowed",
+      "uploadFailed": "Upload failed",
+      "uploadFailedRetry": "Failed to upload images. Please try again.",
+      "enterUrl": "Enter image URL:",
+      "title": "Room Images (max {{max}})",
+      "uploading": "Uploading images...",
+      "upload": "Upload Images",
+      "addUrl": "Add URL",
+      "primaryHint": "The first image will be displayed as the room's main image on cards",
+      "primary": "Primary",
+      "imageAlt": "Room image {{n}}",
+      "setPrimary": "Set as primary image",
+      "moveUp": "Move up",
+      "moveDown": "Move down",
+      "removeImage": "Remove image",
+      "emptyTitle": "No images uploaded yet",
+      "emptyHint": "Upload images or add URLs to showcase this room",
+      "emptyPrimary": "The first image will be the main image displayed on room cards",
+      "photoTitle": "Room Image - {{name}}"
+    },
+    "corporatePriceAction": {
+      "invalidAction": "Invalid action.",
+      "genericError": "An error occurred while processing the request.",
+      "processing": "Processing request...",
+      "approvedTitle": "Corporate price approved",
+      "approvedBody": "The reservation has been approved with the corporate price. You can assign the specific company from the admin panel.",
+      "viewReservations": "View reservations",
+      "declinedTitle": "Request declined",
+      "declinedBody": "The corporate price request has been declined. The reservation will keep the standard rate. The guest will be notified.",
+      "alreadyTitle": "Request already processed",
+      "alreadyBody": "This request was already processed and requires no further action.",
+      "errorTitle": "The request could not be processed",
+      "goToReservations": "Go to the reservations panel"
     }
   },
   "accounting": {
@@ -4148,7 +4589,8 @@
         "lineTotalRequired": "Every expense line needs a valid amount",
         "lineDescriptionRequired": "Every expense line needs a description",
         "addInventoryLine": "Add Inventory Line",
-        "addExpenseLine": "Add Expense Line"
+        "addExpenseLine": "Add Expense Line",
+        "paymentAmountRequired": "Enter a payment amount greater than zero."
       },
       "messages": {
         "loadFailed": "Error loading bills",
@@ -4543,7 +4985,13 @@
       "keepReservation": "Keep Reservation",
       "cancelButton": "Cancel Reservation",
       "empty": "No reservations found",
-      "browseRooms": "Browse Rooms"
+      "browseRooms": "Browse Rooms",
+      "roomFallback": "Room",
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "specialRequests": "Special Requests",
+      "totalAmount": "Total Amount",
+      "cancelBooking": "Cancel Booking"
     },
     "events": {
       "heroTitle": "Unforgettable Events",
@@ -4591,7 +5039,30 @@
       "updateSuccess": "Profile updated successfully",
       "updateError": "Failed to update profile",
       "passwordSuccess": "Password changed successfully",
-      "passwordError": "Failed to change password"
+      "passwordError": "Failed to change password",
+      "strength": {
+        "weak": "Weak",
+        "fair": "Fair",
+        "good": "Good",
+        "strong": "Strong"
+      },
+      "roles": {
+        "admin": "Administrator",
+        "superadmin": "Super Admin",
+        "staff": "Staff",
+        "cashier": "Cashier",
+        "guest": "Guest"
+      },
+      "profileUpdated": "Profile updated successfully.",
+      "profileUpdatedToast": "Profile updated.",
+      "profileUpdateFailed": "Failed to update profile.",
+      "passwordMismatch": "New password and confirmation do not match.",
+      "passwordChanged": "Password changed successfully.",
+      "passwordUpdatedToast": "Password updated.",
+      "passwordChangeFailed": "Failed to change password.",
+      "hidePassword": "Hide password",
+      "showPassword": "Show password",
+      "togglePermissions": "Toggle permissions list"
     },
     "login": {
       "title": "Welcome Back",
@@ -4747,7 +5218,10 @@
         "keepReservation": "Keep Reservation",
         "cancelButton": "Cancel Reservation",
         "cancelling": "Cancelling..."
-      }
+      },
+      "cancelFailed": "Failed to cancel reservation",
+      "guestFallback": "Guest",
+      "roomName": "Room Name"
     },
     "registrationSuccess": {
       "title": "Registration Successful!",
@@ -4932,6 +5406,16 @@
       "expired": "This link has expired. Ask the person who invited you to send a new one.",
       "failed": "Could not save the password. Try again.",
       "goToLogin": "Go to sign in"
+    },
+    "crossTenantLogin": {
+      "noWorkspace": "No workspace found for this email address.",
+      "subtitle": "Sign in to your workspace",
+      "title": "Find your workspace",
+      "hint": "Enter your email and we'll take you to the right place.",
+      "email": "Email",
+      "continue": "Continue",
+      "noAccount": "Don't have an account?",
+      "seePlans": "See plans"
     }
   },
   "companies": {
@@ -4992,7 +5476,9 @@
       "signIn": "Sign in",
       "getStarted": "Request a demo",
       "product": "Products",
-      "faq": "FAQ"
+      "faq": "FAQ",
+      "menu": "Menu",
+      "close": "Close"
     },
     "hero": {
       "badge": "PMS + Accounting, one platform",
@@ -5102,7 +5588,13 @@
       "successTitle": "Message sent!",
       "successBody": "Thanks for reaching out. We'll review your message and get back to you within one business day.",
       "backToSite": "Back to website",
-      "errorGeneric": "Failed to send message. Please try again or email us directly at info@pilloto.com."
+      "errorGeneric": "Failed to send message. Please try again or email us directly at info@pilloto.com.",
+      "plans": {
+        "basic": "Basic — up to 15 rooms",
+        "pro": "Pro — up to 50 rooms",
+        "enterprise": "Enterprise — up to 100 rooms",
+        "general": "General inquiry"
+      }
     },
     "footer": {
       "copyright": "© {{year}} Pilloto. All rights reserved."
@@ -5738,7 +6230,11 @@
       "clearDates": "Clear dates",
       "errorSelectDates": "Please select check-in and check-out dates.",
       "errorCheckoutAfter": "Check-out must be after check-in.",
-      "errorSearchFailed": "Failed to search availability."
+      "errorSearchFailed": "Failed to search availability.",
+      "selectDate": "Select date",
+      "clearDate": "Clear",
+      "noServices": "No services available",
+      "totalEstimate": "estimated total"
     },
     "guests": {
       "guests": "guests",
@@ -5788,7 +6284,8 @@
       "total": "Total",
       "payAtProperty": "Pay at the property — no payment required now.",
       "continueToDetails": "Continue to Guest Details",
-      "youWontBeCharged": "You won't be charged yet"
+      "youWontBeCharged": "You won't be charged yet",
+      "standardBed": "Standard"
     },
     "details": {
       "heading": "Guest Details",
@@ -5881,6 +6378,94 @@
       "heading": "Our Rooms",
       "subtitle": "Discover our rooms and start your stay",
       "bookNow": "Book Now"
+    },
+    "services": {
+      "heading": "Our Services",
+      "subtitle": "Choose a service and check availability",
+      "selected": "Selected",
+      "select": "Select"
+    },
+    "reviews": {
+      "heading": "What Our Guests Say",
+      "subtitle": "Real reviews from verified guests"
+    },
+    "widget": {
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "adults": "Adults",
+      "children": "Children",
+      "bookAt": "Book at {{name}}",
+      "search": "Search Availability",
+      "poweredBy": "Powered by Pilloto",
+      "loadFailed": "Unable to load availability.",
+      "missingDates": "Please provide checkIn and checkOut dates as URL parameters.",
+      "checkInDate": "Check-in: {{date}}",
+      "checkOutDate": "Check-out: {{date}}",
+      "nights_one": "{{count}} night",
+      "nights_other": "{{count}} nights",
+      "availableRooms": "Available Rooms",
+      "upToGuests": "Up to {{count}} guests",
+      "perNight": "{{price}}/night",
+      "bookNow": "Book Now",
+      "noRooms": "No rooms available for the selected dates.",
+      "services": "Services",
+      "basis": {
+        "perPerson": "Per person",
+        "perRoom": "Per room",
+        "perStay": "Per stay",
+        "perEvent": "Per event"
+      }
+    },
+    "reservationPage": {
+      "invalidLink": "Your reservation link is not valid. Please check your confirmation email.",
+      "expiredLink": "Invalid or expired access link. Please check your confirmation email.",
+      "notFound": "We couldn't find a reservation with that code.",
+      "loadFailed": "We couldn't load your reservation. Please try again.",
+      "back": "Back",
+      "hello": "Hello, {{name}}!",
+      "confirmed": "Your reservation is confirmed!",
+      "code": "Reservation code",
+      "accommodation": "Accommodation",
+      "nights_one": "{{count}} night",
+      "nights_other": "{{count}} nights",
+      "service": "Service",
+      "dates": "Dates",
+      "checkIn": "Check-in",
+      "checkOut": "Check-out",
+      "holder": "Primary guest",
+      "guests": "Guests",
+      "adults_one": "{{count}} adult",
+      "adults_other": "{{count}} adults",
+      "children_one": "{{count}} child",
+      "children_other": "{{count}} children",
+      "infants_one": "{{count}} infant",
+      "infants_other": "{{count}} infants",
+      "specialRequests": "Special requests",
+      "estimatedTotal": "Estimated total",
+      "payAtProperty": "Payment is made on arrival at the property. No amount is charged online.",
+      "bookAnother": "Make another reservation",
+      "status": {
+        "confirmed": "Confirmed",
+        "pending": "Pending",
+        "cancelled": "Cancelled",
+        "checked_in": "In house",
+        "checked_out": "Completed",
+        "no_show": "No show"
+      }
+    },
+    "chargeBasis": {
+      "perPerson": "Per person",
+      "perRoom": "Per room",
+      "perStay": "Per stay",
+      "perEvent": "Per event"
+    },
+    "config": {
+      "unavailable": "Online booking is not currently available.",
+      "loadFailed": "Failed to load booking configuration."
+    },
+    "datePicker": {
+      "selectCheckIn": "Select check-in date",
+      "selectCheckOut": "Select check-out date"
     }
   },
   "creditAccounts": {
@@ -5925,6 +6510,126 @@
       "sections": {
         "workspace": "Platform"
       }
+    },
+    "tenants": {
+      "invitation": {
+        "pending": "Invitation sent",
+        "expired": "Invitation expired",
+        "accepted": "Password set"
+      },
+      "accountingAdded": "Accounting ({{plan}}) added to {{name}} — Chart of Accounts and roles provisioned.",
+      "planUpdated": "Plan updated for {{name}}",
+      "planUpdateFailed": "Failed to update plan",
+      "loadFailed": "Failed to load tenants",
+      "toggled": {
+        "deactivated": "Tenant deactivated",
+        "activated": "Tenant activated"
+      },
+      "updateFailed": "Update failed",
+      "statsFailed": "Failed to fetch stats",
+      "selectProduct": "Select at least one product (PMS and/or Accounting).",
+      "created": "Tenant \"{{name}}\" created. An invitation to choose a password was emailed to {{email}}.",
+      "createdNoEmail": "Tenant \"{{name}}\" created, but the invitation email could not be sent. Use \"Resend invitation\".",
+      "createFailed": "Failed to create tenant",
+      "invitationSent": "Invitation sent to {{email}}",
+      "resendFailed": "Failed to resend the invitation",
+      "title": "Tenants",
+      "newTenant": "New Tenant",
+      "cols": {
+        "name": "Name",
+        "slug": "Slug",
+        "plan": "Plan",
+        "products": "Products",
+        "owner": "Owner",
+        "status": "Status",
+        "created": "Created",
+        "actions": "Actions"
+      },
+      "accountingChip": "Accounting ({{plan}})",
+      "accountingTooltip": "Accounting — {{plan}}",
+      "active": "Active",
+      "inactive": "Inactive",
+      "actions": {
+        "editPlan": "Edit plan",
+        "resend": "Resend invitation",
+        "stats": "View stats",
+        "deactivate": "Deactivate",
+        "activate": "Activate",
+        "open": "Open tenant app"
+      },
+      "empty": "No tenants yet. Create your first one!",
+      "create": {
+        "title": "Create New Tenant",
+        "name": "Hotel / Property Name",
+        "slug": "Slug (subdomain)",
+        "slugHelp": "Used as subdomain: {slug}.pilloto.com — lowercase letters, numbers, hyphens only",
+        "pmsPlan": "PMS Plan",
+        "products": "Products",
+        "pms": "PMS",
+        "accounting": "Accounting",
+        "accountingPlan": "Accounting Plan",
+        "ownerEmail": "Owner Email",
+        "adminFirstName": "Admin First Name",
+        "adminLastName": "Admin Last Name",
+        "invitationInfo": "The owner receives an email with a link to choose their own password (valid for 72 hours).",
+        "cancel": "Cancel",
+        "submit": "Create & Provision"
+      },
+      "edit": {
+        "title": "Change Plan & Products — {{name}}",
+        "provisionInfo": "Saving will provision the Chart of Accounts and default Accounting roles for this tenant.",
+        "needProduct": "A tenant needs at least one product.",
+        "save": "Save"
+      },
+      "stats": {
+        "title": "{{name}} — Stats",
+        "users": "Users",
+        "reservations": "Reservations",
+        "rooms": "Rooms",
+        "close": "Close"
+      },
+      "plans": {
+        "basic": "Basic",
+        "pro": "Pro",
+        "enterprise": "Enterprise",
+        "starter": "Starter",
+        "plus": "Plus"
+      }
+    },
+    "profile": {
+      "title": "My Profile",
+      "subtitle": "Manage your super-admin account details and security credentials.",
+      "role": "Super Administrator",
+      "personal": "Personal Information",
+      "personalHint": "Update your display name and contact email.",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "email": "Email Address",
+      "saving": "Saving…",
+      "save": "Save Changes",
+      "changePassword": "Change Password",
+      "passwordHint": "Ensure your account uses a strong, unique password.",
+      "currentPassword": "Current Password",
+      "newPassword": "New Password",
+      "minChars": "Minimum 8 characters",
+      "confirmPassword": "Confirm New Password",
+      "mismatchHelp": "Passwords do not match",
+      "updating": "Updating…",
+      "update": "Update Password",
+      "tooShort": "New password must be at least 8 characters."
+    }
+  },
+  "errors": {
+    "notFound": {
+      "title": "Page not found",
+      "description": "The page you're looking for doesn't exist or has been moved.",
+      "returnHome": "Return Home"
+    },
+    "tenantNotFound": {
+      "title": "Property not found",
+      "notRegistered": "<strong>{{slug}}</strong> is not registered on Pilloto.",
+      "hint": "The property may have been removed, renamed, or the link may be incorrect.",
+      "goHome": "Go to pilloto.com"
     }
   }
 }

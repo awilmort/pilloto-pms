@@ -12,6 +12,7 @@ import { useTranslation } from 'react-i18next';
 import { guestsService, companiesService } from '../../services/api';
 import { Guest, GuestCompanyLink, Reservation, Company } from '../../types';
 import AdminLayout from '../../components/admin/AdminLayout';
+import i18n from '../../i18n';
 
 interface PendingCompanyLink {
   companyId: string;
@@ -272,7 +273,7 @@ const GuestsManagement: React.FC = () => {
               )}
               <Grid item xs={12} sm={6}>
                 <Typography variant="caption" color="text.secondary">{t('guests.memberSince', 'Member Since')}</Typography>
-                <Typography>{new Date(selectedGuest.createdAt).toLocaleDateString()}</Typography>
+                <Typography>{new Date(selectedGuest.createdAt).toLocaleDateString(i18n.language)}</Typography>
               </Grid>
             </Grid>
           </Paper>
@@ -340,8 +341,8 @@ const GuestsManagement: React.FC = () => {
                     <TableRow key={r._id}>
                       <TableCell>{r.reservationCode || r._id.slice(-6)}</TableCell>
                       <TableCell>{r.type}</TableCell>
-                      <TableCell>{new Date(r.checkInDate).toLocaleDateString()}</TableCell>
-                      <TableCell><Chip size="small" label={r.status} /></TableCell>
+                      <TableCell>{new Date(r.checkInDate).toLocaleDateString(i18n.language)}</TableCell>
+                      <TableCell><Chip size="small" label={t(`admin.reservations.statusLabels.${r.status}`, r.status)} /></TableCell>
                       <TableCell align="right">${(r.estimatedTotal ?? r.totalPrice ?? 0).toFixed(2)}</TableCell>
                     </TableRow>
                   ))}
@@ -397,7 +398,7 @@ const GuestsManagement: React.FC = () => {
                     <TableCell><Typography fontWeight={600}>{g.firstName} {g.lastName}</Typography></TableCell>
                     <TableCell>{g.email}</TableCell>
                     <TableCell>{g.phone || '—'}</TableCell>
-                    <TableCell>{new Date(g.createdAt).toLocaleDateString()}</TableCell>
+                    <TableCell>{new Date(g.createdAt).toLocaleDateString(i18n.language)}</TableCell>
                     <TableCell align="right">
                       <Tooltip title={t('common.edit', 'Edit')}>
                         <IconButton size="small" onClick={e => { e.stopPropagation(); openEdit(g); }}><Edit fontSize="small" /></IconButton>

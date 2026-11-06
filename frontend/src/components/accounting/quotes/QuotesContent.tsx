@@ -20,6 +20,7 @@ import { usePermission } from '../../../lib/permissions';
 import { quotesService, accountingCustomersService, productsService, InvoiceLineItemInput } from '../../../services/api';
 import { Quote, QuoteStatus, Customer, Product } from '../../../types';
 import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
+import i18n from '../../../i18n';
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
@@ -376,7 +377,7 @@ const QuotesContent: React.FC = () => {
                     </Typography>
                   </TableCell>
                   <TableCell>{customerLabel(q)}</TableCell>
-                  <TableCell>{new Date(q.issueDate).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(q.issueDate).toLocaleDateString(i18n.language)}</TableCell>
                   <TableCell align="right">{formatMoney(q.total)}</TableCell>
                   <TableCell>
                     <Chip size="small" label={t(`accounting.quotes.status.${q.status}`)} color={STATUS_COLOR[q.status]} />
@@ -521,8 +522,8 @@ const QuotesContent: React.FC = () => {
                 <Chip size="small" label={t(`accounting.quotes.status.${viewQuote.status}`)} color={STATUS_COLOR[viewQuote.status]} />
               </Box>
               <Typography variant="body2" color="text.secondary">
-                {t('accounting.quotes.table.issueDate')}: {new Date(viewQuote.issueDate).toLocaleDateString()}
-                {viewQuote.expiryDate ? ` · ${t('accounting.quotes.form.expiryDate')}: ${new Date(viewQuote.expiryDate).toLocaleDateString()}` : ''}
+                {t('accounting.quotes.table.issueDate')}: {new Date(viewQuote.issueDate).toLocaleDateString(i18n.language)}
+                {viewQuote.expiryDate ? ` · ${t('accounting.quotes.form.expiryDate')}: ${new Date(viewQuote.expiryDate).toLocaleDateString(i18n.language)}` : ''}
               </Typography>
 
               <TableContainer component={Paper} variant="outlined">

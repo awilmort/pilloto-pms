@@ -75,9 +75,9 @@ export async function createSigningKey(
   input: { billingAccountId?: unknown; title?: unknown },
   client?: ChannexClient,
 ): Promise<SetupResult<{ signingKeyId: string; secret: string; message: string }>> {
-  const billingAccountId = typeof input.billingAccountId === 'string' ? input.billingAccountId.trim() : '';
-  if (!/^[0-9a-f-]{36}$/i.test(billingAccountId)) {
-    return { ok: false, reason: 'invalid', message: 'billingAccountId (the Channex billing account UUID that will own the key) is required.' };
+  let billingAccountId = typeof input.billingAccountId === 'string' ? input.billingAccountId.trim() : '';
+  if (billingAccountId && !/^[0-9a-f-]{36}$/i.test(billingAccountId)) {
+    return { ok: false, reason: 'invalid', message: 'billingAccountId must be a Channex billing account UUID (leave it out to use the API key owner\'s account).' };
   }
   const title = typeof input.title === 'string' && input.title.trim()
     ? input.title.trim().slice(0, 100)
@@ -86,6 +86,12 @@ export async function createSigningKey(
   const c = clientOrNull(client);
   if (!c) return NOT_CONFIGURED;
   try {
+    if (!billingAccountId) {
+      // GET /billing_accounts returns the account the API key belongs to
+      const account = await c.get<any>('/billing_accounts');
+      billingAccountId = account?.data?.id ?? account?.data?.attributes?.id ?? '';
+      if (!billingAccountId) return { ok: false, reason: 'channex_error', message: 'Channex did not return the billing account of this API key; pass billingAccountId.' };
+    }
     const res = await c.post<any>('/signing_keys', { signing_key: { title, billing_account_id: billingAccountId } });
     const signingKeyId: string | undefined = res?.data?.id ?? res?.data?.attributes?.id;
     const secret: string | undefined = res?.data?.attributes?.secret;

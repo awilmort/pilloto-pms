@@ -4,6 +4,7 @@ import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { adminService } from '../../services/api';
+import i18n from '../../i18n';
 
 interface SalesmanStat {
   id: string;
@@ -102,8 +103,8 @@ const Commissions: React.FC = () => {
                 <TableRow key={r.id}>
                   <TableCell>{r.name}</TableCell>
                   <TableCell>{r.email}</TableCell>
-                  <TableCell>{r.totalGuests.toLocaleString()}</TableCell>
-                  <TableCell>{r.bookings.toLocaleString()}</TableCell>
+                  <TableCell>{r.totalGuests.toLocaleString(i18n.language)}</TableCell>
+                  <TableCell>{r.bookings.toLocaleString(i18n.language)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

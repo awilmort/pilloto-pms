@@ -14,6 +14,7 @@ import { usePermission } from '../../../lib/permissions';
 import { journalEntriesService, accountsService, JournalEntryLineInput } from '../../../services/api';
 import { JournalEntry, JournalEntrySource, Account } from '../../../types';
 import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
+import i18n from '../../../i18n';
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
@@ -257,7 +258,7 @@ const JournalEntriesContent: React.FC = () => {
                       {entry.entryNumber}
                     </Typography>
                   </TableCell>
-                  <TableCell>{new Date(entry.date).toLocaleDateString()}</TableCell>
+                  <TableCell>{new Date(entry.date).toLocaleDateString(i18n.language)}</TableCell>
                   <TableCell>{entry.memo}</TableCell>
                   <TableCell>{t(`accounting.journalEntries.source.${entry.source}`, entry.source)}</TableCell>
                   <TableCell align="right">{formatMoney(entryTotal(entry))}</TableCell>
@@ -361,7 +362,7 @@ const JournalEntriesContent: React.FC = () => {
                 <Chip size="small" label={viewEntry.isVoid ? t('accounting.journalEntries.status.void') : t('accounting.journalEntries.status.posted')} color={viewEntry.isVoid ? 'error' : 'success'} />
               </Box>
               <Typography variant="body2" color="text.secondary">
-                {new Date(viewEntry.date).toLocaleDateString()} · {t(`accounting.journalEntries.source.${viewEntry.source}`, viewEntry.source)}
+                {new Date(viewEntry.date).toLocaleDateString(i18n.language)} · {t(`accounting.journalEntries.source.${viewEntry.source}`, viewEntry.source)}
               </Typography>
 
               <TableContainer component={Paper} variant="outlined">
@@ -387,7 +388,7 @@ const JournalEntriesContent: React.FC = () => {
 
               {viewEntry.isVoid && (
                 <Alert severity="warning">
-                  {t('accounting.journalEntries.dialog.voidedNotice', { date: viewEntry.voidedAt ? new Date(viewEntry.voidedAt).toLocaleDateString() : '' })}
+                  {t('accounting.journalEntries.dialog.voidedNotice', { date: viewEntry.voidedAt ? new Date(viewEntry.voidedAt).toLocaleDateString(i18n.language) : '' })}
                   {viewEntry.voidReason ? ` — ${viewEntry.voidReason}` : ''}
                 </Alert>
               )}

@@ -306,7 +306,7 @@ const AppShell: React.FC<AppShellProps> = ({
           {expanded ? <PillotoLogo height={24} product={app} /> : <PillotoSymbol size={36} product={app} />}
         </Box>
         {!isDesktop && (
-          <IconButton size="small" onClick={() => setMobileOpen(false)} aria-label="close menu" sx={{ color: BRAND.slate }}>
+          <IconButton size="small" onClick={() => setMobileOpen(false)} aria-label={t('nav.closeMenu')} sx={{ color: BRAND.slate }}>
             <KeyboardDoubleArrowLeft fontSize="small" />
           </IconButton>
         )}
@@ -380,7 +380,7 @@ const AppShell: React.FC<AppShellProps> = ({
         <Tooltip title={!expanded ? `${user?.firstName ?? ''} ${user?.lastName ?? ''}` : ''} placement="right" arrow>
           <ListItemButton
             onClick={(e) => setUserMenuAnchor(e.currentTarget)}
-            aria-label="account menu"
+            aria-label={t('nav.accountMenu')}
             sx={{ ...itemSx(false), minHeight: 52, gap: 1.25 }}
           >
             {user?.avatar ? (
@@ -463,7 +463,7 @@ const AppShell: React.FC<AppShellProps> = ({
           >
             {/* Mobile: hamburger + app title */}
             <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 1, minWidth: 0 }}>
-              <IconButton aria-label="open menu" onClick={handleDrawerToggle} edge="start">
+              <IconButton aria-label={t('nav.openMenu')} onClick={handleDrawerToggle} edge="start">
                 <Menu />
               </IconButton>
               <PillotoSymbol size={28} product={app} />

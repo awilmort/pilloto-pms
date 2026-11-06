@@ -8,6 +8,7 @@ import NumberField from '../../components/common/NumberField';
 import { wristbandsService, servicesService } from '../../services/api';
 import { Edit, Delete } from '@mui/icons-material';
 import { WristbandDelivery } from '../../types';
+import i18n from '../../i18n';
 
 const WristbandControl: React.FC = () => {
   const { t } = useTranslation();
@@ -244,15 +245,15 @@ const WristbandControl: React.FC = () => {
       <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'center' }}>
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
           <Typography variant="body2" color="text.secondary">{t('admin.wristbands.summary.available')}</Typography>
-          <Typography variant="h6" sx={{ color: available < 0 ? 'error.main' : 'success.main' }}>{available.toLocaleString()}</Typography>
+          <Typography variant="h6" sx={{ color: available < 0 ? 'error.main' : 'success.main' }}>{available.toLocaleString(i18n.language)}</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
           <Typography variant="body2" color="text.secondary">{t('admin.wristbands.summary.used')}</Typography>
-          <Typography variant="h6" sx={{ color: 'warning.main' }}>{used.toLocaleString()}</Typography>
+          <Typography variant="h6" sx={{ color: 'warning.main' }}>{used.toLocaleString(i18n.language)}</Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
           <Typography variant="body2" color="text.secondary">{t('admin.wristbands.summary.total')}</Typography>
-          <Typography variant="h6" sx={{ color: 'text.primary' }}>{total.toLocaleString()}</Typography>
+          <Typography variant="h6" sx={{ color: 'text.primary' }}>{total.toLocaleString(i18n.language)}</Typography>
         </Box>
       </Box>
     </Paper>
@@ -349,14 +350,14 @@ const WristbandControl: React.FC = () => {
             <TableHead>
               <TableRow>
                 <TableCell>{t('admin.wristbands.deliveryDate')}</TableCell>
-                <TableCell>Type</TableCell>
+                <TableCell>{t('admin.wristbands.type')}</TableCell>
                 <TableCell>{t('admin.wristbands.recipient')}</TableCell>
                 {services.daypass && <TableCell>{t('admin.wristbands.categories.daypassAdults')}</TableCell>}
                 {services.daypass && <TableCell>{t('admin.wristbands.categories.daypassChildren')}</TableCell>}
                 {services.accommodation && <TableCell>{t('admin.wristbands.categories.accommodations')}</TableCell>}
                 {services.pasatarde && <TableCell>{t('admin.wristbands.categories.pasatarde')}</TableCell>}
                 <TableCell>{t('admin.wristbands.notes')}</TableCell>
-                <TableCell align="right">Actions</TableCell>
+                <TableCell align="right">{t('admin.wristbands.actionsColumn')}</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -398,7 +399,7 @@ const WristbandControl: React.FC = () => {
               {deliveries.length === 0 && (
                 <TableRow>
                   <TableCell colSpan={5 + (services.daypass ? 2 : 0) + (services.accommodation ? 1 : 0) + (services.pasatarde ? 1 : 0)} align="center">
-                    <Typography variant="body2" color="text.secondary">No deliveries found</Typography>
+                    <Typography variant="body2" color="text.secondary">{t('admin.wristbands.noDeliveries')}</Typography>
                   </TableCell>
                 </TableRow>
               )}
@@ -426,14 +427,14 @@ const WristbandControl: React.FC = () => {
               </Grid>
               <Grid item xs={12} md={4}>
                 <FormControl fullWidth>
-                  <InputLabel>Type</InputLabel>
+                  <InputLabel>{t('admin.wristbands.type')}</InputLabel>
                   <Select
                     value={type}
-                    label="Type"
+                    label={t('admin.wristbands.type')}
                     onChange={(e) => setType(e.target.value as 'delivery' | 'collection')}
                   >
-                    <MenuItem value="delivery">Delivery (Add)</MenuItem>
-                    <MenuItem value="collection">Collection (Remove)</MenuItem>
+                    <MenuItem value="delivery">{t('admin.wristbands.types.delivery')}</MenuItem>
+                    <MenuItem value="collection">{t('admin.wristbands.types.collection')}</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>

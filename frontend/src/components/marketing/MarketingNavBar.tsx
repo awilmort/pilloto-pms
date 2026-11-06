@@ -71,12 +71,12 @@ const MarketingNavBar: React.FC = () => {
         </Box>
         {isMobile ? (
           <>
-            <IconButton onClick={() => setDrawerOpen(true)} aria-label="Menu" sx={{ color: BRAND.ink }}><MenuIcon /></IconButton>
+            <IconButton onClick={() => setDrawerOpen(true)} aria-label={t('marketing.nav.menu')} sx={{ color: BRAND.ink }}><MenuIcon /></IconButton>
             <Drawer anchor="right" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
               <Box sx={{ width: 280, p: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
                   <PillotoLogo height={22} />
-                  <IconButton onClick={() => setDrawerOpen(false)} aria-label="Close"><CloseIcon /></IconButton>
+                  <IconButton onClick={() => setDrawerOpen(false)} aria-label={t('marketing.nav.close')}><CloseIcon /></IconButton>
                 </Box>
                 {NAV_ITEMS.map(item => (
                   <Box key={item.key} py={1.5} borderBottom={`1px solid ${BRAND.mist}`}>

@@ -9,6 +9,7 @@ import { usePermission } from '../../../lib/permissions';
 import { cityLedgerService } from '../../../services/api';
 import { Invoice } from '../../../types';
 import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
+import i18n from '../../../i18n';
 
 /**
  * City Ledger pending-authorization queue (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md
@@ -158,7 +159,7 @@ const CityLedgerContent: React.FC = () => {
                       <TableCell align="right">{formatMoney(inv.total)}</TableCell>
                       <TableCell>
                         <Typography variant="body2" color="text.secondary">
-                          {new Date(inv.issueDate).toLocaleDateString()}
+                          {new Date(inv.issueDate).toLocaleDateString(i18n.language)}
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
