@@ -3556,6 +3556,7 @@
         "rules": {
           "intro": "Opcional: reglas como mínimo de noches los fines de semana o fechas cerradas. Puedes omitirlo y hacerlo después en el Calendario.",
           "none": "Aún no hay reglas de reserva.",
+          "fromCalendar": "Puesta en el Calendario",
           "skip": "Omitir"
         },
         "bookings": {

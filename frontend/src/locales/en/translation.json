@@ -3556,6 +3556,7 @@
         "rules": {
           "intro": "Optional: rules such as a weekend minimum stay or closed dates. You can skip this and do it later in the Calendar.",
           "none": "No booking rules yet.",
+          "fromCalendar": "Set in the Calendar",
           "skip": "Skip"
         },
         "bookings": {

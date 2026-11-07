@@ -61,7 +61,7 @@ const SetupWizard: React.FC<Props> = ({ status, canManage, onChanged, onConnectC
   const refresh = useCallback(async () => {
     try {
       const [r, p, ru] = await Promise.all([
-        channelManagerService.readiness(), channelManagerService.preview(days), restrictionRulesService.list({ origin: 'manual' }),
+        channelManagerService.readiness(), channelManagerService.preview(days), restrictionRulesService.list(),
       ]);
       setChecks(r.data.data ?? []);
       setPreview(p.data.data ?? null);
@@ -249,7 +249,11 @@ const SetupWizard: React.FC<Props> = ({ status, canManage, onChanged, onConnectC
               ))}
             </Box>
             {rules.length === 0 ? <Typography variant="body2" color="text.secondary">{t('admin.channelManager.wizard.rules.none')}</Typography>
-              : rules.map((r) => <Typography key={r._id} variant="body2" sx={{ py: 0.25 }}>• {r.summary[lang]}</Typography>)}
+              : rules.map((r) => (
+                <Typography key={r._id} variant="body2" sx={{ py: 0.25 }}>
+                  • {r.summary[lang]}{r.origin === 'calendar' ? ` (${t('admin.channelManager.wizard.rules.fromCalendar')})` : ''}
+                </Typography>
+              ))}
             {ruleForm && (
               <BookingRuleDialog form={ruleForm} lang={lang} roomTypes={(preview?.roomTypes ?? []).map((rt) => ({ _id: rt._id, name: rt.name }))} ratePlans={planOptions}
                 onClose={() => setRuleForm(null)} onSaved={() => { setRuleForm(null); refresh(); }} />
