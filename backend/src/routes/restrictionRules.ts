@@ -22,7 +22,8 @@ import RatePlan from '../models/RatePlan';
 import { authenticate, authorizeAppAccess, authorizePermission, AuthRequest } from '../middleware/auth';
 import { isChannexDate, todayInTz } from '../services/channex/dates';
 import { restrictionRuleProblems, summarizeRestrictionRule, RestrictionRuleLike, SummaryNames } from '../services/restrictionRules';
-import { defaultRatePlanIdsForRooms, stayRestrictionWarnings, toStay } from '../services/stayQuote';
+import { stayRestrictionWarnings, toStay } from '../services/stayQuote';
+import { recommendedPlanIdsForRooms } from '../services/ratePlanSelection';
 
 const router = express.Router();
 
@@ -125,8 +126,9 @@ router.post('/preview', authenticate, authorizePermission('pms', 'admin.pricing'
 });
 
 // @route   POST /api/restriction-rules/check — { checkIn, checkOut, ratePlanIds?, roomIds? }
-// Booking rules the stay breaks on the given plans (or, for rooms, the plan each room's type is
-// priced on). For the admin reservation dialogs: warnings staff may override, never errors.
+// Booking rules the stay breaks on the given plans (or, for rooms, the plan each room would be
+// pre-selected on — services/ratePlanSelection.ts). For the admin reservation dialogs:
+// warnings staff may override, never errors.
 router.post('/check', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
     const { checkIn, checkOut, ratePlanIds, roomIds } = req.body ?? {};
@@ -138,7 +140,7 @@ router.post('/check', authenticate, authorizeAppAccess('pms'), async (req: AuthR
         || !isIdList(ratePlanIds) || !isIdList(roomIds)) {
       return res.status(400).json({ success: false, message: 'Invalid rate plan or room id.' });
     }
-    const planIds = [...(ratePlanIds ?? []).map(String), ...(roomIds?.length ? await defaultRatePlanIdsForRooms(roomIds) : [])];
+    const planIds = [...(ratePlanIds ?? []).map(String), ...(roomIds?.length ? await recommendedPlanIdsForRooms(roomIds.map(String), stay) : [])];
     res.json({ success: true, data: { warnings: await stayRestrictionWarnings({ ...stay, ratePlanIds: planIds }) } });
   } catch (err) {
     console.error('Check restriction-rules error:', err);

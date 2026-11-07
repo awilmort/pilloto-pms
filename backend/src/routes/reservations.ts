@@ -2,7 +2,6 @@ import { tenantBaseUrl } from '../utils/appUrls';
 import express, { Request, Response } from 'express';
 import Reservation from '../models/Reservation';
 import Room from '../models/Room';
-import RatePlan from '../models/RatePlan';
 import Role from '../models/Role';
 import { authenticate, authorize, authorizePermission, authorizeAppAccess, AuthRequest, userHasPermission } from '../middleware/auth';
 import { validateReservation } from '../middleware/validation';
@@ -21,7 +20,11 @@ import { postChargeAddedEntry, postPaymentCompletedEntry, reversePaymentEntry, t
 import { transferFolioBalanceToCityLedger } from '../services/accounting/cityLedger.service';
 import { validateRoomAssignment } from '../services/roomAssignment';
 import { stayRestrictionWarnings, toStay, StayWarning } from '../services/stayQuote';
-import { BOOKING_ENGINE_TOKEN_RE, ensureFolio, generateReservationCode } from '../services/reservationRecords';
+import { BOOKING_ENGINE_TOKEN_RE, ensureFolio, generateReservationCode, realignRoomItems } from '../services/reservationRecords';
+import {
+  pricingSnapshotFrom, quoteRooms, RateSelectionError, requoteRoomItems, roomItemsFromQuote, RoomRatesResult,
+} from '../services/ratePlanSelection';
+import mongoose from 'mongoose';
 import { loadChannelHistory } from '../services/channex/tenantViews';
 import { actorFromRequest, diffSnapshots, GUEST_ACTOR, loadReservationHistory, recordReservationEvent, snapshotReservation } from '../services/reservationHistory';
 
@@ -404,6 +407,8 @@ router.post('/', async (req: Request, res: Response) => {
       discountAmount: rawDiscountAmount,
       discountPercent: rawDiscountPercent,
       discountReason,
+      roomRatePlans,          // optional: { [roomId]: ratePlanId } chosen for each assigned room
+      promoCode,              // optional: promo code that unlocks private rate plans
     } = req.body;
 
     // Normalize and basic validation
@@ -556,89 +561,52 @@ router.post('/', async (req: Request, res: Response) => {
     let pricingSnapshotData: any = undefined;
     // Rate plans the stay is priced on — checked against booking rules (warnings only)
     const usedRatePlanIds: string[] = [];
+    // Room reservations with assigned rooms: one room item per room, priced on its plan
+    let roomItems: ReturnType<typeof roomItemsFromQuote> = [];
+    let appliedPromoCode: string | undefined;
 
     if (normalizedType === 'room') {
       // Room reservation pricing via tiered rate plan
       nights = Math.ceil((checkOut!.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
 
       if (Array.isArray(assignedRoomIds) && assignedRoomIds.length > 0) {
-        // ── New path: derive pricing from the assigned rooms' rate plans ──
-        const roomDocs: any[] = await Room.find({ _id: { $in: assignedRoomIds } })
-          .populate('roomTypeId', 'name capacity')
-          .lean();
-
-        // Sort by room type capacity ascending so we fill smallest rooms first
-        roomDocs.sort((a, b) => {
-          const capA = (a.roomTypeId as any)?.capacity ?? 1;
-          const capB = (b.roomTypeId as any)?.capacity ?? 1;
-          return capA - capB;
-        });
-
-        let remainingAdults = Number(guestDetails?.adults ?? 0);
-        let remainingChildren = Number(guestDetails?.children ?? 0);
-        let grandTotal = 0;
-        let grandBase = 0;
-        let grandOccupancy = 0;
-        let grandSubtotal = 0;
-        let grandTaxes: any[] = [];
-        let grandTaxesTotal = 0;
-
-        for (const room of roomDocs) {
-          const roomTypeDoc = room.roomTypeId as any;
-          const roomTypeId = roomTypeDoc?._id ?? room.roomTypeId;
-          if (!roomTypeId) continue;
-
-          const ratePlan = await RatePlan.findOne({ roomTypeId, isActive: true }).lean();
-          if (!ratePlan) continue;
-          usedRatePlanIds.push(String(ratePlan._id));
-
-          const capacity = roomTypeDoc?.capacity ?? 1;
-          const roomAdults = Math.min(remainingAdults, capacity);
-          const roomChildren = Math.min(remainingChildren, Math.max(0, capacity - roomAdults));
-          remainingAdults = Math.max(0, remainingAdults - roomAdults);
-          remainingChildren = Math.max(0, remainingChildren - roomChildren);
-
-          const priceResult = await calculateTieredPrice({
-            ratePlanId: String(ratePlan._id),
-            adults: roomAdults,
-            children: roomChildren,
-            date: checkIn,
-            nights,
-            rooms: 1,
-            companyId: (isCorporate && company) ? company : undefined,
-            guestEmail: contactInfo?.email,
-            channel: authenticatedUser ? 'admin' : 'public',
-          });
-
-          grandTotal += priceResult.finalTotal;
-          grandBase += priceResult.basePrice;
-          grandOccupancy += priceResult.occupancyCost;
-          grandSubtotal += priceResult.subtotal;
-          grandTaxesTotal += priceResult.totalTaxes;
-          // Merge taxes by name
-          for (const tx of (priceResult.taxes ?? [])) {
-            const existing = grandTaxes.find(t => t.name === tx.name);
-            if (existing) existing.amount += tx.amount;
-            else grandTaxes.push({ ...tx });
+        // ── Each assigned room on its own rate plan ──
+        // The plan chosen for the room (roomRatePlans), or the pre-selection: contract →
+        // promo code → the room type's default plan → cheapest open plan, priced night by
+        // night (services/ratePlanSelection.ts). Without a session only the plans the booking
+        // engine offers can be booked, without negotiated prices.
+        const selections: Record<string, string> = {};
+        if (roomRatePlans && typeof roomRatePlans === 'object' && !Array.isArray(roomRatePlans)) {
+          for (const [roomId, planId] of Object.entries(roomRatePlans)) {
+            if (mongoose.Types.ObjectId.isValid(roomId) && mongoose.Types.ObjectId.isValid(String(planId))) selections[roomId] = String(planId);
           }
         }
-
-        estimatedTotal = grandTotal;
-        if (grandTotal > 0) {
-          pricingSnapshotData = {
-            ratePlanId: '',
-            ratePlanName: roomDocs.map((r: any) => r.roomTypeId?.name ?? r.name).join(', '),
-            roomTypeName: roomDocs.map((r: any) => r.roomTypeId?.name ?? '').join(', '),
-            basePrice: grandBase,
-            occupancyCost: grandOccupancy,
-            subtotal: grandSubtotal,
-            adjustedSubtotal: grandSubtotal,
-            taxes: grandTaxes,
-            totalTaxes: grandTaxesTotal,
-            finalTotal: grandTotal,
-            nights,
-          };
+        let roomQuote: RoomRatesResult;
+        try {
+          roomQuote = await quoteRooms({
+            roomIds: assignedRoomIds.map(String),
+            checkIn,
+            checkOut: checkOut!,
+            adults: Number(guestDetails?.adults ?? 0),
+            children: Number(guestDetails?.children ?? 0),
+            companyId: isCorporate && company ? String(company) : undefined,
+            guestEmail: contactInfo?.email,
+            promoCode: typeof promoCode === 'string' ? promoCode : undefined,
+            selections,
+            audience: authenticatedUser ? 'staff' : 'public',
+            strict: true,
+          });
+        } catch (err) {
+          if (err instanceof RateSelectionError) return res.status(400).json({ success: false, message: err.message });
+          throw err;
         }
+        roomItems = roomItemsFromQuote(roomQuote, checkIn, checkOut!);
+        const quotes = roomQuote.lines.map((l) => l.quote).filter((q): q is NonNullable<typeof q> => !!q);
+        pricingSnapshotData = pricingSnapshotFrom(quotes);
+        estimatedTotal = roomQuote.totals.finalTotal;
+        usedRatePlanIds.push(...roomItems.map((i) => String(i.ratePlanId)));
+        const promoUsed = roomQuote.lines.some((l) => l.options.some((o) => o.ratePlanId === l.selected?.ratePlanId && o.promoMatch));
+        if (promoUsed && roomQuote.promo) appliedPromoCode = roomQuote.promo.code;
       } else {
         // ── Legacy path: single explicit rate plan ──
         const inboundRatePlanId = req.body.ratePlanId;
@@ -697,8 +665,9 @@ router.post('/', async (req: Request, res: Response) => {
     // Calculate total guests
     const totalGuests = (guestDetails?.adults || 0) + (guestDetails?.children || 0) + (guestDetails?.infants || 0);
 
-    // If a validated items array was provided (service pricing), use summed total
-    if (Array.isArray(items) && items.length > 0) {
+    // If a validated items array was provided (service pricing), use summed total. Room
+    // reservations with assigned rooms are priced above; client-sent items never override them.
+    if (roomItems.length === 0 && Array.isArray(items) && items.length > 0) {
       const itemsTotal = items.reduce((sum: number, item: any) => sum + (Number(item.total) || 0), 0);
       if (itemsTotal > 0) estimatedTotal = itemsTotal;
     }
@@ -797,9 +766,12 @@ router.post('/', async (req: Request, res: Response) => {
       }
     }
     if (guestRecordId) reservationData.guestRecord = guestRecordId;
-    if (Array.isArray(items) && items.length > 0) {
+    if (roomItems.length > 0) {
+      reservationData.items = roomItems;
+    } else if (Array.isArray(items) && items.length > 0) {
       reservationData.items = items;
     }
+    if (appliedPromoCode) reservationData.promoCode = appliedPromoCode;
 
     // Link company for corporate bookings (direct assignment by privileged users)
     if (isCorporate && company) {
@@ -874,8 +846,10 @@ router.post('/', async (req: Request, res: Response) => {
     // broken rule comes back as a warning so the front desk can override it knowingly.
     let warnings: StayWarning[] = [];
     if (normalizedType === 'room' && checkOut) {
-      for (const item of Array.isArray(items) ? items : []) {
-        if (item?.kind === 'room' && item.ratePlanId) usedRatePlanIds.push(String(item.ratePlanId));
+      if (roomItems.length === 0) {
+        for (const item of Array.isArray(items) ? items : []) {
+          if (item?.kind === 'room' && item.ratePlanId) usedRatePlanIds.push(String(item.ratePlanId));
+        }
       }
       warnings = await stayRestrictionWarnings({ ...toStay(checkIn, checkOut), ratePlanIds: usedRatePlanIds })
         .catch((err) => { console.warn('Booking-rule check failed (reservation still created):', err); return []; });
@@ -1121,9 +1095,17 @@ router.put('/:id', authenticate, authorizeAppAccess('pms'), async (req: AuthRequ
       }
 
       // Update dates and recalculate price
+      const oldStay = {
+        checkIn: new Date(reservation.checkInDate),
+        checkOut: reservation.checkOutDate ? new Date(reservation.checkOutDate) : new Date(new Date(reservation.checkInDate).getTime() + 24 * 60 * 60 * 1000),
+      };
       reservation.checkInDate = checkIn;
       if (reservation.type === 'room') {
         reservation.checkOutDate = checkOut!;
+        // Room items follow the stay (inventory counts an item on its own nights)
+        if (reservation.items?.length) {
+          reservation.items = realignRoomItems(reservation.items, oldStay, { checkIn, checkOut: checkOut! }, { rescaleAmounts: true }) as any;
+        }
       } else if (reservation.type === 'event') {
         // allow null or provided value
         reservation.checkOutDate = checkOut || undefined;
@@ -1438,8 +1420,10 @@ router.put('/:id/assign-room', authenticate, authorizePermission('pms', 'admin.r
       });
     }
 
-    // Track previous room to free if reassigning
-    const previousRoomId = reservation.room as any;
+    // Track previous room to free if reassigning. Front-desk reservations keep their rooms in
+    // `rooms` without a primary `room`: with a single room, that room is the one replaced.
+    const currentRooms = Array.isArray(reservation.rooms) ? reservation.rooms : [];
+    const previousRoomId = (reservation.room ?? (currentRooms.length === 1 ? currentRooms[0] : undefined)) as any;
 
     // Resulting assignment: the new room replaces the previous primary room
     const nextRoomIds = (Array.isArray(reservation.rooms) ? reservation.rooms.map(r => String(r)) : [])
@@ -1661,6 +1645,11 @@ router.put('/:id/move', authenticate, authorizeAppAccess('pms'), async (req: Aut
 
     const before = snapshotReservation(reservation);
     if (dateChange) {
+      if (reservation.items?.length) {
+        reservation.items = realignRoomItems(
+          reservation.items, { checkIn: oldCheckIn, checkOut: new Date(reservation.checkOutDate) }, { checkIn, checkOut },
+        ) as any;
+      }
       reservation.checkInDate = checkIn;
       reservation.checkOutDate = checkOut;
     }
@@ -2546,109 +2535,72 @@ router.post('/:id/send-email', authenticate, authorize('admin'), async (req: Aut
  * company pricing rules. Called immediately after a corporate price request is
  * approved so the stored total reflects the negotiated corporate rate.
  *
- * Non-room reservation types are skipped (no corporate rate rules apply).
+ * Reservations with room items keep their rate plans, re-priced night by night with the
+ * company's (and guest's) rules; a room moves to the plan carrying the company's contract when
+ * its type has one (services/ratePlanSelection.ts). Older reservations without room items are
+ * re-priced on their snapshot's plan. Non-room reservation types are skipped.
  */
 async function recalculateCorporatePrice(reservation: any, companyId: string): Promise<void> {
   if (reservation.type !== 'room') return;
-
-  const snap = reservation.pricingSnapshot;
-  const nights = snap?.nights
-    || (reservation.checkInDate && reservation.checkOutDate
-      ? Math.max(1, Math.ceil((new Date(reservation.checkOutDate).getTime() - new Date(reservation.checkInDate).getTime()) / 86400000))
-      : 1);
-
-  const adults   = reservation.guestDetails?.adults   ?? 1;
-  const children = reservation.guestDetails?.children ?? 0;
-  const checkIn  = new Date(reservation.checkInDate);
+  const guestEmail = reservation.contactInfo?.email;
 
   let newTotal = 0;
-  let newSnapshot: any = snap ? { ...snap } : undefined;
+  let newSnapshot: any;
+  const roomItems = (reservation.items ?? []).filter((i: any) => i.kind === 'room');
 
-  const rooms: any[] = Array.isArray(reservation.rooms) && reservation.rooms.length > 0
-    ? await Room.find({ _id: { $in: reservation.rooms } }).populate('roomTypeId', 'name capacity').lean()
-    : [];
-
-  if (rooms.length > 0) {
-    // Multi-room path: recalculate per room with corporate pricing
-    let grandTotal = 0, grandBase = 0, grandOccupancy = 0, grandSubtotal = 0, grandTaxesTotal = 0;
-    const grandTaxes: any[] = [];
-
-    let remainingAdults   = adults;
-    let remainingChildren = children;
-
-    rooms.sort((a, b) => ((a.roomTypeId as any)?.capacity ?? 1) - ((b.roomTypeId as any)?.capacity ?? 1));
-
-    for (const room of rooms) {
-      const roomTypeId = (room.roomTypeId as any)?._id ?? room.roomTypeId;
-      if (!roomTypeId) continue;
-      const ratePlan = await RatePlan.findOne({ roomTypeId, isActive: true }).lean();
-      if (!ratePlan) continue;
-
-      const cap          = (room.roomTypeId as any)?.capacity ?? 1;
-      const roomAdults   = Math.min(remainingAdults, cap);
-      const roomChildren = Math.min(remainingChildren, Math.max(0, cap - roomAdults));
-      remainingAdults   = Math.max(0, remainingAdults   - roomAdults);
-      remainingChildren = Math.max(0, remainingChildren - roomChildren);
-
+  if (roomItems.length > 0) {
+    const { items, quotes } = await requoteRoomItems(reservation.items, { companyId, guestEmail });
+    if (quotes.length === 0) return;
+    reservation.items = items;
+    const repriced = items.filter((i: any) => i.kind === 'room');
+    newTotal = Math.round(repriced.reduce((s: number, i: any) => s + Number(i.total || 0), 0) * 100) / 100
+      + (reservation.items as any[]).filter((i: any) => i.kind !== 'room').reduce((s: number, i: any) => s + Number(i.total || 0), 0);
+    newSnapshot = quotes.length === repriced.length ? pricingSnapshotFrom(quotes) : undefined;
+  } else {
+    const rooms: string[] = (Array.isArray(reservation.rooms) ? reservation.rooms : []).map(String);
+    if (rooms.length > 0 && reservation.checkInDate && reservation.checkOutDate) {
+      const result = await quoteRooms({
+        roomIds: rooms,
+        checkIn: new Date(reservation.checkInDate),
+        checkOut: new Date(reservation.checkOutDate),
+        adults: reservation.guestDetails?.adults ?? 1,
+        children: reservation.guestDetails?.children ?? 0,
+        companyId,
+        guestEmail,
+        audience: 'staff',
+      });
+      const quotes = result.lines.map((l) => l.quote).filter((q): q is NonNullable<typeof q> => !!q);
+      if (quotes.length === 0) return;
+      newTotal = result.totals.finalTotal;
+      newSnapshot = pricingSnapshotFrom(quotes);
+    } else if (reservation.pricingSnapshot?.ratePlanId) {
+      const snap = reservation.pricingSnapshot;
+      const nights = snap.nights || 1;
       const result = await calculateTieredPrice({
-        ratePlanId: String(ratePlan._id),
-        adults: roomAdults,
-        children: roomChildren,
-        date: checkIn,
+        ratePlanId: snap.ratePlanId,
+        adults: reservation.guestDetails?.adults ?? 1,
+        children: reservation.guestDetails?.children ?? 0,
+        date: new Date(reservation.checkInDate),
         nights,
         rooms: 1,
         companyId,
         channel: 'admin',
       });
-
-      grandTotal        += result.finalTotal;
-      grandBase         += result.basePrice;
-      grandOccupancy    += result.occupancyCost;
-      grandSubtotal     += result.subtotal;
-      grandTaxesTotal   += result.totalTaxes;
-      for (const tx of (result.taxes ?? [])) {
-        const existing = grandTaxes.find(t => t.name === tx.name);
-        if (existing) existing.amount += tx.amount;
-        else grandTaxes.push({ ...tx });
-      }
+      newTotal = result.finalTotal;
+      newSnapshot = {
+        ...(snap.toObject ? snap.toObject() : snap),
+        basePrice: result.basePrice,
+        occupancyCost: result.occupancyCost,
+        subtotal: result.subtotal,
+        adjustedSubtotal: result.adjustedSubtotal,
+        taxes: result.taxes,
+        totalTaxes: result.totalTaxes,
+        finalTotal: result.finalTotal,
+      };
+    } else {
+      // No pricing data to recalculate from — leave price unchanged
+      return;
     }
-
-    newTotal = grandTotal;
-    if (newSnapshot) {
-      newSnapshot.basePrice      = grandBase;
-      newSnapshot.occupancyCost  = grandOccupancy;
-      newSnapshot.subtotal       = grandSubtotal;
-      newSnapshot.adjustedSubtotal = grandSubtotal;
-      newSnapshot.taxes          = grandTaxes;
-      newSnapshot.totalTaxes     = grandTaxesTotal;
-      newSnapshot.finalTotal     = grandTotal;
-    }
-  } else if (snap?.ratePlanId) {
-    // Single rate-plan path
-    const result = await calculateTieredPrice({
-      ratePlanId: snap.ratePlanId,
-      adults,
-      children,
-      date: checkIn,
-      nights,
-      rooms: 1,
-      companyId,
-      channel: 'admin',
-    });
-
-    newTotal = result.finalTotal;
-    if (newSnapshot) {
-      newSnapshot.basePrice        = result.basePrice;
-      newSnapshot.occupancyCost    = result.occupancyCost;
-      newSnapshot.subtotal         = result.subtotal;
-      newSnapshot.adjustedSubtotal = result.adjustedSubtotal;
-      newSnapshot.taxes            = result.taxes;
-      newSnapshot.totalTaxes       = result.totalTaxes;
-      newSnapshot.finalTotal       = result.finalTotal;
-    }
-  } else {
-    // No pricing data to recalculate from — leave price unchanged
-    return;
   }
 
   // Re-apply any existing manual discount on top of the new corporate total

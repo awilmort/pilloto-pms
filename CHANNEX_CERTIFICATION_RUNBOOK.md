@@ -194,7 +194,12 @@ beforehand — section 4.4).
 | Double | `Bed & Breakfast Rate` | 120 |
 
 The test tables call the second plan "Bed & Breakfast"; the setup section names it "Bed & Breakfast Rate".
-Use the longer one. Leave "Vender en canales" (sell on channels) on for all of them.
+Use the longer one. Leave "Vender en canales" (sell on channels) on for all of them, and leave "Visibilidad en el
+motor de reservas" on «Pública».
+
+On both **Best Available Rate** plans switch on **«Tarifa predeterminada de este tipo de habitación»**. That makes it
+the plan new reservations are pre-selected on (otherwise the cheapest open plan is pre-selected, which is also BAR
+here, but the default makes it explicit).
 
 ---
 
@@ -263,29 +268,115 @@ stay), which the tests overwrite where they need to.
 
 ### 4.4 Reservations and blocks (the availability variation)
 
-Create with **Nueva reserva** (Booking calendar `/admin/booking-calendar` → **Nueva reserva**, or the
-Reservations screen). Status confirmed, any guest name/e-mail. Out of service: **Habitaciones** → a room's
-**Fuera de servicio** button, or in the Booking calendar click an empty slot →
-**Poner habitación fuera de servicio**. In a block the end date is the day the room is **back** — that day is not
-blocked.
+Everything here is entered **before** you activate, so nothing is pushed one by one; it all goes out in the
+activation sync. No waiting between entries.
 
-**General realism (about 25 bookings, 3 blocks).** Aim for roughly:
+#### How to enter one reservation
 
-| When | Reservations |
+Open the Booking calendar (`/admin/booking-calendar`) → **Nueva reserva** (or **Reservas** → **Nueva reserva**).
+The dialog has four screens:
+
+| Screen | What you do |
 |---|---|
-| next 90 days | ~12, 1–7 nights each, mixed Twin/Double, some overlapping so some nights show Twin 5 or 6 of 8 |
-| days 90–365 | ~8 (include 4 Twin rooms booked 2026-12-26 → 2027-01-02) |
-| days 365–499 (before the test month) | ~3 |
-| blocks | Twin 108: 2027-02-01 → 2027-02-08; Double 205: 2027-06-14 → 2027-06-21 |
+| 1. Type | Pick the **Habitación** card ("Estadía de varias noches"). |
+| 2. **Fechas y huéspedes** | In "Selecciona las fechas" click the check-in day, then the check-out day (two clicks; the calendar opens on the current month, so use the right arrow to reach later months). Set **Adultos** from the table; leave **Niños** = 0 and **Infantes** = 0. Wait for "N habitación(es) disponible(s)", then in **Asignar habitaciones** click the card with the room name from the table (it gets a check mark). **Continuar**. |
+| 3. **Datos del huésped** | **Nombre**, **Apellido**, **Correo** (all three required for **Continuar**). **Teléfono** and **Peticiones especiales**: leave empty. Leave the corporate-booking switch off. "Precio estimado" is read-only and is filled in by Pilloto. **Continuar**. |
+| 4. **Resumen** | Check dates, room and guest, then **Reservar**. |
 
-**Keep November 2027 empty, except for the following setup**, because Tests 9 and 10 expect exact numbers there.
+Same on every reservation:
 
-**Pre-test setup (do it now; it goes out in the activation sync and makes Tests 9/10 one action each):**
+- **Nombre** = `Guest NN`, **Apellido** = `Cert`, **Correo** = `guest-NN@example.com`, where `NN` is the number in the
+  first column of the tables below (`Guest 01`, `guest-01@example.com`, …). Using the number lets you find a
+  reservation again in the list.
+- Pilloto sends a confirmation e-mail on every creation. `example.com` addresses are reserved for examples, so
+  nothing reaches a real person; a bounce or a failure line in the Render log is harmless.
+- There is no status field. A new reservation is created as **pending**, and that is fine: pending, confirmed and
+  checked-in reservations all take the room out of the availability sent to Channex. Don't confirm or pay them.
+- After you pick the room, a **«Plan de tarifa»** selector appears under it, pre-set to Best Available Rate (the
+  default plan from 3.5). Leave it as it is; the plan only changes the price, not the availability sent to Channex.
+  Leave **«Código promocional»** empty.
+- If the dialog shows "Esta reserva no cumple una regla de reserva", the stay breaks one of the rules from 4.3
+  (minimum stay, stop sell…). It is only a warning and you can still press **Reservar**, but the dates below
+  were picked to avoid it. If you see it, re-check the dates you clicked.
+- The dialog only lists rooms that are free for the dates you picked, which is a quick sanity check: if a room
+  from the table is missing, the dates are wrong or an earlier row used it.
 
-| What | Dates | Why |
-|---|---|---|
-| **4** separate Twin reservations (or 2 reservations + 2 blocks), 4 different rooms | check-in 2027-11-10, check-out 2027-11-17 | Twin availability is 4 on the nights 10–16 Nov. Test 10 later blocks the 5th → **3**. |
-| **4** separate Double reservations | check-in 2027-11-25, check-out 2027-11-26 | Double availability is 1 on the night of 25 Nov. Test 9 later books the 5th → **0**. |
+#### A. The 25 general reservations
+
+2 adults unless the table says 1.
+
+| # | Room | Check-in | Check-out | Nights | Adults |
+|---|---|---|---|---|---|
+| 01 | Twin 101 | 2026-11-09 | 2026-11-13 | 4 | 2 |
+| 02 | Twin 102 | 2026-11-09 | 2026-11-12 | 3 | 1 |
+| 03 | Twin 103 | 2026-11-10 | 2026-11-17 | 7 | 2 |
+| 04 | Twin 104 | 2026-11-10 | 2026-11-12 | 2 | 2 |
+| 05 | Double 201 | 2026-11-10 | 2026-11-14 | 4 | 2 |
+| 06 | Double 202 | 2026-11-16 | 2026-11-19 | 3 | 2 |
+| 07 | Twin 101 | 2026-11-16 | 2026-11-20 | 4 | 1 |
+| 08 | Twin 105 | 2026-11-23 | 2026-11-27 | 4 | 2 |
+| 09 | Double 201 | 2026-11-23 | 2026-11-30 | 7 | 2 |
+| 10 | Twin 102 | 2026-12-07 | 2026-12-10 | 3 | 2 |
+| 11 | Double 203 | 2026-12-14 | 2026-12-18 | 4 | 2 |
+| 12 | Twin 106 | 2027-01-11 | 2027-01-15 | 4 | 2 |
+| 13 | Twin 101 | 2026-12-26 | 2027-01-02 | 7 | 2 |
+| 14 | Twin 102 | 2026-12-26 | 2027-01-02 | 7 | 2 |
+| 15 | Twin 103 | 2026-12-26 | 2027-01-02 | 7 | 2 |
+| 16 | Twin 104 | 2026-12-26 | 2027-01-02 | 7 | 2 |
+| 17 | Double 204 | 2027-02-22 | 2027-02-26 | 4 | 2 |
+| 18 | Twin 107 | 2027-03-08 | 2027-03-12 | 4 | 2 |
+| 19 | Twin 101 | 2027-03-24 | 2027-03-31 | 7 | 2 |
+| 20 | Double 201 | 2027-03-25 | 2027-03-30 | 5 | 2 |
+| 21 | Double 203 | 2027-07-12 | 2027-07-16 | 4 | 2 |
+| 22 | Twin 104 | 2027-08-09 | 2027-08-13 | 4 | 2 |
+| 23 | Double 202 | 2027-12-06 | 2027-12-10 | 4 | 2 |
+| 24 | Twin 105 | 2028-01-10 | 2028-01-14 | 4 | 2 |
+| 25 | Double 203 | 2028-02-14 | 2028-02-18 | 4 | 2 |
+
+What this gives (and why it matters): rows 01–12 are the next ~90 days, so some November nights show Twin
+4–5 of 8 free instead of 8. Rows 13–16 are the year-end group (4 Twin rooms, 26 Dec → 2 Jan). Rows 17–22 spread
+bookings across spring and summer 2027. Rows 23–25 sit **after** the test month (Dec 2027 – Feb 2028), so the far end of the
+500-day window is lightly booked, not empty and not full. Nothing is in Nov 2027; that month is reserved for the
+next table.
+
+Room names: use the names you gave the rooms in 3.4. If you named them differently (for example `Twin 101` vs
+`T-101`), keep the same numbering: Twin 101–108 and Double 201–205.
+
+#### B. Pre-test setup for Tests 9 and 10 (8 reservations)
+
+Same dialog, same guest conventions (`Guest 26`…`Guest 33`), 2 adults each. These are exact because Tests 9 and 10
+expect exact availability numbers.
+
+| # | Room | Check-in | Check-out | Nights | Adults | Why |
+|---|---|---|---|---|---|---|
+| 26 | Twin 101 | 2027-11-10 | 2027-11-17 | 7 | 2 | Twin availability 4 on nights 10–16 Nov. |
+| 27 | Twin 102 | 2027-11-10 | 2027-11-17 | 7 | 2 | (same) |
+| 28 | Twin 103 | 2027-11-10 | 2027-11-17 | 7 | 2 | (same) |
+| 29 | Twin 104 | 2027-11-10 | 2027-11-17 | 7 | 2 | (same). Test 10a later blocks **Twin 105** → 3. |
+| 30 | Double 201 | 2027-11-25 | 2027-11-26 | 1 | 2 | Double availability 1 on the night of 25 Nov. |
+| 31 | Double 202 | 2027-11-25 | 2027-11-26 | 1 | 2 | (same) |
+| 32 | Double 203 | 2027-11-25 | 2027-11-26 | 1 | 2 | (same) |
+| 33 | Double 204 | 2027-11-25 | 2027-11-26 | 1 | 2 | (same). Test 9b later books **Double 205** → 0. |
+
+Rooms to use later, so the numbers come out exactly: Test 9a books **Twin 106**; Test 9b books **Double 205**;
+Test 10a blocks **Twin 105**; Test 10b blocks **Double 201** (it is free on the nights 17–24 Nov; its reservation 30
+is the night of 25 Nov, which the block does not cover because 25 Nov is the day the room is back).
+
+#### C. Two out-of-service blocks
+
+**Habitaciones** (`/admin/rooms`) → on the room's row press **Fuera de servicio** (or in the Booking calendar
+press **Poner habitación fuera de servicio**). Fields in the dialog "Poner habitación fuera de servicio":
+
+| Habitación | Primera noche fuera de servicio | Vuelve a estar disponible el | Motivo |
+|---|---|---|---|
+| Twin 108 | 2027-02-01 | 2027-02-08 | Mantenimiento |
+| Double 205 | 2027-06-14 | 2027-06-21 | Mantenimiento |
+
+The second date is the day the room is **back**: that day is **not** blocked. Leave **Notas** empty and press
+**Bloquear habitación**. (If a conflict warning "Esta habitación tiene reservas en estas fechas" appears, one of
+the reservations above landed on that room: re-check the tables.)
+
+Totals after this step: 33 reservations, 2 blocks. Test 10's own blocks are made later, in section 7.
 
 ### 4.5 Before you activate — check
 

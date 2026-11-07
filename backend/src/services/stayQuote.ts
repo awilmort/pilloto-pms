@@ -14,11 +14,15 @@
  *
  * Booking rules (RestrictionRule + forced stop sell) are checked with `stayViolations`: the
  * booking engine hides or refuses a plan that breaks one; staff get warnings and may override.
+ *
+ * Staff quotes also price contracts: a context loaded with `companyId` / `guestEmail` holds
+ * that company's and guest's rules, which beat promotional ones night by night (guest >
+ * company > promotional, as in calculateTieredPrice). Which plan a stay is booked on is
+ * decided by services/ratePlanSelection.ts.
  */
 
 import mongoose from 'mongoose';
 import RatePlan from '../models/RatePlan';
-import Room from '../models/Room';
 import RoomType from '../models/RoomType';
 import PricingRule from '../models/PricingRule';
 import RestrictionRule from '../models/RestrictionRule';
@@ -34,12 +38,26 @@ import { ChannexDate, eachNight, fromChannexDate, isChannexDate, toChannexDate }
 
 type Id = mongoose.Types.ObjectId | string;
 
+/** Plan fields the rate-plan selection reads (services/ratePlanSelection.ts). */
+export interface StayPlanMeta {
+  isDefault?: boolean;
+  visibility?: 'public' | 'private';
+  accessCodes?: string[];
+  description?: string;
+}
+
 export interface StayContext {
-  ratePlans: (ResolverRatePlan & { name: string })[];
+  ratePlans: (ResolverRatePlan & StayPlanMeta & { name: string })[];
   roomTypes: (ResolverRoomType & { name?: string })[];
   pricingRules: (PricingRuleLike & { ratePlanId: Id; isActive?: boolean })[];
   restrictionRules: RestrictionRuleLike[];
   taxes: TaxLike[];
+  /**
+   * Staff quotes for a company or guest: their negotiated (company / guest) rules price the
+   * stay. Without it only promotional rules apply, whatever the context holds — guest-facing
+   * quotes never get negotiated prices.
+   */
+  negotiatedRules?: boolean;
 }
 
 export interface Stay {
@@ -77,6 +95,11 @@ export interface StayQuote {
   nightly: NightQuote[];
   /** Booking rules the stay breaks for this plan (empty = bookable) */
   violations: StayViolation[];
+  /**
+   * A negotiated rule priced at least one night: 'guest' (a rule for the guest's e-mail) beats
+   * 'company'. Null when only promotional rules or the plan price applied.
+   */
+  contract: 'guest' | 'company' | null;
 }
 
 const round2 = (n: number) => toCents(n) / 100;
@@ -125,18 +148,22 @@ export function quoteStayFrom(ctx: StayContext, ratePlanId: string, stay: Stay, 
   const nightDates = eachNight(stay.checkIn, stay.checkOut);
   const stayNights = nightDates.length;
   const rooms = Math.max(1, party.rooms);
-  const rules = ctx.pricingRules.filter((r) =>
-    String(r.ratePlanId) === ratePlanId && r.isActive !== false && r.ruleTarget === 'promotional');
+  // Negotiated (company / guest) rules only for staff quotes that loaded them
+  const rules = ctx.pricingRules.filter((r) => String(r.ratePlanId) === ratePlanId && r.isActive !== false
+    && (r.ruleTarget === 'promotional' || ctx.negotiatedRules === true));
 
   let basePrice = 0;
   let occupancyCost = 0;
   let subtotal = 0;
   let adjustedCents = 0;
   let firstRule: PricingRuleLike | null = null;
+  let contract: StayQuote['contract'] = null;
   const nightly: NightQuote[] = [];
   nightDates.forEach((date, i) => {
     const rule = selectBestRule(rules.filter((r) => isRuleApplicable(r, fromChannexDate(date), stayNights)));
     if (i === 0) firstRule = rule;
+    if (rule?.ruleTarget === 'guest') contract = 'guest';
+    else if (rule?.ruleTarget === 'company' && contract !== 'guest') contract = 'company';
     const night = computeNightPrice(plan, { adults: party.adults, children: party.children, rooms }, rule);
     const cents = toCents(night.adjustedSubtotal);
     basePrice += night.basePrice;
@@ -178,25 +205,8 @@ export function quoteStayFrom(ctx: StayContext, ratePlanId: string, stay: Stay, 
     nights,
     nightly,
     violations: checkStayFrom(ctx, ratePlanId, stay),
+    contract,
   };
-}
-
-/**
- * The first plan of a room type (by name, active only) the stay can be booked on, with its
- * quote; `rejected` lists the plans that break a booking rule.
- */
-export function bookablePlanFrom(ctx: StayContext, roomTypeId: string, stay: Stay, party: StayParty): { quote: StayQuote | null; rejected: StayQuote[] } {
-  const rejected: StayQuote[] = [];
-  const plans = ctx.ratePlans
-    .filter((p) => String(p.roomTypeId) === roomTypeId && p.isActive)
-    .sort((a, b) => a.name.localeCompare(b.name));
-  for (const plan of plans) {
-    const quote = quoteStayFrom(ctx, String(plan._id), stay, party);
-    if (!quote) continue;
-    if (quote.violations.length === 0) return { quote, rejected };
-    rejected.push(quote);
-  }
-  return { quote: null, rejected };
 }
 
 /** Plain-language reason a quote cannot be booked (first violation), Spanish and English. */
@@ -210,6 +220,10 @@ export function violationMessages(violations: StayViolation[]): { es: string; en
 export interface StayContextQuery extends Stay {
   ratePlanIds?: Id[];
   roomTypeIds?: Id[];
+  /** Staff quotes: also load this company's negotiated rules */
+  companyId?: Id;
+  /** Staff quotes: also load the rules for this guest e-mail */
+  guestEmail?: string;
 }
 
 /** Everything a stay quote reads, in the current tenant context, in five set-based queries. */
@@ -218,17 +232,25 @@ export async function loadStayContext(q: StayContextQuery): Promise<StayContext>
   const planFilter: any = {};
   if (q.ratePlanIds) planFilter._id = { $in: q.ratePlanIds.map(oid) };
   if (q.roomTypeIds) planFilter.roomTypeId = { $in: q.roomTypeIds.map(oid) };
-  const ratePlans = await RatePlan.find(planFilter).select('_id name roomTypeId basePrice occupancyTiers isActive').lean();
-  if (ratePlans.length === 0) return { ratePlans: [], roomTypes: [], pricingRules: [], restrictionRules: [], taxes: [] };
+  const ratePlans = await RatePlan.find(planFilter)
+    .select('_id name roomTypeId basePrice occupancyTiers isActive isDefault visibility accessCodes description')
+    .lean();
+  if (ratePlans.length === 0) return { ratePlans: [], roomTypes: [], pricingRules: [], restrictionRules: [], taxes: [], negotiatedRules: false };
 
   // A day of slack on each side: rule windows are compared on server-local days
   const windowStart = new Date(fromChannexDate(q.checkIn).getTime() - 36 * 3600e3);
   const windowEnd = new Date(fromChannexDate(q.checkOut).getTime() + 36 * 3600e3);
+  const targets: any[] = [{ ruleTarget: 'promotional' }];
+  if (q.companyId && mongoose.Types.ObjectId.isValid(String(q.companyId))) {
+    targets.push({ ruleTarget: 'company', companyId: oid(q.companyId) });
+  }
+  const email = typeof q.guestEmail === 'string' ? q.guestEmail.trim().toLowerCase() : '';
+  if (email) targets.push({ ruleTarget: 'guest', guestEmail: email });
   const [roomTypes, pricingRules, restrictionRules, taxes] = await Promise.all([
     RoomType.find({ _id: { $in: ratePlans.map((p) => p.roomTypeId) } }).select('_id name capacity isActive').lean(),
     PricingRule.find({
       ratePlanId: { $in: ratePlans.map((p) => p._id) },
-      ruleTarget: 'promotional',
+      $and: [{ $or: targets }],
       isActive: true,
       $or: [{ dateStart: null }, { dateStart: { $lte: windowEnd }, dateEnd: { $gte: windowStart } }],
     }).lean(),
@@ -241,6 +263,7 @@ export async function loadStayContext(q: StayContextQuery): Promise<StayContext>
     pricingRules: pricingRules as unknown as StayContext['pricingRules'],
     restrictionRules: restrictionRules as unknown as RestrictionRuleLike[],
     taxes: taxes as unknown as TaxLike[],
+    negotiatedRules: targets.length > 1,
   };
 }
 
@@ -270,16 +293,4 @@ export async function stayRestrictionWarnings(q: Stay & { ratePlanIds: Id[] }): 
     }
   }
   return warnings;
-}
-
-/** The plan admin pricing uses for a room type when none is chosen (see routes/reservations.ts). */
-export async function defaultRatePlanIdsForRooms(roomIds: Id[]): Promise<string[]> {
-  const rooms = await Room.find({ _id: { $in: roomIds } }).select('roomTypeId').lean();
-  const typeIds = [...new Set(rooms.map((r: any) => String(r.roomTypeId)).filter((id) => id && id !== 'undefined'))];
-  const out: string[] = [];
-  for (const roomTypeId of typeIds) {
-    const plan = await RatePlan.findOne({ roomTypeId, isActive: true }).select('_id').lean();
-    if (plan) out.push(String(plan._id));
-  }
-  return out;
 }

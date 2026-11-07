@@ -374,6 +374,83 @@ export interface RestrictionRuleInput {
   isActive?: boolean;
 }
 
+// ── Rate plan choice (services/ratePlanSelection.ts) ─────────────────────────
+export type RateSelectionReason = 'manual' | 'contract' | 'promo' | 'default' | 'cheapest' | 'restricted';
+
+export interface RatePricing {
+  basePrice: number;
+  occupancyCost: number;
+  subtotal: number;
+  adjustedSubtotal: number;
+  taxes: Array<{ name: string; type: string; amount: number; isInclusive: boolean }>;
+  totalTaxes: number;
+  finalTotal: number;
+  nights: number;
+  perNight: number;
+  nightly?: Array<{ date: string; price: number }>;
+}
+
+export interface RateOption {
+  ratePlanId: string;
+  name: string;
+  description: string;
+  visibility: 'public' | 'private';
+  isDefault: boolean;
+  /** Unlocked by the promo code given */
+  promoMatch: boolean;
+  /** A guest or company negotiated rule prices the stay */
+  contract: 'guest' | 'company' | null;
+  /** The stay breaks none of the plan's booking rules */
+  bookable: boolean;
+  restrictionMessages: Array<{ es: string; en: string }>;
+  restrictionMessage: string | null;
+  pricing: RatePricing;
+}
+
+export interface RoomRateOptions {
+  roomId: string;
+  roomName: string;
+  roomTypeId: string | null;
+  roomTypeName: string;
+  capacity: number;
+  assignedAdults: number;
+  assignedChildren: number;
+  options: RateOption[];
+  recommended: { ratePlanId: string; reason: Exclude<RateSelectionReason, 'manual'> } | null;
+  selected: { ratePlanId: string; reason: RateSelectionReason } | null;
+  error: 'no_room_type' | 'no_rate_plan' | null;
+}
+
+export interface RateOptionsResult {
+  checkIn: string;
+  checkOut: string;
+  nights: number;
+  rooms: RoomRateOptions[];
+  totals: {
+    basePrice: number;
+    occupancyCost: number;
+    subtotal: number;
+    adjustedSubtotal: number;
+    taxes: Array<{ name: string; type: string; amount: number; isInclusive: boolean }>;
+    totalTaxes: number;
+    finalTotal: number;
+  };
+  unassignedAdults: number;
+  unassignedChildren: number;
+  promo: { code: string; matched: boolean } | null;
+}
+
+/** A rate plan the booking engine offers for a room type */
+export interface PublicRateOffer {
+  _id: string;
+  name: string;
+  description: string;
+  isDefault: boolean;
+  /** Unlocked by the guest's promo code */
+  promo: boolean;
+  pricing: Omit<RatePricing, 'nightly'>;
+}
+
 export interface StayWarning {
   ratePlanId: string;
   ratePlanName: string;
@@ -1174,10 +1251,14 @@ export const bookingService = {
     checkOut: string;
     adults: number;
     children?: number;
+    promoCode?: string;
   }): Promise<AxiosResponse<ApiResponse<Array<{
     roomType: { _id: string; name: string; capacity: number; image?: string };
     availableCount: number;
+    /** The first offer (the room type's "from" price) */
     ratePlan: { _id: string; name: string };
+    /** Every plan the guest can choose: promo plans first, then cheapest first */
+    ratePlans: PublicRateOffer[];
     pricing: {
       basePrice: number;
       occupancyCost: number;
@@ -1193,7 +1274,7 @@ export const bookingService = {
     features: Record<string, boolean>;
     amenities: string[];
     bedConfiguration: string;
-  }>>>> =>
+  }>> & { promo?: { code: string; valid: boolean; applied: boolean } | null }>> =>
     apiClient.get('/booking/availability', { params }),
 
   /** Fetch active reviews for the trust & credibility bar */
@@ -1211,6 +1292,7 @@ export const bookingService = {
   getQuote: (data: {
     roomTypeId: string;
     ratePlanId?: string;
+    promoCode?: string;
     checkIn: string;
     checkOut: string;
     adults: number;
@@ -1254,6 +1336,8 @@ export const bookingService = {
     lastName: string;
     phone?: string;
     specialRequests?: string;
+    /** Promo code that unlocked private rate plans in the search */
+    promoCode?: string;
     items: Array<{
       kind: 'room' | 'service';
       roomTypeId?: string;
@@ -1331,6 +1415,11 @@ export const pricingService = {
     pricingMode?: 'tiered';
     occupancyTiers: Array<{ guestType: 'adult' | 'child'; guestNumber: number; price: number }>;
     isActive?: boolean;
+    sellOnChannels?: boolean;
+    isDefault?: boolean;
+    visibility?: 'public' | 'private';
+    accessCodes?: string[];
+    description?: string;
   }): Promise<AxiosResponse<ApiResponse<any>>> => apiClient.post('/pricing/rate-plans', data),
 
   updateRatePlan: (id: string, data: Partial<{
@@ -1339,6 +1428,11 @@ export const pricingService = {
     basePrice: number;
     occupancyTiers: Array<{ guestType: 'adult' | 'child'; guestNumber: number; price: number }>;
     isActive: boolean;
+    sellOnChannels: boolean;
+    isDefault: boolean;
+    visibility: 'public' | 'private';
+    accessCodes: string[];
+    description: string;
   }>): Promise<AxiosResponse<ApiResponse<any>>> => apiClient.put(`/pricing/rate-plans/${id}`, data),
 
   deleteRatePlan: (id: string): Promise<AxiosResponse<ApiResponse>> =>
@@ -1442,6 +1536,20 @@ export const pricingService = {
     finalTotal: number;
     nights: number;
   }>>> => apiClient.post('/pricing/calculate', data),
+
+  /** Every rate plan each room can be booked on for the stay, with the pre-selected one */
+  getRateOptions: (data: {
+    roomIds: string[];
+    checkInDate: string;
+    checkOutDate: string;
+    adults: number;
+    children: number;
+    companyId?: string;
+    guestEmail?: string;
+    promoCode?: string;
+    /** roomId → ratePlanId chosen by the user */
+    selections?: Record<string, string>;
+  }): Promise<AxiosResponse<ApiResponse<RateOptionsResult>>> => apiClient.post('/pricing/rate-options', data),
 
   calculateRoomsPrice: (data: {
     roomIds: string[];

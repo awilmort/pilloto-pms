@@ -45,9 +45,11 @@ import LandscapeIcon from '@mui/icons-material/Landscape';
 import StarIcon from '@mui/icons-material/Star';
 import HotelIcon from '@mui/icons-material/Hotel';
 import RoomServiceIcon from '@mui/icons-material/RoomService';
+import LocalOfferIcon from '@mui/icons-material/LocalOffer';
 import { useTranslation } from 'react-i18next';
-import { useBooking, BookingItem } from '../../contexts/BookingContext';
+import { useBooking, BookingItem, RoomAvailability } from '../../contexts/BookingContext';
 import { bookingService } from '../../services/api';
+import type { PublicRateOffer } from '../../services/api';
 import { resolveMediaUrl } from '../../services/api';
 import BookingLayout from '../../components/booking/BookingLayout';
 import DateRangePicker from '../../components/booking/DateRangePicker';
@@ -137,6 +139,8 @@ function SearchStep() {
   const [checkOut, setCheckOut] = useState(searchParams?.checkOut || '');
   const [adults, setAdults] = useState(searchParams?.adults || 2);
   const [children, setChildren] = useState(searchParams?.children || 0);
+  const [promoCode, setPromoCode] = useState(searchParams?.promoCode || '');
+  const [showPromo, setShowPromo] = useState(!!searchParams?.promoCode);
   const [error, setError] = useState('');
   const [amenities, setAmenities] = useState<AmenityData[]>([]);
   const [amenitiesLoading, setAmenitiesLoading] = useState(true);
@@ -197,7 +201,7 @@ function SearchStep() {
       return;
     }
     try {
-      await searchAvailability({ checkIn, checkOut, adults, children });
+      await searchAvailability({ checkIn, checkOut, adults, children, promoCode: promoCode.trim() || undefined });
     } catch (err: any) {
       setError(err?.response?.data?.message || t('bookingEngine.search.errorSearchFailed'));
     }
@@ -221,7 +225,7 @@ function SearchStep() {
     setPreselectedRoomTypeId(roomType._id);
 
     try {
-      await searchAvailability({ checkIn: ci, checkOut: co, adults: 2, children: 0 });
+      await searchAvailability({ checkIn: ci, checkOut: co, adults: 2, children: 0, promoCode: promoCode.trim() || undefined });
     } catch (err: any) {
       setError(err?.response?.data?.message || t('bookingEngine.search.errorSearchFailed'));
     }
@@ -382,6 +386,30 @@ function SearchStep() {
                     </Button>
                   </Box>
                 </Paper>
+                <Box sx={{ mt: 1.5, display: 'flex', justifyContent: 'center' }}>
+                  {showPromo ? (
+                    <TextField
+                      size="small"
+                      label={t('bookingEngine.search.promoCode')}
+                      value={promoCode}
+                      onChange={e => setPromoCode(e.target.value.toUpperCase())}
+                      onKeyDown={e => { if (e.key === 'Enter') handleSearch(); }}
+                      inputProps={{ maxLength: 30, 'aria-label': t('bookingEngine.search.promoCode') }}
+                      InputProps={{ startAdornment: <LocalOfferIcon fontSize="small" sx={{ mr: 1, color: TEXT_SECONDARY }} /> }}
+                      sx={{ width: 280, '& .MuiOutlinedInput-root': { borderRadius: BTN_PILL, fontFamily: FONT } }}
+                      autoFocus={!searchParams?.promoCode}
+                    />
+                  ) : (
+                    <Button
+                      size="small"
+                      startIcon={<LocalOfferIcon fontSize="small" />}
+                      onClick={() => setShowPromo(true)}
+                      sx={{ textTransform: 'none', fontFamily: FONT, color: TEXT_SECONDARY }}
+                    >
+                      {t('bookingEngine.search.havePromoCode')}
+                    </Button>
+                  )}
+                </Box>
                 {error && <Alert severity="error" sx={{ mt: 2, borderRadius: BTN_RADIUS }}>{error}</Alert>}
               </>
             )}
@@ -1114,8 +1142,14 @@ interface ServiceData {
   basePrice?: number | null;
 }
 
+/** The rate plans a room type offers (older API responses carry only the first one). */
+function offersOf(room: RoomAvailability): PublicRateOffer[] {
+  if (room.ratePlans?.length) return room.ratePlans;
+  return [{ _id: room.ratePlan._id, name: room.ratePlan.name, description: '', isDefault: false, promo: false, pricing: room.pricing }];
+}
+
 function ResultsStep() {
-  const { config, availability, availabilityLoading, searchParams, addItem, removeItem, items, setCurrentStep, preselectedRoomTypeId, setPreselectedRoomTypeId } = useBooking();
+  const { config, availability, availabilityLoading, searchParams, addItem, removeItem, items, setCurrentStep, preselectedRoomTypeId, setPreselectedRoomTypeId, promo } = useBooking();
   const { t } = useTranslation();
   const currency = config?.currency || 'USD';
 
@@ -1151,24 +1185,7 @@ function ResultsStep() {
 
     const match = availability.find(r => r.roomType._id === idToSelect);
     if (match && !items.some(item => item.roomTypeId === idToSelect)) {
-      addItem({
-        kind: 'room',
-        roomTypeId: match.roomType._id,
-        ratePlanId: match.ratePlan._id,
-        roomTypeName: match.roomType.name,
-        checkIn: searchParams!.checkIn,
-        checkOut: searchParams!.checkOut,
-        adults: searchParams!.adults,
-        children: searchParams!.children,
-        quantity: 1,
-        pricing: {
-          subtotal: match.pricing.adjustedSubtotal,
-          taxes: match.pricing.totalTaxes,
-          total: match.pricing.finalTotal,
-          perNight: match.pricing.perNight,
-          nights: match.pricing.nights,
-        },
-      });
+      addItem(roomItemFor(match, offersOf(match)[0]));
     }
   }, [preselectedRoomTypeId, availability]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1178,12 +1195,13 @@ function ResultsStep() {
   const isServiceSelected = (serviceId: string) =>
     items.some(item => item.serviceId === serviceId);
 
-  const handleSelectRoom = (room: typeof availability[0]) => {
-    if (isRoomTypeSelected(room.roomType._id)) return;
-    const item: BookingItem = {
+  /** The cart item for a room type booked on one of its rate plans */
+  function roomItemFor(room: RoomAvailability, offer: PublicRateOffer): BookingItem {
+    return {
       kind: 'room',
       roomTypeId: room.roomType._id,
-      ratePlanId: room.ratePlan._id,
+      ratePlanId: offer._id,
+      ratePlanName: offer.name,
       roomTypeName: room.roomType.name,
       checkIn: searchParams!.checkIn,
       checkOut: searchParams!.checkOut,
@@ -1191,15 +1209,22 @@ function ResultsStep() {
       children: searchParams!.children,
       quantity: 1,
       pricing: {
-        subtotal: room.pricing.adjustedSubtotal,
-        taxes: room.pricing.totalTaxes,
-        total: room.pricing.finalTotal,
-        perNight: room.pricing.perNight,
-        nights: room.pricing.nights,
+        subtotal: offer.pricing.adjustedSubtotal,
+        taxes: offer.pricing.totalTaxes,
+        total: offer.pricing.finalTotal,
+        perNight: offer.pricing.perNight,
+        nights: offer.pricing.nights,
       },
     };
-    addItem(item);
+  }
+
+  /** Select a rate plan of a room type; another plan of the same room type replaces it in the cart */
+  const handleSelectRoom = (room: RoomAvailability, offer: PublicRateOffer) => {
+    addItem(roomItemFor(room, offer));
   };
+
+  const selectedPlanOf = (roomTypeId: string) =>
+    items.find(item => item.kind === 'room' && item.roomTypeId === roomTypeId)?.ratePlanId;
 
   const handleAddService = async (service: ServiceData, quantity: number) => {
     if (isServiceSelected(service._id)) return;
@@ -1301,6 +1326,19 @@ function ResultsStep() {
         </Alert>
       ) : (
         <>
+          {promo && (
+            <Alert
+              severity={promo.applied ? 'success' : promo.valid ? 'info' : 'warning'}
+              icon={<LocalOfferIcon fontSize="inherit" />}
+              sx={{ mb: 3, borderRadius: CARD_RADIUS, fontFamily: FONT }}
+            >
+              {promo.applied
+                ? t('bookingEngine.results.promoApplied', { code: promo.code })
+                : promo.valid
+                  ? t('bookingEngine.results.promoNotForDates', { code: promo.code })
+                  : t('bookingEngine.results.promoInvalid', { code: promo.code })}
+            </Alert>
+          )}
           <Typography
             variant="h5"
             sx={{ fontWeight: 600, fontFamily: FONT, color: TEXT_PRIMARY, mb: 3 }}
@@ -1312,8 +1350,10 @@ function ResultsStep() {
           <Grid container spacing={3}>
             {availability.map(room => {
               const selected = isRoomTypeSelected(room.roomType._id);
+              const offers = offersOf(room);
+              const chosenPlanId = selectedPlanOf(room.roomType._id);
               return (
-                <Grid item xs={12} sm={6} lg={3} key={room.roomType._id}>
+                <Grid item xs={12} sm={6} lg={4} key={room.roomType._id}>
                   <Card
                     elevation={0}
                     sx={{
@@ -1396,56 +1436,91 @@ function ResultsStep() {
 
                       <Box sx={{ mt: 'auto', pt: 1.5 }}>
                         <Divider sx={{ borderColor: BORDER, mb: 1.5 }} />
-                        <Stack direction="row" justifyContent="space-between" alignItems="flex-end">
-                          <Box>
-                            <Typography sx={{ fontWeight: 700, fontFamily: FONT, color: TEXT_PRIMARY, fontSize: '1.1rem' }}>
-                              {formatCurrency(room.pricing.perNight, currency)}
-                              <Typography component="span" sx={{ fontWeight: 400, color: TEXT_SECONDARY, fontSize: '0.85rem' }}>
-                                {' '}{t('bookingEngine.results.perNight')}
-                              </Typography>
-                            </Typography>
-                            {room.pricing.totalTaxes > 0 && (
-                              <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>
-                                {t('bookingEngine.results.taxes', { amount: formatCurrency(room.pricing.totalTaxes, currency) })}
-                              </Typography>
-                            )}
-                          </Box>
-                          <Box textAlign="right">
-                            <Typography
-                              sx={{ fontWeight: 700, fontFamily: FONT, color: ACCENT, fontSize: '1.25rem' }}
-                            >
-                              {formatCurrency(room.pricing.finalTotal, currency)}
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>
-                              {t('bookingEngine.results.totalForNights', { count: nights })}
-                            </Typography>
-                          </Box>
+                        {offers.length > 1 && (
+                          <Typography variant="caption" sx={{ display: 'block', color: TEXT_SECONDARY, fontFamily: FONT, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.4, mb: 1 }}>
+                            {t('bookingEngine.results.chooseRate')}
+                          </Typography>
+                        )}
+                        <Stack spacing={1}>
+                          {offers.map(offer => {
+                            const chosen = chosenPlanId === offer._id;
+                            return (
+                              <Box
+                                key={offer._id}
+                                sx={{
+                                  border: chosen ? `2px solid ${ACCENT}` : `1px solid ${BORDER}`,
+                                  borderRadius: BTN_RADIUS,
+                                  p: offers.length > 1 ? 1.25 : 0,
+                                  ...(offers.length === 1 ? { border: 'none' } : {}),
+                                }}
+                              >
+                                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                                  <Box sx={{ minWidth: 0 }}>
+                                    <Stack direction="row" spacing={0.5} alignItems="center" flexWrap="wrap" useFlexGap>
+                                      <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: FONT, color: TEXT_PRIMARY }}>
+                                        {offer.name}
+                                      </Typography>
+                                      {offer.promo && (
+                                        <Chip
+                                          size="small"
+                                          icon={<LocalOfferIcon sx={{ fontSize: 14 }} />}
+                                          label={t('bookingEngine.results.promoRate')}
+                                          color="secondary"
+                                          sx={{ height: 20, fontSize: '0.65rem', borderRadius: BTN_PILL }}
+                                        />
+                                      )}
+                                    </Stack>
+                                    {offer.description && (
+                                      <Typography variant="caption" sx={{ display: 'block', color: TEXT_SECONDARY, fontFamily: FONT, lineHeight: 1.35 }}>
+                                        {offer.description}
+                                      </Typography>
+                                    )}
+                                    <Typography variant="caption" sx={{ display: 'block', color: TEXT_SECONDARY, fontFamily: FONT }}>
+                                      {formatCurrency(offer.pricing.perNight, currency)} {t('bookingEngine.results.perNight')}
+                                      {offer.pricing.totalTaxes > 0 && ` · ${t('bookingEngine.results.taxes', { amount: formatCurrency(offer.pricing.totalTaxes, currency) })}`}
+                                    </Typography>
+                                  </Box>
+                                  <Box textAlign="right" sx={{ flexShrink: 0 }}>
+                                    <Typography sx={{ fontWeight: 700, fontFamily: FONT, color: ACCENT, fontSize: '1.1rem' }}>
+                                      {formatCurrency(offer.pricing.finalTotal, currency)}
+                                    </Typography>
+                                    <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>
+                                      {t('bookingEngine.results.totalForNights', { count: nights })}
+                                    </Typography>
+                                  </Box>
+                                </Stack>
+                                <Button
+                                  variant={chosen ? 'outlined' : 'contained'}
+                                  fullWidth
+                                  size={offers.length > 1 ? 'small' : 'medium'}
+                                  onClick={() => handleSelectRoom(room, offer)}
+                                  disabled={chosen}
+                                  startIcon={chosen ? <CheckCircleIcon /> : <AddIcon />}
+                                  aria-label={`${chosen ? t('bookingEngine.results.selected') : t('bookingEngine.results.selectRoom')} ${room.roomType.name} · ${offer.name}`}
+                                  sx={{
+                                    mt: 1.25,
+                                    bgcolor: chosen ? 'transparent' : ACCENT,
+                                    color: chosen ? ACCENT : 'white',
+                                    borderColor: ACCENT,
+                                    '&:hover': { bgcolor: chosen ? ACCENT_LIGHT : ACCENT_HOVER },
+                                    textTransform: 'none',
+                                    fontWeight: 600,
+                                    fontFamily: FONT,
+                                    borderRadius: BTN_RADIUS,
+                                    boxShadow: 'none',
+                                    transition: TRANSITION,
+                                  }}
+                                >
+                                  {chosen
+                                    ? t('bookingEngine.results.selected')
+                                    : offers.length > 1 ? t('bookingEngine.results.selectRate') : t('bookingEngine.results.selectRoom')}
+                                </Button>
+                              </Box>
+                            );
+                          })}
                         </Stack>
                       </Box>
                     </CardContent>
-                    <CardActions sx={{ px: 2, pb: 2 }}>
-                      <Button
-                        variant={selected ? 'outlined' : 'contained'}
-                        fullWidth
-                        onClick={() => handleSelectRoom(room)}
-                        disabled={selected}
-                        startIcon={selected ? <CheckCircleIcon /> : <AddIcon />}
-                        sx={{
-                          bgcolor: selected ? 'transparent' : ACCENT,
-                          color: selected ? ACCENT : 'white',
-                          borderColor: ACCENT,
-                          '&:hover': { bgcolor: selected ? ACCENT_LIGHT : ACCENT_HOVER },
-                          textTransform: 'none',
-                          fontWeight: 600,
-                          fontFamily: FONT,
-                          borderRadius: BTN_RADIUS,
-                          boxShadow: 'none',
-                          transition: TRANSITION,
-                        }}
-                      >
-                        {selected ? t('bookingEngine.results.selected') : t('bookingEngine.results.selectRoom')}
-                      </Button>
-                    </CardActions>
                   </Card>
                 </Grid>
               );
@@ -1624,7 +1699,14 @@ function ResultsStep() {
                         variant="outlined"
                         sx={{ borderRadius: BTN_PILL, fontFamily: FONT, fontSize: '0.75rem' }}
                       />
-                      <Typography sx={{ fontFamily: FONT, color: TEXT_PRIMARY }}>{item.roomTypeName || item.serviceName}</Typography>
+                      <Typography sx={{ fontFamily: FONT, color: TEXT_PRIMARY }}>
+                        {item.roomTypeName || item.serviceName}
+                        {item.ratePlanName && (
+                          <Typography component="span" variant="caption" sx={{ display: 'block', color: TEXT_SECONDARY, fontFamily: FONT }}>
+                            {item.ratePlanName}
+                          </Typography>
+                        )}
+                      </Typography>
                       {item.quantity > 1 && (
                         <Typography variant="caption" sx={{ color: TEXT_SECONDARY, fontFamily: FONT }}>x{item.quantity}</Typography>
                       )}
@@ -2045,6 +2127,7 @@ function ReviewStep() {
         phone: guestInfo.phone || undefined,
         specialRequests: guestInfo.specialRequests || undefined,
         items: bookingItems,
+        promoCode: searchParams?.promoCode || undefined,
         acceptedTermsVersion: config?.termsVersion || '1.0',
         acceptedPrivacyVersion: config?.termsVersion || '1.0',
       });
@@ -2119,7 +2202,9 @@ function ReviewStep() {
 
         {items.map((item, i) => (
           <Stack key={i} direction="row" justifyContent="space-between" py={0.5}>
-            <Typography variant="body2" sx={{ fontFamily: FONT }}>{item.roomTypeName || item.serviceName}</Typography>
+            <Typography variant="body2" sx={{ fontFamily: FONT }}>
+              {item.roomTypeName || item.serviceName}{item.ratePlanName ? ` · ${item.ratePlanName}` : ''}
+            </Typography>
             <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: FONT }}>{formatCurrency(item.pricing.total, currency)}</Typography>
           </Stack>
         ))}

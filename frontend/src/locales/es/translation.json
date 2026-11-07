@@ -918,7 +918,38 @@
         "selected": "seleccionadas",
         "serviceTitle": "Servicio",
         "step3Title": "Resumen",
-        "stepSummary": "Resumen"
+        "stepSummary": "Resumen",
+        "rates": {
+          "loadFailed": "No se pudieron cargar las tarifas de estas habitaciones.",
+          "promoCode": "Código promocional",
+          "promoHelper": "Opcional: abre tarifas privadas",
+          "promoMatched": "Código aplicado: sus tarifas aparecen en la lista",
+          "promoNoMatch": "Este código no tiene tarifa para las habitaciones elegidas",
+          "ratePlan": "Plan de tarifa",
+          "guestsInRoom": "{{adults}} adultos, {{children}} niños",
+          "perNight": "{{price}} por noche",
+          "useRecommended": "Usar la tarifa preseleccionada ({{name}})",
+          "reason": {
+            "manual": "Elegida por el personal",
+            "contract": "Tarifa negociada",
+            "promo": "Código promocional",
+            "default": "Tarifa predeterminada",
+            "cheapest": "Tarifa disponible más barata",
+            "restricted": "Ninguna tarifa abierta para estas fechas"
+          },
+          "badge": {
+            "default": "Predeterminada",
+            "company": "Tarifa de empresa",
+            "guest": "Tarifa del huésped",
+            "promo": "Código promocional",
+            "private": "Privada",
+            "restricted": "Regla de reserva"
+          },
+          "error": {
+            "no_room_type": "Esta habitación no tiene tipo: asígnele uno en Habitaciones.",
+            "no_rate_plan": "Este tipo de habitación no tiene planes de tarifa activos: cree uno en Precios → Planes de tarifa."
+          }
+        }
       },
       "none": "Ninguna",
       "tooltips": {
@@ -1028,7 +1059,9 @@
           "assignedRoom": "Habitación asignada",
           "totalCharges": "Total de cargos",
           "creditAvailability": "Crédito disponible",
-          "folioStatus": "Estado del folio"
+          "folioStatus": "Estado del folio",
+          "ratePlan": "Tarifa",
+          "promoCode": "Código promocional"
         },
         "table": {
           "date": "Fecha",
@@ -2627,7 +2660,19 @@
           "name": "Nombre del plan",
           "roomType": "Tipo de habitación",
           "roomTypeHelper": "Debe coincidir exactamente con la categoría (ej. \"Suite\")",
-          "basePrice": "Precio base (por noche)"
+          "basePrice": "Precio base (por noche)",
+          "description": "Descripción para el huésped",
+          "descriptionHelper": "Qué incluye y sus condiciones, p. ej. «Desayuno para dos incluido» o «No reembolsable». Se muestra en el motor de reservas y al personal.",
+          "selectionTitle": "Selección y visibilidad",
+          "isDefault": "Tarifa predeterminada de este tipo de habitación",
+          "isDefaultHint": "Se preselecciona al crear una reserva cuando no aplica una tarifa de empresa ni un código promocional. Solo una por tipo de habitación: al elegirla aquí se quita de las demás. Sin tarifa predeterminada se preselecciona la tarifa disponible más barata.",
+          "visibility": "Visibilidad en el motor de reservas",
+          "visibilityPublic": "Pública: la ve todo huésped",
+          "visibilityPrivate": "Privada: solo con código promocional",
+          "visibilityPublicHint": "Los huéspedes pueden elegir esta tarifa en el motor de reservas. El personal siempre puede elegirla.",
+          "visibilityPrivateHint": "Oculta en el motor de reservas salvo que el huésped escriba uno de sus códigos. Sin códigos es una tarifa solo para el personal. El personal siempre puede elegirla. La venta en canales se controla con «Vender en canales».",
+          "accessCodes": "Códigos promocionales",
+          "accessCodesHelper": "Sepárelos con comas. De 3 a 30 letras, números, - o _. Sin distinguir mayúsculas. Un mismo código puede abrir tarifas de varios tipos de habitación."
         },
         "dialog": {
           "newTitle": "Nuevo plan de tarifa",
@@ -2635,12 +2680,18 @@
         },
         "errors": {
           "nameRequired": "El nombre es requerido",
-          "roomTypeRequired": "El tipo de habitación es requerido"
+          "roomTypeRequired": "El tipo de habitación es requerido",
+          "invalidCode": "Código promocional no válido: {{code}}. Use de 3 a 30 letras, números, - o _."
         },
         "tiersTable": {
           "guestType": "Tipo de huésped",
           "guestNumber": "Huésped #",
           "price": "Precio"
+        },
+        "chips": {
+          "default": "Predeterminada",
+          "private": "Privada (solo personal)",
+          "privateWithCodes": "Privada · códigos: {{codes}}"
         }
       },
       "rules": {
@@ -6234,7 +6285,9 @@
       "selectDate": "Seleccionar fecha",
       "clearDate": "Limpiar",
       "noServices": "No hay servicios disponibles",
-      "totalEstimate": "total estimado"
+      "totalEstimate": "total estimado",
+      "promoCode": "Código promocional",
+      "havePromoCode": "¿Tienes un código promocional?"
     },
     "guests": {
       "guests": "huéspedes",
@@ -6285,7 +6338,13 @@
       "payAtProperty": "Paga en el hotel — no se requiere pago ahora.",
       "continueToDetails": "Continuar a datos del huésped",
       "youWontBeCharged": "No se realizará ningún cobro aún",
-      "standardBed": "Estándar"
+      "standardBed": "Estándar",
+      "chooseRate": "Elige tu tarifa",
+      "promoRate": "Código promocional",
+      "selectRate": "Elegir esta tarifa",
+      "promoApplied": "Código {{code}} aplicado: sus tarifas aparecen marcadas.",
+      "promoNotForDates": "El código {{code}} no tiene tarifas disponibles para estas fechas.",
+      "promoInvalid": "El código {{code}} no es válido."
     },
     "details": {
       "heading": "Datos del huésped",

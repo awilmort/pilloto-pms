@@ -18,6 +18,14 @@ export interface RatePlan {
   isActive?: boolean;
   /** Offered on OTAs through the channel manager (default true) */
   sellOnChannels?: boolean;
+  /** The room type's default plan, pre-selected when no contract or promo code applies */
+  isDefault?: boolean;
+  /** 'private' = hidden in the booking engine unless a promo code unlocks it; staff can always book it */
+  visibility?: 'public' | 'private';
+  /** Promo codes (upper case) that unlock a private plan in the booking engine */
+  accessCodes?: string[];
+  /** Guest-facing text shown in the booking engine */
+  description?: string;
 }
 
 // ─────────────────────────────────────────────────────────────

@@ -2,12 +2,23 @@ import mongoose, { Document, Schema } from 'mongoose';
 import { tenantPlugin } from '../plugins/tenantPlugin';
 import { changeCapturePlugin } from '../services/channex/changeCapture';
 
+export type RateSelectionReason = 'manual' | 'contract' | 'promo' | 'default' | 'cheapest' | 'restricted';
+
 // ── Reservation Item (service or room line item) ─────────────
 export interface IReservationItem {
   kind: 'room' | 'service';
   // Room-specific (kind='room')
   roomTypeId?: mongoose.Types.ObjectId;
   ratePlanId?: mongoose.Types.ObjectId;
+  /** Name of the rate plan when the room was booked (the plan may be renamed or deleted later) */
+  ratePlanName?: string;
+  /**
+   * How the rate plan was chosen: 'manual' (staff or guest picked it), or the automatic
+   * pre-selection that applied — 'contract' (guest/company rule), 'promo' (promo code),
+   * 'default' (room type's default plan), 'cheapest' (cheapest open plan), 'restricted'
+   * (no plan was open; staff booked anyway). Not set on OTA bookings (the OTA chose).
+   */
+  rateSelection?: RateSelectionReason;
   checkIn?: Date;
   checkOut?: Date;
   // Service-specific (kind='service')
@@ -109,6 +120,8 @@ export interface IReservation extends Document {
   discountPercent?: number;
   /** Staff-entered reason for the discount. */
   discountReason?: string;
+  /** Promo code that unlocked a private rate plan on this reservation (upper case) */
+  promoCode?: string;
   totalPayments: number;
   status: 'pending' | 'confirmed' | 'cancelled' | 'checked-in' | 'completed';
 
@@ -179,6 +192,8 @@ const reservationItemSchema = new Schema<IReservationItem>(
     kind: { type: String, enum: ['room', 'service'], required: true },
     roomTypeId: { type: Schema.Types.ObjectId, ref: 'RoomType' },
     ratePlanId: { type: Schema.Types.ObjectId, ref: 'RatePlan' },
+    ratePlanName: { type: String, trim: true, maxlength: 200 },
+    rateSelection: { type: String, enum: ['manual', 'contract', 'promo', 'default', 'cheapest', 'restricted'] },
     checkIn: { type: Date },
     checkOut: { type: Date },
     serviceId: { type: Schema.Types.ObjectId, ref: 'Service' },
@@ -344,6 +359,7 @@ const reservationSchema = new Schema<IReservation>({
   discountAmount:  { type: Number, min: 0, default: 0 },
   discountPercent: { type: Number, min: 0, max: 100, default: 0 },
   discountReason:  { type: String, trim: true, maxlength: 300, default: '' },
+  promoCode:       { type: String, trim: true, uppercase: true, maxlength: 30 },
   totalPayments: {
     type: Number,
     required: true,

@@ -95,6 +95,8 @@ const PriceManagement: React.FC = () => {
     name: '', roomTypeId: '', basePrice: 0, pricingMode: 'tiered', occupancyTiers: defaultTiers(), isActive: true,
   });
   const [selectedRatePlanRoomType, setSelectedRatePlanRoomType] = useState<RoomType | null>(null);
+  /** Promo codes as typed (comma or space separated) */
+  const [accessCodesText, setAccessCodesText] = useState('');
 
   // ── Pricing Rules state ───────────────────────────────────
   const [rules, setRules] = useState<PricingRule[]>([]);
@@ -321,7 +323,11 @@ const PriceManagement: React.FC = () => {
 
   // ── Rate Plan handlers ────────────────────────────────────
   const openNewRatePlan = () => {
-    setRatePlanForm({ name: '', roomTypeId: '', basePrice: 0, pricingMode: 'tiered', occupancyTiers: defaultTiers(), isActive: true, sellOnChannels: true });
+    setRatePlanForm({
+      name: '', roomTypeId: '', basePrice: 0, pricingMode: 'tiered', occupancyTiers: defaultTiers(), isActive: true, sellOnChannels: true,
+      isDefault: false, visibility: 'public', accessCodes: [], description: '',
+    });
+    setAccessCodesText('');
     setSelectedRatePlanRoomType(null);
     setRatePlanDialog(true);
   };
@@ -333,6 +339,7 @@ const PriceManagement: React.FC = () => {
       : roomTypes.find(rt => rt._id === plan.roomTypeId) || null;
     setSelectedRatePlanRoomType(rtObj ? { _id: rtObj._id || '', name: rtObj.name || '', capacity: rtObj.capacity || 0, isActive: true, createdAt: '', updatedAt: '' } : null);
     setRatePlanForm({ ...plan, roomTypeId: rtId || '', occupancyTiers: plan.occupancyTiers.map(tier => ({ ...tier })) });
+    setAccessCodesText((plan.accessCodes ?? []).join(', '));
     setRatePlanDialog(true);
   };
 
@@ -340,11 +347,18 @@ const PriceManagement: React.FC = () => {
     try {
       if (!ratePlanForm.name.trim()) { setError(t('admin.pricing.ratePlans.errors.nameRequired')); return; }
       if (!ratePlanForm.roomTypeId || String(ratePlanForm.roomTypeId).trim() === '') { setError(t('admin.pricing.ratePlans.errors.roomTypeRequired')); return; }
+      const visibility = ratePlanForm.visibility ?? 'public';
+      const accessCodes = visibility === 'private'
+        ? Array.from(new Set(accessCodesText.split(/[\s,;]+/).map(c => c.trim().toUpperCase()).filter(Boolean)))
+        : [];
+      const invalidCode = accessCodes.find(c => !/^[A-Z0-9][A-Z0-9_-]{2,29}$/.test(c));
+      if (invalidCode) { setError(t('admin.pricing.ratePlans.errors.invalidCode', { code: invalidCode })); return; }
       setError(null);
+      const payload = { ...ratePlanForm, visibility, accessCodes, description: (ratePlanForm.description ?? '').trim() };
       if (ratePlanForm._id) {
-        await pricingService.updateRatePlan(ratePlanForm._id, { ...ratePlanForm, roomTypeId: String(typeof ratePlanForm.roomTypeId === 'object' && ratePlanForm.roomTypeId ? (ratePlanForm.roomTypeId as any)._id : ratePlanForm.roomTypeId) });
+        await pricingService.updateRatePlan(ratePlanForm._id, { ...payload, roomTypeId: String(typeof ratePlanForm.roomTypeId === 'object' && ratePlanForm.roomTypeId ? (ratePlanForm.roomTypeId as any)._id : ratePlanForm.roomTypeId) });
       } else {
-        await pricingService.createRatePlan(ratePlanForm as any);
+        await pricingService.createRatePlan(payload as any);
       }
       setRatePlanDialog(false);
       await fetchRatePlans();
@@ -852,6 +866,16 @@ const PriceManagement: React.FC = () => {
                       <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
                         <Chip size="small" label={getRoomTypeName(plan.roomTypeId)} color="primary" variant="outlined" />
                         <Chip size="small" label={`${t('admin.pricing.ratePlans.basePrice')}: ${cur}${plan.basePrice}`} />
+                        {plan.isDefault && <Chip size="small" label={t('admin.pricing.ratePlans.chips.default')} color="success" />}
+                        {plan.visibility === 'private' && (
+                          <Chip
+                            size="small"
+                            variant="outlined"
+                            label={(plan.accessCodes ?? []).length
+                              ? t('admin.pricing.ratePlans.chips.privateWithCodes', { codes: (plan.accessCodes ?? []).join(', ') })
+                              : t('admin.pricing.ratePlans.chips.private')}
+                          />
+                        )}
                         {!plan.isActive && <Chip size="small" label={t('admin.pricing.inactive')} color="warning" />}
                         {plan.sellOnChannels === false && <Chip size="small" label={t('admin.pricing.sellOnChannels.off')} />}
                       </Box>
@@ -1239,6 +1263,59 @@ const PriceManagement: React.FC = () => {
                 min={0}
                 allowDecimal
               />
+
+              <TextField
+                label={t('admin.pricing.ratePlans.form.description')}
+                value={ratePlanForm.description ?? ''}
+                onChange={e => setRatePlanForm(p => ({ ...p, description: e.target.value }))}
+                helperText={t('admin.pricing.ratePlans.form.descriptionHelper')}
+                inputProps={{ maxLength: 500 }}
+                multiline
+                minRows={2}
+                fullWidth
+              />
+
+              <Divider />
+
+              <Box sx={{ display: 'grid', gap: 1.5 }}>
+                <Typography variant="subtitle2">{t('admin.pricing.ratePlans.form.selectionTitle')}</Typography>
+                <Box>
+                  <FormControlLabel
+                    control={<Switch checked={ratePlanForm.isDefault ?? false} onChange={e => setRatePlanForm(p => ({ ...p, isDefault: e.target.checked }))} />}
+                    label={t('admin.pricing.ratePlans.form.isDefault')}
+                  />
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 6, mt: -0.5 }}>
+                    {t('admin.pricing.ratePlans.form.isDefaultHint')}
+                  </Typography>
+                </Box>
+                <FormControl size="small" sx={{ maxWidth: 360 }}>
+                  <InputLabel>{t('admin.pricing.ratePlans.form.visibility')}</InputLabel>
+                  <Select
+                    value={ratePlanForm.visibility ?? 'public'}
+                    label={t('admin.pricing.ratePlans.form.visibility')}
+                    onChange={e => setRatePlanForm(p => ({ ...p, visibility: e.target.value as 'public' | 'private' }))}
+                  >
+                    <MenuItem value="public">{t('admin.pricing.ratePlans.form.visibilityPublic')}</MenuItem>
+                    <MenuItem value="private">{t('admin.pricing.ratePlans.form.visibilityPrivate')}</MenuItem>
+                  </Select>
+                </FormControl>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
+                  {(ratePlanForm.visibility ?? 'public') === 'private'
+                    ? t('admin.pricing.ratePlans.form.visibilityPrivateHint')
+                    : t('admin.pricing.ratePlans.form.visibilityPublicHint')}
+                </Typography>
+                {(ratePlanForm.visibility ?? 'public') === 'private' && (
+                  <TextField
+                    size="small"
+                    label={t('admin.pricing.ratePlans.form.accessCodes')}
+                    value={accessCodesText}
+                    onChange={e => setAccessCodesText(e.target.value.toUpperCase())}
+                    helperText={t('admin.pricing.ratePlans.form.accessCodesHelper')}
+                    placeholder="VERANO26, AMIGOS"
+                    fullWidth
+                  />
+                )}
+              </Box>
 
               <Divider />
 

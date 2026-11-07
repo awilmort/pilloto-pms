@@ -918,7 +918,38 @@
         "selected": "selected",
         "serviceTitle": "Service",
         "step3Title": "Summary",
-        "stepSummary": "Summary"
+        "stepSummary": "Summary",
+        "rates": {
+          "loadFailed": "Could not load the rates for these rooms.",
+          "promoCode": "Promo code",
+          "promoHelper": "Optional: unlocks private rates",
+          "promoMatched": "Code applied: its rates are listed",
+          "promoNoMatch": "This code has no rate for the selected rooms",
+          "ratePlan": "Rate plan",
+          "guestsInRoom": "{{adults}} adults, {{children}} children",
+          "perNight": "{{price}} per night",
+          "useRecommended": "Use the pre-selected rate ({{name}})",
+          "reason": {
+            "manual": "Chosen by staff",
+            "contract": "Negotiated rate",
+            "promo": "Promo code",
+            "default": "Default rate",
+            "cheapest": "Cheapest available rate",
+            "restricted": "No rate open for these dates"
+          },
+          "badge": {
+            "default": "Default",
+            "company": "Company rate",
+            "guest": "Guest rate",
+            "promo": "Promo code",
+            "private": "Private",
+            "restricted": "Booking rule"
+          },
+          "error": {
+            "no_room_type": "This room has no room type: assign one in Rooms.",
+            "no_rate_plan": "This room type has no active rate plan: create one in Pricing → Rate plans."
+          }
+        }
       },
       "none": "None",
       "tooltips": {
@@ -1028,7 +1059,9 @@
           "assignedRoom": "Assigned Room",
           "totalCharges": "Total Charges",
           "creditAvailability": "Credit Availability",
-          "folioStatus": "Folio Status"
+          "folioStatus": "Folio Status",
+          "ratePlan": "Rate",
+          "promoCode": "Promo code"
         },
         "table": {
           "date": "Date",
@@ -2627,7 +2660,19 @@
           "name": "Rate Plan Name",
           "roomType": "Room Type",
           "roomTypeHelper": "Match the room category exactly (e.g. \"Suite\")",
-          "basePrice": "Base Price (per night)"
+          "basePrice": "Base Price (per night)",
+          "description": "Description for guests",
+          "descriptionHelper": "What is included and the conditions, e.g. \"Breakfast for two included\" or \"Non-refundable\". Shown in the booking engine and to staff.",
+          "selectionTitle": "Selection and visibility",
+          "isDefault": "Default rate for this room type",
+          "isDefaultHint": "Pre-selected when a reservation is created and no company rate or promo code applies. Only one per room type: choosing it here removes it from the others. Without a default, the cheapest available rate is pre-selected.",
+          "visibility": "Visibility in the booking engine",
+          "visibilityPublic": "Public: every guest sees it",
+          "visibilityPrivate": "Private: only with a promo code",
+          "visibilityPublicHint": "Guests can choose this rate in the booking engine. Staff can always choose it.",
+          "visibilityPrivateHint": "Hidden in the booking engine unless the guest enters one of its promo codes. Without codes it is a staff-only rate. Staff can always choose it. Channel distribution is set with \"Sell on channels\".",
+          "accessCodes": "Promo codes",
+          "accessCodesHelper": "Separate with commas. 3–30 letters, numbers, - or _. Not case-sensitive. The same code can unlock rates of several room types."
         },
         "dialog": {
           "newTitle": "New Rate Plan",
@@ -2635,12 +2680,18 @@
         },
         "errors": {
           "nameRequired": "Name is required",
-          "roomTypeRequired": "Room type is required"
+          "roomTypeRequired": "Room type is required",
+          "invalidCode": "Invalid promo code: {{code}}. Use 3–30 letters, numbers, - or _."
         },
         "tiersTable": {
           "guestType": "Guest Type",
           "guestNumber": "Guest #",
           "price": "Price"
+        },
+        "chips": {
+          "default": "Default",
+          "private": "Private (staff only)",
+          "privateWithCodes": "Private · codes: {{codes}}"
         }
       },
       "rules": {
@@ -6234,7 +6285,9 @@
       "selectDate": "Select date",
       "clearDate": "Clear",
       "noServices": "No services available",
-      "totalEstimate": "estimated total"
+      "totalEstimate": "estimated total",
+      "promoCode": "Promo code",
+      "havePromoCode": "Have a promo code?"
     },
     "guests": {
       "guests": "guests",
@@ -6285,7 +6338,13 @@
       "payAtProperty": "Pay at the property — no payment required now.",
       "continueToDetails": "Continue to Guest Details",
       "youWontBeCharged": "You won't be charged yet",
-      "standardBed": "Standard"
+      "standardBed": "Standard",
+      "chooseRate": "Choose your rate",
+      "promoRate": "Promo code",
+      "selectRate": "Select this rate",
+      "promoApplied": "Code {{code}} applied: its rates are marked below.",
+      "promoNotForDates": "Code {{code}} has no rate available for these dates.",
+      "promoInvalid": "Code {{code}} is not valid."
     },
     "details": {
       "heading": "Guest Details",

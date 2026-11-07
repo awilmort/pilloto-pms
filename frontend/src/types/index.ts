@@ -171,10 +171,16 @@ export interface Room {
 }
 
 /** A booked room or service line on a reservation (room items carry the booked room type). */
+export type RateSelectionReason = 'manual' | 'contract' | 'promo' | 'default' | 'cheapest' | 'restricted';
+
 export interface ReservationItem {
   kind: 'room' | 'service';
   roomTypeId?: string | null;
   ratePlanId?: string | null;
+  /** Rate plan name when the room was booked */
+  ratePlanName?: string;
+  /** How the rate plan was chosen (not set on OTA bookings) */
+  rateSelection?: RateSelectionReason;
   checkIn?: string;
   checkOut?: string;
   serviceId?: string;
@@ -247,6 +253,9 @@ export interface Reservation {
   rooms?: Array<string | Room>; // Multiple rooms assigned
   roomCount?: number;
   items?: ReservationItem[];
+  /** Promo code that unlocked a private rate plan */
+  promoCode?: string;
+  pricingSnapshot?: { ratePlanId?: string; ratePlanName?: string; roomTypeName?: string; finalTotal?: number; nights?: number };
   roomType?: 'standard' | 'deluxe' | 'suite' | 'villa'; // For compatibility during transition
 
   // Event-specific fields (required for event reservations)

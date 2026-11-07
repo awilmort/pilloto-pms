@@ -1,11 +1,12 @@
 /**
  * Booking rules and per-night prices in Pilloto's own booking paths (plan Phase 4.5).
- * Pure `stayViolations`, `quoteStayFrom`, `bookablePlanFrom` and `explainNight` — no database.
+ * Pure `stayViolations`, `quoteStayFrom`, `publicOffersFrom` and `explainNight` — no database.
  * December 2026: Tue 1, Fri 4, Sat 5, Sun 6, Mon 7, Tue 8.
  */
 
 import { stayViolations, describeStayViolation, DEFAULT_RESTRICTIONS, RestrictionDays } from '../services/restrictionRules';
-import { bookablePlanFrom, checkStayFrom, quoteStayFrom, toStay, violationMessages, StayContext } from '../services/stayQuote';
+import { checkStayFrom, quoteStayFrom, toStay, violationMessages, StayContext } from '../services/stayQuote';
+import { publicOffersFrom, rateOptionsFrom } from '../services/ratePlanSelection';
 import { resolveRatesFrom } from '../services/channex/rateResolver';
 import { computeStayTaxes } from '../utils/pricing';
 import { explainNight } from '../services/channex/inventory.service';
@@ -152,10 +153,13 @@ describe('quoteStayFrom: night-by-night prices', () => {
 });
 
 describe('booking rules hide plans in the booking engine', () => {
-  const pick = (c: StayContext, s = stay(4, 6)) => bookablePlanFrom(c, 'rt-twin', s, party());
+  const offers = (c: StayContext, s = stay(4, 6)) => publicOffersFrom(c, 'rt-twin', s, party());
+  const closed = (c: StayContext, s = stay(4, 6)) =>
+    rateOptionsFrom(c, 'rt-twin', s, party(), { audience: 'public' }).filter((o) => !o.bookable);
 
-  it('with no rules the first plan by name is offered', () => {
-    expect(pick(ctx()).quote?.ratePlan.name).toBe('B&B');
+  it('with no rules every plan is offered, cheapest first', () => {
+    // Same total (BAR 100 + 20 for the 2nd adult = B&B 120): ties are ordered by name
+    expect(offers(ctx()).map((o) => [o.name, o.quote.finalTotal])).toEqual([['B&B', 240], ['BAR', 240]]);
   });
 
   it.each([
@@ -164,29 +168,29 @@ describe('booking rules hide plans in the booking engine', () => {
     ['no departures on the departure date', { closedToDeparture: true, dateStart: dec(6), dateEnd: dec(6) }, 'closed_to_departure'],
     ['minimum stay longer than the stay', { minStayArrival: 3, dateStart: dec(1), dateEnd: dec(31) }, 'min_stay'],
     ['maximum stay shorter than the stay', { maxStay: 1, dateStart: dec(1), dateEnd: dec(31) }, 'max_stay'],
-  ])('%s hides that plan; the next bookable plan is offered', (_n, rule, code) => {
+  ])('%s hides that plan; the other plan is still offered', (_n, rule, code) => {
     const onBB = booking({ scope: 'rate_plans', ratePlanIds: ['bb'], ...rule });
-    const r = pick(ctx({ restrictionRules: [onBB] }));
-    expect(r.quote?.ratePlan._id).toBe('bar');
-    expect(r.rejected.map((q) => [q.ratePlan._id, q.violations.map((v) => v.code)])).toEqual([['bb', [code]]]);
+    const c = ctx({ restrictionRules: [onBB] });
+    expect(offers(c).map((o) => o.ratePlanId)).toEqual(['bar']);
+    expect(closed(c).map((o) => [o.ratePlanId, o.quote.violations.map((v) => v.code)])).toEqual([['bb', [code]]]);
 
     const everywhere = booking({ ...rule });
-    const none = pick(ctx({ restrictionRules: [everywhere] }));
-    expect(none.quote).toBeNull();
-    expect(none.rejected).toHaveLength(2);
-    expect(violationMessages(none.rejected[0].violations)?.en).toBeTruthy();
+    const none = ctx({ restrictionRules: [everywhere] });
+    expect(offers(none)).toEqual([]);
+    expect(closed(none)).toHaveLength(2);
+    expect(violationMessages(closed(none)[0].quote.violations)?.en).toBeTruthy();
   });
 
   it('a newer "open again" rule makes the plan bookable again', () => {
     const closed = booking({ stopSell: true, dateStart: dec(1), dateEnd: dec(31), updatedAt: new Date(2026, 0, 1) });
     const open = booking({ stopSell: false, dateStart: dec(5), dateEnd: dec(5), updatedAt: new Date(2026, 0, 2) });
-    expect(pick(ctx({ restrictionRules: [closed, open] }), stay(5, 6)).quote?.ratePlan.name).toBe('B&B');
-    expect(pick(ctx({ restrictionRules: [closed, open] }), stay(4, 6)).quote).toBeNull();
+    expect(offers(ctx({ restrictionRules: [closed, open] }), stay(5, 6)).map((o) => o.name)).toEqual(['B&B', 'BAR']);
+    expect(offers(ctx({ restrictionRules: [closed, open] }), stay(4, 6))).toEqual([]);
   });
 
   it('inactive plans and zero prices are never offered', () => {
     const c = ctx({ ratePlans: [{ ...bar, isActive: false }, { ...bb, basePrice: 0 }] });
-    expect(pick(c).quote).toBeNull();
+    expect(offers(c)).toEqual([]);
     expect(checkStayFrom(c, 'bar', stay(4, 6))).toMatchObject([{ code: 'stop_sell' }]); // staff see why
   });
 

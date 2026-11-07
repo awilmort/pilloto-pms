@@ -7,8 +7,10 @@
  *
  * Endpoints:
  *   GET  /api/booking/config         — booking page configuration (branding, contact, etc.)
- *   GET  /api/booking/availability   — available room types for a date range
- *   POST /api/booking/quote          — price quote for selected room type + dates
+ *   GET  /api/booking/availability   — available room types for a date range, each with the
+ *                                      rate plans the guest can choose (promoCode unlocks
+ *                                      private plans)
+ *   POST /api/booking/quote          — price quote for selected room type + rate plan + dates
  *   GET  /api/booking/services       — online-bookable standalone services
  *   POST /api/booking/services/quote — price quote for a service
  *   POST /api/booking/verify/send    — send 4-digit email verification code
@@ -38,7 +40,11 @@ import BookingVerification from '../models/BookingVerification';
 import GuestTermsAcceptance from '../models/GuestTermsAcceptance';
 import Amenity from '../models/Amenity';
 import Review from '../models/Review';
-import { bookablePlanFrom, loadStayContext, quoteStayFrom, toStay, violationMessages, StayQuote } from '../services/stayQuote';
+import { loadStayContext, toStay, violationMessages, StayQuote } from '../services/stayQuote';
+import {
+  optionView, planMatchesCode, pricingSnapshotFrom, publicOffersFrom, resolvePublicPlan, roomItemFrom,
+} from '../services/ratePlanSelection';
+import { normalizeAccessCode } from '../models/RatePlan';
 import { getInventory, findFreeRooms, minAvailable, InventoryGrid } from '../services/channex/inventory.service';
 import { eachNight } from '../services/channex/dates';
 import { calculateServicePrice } from '../utils/servicePricing';
@@ -225,10 +231,13 @@ router.get(
     query('checkOut').isISO8601().withMessage('checkOut must be a valid ISO date'),
     query('adults').isInt({ min: 1, max: 50 }).withMessage('adults must be between 1 and 50'),
     query('children').optional().isInt({ min: 0, max: 50 }).withMessage('children must be between 0 and 50'),
+    query('promoCode').optional().isString().isLength({ max: 30 }).withMessage('promoCode is too long'),
   ],
   handleValidationErrors,
   async (req: TenantRequest, res: Response) => {
     try {
+      const promoCode = normalizeAccessCode(req.query.promoCode);
+      const lang = req.tenant?.settings?.language === 'es' ? 'es' : 'en';
       const checkIn = new Date(req.query.checkIn as string);
       const checkOut = new Date(req.query.checkOut as string);
       const adults = parseInt(req.query.adults as string, 10);
@@ -295,14 +304,17 @@ router.get(
 
         if (availableCount === 0) continue;
 
-        // The first active rate plan (by name) the stay can be booked on: plans with stop
-        // sell on a night, no arrivals/departures on those dates, or a min/max stay the stay
-        // breaks are left out. Clip guest count to room capacity so pricing reflects per-room cost.
+        // Every plan the guest can book for the stay: public plans, plus private plans the promo
+        // code unlocks; plans the stay breaks a booking rule on (stop sell, no arrivals or
+        // departures, min/max stay) are left out. Promo plans first, then cheapest first; the
+        // first one is the room type's "from" price. Guests are clipped to the room capacity
+        // so the price is per room.
         const roomAdults = Math.min(adults, rt.capacity);
         const roomChildren = Math.min(children, Math.max(0, rt.capacity - roomAdults));
         try {
-          const { quote: priceResult } = bookablePlanFrom(stayContext, rtId, stay, { adults: roomAdults, children: roomChildren, rooms: 1 });
-          if (!priceResult) continue;
+          const offers = publicOffersFrom(stayContext, rtId, stay, { adults: roomAdults, children: roomChildren, rooms: 1 }, promoCode);
+          if (offers.length === 0) continue;
+          const priceResult = offers[0].quote;
 
           // Get room images for this type (first available room with images)
           const roomWithImages = typeRooms.find(r => r.images && r.images.length > 0);
@@ -319,6 +331,27 @@ router.get(
               _id: priceResult.ratePlan._id,
               name: priceResult.ratePlan.name,
             },
+            ratePlans: offers.map((o) => {
+              const view = optionView(o, lang);
+              return {
+                _id: o.ratePlanId,
+                name: o.name,
+                description: o.description,
+                isDefault: o.isDefault,
+                promo: o.promoMatch,
+                pricing: {
+                  basePrice: view.pricing.basePrice,
+                  occupancyCost: view.pricing.occupancyCost,
+                  subtotal: view.pricing.subtotal,
+                  adjustedSubtotal: view.pricing.adjustedSubtotal,
+                  taxes: view.pricing.taxes,
+                  totalTaxes: view.pricing.totalTaxes,
+                  finalTotal: view.pricing.finalTotal,
+                  nights: view.pricing.nights,
+                  perNight: view.pricing.perNight,
+                },
+              };
+            }),
             pricing: {
               basePrice: priceResult.basePrice,
               occupancyCost: priceResult.occupancyCost,
@@ -344,7 +377,15 @@ router.get(
       // Sort by price ascending
       results.sort((a, b) => a.pricing.finalTotal - b.pricing.finalTotal);
 
-      res.json({ success: true, data: results });
+      // valid: the code unlocks an active plan; applied: one of those plans is offered for this search
+      const promo = promoCode
+        ? {
+          code: promoCode,
+          valid: stayContext.ratePlans.some((p) => p.isActive && planMatchesCode(p, promoCode)),
+          applied: results.some((r) => r.ratePlans.some((p) => p.promo)),
+        }
+        : null;
+      res.json({ success: true, data: results, promo });
     } catch (error: any) {
       console.error('Availability search error:', error);
       res.status(500).json({ success: false, message: 'Failed to search availability.' });
@@ -367,11 +408,12 @@ router.post(
     body('adults').isInt({ min: 1, max: 50 }).withMessage('adults is required'),
     body('children').optional().isInt({ min: 0, max: 50 }),
     body('rooms').optional().isInt({ min: 1, max: 10 }),
+    body('promoCode').optional().isString().isLength({ max: 30 }),
   ],
   handleValidationErrors,
   async (req: Request, res: Response) => {
     try {
-      const { roomTypeId, ratePlanId, checkIn, checkOut, adults, children = 0, rooms = 1 } = req.body;
+      const { roomTypeId, ratePlanId, checkIn, checkOut, adults, children = 0, rooms = 1, promoCode } = req.body;
       const stay = toStay(checkIn, checkOut);
       if (stay.checkOut <= stay.checkIn) {
         return res.status(400).json({ success: false, message: 'Check-out must be after check-in.' });
@@ -379,22 +421,17 @@ router.post(
       const party = { adults, children, rooms };
       const stayContext = await loadStayContext({ ...stay, roomTypeIds: [roomTypeId] });
 
-      // A chosen plan must be bookable for the stay; otherwise the first bookable plan is quoted
-      let priceResult: StayQuote | null;
-      if (ratePlanId) {
-        priceResult = quoteStayFrom(stayContext, String(ratePlanId), stay, party);
-      } else {
-        const pick = bookablePlanFrom(stayContext, String(roomTypeId), stay, party);
-        priceResult = pick.quote ?? pick.rejected[0] ?? null;
-      }
-
-      if (!priceResult) {
+      // A chosen plan must be offered to the guest (public, or unlocked by the promo code) and
+      // bookable for the stay; without one, the pre-selected plan is quoted
+      const pick = resolvePublicPlan(stayContext, String(roomTypeId), stay, party, promoCode, ratePlanId ? String(ratePlanId) : null);
+      if (!pick.ok && pick.code === 'not_found') {
         return res.status(404).json({ success: false, message: 'No rate plan found for this room type.' });
       }
-      const restricted = restrictionMessage(req, priceResult);
-      if (restricted) {
-        return res.status(409).json({ success: false, code: 'restricted', message: restricted, violations: priceResult.violations });
+      if (!pick.ok) {
+        const restricted = restrictionMessage(req, pick.option!.quote);
+        return res.status(409).json({ success: false, code: 'restricted', message: restricted, violations: pick.option!.quote.violations });
       }
+      const priceResult = { ...pick.option.quote, rateSelection: pick.reason, promo: pick.option.promoMatch };
 
       res.json({ success: true, data: priceResult });
     } catch (error: any) {
@@ -663,6 +700,7 @@ router.post(
     body('items.*.adults').optional().isInt({ min: 0, max: 50 }),
     body('items.*.children').optional().isInt({ min: 0, max: 50 }),
     body('items.*.quantity').optional().isInt({ min: 1, max: 10 }),
+    body('promoCode').optional().isString().isLength({ max: 30 }),
     // Terms acceptance
     body('acceptedTermsVersion').isString().isLength({ min: 1, max: 20 }).withMessage('Terms acceptance required'),
     body('acceptedPrivacyVersion').isString().isLength({ min: 1, max: 20 }).withMessage('Privacy policy acceptance required'),
@@ -680,6 +718,7 @@ router.post(
         items,
         acceptedTermsVersion,
         acceptedPrivacyVersion,
+        promoCode,
       } = req.body;
 
       const ip = req.ip || req.socket.remoteAddress || 'unknown';
@@ -725,6 +764,8 @@ router.post(
         : {};
       const claimed = new Map<string, number>(); // `${roomTypeId}|${night}` → rooms taken by this request
       const pickedRoomIds = new Set<string>();
+      const roomQuotes: StayQuote[] = [];
+      let promoUsed = false;
 
       for (const item of items) {
         if (item.kind === 'room') {
@@ -769,48 +810,40 @@ router.post(
           const assignedRoomId = freeRoomIds.find((id) => !pickedRoomIds.has(id));
           if (assignedRoomId) pickedRoomIds.add(assignedRoomId);
 
-          // Night-by-night price on a plan the stay can be booked on (booking rules apply)
+          // Night-by-night price on the plan the guest chose (public, or unlocked by the promo
+          // code, and bookable for the stay); without a choice, the pre-selected plan
           const stay = toStay(item.checkIn, item.checkOut);
           const stayContext = await loadStayContext({ ...stay, roomTypeIds: [item.roomTypeId] });
           const party = { adults, children, rooms: 1 };
-          let priceResult: StayQuote | null;
-          if (item.ratePlanId) {
-            priceResult = quoteStayFrom(stayContext, String(item.ratePlanId), stay, party);
-          } else {
-            const pick = bookablePlanFrom(stayContext, String(item.roomTypeId), stay, party);
-            priceResult = pick.quote ?? pick.rejected[0] ?? null;
-          }
-
-          if (!priceResult) {
+          const pick = resolvePublicPlan(stayContext, String(item.roomTypeId), stay, party, promoCode, item.ratePlanId ? String(item.ratePlanId) : null);
+          if (!pick.ok && pick.code === 'not_found') {
             return res.status(400).json({
               success: false,
-              message: `No rate plan found for ${roomType.name}.`,
+              message: item.ratePlanId
+                ? `The selected rate is not available for ${roomType.name}.`
+                : `No rate plan found for ${roomType.name}.`,
             });
           }
-          const restricted = restrictionMessage(req, priceResult);
-          if (restricted) {
-            return res.status(400).json({ success: false, code: 'restricted', message: restricted, violations: priceResult.violations });
+          if (!pick.ok) {
+            const restricted = restrictionMessage(req, pick.option!.quote);
+            return res.status(400).json({ success: false, code: 'restricted', message: restricted, violations: pick.option!.quote.violations });
           }
+          const priceResult = pick.option.quote;
+          roomQuotes.push(priceResult);
+          if (pick.option.promoMatch) promoUsed = true;
 
           processedItems.push({
-            kind: 'room',
-            roomTypeId: new mongoose.Types.ObjectId(item.roomTypeId),
-            ratePlanId: new mongoose.Types.ObjectId(priceResult.ratePlan._id),
-            checkIn,
-            checkOut,
-            adults,
-            children,
-            quantity: 1,
-            unitPrice: priceResult.adjustedSubtotal,
-            subtotal: priceResult.adjustedSubtotal,
-            taxes: priceResult.taxes.map(t => ({
-              name: t.name,
-              type: t.type,
-              amount: t.amount,
-              isInclusive: t.isInclusive,
-            })),
-            totalTaxes: priceResult.totalTaxes,
-            total: priceResult.finalTotal,
+            ...roomItemFrom({
+              roomTypeId: String(item.roomTypeId),
+              ratePlanId: priceResult.ratePlan._id,
+              ratePlanName: priceResult.ratePlan.name,
+              rateSelection: pick.reason,
+              checkIn,
+              checkOut,
+              adults,
+              children,
+              quote: priceResult,
+            }),
             _assignedRoomId: assignedRoomId, // Internal — used to assign the room
           });
 
@@ -906,30 +939,8 @@ router.post(
       }
 
       // ── 7. Build pricing snapshot for room reservations ─────
-      let pricingSnapshot;
-      if (firstRoomItem) {
-        pricingSnapshot = {
-          ratePlanId: String(firstRoomItem.ratePlanId),
-          ratePlanName: '', // Will be populated
-          roomTypeName: '',
-          basePrice: firstRoomItem.subtotal,
-          occupancyCost: 0,
-          subtotal: firstRoomItem.subtotal,
-          adjustedSubtotal: firstRoomItem.subtotal,
-          taxes: firstRoomItem.taxes,
-          totalTaxes: firstRoomItem.totalTaxes,
-          finalTotal: firstRoomItem.total,
-          nights: firstRoomItem.checkOut && firstRoomItem.checkIn
-            ? Math.max(1, Math.ceil((firstRoomItem.checkOut.getTime() - firstRoomItem.checkIn.getTime()) / (1000 * 60 * 60 * 24)))
-            : 1,
-        };
-        // Populate names
-        const rp = await RatePlan.findById(firstRoomItem.ratePlanId).populate('roomTypeId', 'name').lean();
-        if (rp) {
-          pricingSnapshot.ratePlanName = rp.name;
-          pricingSnapshot.roomTypeName = (rp.roomTypeId as any)?.name || '';
-        }
-      }
+      // Every room's plan and price (one plan → its name; several → names joined)
+      const pricingSnapshot = firstRoomItem ? pricingSnapshotFrom(roomQuotes) : undefined;
 
       // ── 8. Create reservation ───────────────────────────────
       const reservation = await Reservation.create({
@@ -959,6 +970,7 @@ router.post(
         estimatedTotal: totalEstimate,
         totalPayments: 0,
         pricingSnapshot,
+        ...(promoUsed ? { promoCode: normalizeAccessCode(promoCode) } : {}),
         guestRecord: guestRecord?._id,
       });
       await recordReservationEvent(reservation._id as any, 'created', { actor: GUEST_ACTOR, note: 'booking_engine' });

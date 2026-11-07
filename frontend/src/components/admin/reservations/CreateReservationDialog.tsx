@@ -3,7 +3,10 @@
  *
  * 4-step reservation creation wizard used in ReservationManagement.
  * Step 0: service type selection (room / day pass / pasa tarde / event)
- * Step 1: dates, guest counts, rate plan (+ availability check for rooms)
+ * Step 1: dates, guest counts, rooms and the rate plan of each room (+ availability check).
+ *         Every active plan of the room's type is offered, priced for the stay; one is
+ *         pre-selected (contract → promo code → default plan → cheapest open plan, see
+ *         backend services/ratePlanSelection.ts) and staff can pick another.
  * Step 2: guest info, contact, optional corporate booking
  * Step 3: summary + confirm
  */
@@ -50,13 +53,14 @@ import {
 } from '@mui/icons-material';
 import { Reservation, Company, RoomType } from '../../../types';
 import { reservationsService, roomsService, pricingService, companiesService, servicesService } from '../../../services/api';
-import type { ServiceRecord, ServiceKind } from '../../../services/api';
+import type { ServiceRecord, ServiceKind, RateOptionsResult, RoomRateOptions, RateOption, RateSelectionReason } from '../../../services/api';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../../contexts/AuthContext';
 import NumberField from '../../common/NumberField';
 import DateRangePicker from '../../common/DateRangePicker';
 import { formatMoney } from '../../../utils/currency';
 import BookingRuleWarnings from './BookingRuleWarnings';
+import RoomRateSelect from './RoomRateSelect';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const addOneDay = (dateStr: string): string => {
@@ -115,7 +119,7 @@ const CreateReservationDialog: React.FC<Props> = ({
   open, onClose, onCreated, onSnackbar, reservationServices,
   defaultType, defaultCheckIn, defaultCheckOut, defaultRoomId,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user, permissions, discountLimit } = useAuth();
   const canDiscount = permissions.includes('admin.reservations.discount') && discountLimit > 0;
   const isAdmin = user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin';
@@ -158,14 +162,17 @@ const CreateReservationDialog: React.FC<Props> = ({
   const [createAvailabilityChecked, setCreateAvailabilityChecked]   = useState(false);
   const [selectedRooms, setSelectedRooms]                           = useState<any[]>([]);
   const [roomSearch, setRoomSearch]                                 = useState('');
-  // Rooms-based pricing preview
-  const [createPricePreview, setCreatePricePreview] = useState<any>(null);
-  const [createPriceLoading, setCreatePriceLoading] = useState(false);
+  // Rate plan of each selected room, priced for the stay
+  const [rateOptions, setRateOptions] = useState<RateOptionsResult | null>(null);
+  const [rateLoading, setRateLoading] = useState(false);
+  const [rateError, setRateError] = useState<string | null>(null);
+  /** roomId → ratePlanId the user picked (otherwise the pre-selected plan applies) */
+  const [planChoice, setPlanChoice] = useState<Record<string, string>>({});
+  const [promoCode, setPromoCode] = useState('');
+  const rateRequestId = React.useRef(0);
 
   // Validation
   const [createStep2Error, setCreateStep2Error] = useState<string | null>(null);
-  const [createGuestPriceApplied, setCreateGuestPriceApplied]         = useState(false);
-  const [createCorporatePriceApplied, setCreateCorporatePriceApplied] = useState(false);
 
   // Service pricing (non-room types)
   const [serviceOptions, setServiceOptions]           = useState<ServiceRecord[]>([]);
@@ -188,7 +195,7 @@ const CreateReservationDialog: React.FC<Props> = ({
     setCreateCheckingAvailability(true);
     setCreateAvailabilityChecked(false);
     setSelectedRooms([]);
-    setCreatePricePreview(null);
+    setRateOptions(null);
     roomsService.getAvailableRooms(ci, co)
       .then(res => {
         setCreateAvailableRooms(Array.isArray(res.data.data) ? res.data.data : []);
@@ -210,36 +217,70 @@ const CreateReservationDialog: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultRoomId, createAvailableRooms, createAvailabilityChecked, defaultRoomApplied]);
 
-  // Auto-calculate price preview when selected rooms change
+  // Rate options (every plan of each selected room's type, priced for the stay) whenever the
+  // rooms, stay, party, company, guest e-mail or promo code change. Debounced; only the latest
+  // response is kept.
+  const corporateCompanyId = createIsCorporate && createCompanyId ? createCompanyId : '';
   useEffect(() => {
-    if (
-      createForm.type !== 'room' ||
-      selectedRooms.length === 0 ||
-      !createForm.checkInDate ||
-      !createForm.checkOutDate
-    ) {
-      if (createForm.type === 'room') setCreatePricePreview(null);
+    if (!open || createForm.type !== 'room' || selectedRooms.length === 0 || !createForm.checkInDate || !createForm.checkOutDate) {
+      setRateOptions(null);
+      setRateError(null);
       return;
     }
-    setCreatePriceLoading(true);
-    pricingService.calculateRoomsPrice({
-      roomIds:      selectedRooms.map(r => r._id),
-      checkInDate:  createForm.checkInDate,
-      checkOutDate: createForm.checkOutDate,
-      adults:       createForm.adults,
-      children:     createForm.children,
-      companyId:    createIsCorporate && createCompanyId ? createCompanyId : undefined,
-      guestEmail:   createForm.email || undefined,
-    })
-      .then(res => {
-        const data = res.data.data;
-        setCreatePricePreview(data);
-        if (data?.finalTotal != null) setCreateForm(f => ({ ...f, totalPrice: data.finalTotal }));
+    const requestId = ++rateRequestId.current;
+    setRateLoading(true);
+    const timer = setTimeout(() => {
+      pricingService.getRateOptions({
+        roomIds:      selectedRooms.map(r => r._id),
+        checkInDate:  createForm.checkInDate,
+        checkOutDate: createForm.checkOutDate,
+        adults:       createForm.adults,
+        children:     createForm.children,
+        companyId:    corporateCompanyId || undefined,
+        guestEmail:   createForm.email.trim() || undefined,
+        promoCode:    promoCode.trim() || undefined,
       })
-      .catch(() => setCreatePricePreview(null))
-      .finally(() => setCreatePriceLoading(false));
+        .then(res => {
+          if (requestId !== rateRequestId.current) return;
+          setRateOptions(res.data.data ?? null);
+          setRateError(null);
+        })
+        .catch(err => {
+          if (requestId !== rateRequestId.current) return;
+          setRateOptions(null);
+          setRateError(err?.response?.data?.message || t('admin.reservations.create.rates.loadFailed'));
+        })
+        .finally(() => { if (requestId === rateRequestId.current) setRateLoading(false); });
+    }, 300);
+    return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, createForm.type, selectedRooms, createForm.checkInDate, createForm.checkOutDate, createForm.adults, createForm.children, createIsCorporate, createCompanyId, createForm.email]);
+  }, [open, createForm.type, selectedRooms, createForm.checkInDate, createForm.checkOutDate, createForm.adults, createForm.children, corporateCompanyId, createForm.email, promoCode]);
+
+  // The plan each room is booked on: the user's pick when it is still offered, else the pre-selection
+  const rateLines: RoomRateOptions[] = rateOptions?.rooms ?? [];
+  const chosenPlanId = (line: RoomRateOptions): string => {
+    const picked = planChoice[line.roomId];
+    if (picked && line.options.some(o => o.ratePlanId === picked)) return picked;
+    return line.recommended?.ratePlanId ?? line.options[0]?.ratePlanId ?? '';
+  };
+  const chosenOption = (line: RoomRateOptions): RateOption | undefined =>
+    line.options.find(o => o.ratePlanId === chosenPlanId(line));
+  const chosenReason = (line: RoomRateOptions): RateSelectionReason | null =>
+    !chosenPlanId(line) ? null : chosenPlanId(line) === line.recommended?.ratePlanId ? (line.recommended?.reason ?? null) : 'manual';
+  const roomsTotal = Math.round(rateLines.reduce((sum, l) => sum + (chosenOption(l)?.pricing.finalTotal ?? 0), 0) * 100) / 100;
+  const ratesReady = createForm.type !== 'room' || (
+    !!rateOptions && !rateLoading && rateLines.length === selectedRooms.length && rateLines.every(l => !!chosenOption(l))
+  );
+  const restrictedLines = rateLines.filter(l => chosenOption(l) && !chosenOption(l)!.bookable);
+  // Negotiated prices that price the booked plans
+  const createCorporatePriceApplied = rateLines.some(l => chosenOption(l)?.contract === 'company');
+  const createGuestPriceApplied = rateLines.some(l => chosenOption(l)?.contract === 'guest');
+  const lang: 'es' | 'en' = (i18n.language || 'en').startsWith('es') ? 'es' : 'en';
+
+  useEffect(() => {
+    if (createForm.type === 'room' && rateOptions) setCreateForm(f => ({ ...f, totalPrice: roomsTotal }));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomsTotal, rateOptions]);
 
   // Load services for non-room types when dialog opens or type changes
   useEffect(() => {
@@ -290,14 +331,15 @@ const CreateReservationDialog: React.FC<Props> = ({
     setCreateAvailabilityChecked(false);
     setSelectedRooms([]);
     setRoomSearch('');
-    setCreateGuestPriceApplied(false);
-    setCreateCorporatePriceApplied(false);
     setCreateIsCorporate(false);
     setCreateRequestCorporatePrice(false);
     setCreateCompanyId('');
     setCreateCompanyName('');
     setCreateStep2Error(null);
-    setCreatePricePreview(null);
+    setRateOptions(null);
+    setRateError(null);
+    setPlanChoice({});
+    setPromoCode('');
     setServiceOptions([]);
     setSelectedServiceId('');
     setServicePricePreview(null);
@@ -334,8 +376,8 @@ const CreateReservationDialog: React.FC<Props> = ({
 
   const handleContinueStep1 = async () => {
     if (createForm.type !== 'room') { setCreateStep(2); return; }
-    // Rooms must be selected and capacity must be sufficient
-    if (selectedRooms.length === 0 || !capacitySatisfied) return;
+    // Rooms must be selected, capacity must be sufficient and every room needs a rate plan
+    if (selectedRooms.length === 0 || !capacitySatisfied || !ratesReady) return;
     setCreateStep(2);
   };
 
@@ -365,6 +407,9 @@ const CreateReservationDialog: React.FC<Props> = ({
       if (createForm.checkOutDate) payload.checkOutDate = createForm.checkOutDate;
       if (createForm.type === 'room' && selectedRooms.length > 0) {
         payload.rooms = selectedRooms.map(r => r._id);
+        // The plan staff saw for each room is the plan the reservation is booked on
+        payload.roomRatePlans = Object.fromEntries(rateLines.map(l => [l.roomId, chosenPlanId(l)]).filter(([, id]) => !!id));
+        if (promoCode.trim()) payload.promoCode = promoCode.trim();
       }
       if (createIsCorporate && createCompanyId) {
         payload.isCorporate = true;
@@ -536,6 +581,25 @@ const CreateReservationDialog: React.FC<Props> = ({
                 <NumberField label={t('admin.reservations.form.infants', 'Infants')}   value={createForm.infants}  min={0} onChange={v => setCreateForm(f => ({ ...f, infants: v ?? 0 }))} />
               </Box>
             </Box>
+
+            {createForm.type === 'room' && (
+              <TextField
+                size="small"
+                label={t('admin.reservations.create.rates.promoCode')}
+                value={promoCode}
+                onChange={e => setPromoCode(e.target.value.toUpperCase())}
+                inputProps={{ maxLength: 30 }}
+                sx={{ maxWidth: 320 }}
+                helperText={
+                  rateOptions?.promo
+                    ? (rateOptions.promo.matched
+                      ? t('admin.reservations.create.rates.promoMatched')
+                      : t('admin.reservations.create.rates.promoNoMatch'))
+                    : t('admin.reservations.create.rates.promoHelper')
+                }
+                FormHelperTextProps={{ sx: { color: rateOptions?.promo ? (rateOptions.promo.matched ? 'success.main' : 'warning.main') : undefined } }}
+              />
+            )}
 
             {createForm.type === 'room' && (
               <Box>
@@ -720,8 +784,8 @@ const CreateReservationDialog: React.FC<Props> = ({
                             )}
                           </Box>
 
-                          {/* Price preview */}
-                          {createPriceLoading && (
+                          {/* Rate plan of each room */}
+                          {rateLoading && !rateOptions && (
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                               <CircularProgress size={14} />
                               <Typography variant="caption" color="text.secondary">
@@ -729,24 +793,42 @@ const CreateReservationDialog: React.FC<Props> = ({
                               </Typography>
                             </Box>
                           )}
-                          {!createPriceLoading && createPricePreview?.perRoom && (
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                              {createPricePreview.perRoom.map((pr: any, idx: number) => (
-                                <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', py: 0.25, borderBottom: idx < createPricePreview.perRoom.length - 1 ? 1 : 0, borderColor: 'divider' }}>
-                                  <Typography variant="caption" color="text.secondary">{pr.roomName}</Typography>
-                                  <Typography variant="caption" fontWeight={600}>{formatMoney(pr.finalTotal)}</Typography>
-                                </Box>
+                          {rateError && (
+                            <Alert severity="error" sx={{ borderRadius: 1.5, py: 0.25 }}>{rateError}</Alert>
+                          )}
+                          {rateOptions && (
+                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, opacity: rateLoading ? 0.6 : 1, transition: 'opacity 0.15s' }}>
+                              {rateLines.map(line => (
+                                <RoomRateSelect
+                                  key={line.roomId}
+                                  line={line}
+                                  value={chosenPlanId(line)}
+                                  reason={chosenReason(line)}
+                                  lang={lang}
+                                  onChange={planId => setPlanChoice(c => ({ ...c, [line.roomId]: planId }))}
+                                  onReset={() => setPlanChoice(c => { const next = { ...c }; delete next[line.roomId]; return next; })}
+                                />
                               ))}
                               <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 0.5, borderTop: 1, borderColor: 'divider' }}>
                                 <Typography variant="body2" fontWeight={700}>{t('admin.reservations.form.totalPrice', 'Total')}</Typography>
-                                <Typography variant="body2" fontWeight={700} color="primary.main">{formatMoney(createPricePreview.finalTotal)}</Typography>
+                                <Typography variant="body2" fontWeight={700} color="primary.main">{formatMoney(roomsTotal)}</Typography>
                               </Box>
                             </Box>
                           )}
                         </Paper>
                       )}
-                      {selectedRooms.length > 0 && (
-                        <BookingRuleWarnings checkIn={createForm.checkInDate} checkOut={createForm.checkOutDate} roomIds={selectedRooms.map(r => r._id)} />
+                      {restrictedLines.length > 0 && (
+                        <Alert severity="warning" sx={{ borderRadius: 1.5 }}>
+                          <Typography variant="body2" fontWeight={600}>{t('admin.reservations.bookingRuleWarnings.title')}</Typography>
+                          {restrictedLines.map(l => (
+                            <Typography key={l.roomId} variant="body2">
+                              {l.roomName} · {chosenOption(l)!.name}: {chosenOption(l)!.restrictionMessages.map(m => m[lang]).join(' ')}
+                            </Typography>
+                          ))}
+                          <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
+                            {t('admin.reservations.bookingRuleWarnings.hint')}
+                          </Typography>
+                        </Alert>
                       )}
                     </Box>
                   );
@@ -932,8 +1014,12 @@ const CreateReservationDialog: React.FC<Props> = ({
         {/* ── Step 3: Summary ── */}
         {createStep === 3 && (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {createForm.type === 'room' && selectedRooms.length > 0 && (
-              <BookingRuleWarnings checkIn={createForm.checkInDate} checkOut={createForm.checkOutDate} roomIds={selectedRooms.map(r => r._id)} />
+            {createForm.type === 'room' && rateLines.length > 0 && (
+              <BookingRuleWarnings
+                checkIn={createForm.checkInDate}
+                checkOut={createForm.checkOutDate}
+                ratePlanIds={Array.from(new Set(rateLines.map(chosenPlanId).filter(Boolean)))}
+              />
             )}
             {createCorporatePriceApplied && (
               <Alert severity="success">
@@ -986,26 +1072,31 @@ const CreateReservationDialog: React.FC<Props> = ({
                   </Box>
                 )}
 
-                {createPricePreview?.perRoom && createForm.type === 'room' ? (
+                {rateOptions && createForm.type === 'room' ? (
                   <Box sx={{ gridColumn: '1 / -1', pt: 1.5, mt: 0.5, borderTop: 1, borderColor: 'divider' }}>
                     <Typography variant="caption" color="text.secondary" display="block" gutterBottom>
-                      {t('admin.reservations.create.roomBreakdown', 'Room Breakdown')} · {createPricePreview.nights} {t('admin.reservations.create.nights', 'nights')}
+                      {t('admin.reservations.create.roomBreakdown', 'Room Breakdown')} · {rateOptions.nights} {t('admin.reservations.create.nights', 'nights')}
                     </Typography>
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.75 }}>
-                      {createPricePreview.perRoom.map((pr: any, idx: number) => (
-                        <Box key={idx} sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, pb: 0.75, borderBottom: idx < createPricePreview.perRoom.length - 1 ? 1 : 0, borderColor: 'divider' }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <Typography variant="body2" fontWeight={600}>{pr.roomName}</Typography>
-                            <Typography variant="body2" fontWeight={600}>{formatMoney(pr.finalTotal)}</Typography>
+                      {rateLines.map((line, idx) => {
+                        const option = chosenOption(line);
+                        const reason = chosenReason(line);
+                        return (
+                          <Box key={line.roomId} sx={{ display: 'flex', flexDirection: 'column', gap: 0.25, pb: 0.75, borderBottom: idx < rateLines.length - 1 ? 1 : 0, borderColor: 'divider' }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                              <Typography variant="body2" fontWeight={600}>{line.roomName}</Typography>
+                              <Typography variant="body2" fontWeight={600}>{formatMoney(option?.pricing.finalTotal ?? 0)}</Typography>
+                            </Box>
+                            <Typography variant="caption" color="text.secondary">
+                              {line.roomTypeName}{option ? ` · ${option.name}` : ''}
+                              {reason ? ` · ${t(`admin.reservations.create.rates.reason.${reason}`)}` : ''}
+                            </Typography>
                           </Box>
-                          <Typography variant="caption" color="text.secondary">
-                            {pr.roomTypeName}{pr.ratePlanName ? ` · ${pr.ratePlanName}` : ''}
-                          </Typography>
-                        </Box>
-                      ))}
+                        );
+                      })}
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 0.5, mt: 0.25, borderTop: 1, borderColor: 'divider' }}>
                         <Typography variant="h6" fontWeight={700} color="primary.main">{t('admin.reservations.form.totalPrice', 'Total')}</Typography>
-                        <Typography variant="h6" fontWeight={700} color="primary.main">{formatMoney(createPricePreview.finalTotal)}</Typography>
+                        <Typography variant="h6" fontWeight={700} color="primary.main">{formatMoney(roomsTotal)}</Typography>
                       </Box>
                     </Box>
                   </Box>
@@ -1042,7 +1133,8 @@ const CreateReservationDialog: React.FC<Props> = ({
             variant="contained"
             endIcon={createCheckingAvailability ? <CircularProgress size={16} color="inherit" /> : <ArrowForward />}
             onClick={handleContinueStep1}
-            disabled={!createForm.checkInDate || (createForm.type === 'room' && !createForm.checkOutDate) || createCheckingAvailability}
+            disabled={!createForm.checkInDate || (createForm.type === 'room' && !createForm.checkOutDate) || createCheckingAvailability
+              || (createForm.type === 'room' && selectedRooms.length > 0 && !ratesReady)}
           >
             {t('common.continue', 'Continue')}
           </Button>

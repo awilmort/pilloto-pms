@@ -7,6 +7,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { bookingService } from '../services/api';
+import type { PublicRateOffer } from '../services/api';
 import { useTranslation } from 'react-i18next';
 
 export interface BookingConfig {
@@ -30,7 +31,10 @@ export interface BookingConfig {
 export interface RoomAvailability {
   roomType: { _id: string; name: string; capacity: number; image?: string };
   availableCount: number;
+  /** The first offer: the room type's "from" price */
   ratePlan: { _id: string; name: string };
+  /** Every rate plan the guest can choose for the stay (promo-code plans first, then cheapest) */
+  ratePlans: PublicRateOffer[];
   pricing: {
     basePrice: number;
     occupancyCost: number;
@@ -52,6 +56,7 @@ export interface BookingItem {
   kind: 'room' | 'service';
   roomTypeId?: string;
   ratePlanId?: string;
+  ratePlanName?: string;
   roomTypeName?: string;
   checkIn?: string;
   checkOut?: string;
@@ -80,20 +85,40 @@ export interface GuestInfo {
 
 export type BookingStep = 'search' | 'results' | 'details' | 'verify' | 'review' | 'confirmation';
 
+export interface BookingSearchParams {
+  checkIn: string;
+  checkOut: string;
+  adults: number;
+  children: number;
+  /** Promo code that unlocks private rate plans */
+  promoCode?: string;
+}
+
+/** What the last search did with the promo code */
+export interface PromoResult {
+  code: string;
+  /** The code unlocks a rate plan of the property */
+  valid: boolean;
+  /** One of those plans is offered for this search */
+  applied: boolean;
+}
+
 interface BookingContextValue {
   config: BookingConfig | null;
   configLoading: boolean;
   configError: string | null;
 
   // Search state
-  searchParams: { checkIn: string; checkOut: string; adults: number; children: number } | null;
-  setSearchParams: (params: { checkIn: string; checkOut: string; adults: number; children: number }) => void;
+  searchParams: BookingSearchParams | null;
+  setSearchParams: (params: BookingSearchParams) => void;
   availability: RoomAvailability[];
   availabilityLoading: boolean;
-  searchAvailability: (params: { checkIn: string; checkOut: string; adults: number; children: number }) => Promise<void>;
+  searchAvailability: (params: BookingSearchParams) => Promise<void>;
+  promo: PromoResult | null;
 
   // Cart
   items: BookingItem[];
+  /** Adds an item; a room item for a room type already in the cart replaces it (another rate plan) */
   addItem: (item: BookingItem) => void;
   removeItem: (index: number) => void;
   clearItems: () => void;
@@ -138,8 +163,9 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const [configLoading, setConfigLoading] = useState(true);
   const [configError, setConfigError] = useState<string | null>(null);
 
-  const [searchParams, setSearchParams] = useState<{ checkIn: string; checkOut: string; adults: number; children: number } | null>(null);
+  const [searchParams, setSearchParams] = useState<BookingSearchParams | null>(null);
   const [availability, setAvailability] = useState<RoomAvailability[]>([]);
+  const [promo, setPromo] = useState<PromoResult | null>(null);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
 
   const [items, setItems] = useState<BookingItem[]>([]);
@@ -175,15 +201,23 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const searchAvailability = useCallback(async (params: { checkIn: string; checkOut: string; adults: number; children: number }) => {
+  const searchAvailability = useCallback(async (params: BookingSearchParams) => {
     setAvailabilityLoading(true);
-    setSearchParams(params);
+    const promoCode = params.promoCode?.trim().toUpperCase() || undefined;
+    setSearchParams({ ...params, promoCode });
     try {
-      const res = await bookingService.getAvailability(params);
-      setAvailability(res.data?.data || []);
+      const res = await bookingService.getAvailability({ ...params, promoCode });
+      const rooms = (res.data?.data || []).map(r => ({ ...r, ratePlans: r.ratePlans ?? [] }));
+      setAvailability(rooms);
+      setPromo(res.data?.promo ?? null);
+      // Items priced for another search (dates, party or promo code) no longer apply
+      setItems(prev => prev.filter(i => i.kind !== 'room'
+        || (i.checkIn === params.checkIn && i.checkOut === params.checkOut
+          && rooms.some(r => r.roomType._id === i.roomTypeId && r.ratePlans.some(p => p._id === i.ratePlanId && p.pricing.finalTotal === i.pricing.total)))));
       setCurrentStep('results');
     } catch (err: any) {
       setAvailability([]);
+      setPromo(null);
       throw err;
     } finally {
       setAvailabilityLoading(false);
@@ -192,9 +226,14 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const addItem = useCallback((item: BookingItem) => {
     setItems(prev => {
-      // Prevent duplicate room type selections (guards against React StrictMode double-fire)
-      if (item.kind === 'room' && item.roomTypeId && prev.some(i => i.roomTypeId === item.roomTypeId)) {
-        return prev;
+      // One rate plan per room type: the same plan again is a no-op (guards against React
+      // StrictMode double-fire); another plan replaces the room type's item
+      if (item.kind === 'room' && item.roomTypeId) {
+        const index = prev.findIndex(i => i.kind === 'room' && i.roomTypeId === item.roomTypeId);
+        if (index >= 0) {
+          if (prev[index].ratePlanId === item.ratePlanId) return prev;
+          return prev.map((i, n) => (n === index ? item : i));
+        }
       }
       if (item.kind === 'service' && item.serviceId && prev.some(i => i.serviceId === item.serviceId)) {
         return prev;
@@ -224,6 +263,7 @@ export const BookingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         availability,
         availabilityLoading,
         searchAvailability,
+        promo,
         items,
         addItem,
         removeItem,

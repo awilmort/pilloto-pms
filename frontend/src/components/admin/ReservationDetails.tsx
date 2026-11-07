@@ -274,6 +274,20 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
                   <Typography variant="subtitle2" gutterBottom>{t('admin.reservations.details.section.room')}</Typography>
                   <Box sx={{ pl: 1 }}>
                     <Typography variant="body2"><strong>{t('admin.reservations.details.labels.assignedRoom')}:</strong> {names.length > 0 ? names.join(', ') : t('admin.reservations.none')}</Typography>
+                    {(() => {
+                      // The rate plan each booked room is on, and how it was chosen
+                      const roomItems = (current.items ?? []).filter(i => i.kind === 'room');
+                      const rates = roomItems.length
+                        ? roomItems.map(i => [i.ratePlanName || current.pricingSnapshot?.ratePlanName || '—', i.rateSelection
+                          ? ` (${t(`admin.reservations.create.rates.reason.${i.rateSelection}`)})` : ''].join(''))
+                        : current.pricingSnapshot?.ratePlanName ? [current.pricingSnapshot.ratePlanName] : [];
+                      return rates.length > 0 ? (
+                        <Typography variant="body2"><strong>{t('admin.reservations.details.labels.ratePlan')}:</strong> {rates.join(' · ')}</Typography>
+                      ) : null;
+                    })()}
+                    {current.promoCode && (
+                      <Typography variant="body2"><strong>{t('admin.reservations.details.labels.promoCode')}:</strong> {current.promoCode}</Typography>
+                    )}
                   </Box>
                 </Grid>
               );
