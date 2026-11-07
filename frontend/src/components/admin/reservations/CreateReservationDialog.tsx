@@ -27,6 +27,7 @@ import {
   Divider,
   FormControl,
   FormControlLabel,
+  IconButton,
   InputAdornment,
   InputLabel,
   LinearProgress,
@@ -45,7 +46,9 @@ import {
   ArrowForward,
   Celebration,
   CheckCircle,
+  Close,
   EventNote,
+  Group,
   Hotel,
   KingBed,
   Search,
@@ -374,6 +377,15 @@ const CreateReservationDialog: React.FC<Props> = ({
     });
   };
 
+  // Keep the room just added in view inside the selection panel's own scroll area
+  const selectionListRef = React.useRef<HTMLDivElement>(null);
+  const prevSelectedCount = React.useRef(0);
+  useEffect(() => {
+    const list = selectionListRef.current;
+    if (list && selectedRooms.length > prevSelectedCount.current) list.scrollTop = list.scrollHeight;
+    prevSelectedCount.current = selectedRooms.length;
+  }, [selectedRooms.length]);
+
   const handleContinueStep1 = async () => {
     if (createForm.type !== 'room') { setCreateStep(2); return; }
     // Rooms must be selected, capacity must be sufficient and every room needs a rate plan
@@ -603,18 +615,9 @@ const CreateReservationDialog: React.FC<Props> = ({
 
             {createForm.type === 'room' && (
               <Box>
-                <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', mb: 0.75 }}>
-                  <Typography variant="subtitle2">
-                    {t('admin.reservations.create.assignRooms', 'Assign Rooms')}
-                  </Typography>
-                  {selectedRooms.length > 0 && (
-                    <Typography variant="caption" color="primary.main" fontWeight={600}>
-                      {selectedRooms.length} {t('admin.reservations.create.selected', 'selected')}
-                      {' · '}
-                      {t('admin.reservations.create.capacityOf', '{{cap}} guest capacity', { cap: selectedCapacity })}
-                    </Typography>
-                  )}
-                </Box>
+                <Typography variant="subtitle2" sx={{ mb: 0.75 }}>
+                  {t('admin.reservations.create.assignRooms', 'Assign Rooms')}
+                </Typography>
 
                 {createCheckingAvailability && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -654,169 +657,233 @@ const CreateReservationDialog: React.FC<Props> = ({
                   }
                   typeMap.forEach((rooms, typeName) => groupedRooms.push({ typeName, rooms }));
 
+                  const lineByRoom = new Map(rateLines.map(l => [l.roomId, l]));
+
                   return (
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                      {/* Search filter */}
-                      <TextField
-                        size="small" fullWidth
-                        placeholder={t('admin.reservations.create.filterRooms', 'Filter rooms...')}
-                        value={roomSearch}
-                        onChange={e => setRoomSearch(e.target.value)}
-                        InputProps={{
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <Search sx={{ fontSize: 18, color: 'text.disabled' }} />
-                            </InputAdornment>
-                          ),
-                        }}
-                      />
+                      {/*
+                        Picker and selection side by side (stacked on small screens). The selection
+                        panel never overlays the picker: on md+ it is pinned to the picker's height and
+                        scrolls its own room list, so it does not grow with the number of rooms.
+                      */}
+                      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(0, 1fr) 320px' }, gap: 2 }}>
+                        {/* ── Available rooms ── */}
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, minWidth: 0 }}>
+                          <TextField
+                            size="small" fullWidth
+                            placeholder={t('admin.reservations.create.filterRooms', 'Filter rooms...')}
+                            value={roomSearch}
+                            onChange={e => setRoomSearch(e.target.value)}
+                            InputProps={{
+                              startAdornment: (
+                                <InputAdornment position="start">
+                                  <Search sx={{ fontSize: 18, color: 'text.disabled' }} />
+                                </InputAdornment>
+                              ),
+                            }}
+                          />
 
-                      {/* Room cards grouped by type */}
-                      <Box sx={{ maxHeight: { xs: 300, sm: 360 }, overflowY: 'auto', pr: 0.5 }}>
-                        {filteredRooms.length === 0 && (
-                          <Box sx={{ p: 2, textAlign: 'center' }}>
-                            <Typography variant="caption" color="text.secondary">
-                              {t('admin.reservations.create.noMatchingRooms', 'No matching rooms')}
-                            </Typography>
+                          <Box sx={{ maxHeight: { xs: 300, sm: 360, md: 420 }, overflowY: 'auto', pr: 0.5 }}>
+                            {filteredRooms.length === 0 && (
+                              <Box sx={{ p: 2, textAlign: 'center' }}>
+                                <Typography variant="caption" color="text.secondary">
+                                  {t('admin.reservations.create.noMatchingRooms', 'No matching rooms')}
+                                </Typography>
+                              </Box>
+                            )}
+                            {groupedRooms.map(({ typeName, rooms: groupRooms }) => (
+                              <Box key={typeName} sx={{ mb: 1.5 }}>
+                                <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', mb: 0.75, px: 0.5 }}>
+                                  {typeName}
+                                </Typography>
+                                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, 1fr)' }, gap: 1 }}>
+                                  {groupRooms.map((room: any) => {
+                                    const isSelected = selectedRooms.some(r => r._id === room._id);
+                                    const capacity = (room.roomTypeId as any)?.capacity ?? 1;
+                                    return (
+                                      <Paper
+                                        key={room._id}
+                                        variant="outlined"
+                                        role="button"
+                                        tabIndex={0}
+                                        aria-pressed={isSelected}
+                                        onClick={() => toggleRoomSelection(room)}
+                                        onKeyDown={e => {
+                                          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleRoomSelection(room); }
+                                        }}
+                                        sx={{
+                                          p: 1.25,
+                                          borderRadius: 2,
+                                          cursor: 'pointer',
+                                          userSelect: 'none',
+                                          borderWidth: 2,
+                                          borderColor: isSelected ? 'primary.main' : 'divider',
+                                          bgcolor: isSelected ? 'primary.50' : 'background.paper',
+                                          transition: 'all 0.15s',
+                                          '&:hover': {
+                                            borderColor: isSelected ? 'primary.dark' : 'primary.light',
+                                            boxShadow: 1,
+                                          },
+                                          '&:active': { transform: 'scale(0.97)' },
+                                          display: 'flex',
+                                          flexDirection: 'column',
+                                          gap: 0.25,
+                                          position: 'relative',
+                                          overflow: 'hidden',
+                                        }}
+                                      >
+                                        {isSelected && (
+                                          <CheckCircle sx={{ position: 'absolute', top: 6, right: 6, fontSize: 18, color: 'primary.main' }} />
+                                        )}
+                                        <Typography variant="body2" fontWeight={isSelected ? 700 : 500} noWrap sx={{ pr: isSelected ? 2.5 : 0 }}>
+                                          {room.name}
+                                        </Typography>
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                          <KingBed sx={{ fontSize: 14, color: 'text.disabled' }} />
+                                          <Typography variant="caption" color="text.secondary">
+                                            {capacity} {capacity === 1
+                                              ? t('admin.reservations.create.guest', 'guest')
+                                              : t('admin.reservations.create.guests', 'guests')}
+                                          </Typography>
+                                        </Box>
+                                        {room.bedConfiguration && (
+                                          <Typography variant="caption" color="text.disabled" noWrap sx={{ fontSize: '0.65rem' }}>
+                                            {room.bedConfiguration}
+                                          </Typography>
+                                        )}
+                                      </Paper>
+                                    );
+                                  })}
+                                </Box>
+                              </Box>
+                            ))}
                           </Box>
-                        )}
-                        {groupedRooms.map(({ typeName, rooms: groupRooms }) => (
-                          <Box key={typeName} sx={{ mb: 1.5 }}>
-                            <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: 0.5, display: 'block', mb: 0.75, px: 0.5 }}>
-                              {typeName}
-                            </Typography>
-                            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, 1fr)' }, gap: 1 }}>
-                              {groupRooms.map((room: any) => {
-                                const isSelected = selectedRooms.some(r => r._id === room._id);
-                                const capacity = (room.roomTypeId as any)?.capacity ?? 1;
+                        </Box>
+
+                        {/* ── Your selection ── */}
+                        <Box sx={{ position: 'relative', minHeight: { md: 380 } }}>
+                          <Paper
+                            variant="outlined"
+                            data-testid="room-selection-panel"
+                            sx={{
+                              borderRadius: 2,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              overflow: 'hidden',
+                              position: { md: 'absolute' },
+                              inset: { md: 0 },
+                            }}
+                          >
+                            {/* Capacity gauge */}
+                            <Box sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', mb: 0.75 }}>
+                                <Typography variant="body2" fontWeight={700}>
+                                  {t('admin.reservations.create.selectionTitle')}
+                                </Typography>
+                                {selectedRooms.length > 0 && (
+                                  <Typography variant="caption" color="primary.main" fontWeight={600}>
+                                    {selectedRooms.length} {t('admin.reservations.create.selected', 'selected')}
+                                  </Typography>
+                                )}
+                              </Box>
+                              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
+                                <Typography variant="caption" color="text.secondary">
+                                  {t('admin.reservations.create.capacityGauge', '{{accommodated}} of {{total}} guests accommodated', {
+                                    accommodated: Math.min(selectedCapacity, totalBillableGuests),
+                                    total: totalBillableGuests,
+                                  })}
+                                </Typography>
+                                {capacitySatisfied && selectedRooms.length > 0 && (
+                                  <CheckCircle sx={{ fontSize: 14, color: 'success.main' }} />
+                                )}
+                              </Box>
+                              <LinearProgress
+                                variant="determinate"
+                                value={Math.min((selectedCapacity / Math.max(totalBillableGuests, 1)) * 100, 100)}
+                                color={capacitySatisfied ? 'success' : 'warning'}
+                                sx={{ borderRadius: 1, height: 5 }}
+                              />
+                              {selectedRooms.length > 0 && !capacitySatisfied && (
+                                <Typography variant="caption" color="warning.dark" display="block" sx={{ mt: 0.5, lineHeight: 1.35 }}>
+                                  {t('admin.reservations.create.insufficientCapacity', 'Selected rooms fit {{cap}} guests, but {{needed}} are needed.', {
+                                    cap: selectedCapacity,
+                                    needed: totalBillableGuests,
+                                  })}
+                                </Typography>
+                              )}
+                            </Box>
+
+                            {/* Rate plan of each room — the only part that grows, and it scrolls */}
+                            <Box
+                              ref={selectionListRef}
+                              sx={{ flex: 1, minHeight: 0, overflowY: { md: 'auto' }, p: 1.5, display: 'flex', flexDirection: 'column', gap: 1.25 }}
+                            >
+                              {selectedRooms.length === 0 && (
+                                <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', my: 'auto', py: 2 }}>
+                                  {t('admin.reservations.create.selectionEmpty', { count: totalBillableGuests })}
+                                </Typography>
+                              )}
+                              {rateError && (
+                                <Alert severity="error" sx={{ borderRadius: 1.5, py: 0.25 }}>{rateError}</Alert>
+                              )}
+                              {selectedRooms.map((room, index) => {
+                                const line = lineByRoom.get(room._id);
                                 return (
-                                  <Paper
+                                  <Box
                                     key={room._id}
-                                    variant="outlined"
-                                    onClick={() => toggleRoomSelection(room)}
                                     sx={{
-                                      p: 1.25,
-                                      borderRadius: 2,
-                                      cursor: 'pointer',
-                                      userSelect: 'none',
-                                      borderWidth: 2,
-                                      borderColor: isSelected ? 'primary.main' : 'divider',
-                                      bgcolor: isSelected ? 'primary.50' : 'background.paper',
-                                      transition: 'all 0.15s',
-                                      '&:hover': {
-                                        borderColor: isSelected ? 'primary.dark' : 'primary.light',
-                                        boxShadow: 1,
-                                      },
-                                      '&:active': { transform: 'scale(0.97)' },
-                                      display: 'flex',
-                                      flexDirection: 'column',
-                                      gap: 0.25,
-                                      position: 'relative',
-                                      overflow: 'hidden',
+                                      ...(index > 0 ? { pt: 1.25, borderTop: 1, borderColor: 'divider' } : {}),
+                                      opacity: rateLoading ? 0.6 : 1,
+                                      transition: 'opacity 0.15s',
                                     }}
                                   >
-                                    {isSelected && (
-                                      <CheckCircle sx={{ position: 'absolute', top: 6, right: 6, fontSize: 18, color: 'primary.main' }} />
+                                    {line ? (
+                                      <RoomRateSelect
+                                        line={line}
+                                        value={chosenPlanId(line)}
+                                        reason={chosenReason(line)}
+                                        lang={lang}
+                                        onChange={planId => setPlanChoice(c => ({ ...c, [line.roomId]: planId }))}
+                                        onReset={() => setPlanChoice(c => { const next = { ...c }; delete next[line.roomId]; return next; })}
+                                        onRemove={() => toggleRoomSelection(room)}
+                                      />
+                                    ) : (
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                        <Typography variant="caption" color="text.secondary" sx={{ flex: 1, minWidth: 0 }}>
+                                          <strong>{room.name}</strong>{(room.roomTypeId as any)?.name ? ` · ${(room.roomTypeId as any).name}` : ''}
+                                        </Typography>
+                                        {!rateError && <CircularProgress size={12} aria-label={t('admin.reservations.create.calculatingPrice', 'Calculating price...')} />}
+                                        <IconButton
+                                          size="small"
+                                          onClick={() => toggleRoomSelection(room)}
+                                          aria-label={t('admin.reservations.create.removeRoom', { name: room.name })}
+                                          sx={{ p: 0.25, color: 'text.secondary' }}
+                                        >
+                                          <Close sx={{ fontSize: 16 }} />
+                                        </IconButton>
+                                      </Box>
                                     )}
-                                    <Typography variant="body2" fontWeight={isSelected ? 700 : 500} noWrap>
-                                      {room.name}
-                                    </Typography>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                      <KingBed sx={{ fontSize: 14, color: 'text.disabled' }} />
-                                      <Typography variant="caption" color="text.secondary">
-                                        {capacity} {capacity === 1
-                                          ? t('admin.reservations.create.guest', 'guest')
-                                          : t('admin.reservations.create.guests', 'guests')}
-                                      </Typography>
-                                    </Box>
-                                    {room.bedConfiguration && (
-                                      <Typography variant="caption" color="text.disabled" noWrap sx={{ fontSize: '0.65rem' }}>
-                                        {room.bedConfiguration}
-                                      </Typography>
-                                    )}
-                                  </Paper>
+                                  </Box>
                                 );
                               })}
                             </Box>
-                          </Box>
-                        ))}
+
+                            {/* Total */}
+                            {selectedRooms.length > 0 && (
+                              <Box sx={{ px: 1.5, py: 1.25, borderTop: 1, borderColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: 'grey.50' }}>
+                                <Typography variant="body2" fontWeight={700}>{t('admin.reservations.form.totalPrice', 'Total')}</Typography>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                                  {rateLoading && <CircularProgress size={12} />}
+                                  <Typography variant="body2" fontWeight={700} color="primary.main">
+                                    {rateOptions ? formatMoney(roomsTotal) : '—'}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            )}
+                          </Paper>
+                        </Box>
                       </Box>
 
-                      {/* Sticky capacity + price footer */}
-                      {selectedRooms.length > 0 && (
-                        <Paper
-                          variant="outlined"
-                          sx={{
-                            p: 1.5,
-                            borderRadius: 2,
-                            position: 'sticky',
-                            bottom: 0,
-                            bgcolor: 'background.paper',
-                            zIndex: 1,
-                          }}
-                        >
-                          {/* Capacity gauge */}
-                          <Box sx={{ mb: 1 }}>
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                              <Typography variant="caption" color="text.secondary">
-                                {t('admin.reservations.create.capacityGauge', '{{accommodated}} of {{total}} guests accommodated', {
-                                  accommodated: Math.min(selectedCapacity, totalBillableGuests),
-                                  total: totalBillableGuests,
-                                })}
-                              </Typography>
-                              {capacitySatisfied && (
-                                <CheckCircle sx={{ fontSize: 14, color: 'success.main' }} />
-                              )}
-                            </Box>
-                            <LinearProgress
-                              variant="determinate"
-                              value={Math.min((selectedCapacity / Math.max(totalBillableGuests, 1)) * 100, 100)}
-                              color={capacitySatisfied ? 'success' : 'warning'}
-                              sx={{ borderRadius: 1, height: 5 }}
-                            />
-                            {!capacitySatisfied && (
-                              <Alert severity="warning" sx={{ mt: 0.75, borderRadius: 1.5, py: 0.25 }}>
-                                {t('admin.reservations.create.insufficientCapacity', 'Selected rooms fit {{cap}} guests, but {{needed}} are needed.', {
-                                  cap: selectedCapacity,
-                                  needed: totalBillableGuests,
-                                })}
-                              </Alert>
-                            )}
-                          </Box>
-
-                          {/* Rate plan of each room */}
-                          {rateLoading && !rateOptions && (
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <CircularProgress size={14} />
-                              <Typography variant="caption" color="text.secondary">
-                                {t('admin.reservations.create.calculatingPrice', 'Calculating price...')}
-                              </Typography>
-                            </Box>
-                          )}
-                          {rateError && (
-                            <Alert severity="error" sx={{ borderRadius: 1.5, py: 0.25 }}>{rateError}</Alert>
-                          )}
-                          {rateOptions && (
-                            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25, opacity: rateLoading ? 0.6 : 1, transition: 'opacity 0.15s' }}>
-                              {rateLines.map(line => (
-                                <RoomRateSelect
-                                  key={line.roomId}
-                                  line={line}
-                                  value={chosenPlanId(line)}
-                                  reason={chosenReason(line)}
-                                  lang={lang}
-                                  onChange={planId => setPlanChoice(c => ({ ...c, [line.roomId]: planId }))}
-                                  onReset={() => setPlanChoice(c => { const next = { ...c }; delete next[line.roomId]; return next; })}
-                                />
-                              ))}
-                              <Box sx={{ display: 'flex', justifyContent: 'space-between', pt: 0.5, borderTop: 1, borderColor: 'divider' }}>
-                                <Typography variant="body2" fontWeight={700}>{t('admin.reservations.form.totalPrice', 'Total')}</Typography>
-                                <Typography variant="body2" fontWeight={700} color="primary.main">{formatMoney(roomsTotal)}</Typography>
-                              </Box>
-                            </Box>
-                          )}
-                        </Paper>
-                      )}
                       {restrictedLines.length > 0 && (
                         <Alert severity="warning" sx={{ borderRadius: 1.5 }}>
                           <Typography variant="body2" fontWeight={600}>{t('admin.reservations.bookingRuleWarnings.title')}</Typography>
@@ -1113,7 +1180,7 @@ const CreateReservationDialog: React.FC<Props> = ({
         )}
       </DialogContent>
 
-      <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
+      <DialogActions disableSpacing sx={{ px: 3, pb: 2, gap: 1, flexWrap: 'wrap' }}>
         <Button onClick={handleClose} disabled={createLoading}>{t('admin.reservations.actions.cancel')}</Button>
 
         {createStep > 0 && (
@@ -1127,6 +1194,27 @@ const CreateReservationDialog: React.FC<Props> = ({
         )}
 
         <Box sx={{ flex: 1 }} />
+
+        {/* Selection at a glance: outside the scroll area and one line tall, so it never hides rooms */}
+        {createStep === 1 && createForm.type === 'room' && selectedRooms.length > 0 && (
+          <Box
+            data-testid="room-selection-summary"
+            sx={{ display: 'flex', alignItems: 'center', gap: 1, order: { xs: -1, sm: 0 }, width: { xs: '100%', sm: 'auto' }, justifyContent: { xs: 'space-between', sm: 'flex-end' } }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, color: capacitySatisfied ? 'success.main' : 'warning.dark' }}>
+              <Group sx={{ fontSize: 18 }} />
+              <Typography variant="body2" fontWeight={600} color="inherit">
+                {t('admin.reservations.create.guestsCovered', {
+                  accommodated: Math.min(selectedCapacity, totalBillableGuests),
+                  total: totalBillableGuests,
+                })}
+              </Typography>
+            </Box>
+            <Typography variant="body2" fontWeight={700} color="primary.main">
+              {rateOptions ? formatMoney(roomsTotal) : '—'}
+            </Typography>
+          </Box>
+        )}
 
         {createStep === 1 && (
           <Button

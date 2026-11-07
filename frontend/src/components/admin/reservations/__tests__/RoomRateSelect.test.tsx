@@ -63,6 +63,15 @@ it('after a manual choice offers the way back to the pre-selected plan', () => {
   expect(onReset).toHaveBeenCalled();
 });
 
+it('offers taking the room out only when the caller allows it', () => {
+  const onRemove = jest.fn();
+  const { rerender } = render(<RoomRateSelect line={line(options)} value="bar" reason="default" lang="en" onChange={jest.fn()} onReset={jest.fn()} />);
+  expect(screen.queryByRole('button', { name: /removeRoom/ })).not.toBeInTheDocument();
+  rerender(<RoomRateSelect line={line(options)} value="bar" reason="default" lang="en" onChange={jest.fn()} onReset={jest.fn()} onRemove={onRemove} />);
+  fireEvent.click(screen.getByRole('button', { name: /removeRoom/ }));
+  expect(onRemove).toHaveBeenCalled();
+});
+
 it('explains a room without plans', () => {
   render(<RoomRateSelect line={line([], { error: 'no_rate_plan' })} value="" reason={null} lang="en" onChange={jest.fn()} onReset={jest.fn()} />);
   expect(screen.getByText('admin.reservations.create.rates.error.no_rate_plan')).toBeInTheDocument();

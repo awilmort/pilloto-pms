@@ -7,7 +7,8 @@
  * is selected and lets staff go back to the pre-selected plan after choosing another.
  */
 import React from 'react';
-import { Alert, Box, Button, Chip, MenuItem, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Chip, IconButton, MenuItem, TextField, Typography } from '@mui/material';
+import { Close } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import type { RateOption, RateSelectionReason, RoomRateOptions } from '../../../services/api';
 import { formatMoney } from '../../../utils/currency';
@@ -21,6 +22,8 @@ interface Props {
   onChange: (ratePlanId: string) => void;
   /** Back to the pre-selected plan */
   onReset: () => void;
+  /** Takes the room out of the reservation */
+  onRemove?: () => void;
 }
 
 const REASON_COLOR: Record<RateSelectionReason, 'default' | 'primary' | 'secondary' | 'success' | 'info' | 'warning'> = {
@@ -49,16 +52,28 @@ function OptionBadges({ option }: { option: RateOption }) {
   );
 }
 
-const RoomRateSelect: React.FC<Props> = ({ line, value, reason, lang, onChange, onReset }) => {
+const RoomRateSelect: React.FC<Props> = ({ line, value, reason, lang, onChange, onReset, onRemove }) => {
   const { t } = useTranslation();
   const recommended = line.options.find(o => o.ratePlanId === line.recommended?.ratePlanId);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-      <Typography variant="caption" color="text.secondary">
-        <strong>{line.roomName}</strong>{line.roomTypeName ? ` · ${line.roomTypeName}` : ''}
-        {' · '}{t('admin.reservations.create.rates.guestsInRoom', { adults: line.assignedAdults, children: line.assignedChildren })}
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        <Typography variant="caption" color="text.secondary" sx={{ flex: 1, minWidth: 0 }}>
+          <strong>{line.roomName}</strong>{line.roomTypeName ? ` · ${line.roomTypeName}` : ''}
+          {' · '}{t('admin.reservations.create.rates.guestsInRoom', { adults: line.assignedAdults, children: line.assignedChildren })}
+        </Typography>
+        {onRemove && (
+          <IconButton
+            size="small"
+            onClick={onRemove}
+            aria-label={t('admin.reservations.create.removeRoom', { name: line.roomName })}
+            sx={{ p: 0.25, color: 'text.secondary' }}
+          >
+            <Close sx={{ fontSize: 16 }} />
+          </IconButton>
+        )}
+      </Box>
 
       {line.error ? (
         <Alert severity="error" sx={{ borderRadius: 1.5, py: 0.25 }}>
