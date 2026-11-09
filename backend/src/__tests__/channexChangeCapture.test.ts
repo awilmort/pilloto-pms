@@ -133,6 +133,12 @@ describe('deriveRows — RatePlan, PricingRule, RestrictionRule', () => {
   });
 
   const rule = { _id: 'pr', ratePlanId: 'bar', ruleTarget: 'promotional', dateStart: d('2026-12-10'), dateEnd: d('2026-12-12') };
+  it('calendar pricing rule → exactly its own nights, no slack', () => {
+    const cal = { ...rule, origin: 'calendar', dateStart: d('2027-11-22'), dateEnd: d('2027-11-22') };
+    expect(deriveRows('PricingRule', null, cal, lookups())).toMatchObject([{ kind: 'rates', ratePlanId: 'bar', dateFrom: '2027-11-22', dateTo: '2027-11-22', fields: ['rate'] }]);
+    const changed = deriveRows('PricingRule', cal, { ...cal, dateStart: d('2027-11-01'), dateEnd: d('2027-11-10') }, lookups());
+    expect(changed.map((r) => `${r.dateFrom}..${r.dateTo}`)).toEqual(['2027-11-22..2027-11-22', '2027-11-01..2027-11-10']);
+  });
   it('promotional pricing rule → rate over old ∪ new validity window (with a day of slack)', () => {
     expect(deriveRows('PricingRule', null, rule, lookups())).toMatchObject([{ kind: 'rates', ratePlanId: 'bar', dateFrom: '2026-12-09', dateTo: '2026-12-13', fields: ['rate'] }]);
     const moved = deriveRows('PricingRule', rule, { ...rule, dateStart: d('2026-12-20'), dateEnd: d('2026-12-21') }, lookups());

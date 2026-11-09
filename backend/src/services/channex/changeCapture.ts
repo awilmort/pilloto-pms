@@ -173,10 +173,18 @@ function ratePlanRows(before: Snap, after: Snap, reason: string): AriRow[] {
   return rows;
 }
 
-/** Validity window of a pricing rule; open-ended rules cover the full window. A day of slack each side (server-local rule days). */
+/**
+ * Validity window of a pricing rule; open-ended rules cover the full window. Named rules get a day
+ * of slack each side (their dates are server-local days). Calendar rules are saved at noon UTC
+ * (`fromChannexDate`), so their dates are exact: padding them would push neighbouring nights the
+ * edit never touched (a one-night edit would reach Channex as three values).
+ */
 function pricingRuleWindow(r: Snap): DateRange {
   if (!r?.dateStart || !r?.dateEnd) return FULL_WINDOW;
-  return { dateFrom: addDays(day(r.dateStart), -1), dateTo: addDays(day(r.dateEnd), 1) };
+  const from = day(r.dateStart);
+  const to = day(r.dateEnd);
+  if (r.origin === 'calendar') return { dateFrom: from, dateTo: to };
+  return { dateFrom: addDays(from, -1), dateTo: addDays(to, 1) };
 }
 
 function pricingRuleRows(before: Snap, after: Snap, reason: string): AriRow[] {
