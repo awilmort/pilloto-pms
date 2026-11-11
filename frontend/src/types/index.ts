@@ -533,32 +533,150 @@ export interface BookingData {
   specialRequests?: string;
 }
 
-// ─── e-CF (Electronic Fiscal Invoicing) ──────────────────────────────────────
-
-export type EcfAmbiente = 'Simulacion' | 'Pruebas' | 'Certificacion' | 'Produccion';
+// ─── e-CF (electronic fiscal invoicing) ──────────────────────────────────────
+// A company capability shared by PMS and Accounting; the backend module is /api/fiscal.
 
 export type EcfTipo =
   | 'E31' | 'E32' | 'E33' | 'E34'
   | 'E41' | 'E43' | 'E44' | 'E45'
   | 'E46' | 'E47';
 
+/**
+ * Where an e-CF stands. `Pendiente`: saved, BillingSoft has not confirmed it yet (it is sent again
+ * by itself). `Firmado`: issued and signed, DGII not reached yet. The rest follow DGII's answer.
+ */
 export type EcfEstadoECF =
+  | 'Pendiente'
+  | 'Firmado'
+  | 'En Proceso'
   | 'Aceptado'
   | 'Aceptado Condicional'
   | 'Rechazado'
-  | 'Error'
-  | 'En Proceso'
-  | 'Emitido Contingencia'
-  | 'Pendiente';
+  | 'Sin Resolver'
+  | 'Anulado'
+  | 'Error';
 
-/** Legal name, RNC and phone are the property profile's (propertyProfileService) */
-export interface TenantEcfConfig {
-  ambiente: EcfAmbiente;
+export type FiscalPlanId = 'essential' | 'pro' | 'max';
+export type FiscalCertification = 'not_started' | 'in_progress' | 'certified';
+export type FiscalEnvironment = 'testecf' | 'certecf' | 'ecf';
+
+/** `inactive` → never activated; then DGII's certification; `ready` once certified. */
+export type FiscalState = 'inactive' | 'suspended' | 'not_started' | 'in_progress' | 'ready';
+
+export interface FiscalOrganization {
+  id: string;
+  rnc?: string;
+  adminEmail?: string;
+  environment: FiscalEnvironment;
+  certification: FiscalCertification;
   isActive: boolean;
-  sucursal?: string;
-  citrusBaseUrl: string;
-  /** Never contains the actual token — backend returns this flag instead */
-  hasToken: boolean;
+  plan: FiscalPlanId;
+  pendingPlan: { plan: FiscalPlanId; effectiveOn: string } | null;
+  provisionedAt?: string;
+  lastSyncedAt?: string;
+  webhookRegistered: boolean;
+}
+
+/** GET /api/fiscal/status — the company's e-CF, the same in both apps. */
+export interface FiscalStatus {
+  /** False when this server has no BillingSoft credential. */
+  configured: boolean;
+  state: FiscalState;
+  /** Whether an e-CF can be issued right now. */
+  canIssue: boolean;
+  /** Development/QA only: issuing is allowed before DGII certifies the company. */
+  allowUncertified: boolean;
+  /** The BillingSoft plan the company's Pilloto plan(s) include. */
+  includedPlan: FiscalPlanId | null;
+  organization: FiscalOrganization | null;
+  /** What activation starts from: the company profile and the owner. */
+  defaults: { rnc: string; razonSocial: string; address: string; adminEmail: string };
+  /** Where the company does what only it can, in BillingSoft. */
+  links: { dashboard: string; onboarding: string; certification: string; certificate: string; sequences: string; received: string };
+}
+
+export interface FiscalPlanOption {
+  id: FiscalPlanId;
+  users: number;
+  /** Transactions included each month. */
+  transactions: number;
+  monthlyPrice: number;
+  /** What this company pays each month for this plan, after what its Pilloto plan includes. */
+  monthlyCharge: number;
+  overageUnitPrice: number;
+  selectable: boolean;
+  included: boolean;
+  /** −1 below the current plan, 0 the current plan, 1 above. */
+  change: -1 | 0 | 1;
+}
+
+export interface FiscalPlans {
+  currency: 'DOP';
+  annualDiscountPercent: number;
+  includedPlan: FiscalPlanId | null;
+  currentPlan: FiscalPlanId | null;
+  pendingPlan: { plan: FiscalPlanId; effectiveOn: string } | null;
+  plans: FiscalPlanOption[];
+}
+
+export interface FiscalUsage {
+  currency: 'DOP';
+  period: { start: string; end: string };
+  plan: FiscalPlanId;
+  includedPlan: FiscalPlanId | null;
+  transactions: { included: number; used: number; extra: number };
+  overageUnitPrice: number;
+  overageAmount: number;
+  planCharge: number;
+  total: number;
+  users: { used: number; limit: number | null };
+}
+
+export type FiscalStatementStatus = 'open' | 'closed' | 'paid' | 'void';
+
+export interface FiscalStatement {
+  _id: string;
+  period: string;
+  status: FiscalStatementStatus;
+  plan: FiscalPlanId;
+  includedPlan?: FiscalPlanId;
+  planPrice: number;
+  includedPlanPrice: number;
+  planCharge: number;
+  transactions: { included: number | null; used: number; extra: number };
+  overageUnitPrice: number;
+  overageAmount: number;
+  total: number;
+  planChanges: { from: FiscalPlanId; to: FiscalPlanId; at: string }[];
+  closedAt?: string;
+  paidAt?: string;
+  payment?: { reference?: string; method?: string };
+  voidReason?: string;
+}
+
+export interface FiscalReadiness {
+  environment: FiscalEnvironment;
+  certification: FiscalCertification;
+  steps: { step: 'profile' | 'certificate' | 'sequences' | 'directory' | 'first_document'; done: boolean }[];
+  complete: boolean;
+  certificate: 'valid' | 'expiring' | 'expired' | 'not_yet_valid' | 'none';
+  usableTypes: string[];
+  organization: { rnc: string; razonSocial: string } | null;
+}
+
+export interface FiscalAlert {
+  type: string;
+  severity: 'info' | 'warning' | 'error';
+  count?: number;
+}
+
+export interface FiscalActivation {
+  plan: FiscalPlanId;
+  rnc: string;
+  razonSocial: string;
+  address: string;
+  admin: { name: string; email: string };
+  confirmPreviousPostulationConcluded: boolean;
 }
 
 export interface ElectronicInvoice {
@@ -569,13 +687,18 @@ export interface ElectronicInvoice {
   reservationId?: string;
   invoiceId?: string;
   tipo: EcfTipo;
-  eNCF: string;
-  transaccionId: number;
-  trackId: string;
+  /** Assigned by BillingSoft when it signs; absent while `Pendiente`. */
+  eNCF?: string;
+  billingsoftDocumentId?: string;
+  trackId?: string;
   numeroFacturaInterna?: string;
+  route: 'invoices' | 'credit-notes' | 'debit-notes' | 'other';
   estadoECF: EcfEstadoECF;
   estatus: string;
   mensaje?: string;
+  dgiiMessages?: { code?: string; message: string }[];
+  /** Only `ecf` has fiscal value. */
+  environment?: FiscalEnvironment;
   totalFactura: number;
   totalImpuestos: number;
   currency: string;
@@ -593,18 +716,15 @@ export interface ElectronicInvoice {
   tipoPago?: string;
   originalENCF?: string;
   codigoModificacion?: string;
-  urlCodigoQr?: string;
   codigoSeguridad?: string;
   fechaFirmaDigital?: string;
-  fechaVencimientoSecuencia?: string;
   generationSource: 'payment_screen' | 'manual' | 'credit_note' | 'debit_note' | 'accounting_invoice';
   issuedAt: string;
+  lastStatusCheck?: string;
   retryCount: number;
   createdAt: string;
   updatedAt: string;
 }
-
-// ─── Phase 4: Reporting types ─────────────────────────────────────────────────
 
 export interface EcfMonthlyTaxByTipo {
   tipo: EcfTipo;
@@ -622,14 +742,46 @@ export interface EcfMonthlyTaxRow {
   totalInvoices: number;
 }
 
-export interface EcfSequenceInfo {
-  tipo: EcfTipo;
-  latestENCF: string;
-  latestIssuedAt: string;
-  latestExpiry?: string;
-  totalIssued: number;
-  issuedThisMonth: number;
-  lastEstadoECF: EcfEstadoECF;
+export interface FiscalSequence {
+  id: string;
+  documentType: string;
+  rangeStart: number;
+  rangeEnd: number;
+  next: number;
+  expiresOn?: string;
+  remaining: number;
+  usable: boolean;
+}
+
+export type ReceivedDecision = 'approved' | 'rejected';
+
+export interface ReceivedDocument {
+  id: string;
+  type: string;
+  encf: string;
+  issuerRnc: string;
+  issuerName: string;
+  issuedOn: string;
+  total: string;
+  receivedAt: string;
+  decision: ReceivedDecision | null;
+}
+
+export interface ReceivedDocumentDetail extends ReceivedDocument {
+  itbisTotal?: string;
+  referencedNcf?: string;
+  securityCode: string;
+  fileName: string;
+  approval: { decision: ReceivedDecision; reason?: string; decidedAt: string; decidedBy: string } | null;
+  deliveries: {
+    target: 'dgii' | 'issuer';
+    status: 'pending' | 'delivered' | 'refused' | 'failed';
+    attempts: number;
+    lastAttemptAt?: string;
+    nextAttemptAt?: string;
+    deliveredAt?: string;
+    messages: string[];
+  }[];
 }
 
 // ─── Accounting: Inventory (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md Phase 4) ─
@@ -727,6 +879,8 @@ export interface Invoice {
   cityLedger?: InvoiceCityLedger;
   issueDate: string;
   dueDate?: string;
+  /** The customer's own reference (purchase order no., contract…) — printed on the invoice. */
+  reference?: string;
   lineItems: InvoiceLineItem[];
   subtotal: number;
   taxAmount: number;
@@ -742,6 +896,15 @@ export interface Invoice {
   createdAt: string;
   updatedAt: string;
 }
+/** Issuer details and defaults the invoice page needs (GET /accounting/invoices/form-meta). */
+export interface InvoiceFormMeta {
+  issuer: { name: string; legalName?: string; rnc?: string; address?: string; phone?: string; email?: string; logoUrl?: string };
+  defaultItbisRate: number;
+  /** Whether this company can issue an e-CF right now. */
+  ecfActive: boolean;
+  fiscalState: FiscalState;
+}
+
 // ─── Accounting: AR / Quotes (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md Phase 5.3/5.4) ─
 
 export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired' | 'converted';
@@ -1003,6 +1166,82 @@ export interface ApAgingRow { supplier: { _id: string; name: string }; buckets: 
 export interface ApAgingReport { asOf: string; rows: ApAgingRow[]; grandTotal: AgingBuckets; grandTotalSum: number }
 export interface ArAgingRow { customer: { _id: string; name: string }; buckets: AgingBuckets; total: number }
 export interface ArAgingReport { asOf: string; rows: ArAgingRow[]; grandTotal: AgingBuckets; grandTotalSum: number }
+
+// ── Accounting dashboard (GET /accounting/dashboard) ─────────────────────────
+
+export type DashboardPeriod = 'month' | 'lastMonth' | 'quarter' | 'year';
+
+export interface DashboardPnL { revenue: number; expenses: number; netIncome: number }
+
+export interface DashboardTrendPoint {
+  /** `YYYY-MM` */
+  month: string;
+  revenue: number;
+  expenses: number;
+  net: number;
+  cashIn: number;
+  cashOut: number;
+  cashNet: number;
+  cashClosing: number;
+}
+
+export interface DashboardFinancial {
+  cash: { total: number; accounts: { code: string; name: string; balance: number }[] };
+  current: DashboardPnL;
+  previous: DashboardPnL;
+  trend: DashboardTrendPoint[];
+  topExpenses: { code: string; name: string; amount: number }[];
+  itbis: { sales: number; purchases: number; net: number };
+}
+
+export interface DashboardReceivables {
+  total: number;
+  overdue: number;
+  overdueCount: number;
+  openCount: number;
+  dsoDays: number | null;
+  buckets: AgingBuckets;
+  invoices: { _id: string; invoiceNumber: string; customerName: string; dueDate: string; daysOverdue: number; balanceDue: number }[];
+}
+
+export interface DashboardPayables {
+  total: number;
+  overdue: number;
+  overdueCount: number;
+  dueSoon: number;
+  dueSoonCount: number;
+  openCount: number;
+  buckets: AgingBuckets;
+  /** Overdue first (oldest first), then those due within the next 7 days. `daysOverdue` is negative while not yet due. */
+  bills: { _id: string; billNumber: string; supplierId: string | null; supplierName: string; dueDate: string; daysOverdue: number; balanceDue: number }[];
+}
+
+export interface DashboardEcfHealth { accepted: number; inProcess: number; contingency: number; rejected: number; total: number; windowDays: number }
+
+export interface DashboardRecentPayment {
+  kind: 'in' | 'out';
+  date: string;
+  amount: number;
+  party: string;
+  docNumber: string;
+  method: string;
+}
+
+export interface DashboardDeadline { key: 'informativeReturns' | 'itbisReturn'; day: number; date: string; daysLeft: number }
+
+export interface AccountingDashboardData {
+  asOf: string;
+  period: { key: DashboardPeriod; from: string; to: string; prevFrom: string; prevTo: string };
+  /** Which blocks the user's permissions allow; a block they may not see is absent. */
+  access: { financial: boolean; receivables: boolean; payables: boolean; cityLedger: boolean; inventory: boolean; ecf: boolean };
+  financial?: DashboardFinancial;
+  receivables?: DashboardReceivables;
+  payables?: DashboardPayables;
+  ecf?: DashboardEcfHealth;
+  attention: { cityLedgerPending?: number; lowStock?: number };
+  recentPayments?: DashboardRecentPayment[];
+  deadlines: DashboardDeadline[];
+}
 
 export interface StatementTransaction {
   date: string;

@@ -38,7 +38,9 @@ import LanguageSwitcher from '../common/LanguageSwitcher';
 import PillotoLogo, { PillotoSymbol } from '../brand/PillotoLogo';
 import { AppCode } from '../../types';
 import { APP_METADATA, useAccessibleApps } from '../../lib/apps';
-import { BRAND, PRODUCT_COLORS, alpha } from '../../brand';
+import { ThemeProvider } from '@mui/material/styles';
+import { BRAND, PRODUCT_COLORS, PRODUCT_COLORS_DEEP, alpha } from '../../brand';
+import { appTheme } from '../../theme';
 
 const drawerWidth = 264;
 const collapsedWidth = 76;
@@ -82,6 +84,10 @@ interface AppShellProps {
 export const appAccent = (app: AppShellApp): string =>
   app === 'platform' ? BRAND.vermilion : PRODUCT_COLORS[app];
 
+/** Deeper accent — the solid fill of the selected nav item (white text passes 4.5:1 on it). */
+export const appAccentDeep = (app: AppShellApp): string =>
+  app === 'platform' ? BRAND.vermilionText : PRODUCT_COLORS_DEEP[app];
+
 const AppShell: React.FC<AppShellProps> = ({
   children,
   title,
@@ -103,6 +109,7 @@ const AppShell: React.FC<AppShellProps> = ({
   // The mobile drawer is always shown expanded.
   const expanded = sidebarOpen || !isDesktop;
   const accent = appAccent(app);
+  const accentDeep = appAccentDeep(app);
 
   const navigate = useNavigate();
   const location = useLocation();
@@ -162,9 +169,9 @@ const AppShell: React.FC<AppShellProps> = ({
     }
   };
 
-  // Apps both the tenant's products and the user's appRoles allow — gates the switcher.
+  // Apps both the tenant's products and the user's appRoles allow — the switcher only appears when there is more than one to switch between.
   const availableApps = useAccessibleApps();
-  const showAppSwitcher = app !== 'platform' && (availableApps.length > 1 || !!user?.isSuperAdmin);
+  const showAppSwitcher = app !== 'platform' && availableApps.length > 1;
   const appName = (code: AppShellApp) =>
     code === 'platform' ? t('brand.appName.platform', 'Pilloto Console') : t(`brand.appName.${code}`, APP_METADATA[code].name);
   const workspaceSubtitle = workspaceLabel ?? tenant?.name ?? '';
@@ -174,7 +181,11 @@ const AppShell: React.FC<AppShellProps> = ({
     if (code !== app) navigate(APP_METADATA[code].path);
   };
 
-  const itemSx = (active: boolean, nested = false) => ({
+  /**
+   * `active` = the current page: solid deep accent with white text. `soft` = an open group that
+   * contains the current page: only a light tint, so the child row is the one that stands out.
+   */
+  const itemSx = (active: boolean, nested = false, soft = false) => ({
     mx: 1.5,
     mb: 0.25,
     borderRadius: '8px',
@@ -183,14 +194,27 @@ const AppShell: React.FC<AppShellProps> = ({
     px: expanded ? 1.25 : 0,
     pl: expanded && nested ? 4.5 : undefined,
     justifyContent: expanded ? 'flex-start' : 'center',
-    color: BRAND.slate,
+    color: BRAND.inkSoft,
     '& .MuiListItemIcon-root': { color: BRAND.slate },
-    '&:hover': { bgcolor: BRAND.paper, color: BRAND.ink, '& .MuiListItemIcon-root': { color: BRAND.ink } },
-    ...(active && {
+    '&:hover': {
+      bgcolor: alpha(accent, 0.1),
+      color: BRAND.ink,
+      '& .MuiListItemIcon-root': { color: accentDeep },
+    },
+    ...(active && !soft && {
       '&.Mui-selected, &.Mui-selected:hover': {
-        bgcolor: alpha(accent, 0.1),
-        color: BRAND.ink,
-        '& .MuiListItemIcon-root': { color: accent },
+        bgcolor: accentDeep,
+        color: BRAND.white,
+        boxShadow: `0 1px 2px ${alpha(accentDeep, 0.35)}`,
+        '& .MuiListItemIcon-root': { color: BRAND.white },
+        '& .MuiSvgIcon-root.nav-chevron': { color: alpha(BRAND.white, 0.85) },
+      },
+    }),
+    ...(active && soft && {
+      '&.Mui-selected, &.Mui-selected:hover': {
+        bgcolor: alpha(accent, 0.12),
+        color: accentDeep,
+        '& .MuiListItemIcon-root': { color: accentDeep },
       },
     }),
   });
@@ -201,6 +225,7 @@ const AppShell: React.FC<AppShellProps> = ({
       primaryTypographyProps={{
         fontSize: nested ? '0.8125rem' : '0.875rem',
         fontWeight: active ? 600 : 500,
+        color: 'inherit',
         noWrap: true,
       }}
     />
@@ -250,13 +275,14 @@ const AppShell: React.FC<AppShellProps> = ({
                   }
                   go(item.path);
                 }}
-                sx={itemSx(active)}
+                sx={itemSx(active, false, open)}
               >
                 {renderIcon(item)}
                 {expanded && itemText(item.text, active)}
                 {expanded && hasChildren && (
                   <ExpandMore
                     fontSize="small"
+                    className="nav-chevron"
                     sx={{ color: '#9AA1B5', transition: 'transform .2s', transform: open ? 'rotate(180deg)' : 'none' }}
                   />
                 )}
@@ -321,14 +347,14 @@ const AppShell: React.FC<AppShellProps> = ({
               disableRipple={!showAppSwitcher}
               sx={{
                 borderRadius: '10px',
-                border: `1px solid ${BRAND.mist}`,
-                bgcolor: BRAND.paper,
+                border: `1px solid ${alpha(accent, 0.28)}`,
+                bgcolor: alpha(accent, 0.07),
                 px: expanded ? 1.25 : 0,
                 py: 1,
                 gap: 1.25,
                 justifyContent: 'center',
                 cursor: showAppSwitcher ? 'pointer' : 'default',
-                '&:hover': { bgcolor: showAppSwitcher ? '#EDEFF3' : BRAND.paper },
+                '&:hover': { bgcolor: alpha(accent, showAppSwitcher ? 0.13 : 0.07) },
               }}
             >
               <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: accent, flexShrink: 0, boxShadow: `0 0 0 3px ${alpha(accent, 0.18)}` }} />
@@ -386,7 +412,7 @@ const AppShell: React.FC<AppShellProps> = ({
             {user?.avatar ? (
               <Avatar src={user.avatar} alt={user.firstName} sx={{ width: 32, height: 32 }} />
             ) : (
-              <Avatar sx={{ width: 32, height: 32, bgcolor: BRAND.ink, fontSize: '0.8rem', fontWeight: 700 }}>
+              <Avatar sx={{ width: 32, height: 32, bgcolor: accentDeep, fontSize: '0.8rem', fontWeight: 700 }}>
                 {user?.firstName?.[0]?.toUpperCase()}
               </Avatar>
             )}
@@ -428,7 +454,7 @@ const AppShell: React.FC<AppShellProps> = ({
   });
 
   return (
-    <>
+    <ThemeProvider theme={appTheme(app)}>
       <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
         {/* Desktop: permanent sidebar that collapses to icon-only */}
         {isDesktop && (
@@ -560,7 +586,7 @@ const AppShell: React.FC<AppShellProps> = ({
           {t('auth.logout')}
         </MuiMenuItem>
       </MuiMenu>
-    </>
+    </ThemeProvider>
   );
 };
 

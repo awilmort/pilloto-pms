@@ -28,6 +28,7 @@ import debitNotesRoutes from './debitNotes.routes';
 import journalEntriesRoutes from './journalEntries.routes';
 import reportsRoutes from './reports.routes';
 import cityLedgerRoutes from './cityLedger.routes';
+import dashboardRoutes from './dashboard.routes';
 
 const router = express.Router();
 
@@ -45,5 +46,6 @@ router.use('/debit-notes', debitNotesRoutes);
 router.use('/journal-entries', journalEntriesRoutes);
 router.use('/reports', reportsRoutes);
 router.use('/city-ledger', cityLedgerRoutes);
+router.use('/dashboard', dashboardRoutes);
 
 export default router;

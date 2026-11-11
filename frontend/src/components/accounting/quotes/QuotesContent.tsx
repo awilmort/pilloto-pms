@@ -305,7 +305,7 @@ const QuotesContent: React.FC = () => {
       setConvertTarget(null);
       const invoiceId = res.data.data?.invoice?._id;
       if (invoiceId) {
-        navigate('/accounting/invoices', { state: { openInvoiceId: invoiceId } });
+        navigate(`/accounting/invoices/${invoiceId}/edit`);
       } else {
         load();
       }

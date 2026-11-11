@@ -26,6 +26,17 @@ export const PRODUCT_COLORS: Record<ProductCode, string> = {
   rrhh: '#9566F0',
 };
 
+/**
+ * Deeper shade of each product colour, used as the solid fill of a selected nav
+ * item (white text on it passes 4.5:1; the base colours above do not).
+ */
+export const PRODUCT_COLORS_DEEP: Record<ProductCode, string> = {
+  pms: '#1E40AF',
+  accounting: '#0F766E',
+  pos: '#B45309',
+  rrhh: '#6D42D6',
+};
+
 export const FONT_UI = '"Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
 
 /** `#RRGGBB` + alpha (0–1) → `rgba()`; keeps tints derived from the tokens above. */

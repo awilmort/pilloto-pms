@@ -6,7 +6,7 @@ import { Reservation, Payment, Charge, ElectronicInvoice } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTenant } from '../../contexts/TenantContext';
 import { printConfirmation, printFolio, printPaymentReceipt, printPaymentSummary } from '../../utils/print';
-import { reservationsService, ecfService } from '../../services/api';
+import { reservationsService, fiscalService } from '../../services/api';
 import { useTranslation } from 'react-i18next';
 import NumberField from '../../components/common/NumberField';
 import InvoiceGenerationModal from './InvoiceGenerationModal';
@@ -33,12 +33,15 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
 
   // ECF state
   const [ecfInvoices, setEcfInvoices] = useState<ElectronicInvoice[]>([]);
+  /** The company has electronic invoicing set up (the column and tab appear). */
   const [ecfIsActive, setEcfIsActive] = useState(false);
+  /** An e-CF can be issued right now (DGII has certified the company). */
+  const [ecfCanIssue, setEcfCanIssue] = useState(false);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
   const [selectedPaymentId, setSelectedPaymentId] = useState<string | undefined>(undefined);
 
   const fetchEcfInvoices = useCallback((fId: string) => {
-    ecfService.getInvoices({ folioId: fId }).then((res) => {
+    fiscalService.getDocuments({ folioId: fId, limit: 100 }).then((res) => {
       setEcfInvoices(res.data.data ?? []);
     }).catch(() => {});
   }, []);
@@ -65,10 +68,12 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
     }).catch(() => {
       // keep defaults when financial endpoint fails
     });
-    // Check if ECF is active for this tenant
-    ecfService.getConfig().then((res) => {
-      const cfg = res.data.data;
-      if (!cancelled) setEcfIsActive(Boolean(cfg?.isActive && cfg?.hasToken));
+    // Is electronic invoicing set up for this company, and can it issue yet?
+    fiscalService.getStatus().then((res) => {
+      const st = res.data.data;
+      if (cancelled) return;
+      setEcfIsActive(Boolean(st?.organization));
+      setEcfCanIssue(Boolean(st?.canIssue));
     }).catch(() => {});
     return () => { cancelled = true; };
   }, [reservation._id, fetchEcfInvoices]);
@@ -459,7 +464,7 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
                                 .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt));
                               const latestInvoice = paymentInvoices[0];
                               const hasBlockingInvoice = paymentInvoices.some((inv) =>
-                                ['Aceptado', 'Aceptado Condicional', 'En Proceso', 'Emitido Contingencia']
+                                ['Aceptado', 'Aceptado Condicional', 'En Proceso', 'Firmado', 'Pendiente', 'Sin Resolver']
                                   .includes(inv.estadoECF)
                               );
 
@@ -467,38 +472,48 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
                                 return <EcfStatusBadge status={latestInvoice.estadoECF} />;
                               }
 
-                              if (latestInvoice && ['Rechazado', 'Error', 'Pendiente'].includes(latestInvoice.estadoECF)) {
+                              if (latestInvoice && ['Rechazado', 'Error'].includes(latestInvoice.estadoECF)) {
                                 return (
                                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                                     <EcfStatusBadge status={latestInvoice.estadoECF} />
-                                    <Button
-                                      variant="outlined"
-                                      size="small"
-                                      startIcon={<ReceiptIcon />}
-                                      onClick={() => {
-                                        setSelectedPaymentId((p as any)._id);
-                                        setInvoiceModalOpen(true);
-                                      }}
-                                    >
-                                      {t('admin.settings.ecfInvoices.actions.retryIssue')}
-                                    </Button>
+                                    <Tooltip title={ecfCanIssue ? '' : t('fiscal.folio.cannotIssue', 'DGII has not certified this company yet, so fiscal e-CF cannot be issued.')}>
+                                      <span>
+                                        <Button
+                                          variant="outlined"
+                                          size="small"
+                                          startIcon={<ReceiptIcon />}
+                                          disabled={!ecfCanIssue}
+                                          onClick={() => {
+                                            setSelectedPaymentId((p as any)._id);
+                                            setInvoiceModalOpen(true);
+                                          }}
+                                        >
+                                          {t('admin.settings.ecfInvoices.actions.retryIssue')}
+                                        </Button>
+                                      </span>
+                                    </Tooltip>
                                   </Box>
                                 );
                               }
 
                               if ((p.status === 'completed' || !p.status) && folioId) {
                                 return (
-                                  <Button
-                                    variant="outlined"
-                                    size="small"
-                                    startIcon={<ReceiptIcon />}
-                                    onClick={() => {
-                                      setSelectedPaymentId((p as any)._id);
-                                      setInvoiceModalOpen(true);
-                                    }}
-                                  >
-                                    {t('admin.settings.ecfInvoices.emitirButton')}
-                                  </Button>
+                                  <Tooltip title={ecfCanIssue ? '' : t('fiscal.folio.cannotIssue', 'DGII has not certified this company yet, so fiscal e-CF cannot be issued.')}>
+                                    <span>
+                                      <Button
+                                        variant="outlined"
+                                        size="small"
+                                        startIcon={<ReceiptIcon />}
+                                        disabled={!ecfCanIssue}
+                                        onClick={() => {
+                                          setSelectedPaymentId((p as any)._id);
+                                          setInvoiceModalOpen(true);
+                                        }}
+                                      >
+                                        {t('admin.settings.ecfInvoices.emitirButton')}
+                                      </Button>
+                                    </span>
+                                  </Tooltip>
                                 );
                               }
                               return null;

@@ -169,9 +169,9 @@ export async function getBalanceSheet(asOf: Date) {
 // ── AP / AR Aging ────────────────────────────────────────────────────────
 
 export type AgingBucketKey = 'current' | 'd1_30' | 'd31_60' | 'd61_90' | 'd90_plus';
-const EMPTY_BUCKETS = (): Record<AgingBucketKey, number> => ({ current: 0, d1_30: 0, d31_60: 0, d61_90: 0, d90_plus: 0 });
+export const EMPTY_BUCKETS = (): Record<AgingBucketKey, number> => ({ current: 0, d1_30: 0, d31_60: 0, d61_90: 0, d90_plus: 0 });
 
-function bucketFor(daysPastDue: number): AgingBucketKey {
+export function bucketFor(daysPastDue: number): AgingBucketKey {
   if (daysPastDue <= 0) return 'current';
   if (daysPastDue <= 30) return 'd1_30';
   if (daysPastDue <= 60) return 'd31_60';

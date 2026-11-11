@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box } from '@mui/material';
-import { ApartmentOutlined, HubOutlined } from '@mui/icons-material';
+import { ApartmentOutlined, HubOutlined, PaymentsOutlined } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import AppShell, { AppShellNavItem } from '../../components/shared/AppShell';
 
@@ -16,6 +16,7 @@ const PlatformLayout: React.FC<PlatformLayoutProps> = ({ children }) => {
     const workspace = t('platform.nav.sections.workspace', 'Platform');
     return [
       { section: workspace, text: t('platform.nav.tenants', 'Tenants'), icon: <ApartmentOutlined />, path: '/platform/tenants', key: 'tenants' },
+      { section: workspace, text: t('platform.nav.billing', 'Billing'), icon: <PaymentsOutlined />, path: '/platform/billing', key: 'billing' },
       { section: workspace, text: t('platform.nav.channelManager', 'Channel Manager'), icon: <HubOutlined />, path: '/platform/channel-manager', key: 'channel-manager' },
     ];
   }, [t]);

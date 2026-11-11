@@ -1,5 +1,5 @@
 import { createTheme } from '@mui/material/styles';
-import { BRAND, FONT_UI, PRODUCT_COLORS, alpha } from './brand';
+import { BRAND, FONT_UI, PRODUCT_COLORS, PRODUCT_COLORS_DEEP, ProductCode, alpha } from './brand';
 
 // Pilloto brand theme — shared by every app (PMS, Accounting, Platform, marketing).
 // Product identity (PMS blue / Accounting green) is carried by the AppShell
@@ -202,3 +202,38 @@ const theme = createTheme({
 });
 
 export default theme;
+
+/** Primary colour (action buttons, links, focus rings, tabs) per app: deep accent, with white text. */
+const APP_PRIMARY: Record<ProductCode | 'platform', { main: string; light: string; dark: string }> = {
+  pms: { main: PRODUCT_COLORS_DEEP.pms, light: PRODUCT_COLORS.pms, dark: '#1E3A8A' },
+  accounting: { main: PRODUCT_COLORS_DEEP.accounting, light: PRODUCT_COLORS.accounting, dark: '#0A5D56' },
+  pos: { main: PRODUCT_COLORS_DEEP.pos, light: PRODUCT_COLORS.pos, dark: '#8F4207' },
+  rrhh: { main: PRODUCT_COLORS_DEEP.rrhh, light: PRODUCT_COLORS.rrhh, dark: '#5530B5' },
+  platform: { main: BRAND.vermilionText, light: BRAND.vermilion, dark: '#962F10' },
+};
+
+const appThemes: Partial<Record<ProductCode | 'platform', typeof theme>> = {};
+
+/**
+ * The shared theme re-coloured for one app: action buttons and every other `primary` element take the
+ * app's accent (PMS blue, Accounting green, Console vermilion). AppShell wraps the signed-in app in it;
+ * public pages keep the base theme.
+ */
+export function appTheme(app: ProductCode | 'platform'): typeof theme {
+  const cached = appThemes[app];
+  if (cached) return cached;
+  const primary = { ...APP_PRIMARY[app], contrastText: '#ffffff' };
+  const themed = createTheme(theme, {
+    palette: { primary },
+    components: {
+      MuiButton: {
+        styleOverrides: {
+          containedPrimary: { '&:hover': { backgroundColor: primary.dark } },
+          outlinedPrimary: { borderColor: alpha(primary.main, 0.5), '&:hover': { borderColor: primary.main, backgroundColor: alpha(primary.main, 0.06) } },
+        },
+      },
+    },
+  });
+  appThemes[app] = themed;
+  return themed;
+}

@@ -1,6 +1,9 @@
 import React from 'react';
 import { Box, Paper, Tab, Tabs, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import FiscalSettingsPanel from '../../components/fiscal/FiscalSettingsPanel';
+import { FISCAL_PATHS } from '../../components/fiscal/useFiscalAccess';
 import AccountingLayout from '../../components/accounting/AccountingLayout';
 import { RolesContent } from '../admin/RolesManagement';
 import { UsersContent } from '../admin/UsersManagement';
@@ -25,13 +28,21 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => (
  */
 const AccountingSettingsPage: React.FC = () => {
   const { t } = useTranslation();
-  const [activeTab, setActiveTab] = React.useState(0);
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const tabs = ['roles', 'users', 'fiscal'] as const;
+  const requested = tabs.indexOf((params.get('tab') ?? '') as (typeof tabs)[number]);
+  const [activeTab, setActiveTabState] = React.useState(requested >= 0 ? requested : 0);
+  const setActiveTab = (index: number) => {
+    setActiveTabState(index);
+    setParams(index === 0 ? {} : { tab: tabs[index] }, { replace: true });
+  };
 
   return (
     <AccountingLayout title={t('accounting.settings.title', 'Settings')}>
       <Box sx={{ pb: 4 }}>
         <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          {t('accounting.settings.subtitle', 'Manage Accounting roles and users.')}
+          {t('accounting.settings.subtitle', 'Manage Accounting roles and users, and your company’s electronic invoicing.')}
         </Typography>
 
         <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
@@ -39,6 +50,7 @@ const AccountingSettingsPage: React.FC = () => {
             <Tabs value={activeTab} onChange={(_e, v) => setActiveTab(v)} aria-label={t('nav.accountingSettingsTabs')}>
               <Tab label={t('accounting.settings.tabs.roles', 'Roles')} id="accounting-settings-tab-0" />
               <Tab label={t('accounting.settings.tabs.users', 'Users')} id="accounting-settings-tab-1" />
+              <Tab label={t('fiscal.settingsTab', 'Electronic invoicing')} id="accounting-settings-tab-2" />
             </Tabs>
           </Box>
 
@@ -47,6 +59,9 @@ const AccountingSettingsPage: React.FC = () => {
           </TabPanel>
           <TabPanel value={activeTab} index={1}>
             <UsersContent />
+          </TabPanel>
+          <TabPanel value={activeTab} index={2}>
+            <FiscalSettingsPanel sequencesPath={`${FISCAL_PATHS.accounting.center}?tab=sequences`} documentsPath={FISCAL_PATHS.accounting.center} onNavigate={navigate} />
           </TabPanel>
         </Paper>
       </Box>

@@ -5,7 +5,7 @@ import {
   FormControl, InputLabel, Select, MenuItem, Divider,
 } from '@mui/material';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   accountingReportsService, accountsService, suppliersService, accountingCustomersService,
 } from '../../../services/api';
@@ -37,7 +37,9 @@ type ReportTab = 'trialBalance' | 'profitAndLoss' | 'balanceSheet' | 'apAging' |
 const ReportsContent: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<ReportTab>('trialBalance');
+  const location = useLocation();
+  // The dashboard links straight to a report tab ({ tab: 'arAging' }, ...).
+  const [tab, setTab] = useState<ReportTab>(() => (location.state as { tab?: ReportTab } | null)?.tab ?? 'trialBalance');
 
   return (
     <Box>

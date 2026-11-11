@@ -7,7 +7,9 @@ const router = express.Router();
 router.use(authenticate);
 
 router.get('/', authorizePermission('accounting', 'accounting.invoices.view', 'accounting.invoices.manage'), invoices.listInvoices);
+router.get('/form-meta', authorizePermission('accounting', 'accounting.invoices.view', 'accounting.invoices.manage'), invoices.getInvoiceFormMeta);
 router.get('/:id', authorizePermission('accounting', 'accounting.invoices.view', 'accounting.invoices.manage'), invoices.getInvoice);
+router.get('/:id/pdf', authorizePermission('accounting', 'accounting.invoices.view', 'accounting.invoices.manage'), invoices.getInvoicePdf);
 router.post('/', authorizePermission('accounting', 'accounting.invoices.manage'), invoices.createInvoice);
 router.put('/:id', authorizePermission('accounting', 'accounting.invoices.manage'), invoices.updateInvoice);
 router.post('/:id/send', authorizePermission('accounting', 'accounting.invoices.manage'), invoices.sendInvoice);

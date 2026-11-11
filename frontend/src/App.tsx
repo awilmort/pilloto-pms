@@ -17,6 +17,7 @@ import Layout from './components/layout/Layout';
 import TenantsPage from './pages/platform/TenantsPage';
 import SuperAdminProfilePage from './pages/platform/SuperAdminProfilePage';
 import ChannelManagerPage from './pages/platform/ChannelManagerPage';
+import BillingPage from './pages/platform/BillingPage';
 import TenantNotFoundPage from './pages/TenantNotFoundPage';
 
 // Pages
@@ -52,9 +53,12 @@ import AdminProfilePage from './pages/admin/AdminProfilePage';
 import AccountingDashboard from './pages/accounting/AccountingDashboard';
 import AccountingProfilePage from './pages/accounting/AccountingProfilePage';
 import AccountingSettingsPage from './pages/accounting/AccountingSettingsPage';
+import FiscalPage from './pages/accounting/FiscalPage';
 import InventoryProductsPage from './pages/accounting/InventoryProductsPage';
 import InventoryWarehousesPage from './pages/accounting/InventoryWarehousesPage';
 import InvoicesPage from './pages/accounting/InvoicesPage';
+import InvoiceEditorPage from './pages/accounting/InvoiceEditorPage';
+import InvoiceDetailPage from './pages/accounting/InvoiceDetailPage';
 import QuotesPage from './pages/accounting/QuotesPage';
 import CreditNotesPage from './pages/accounting/CreditNotesPage';
 import DebitNotesPage from './pages/accounting/DebitNotesPage';
@@ -193,6 +197,11 @@ function PlatformApp() {
               <ChannelManagerPage />
             </ProtectedRoute>
           } />
+          <Route path="/platform/billing" element={
+            <ProtectedRoute>
+              <BillingPage />
+            </ProtectedRoute>
+          } />
           <Route path="*" element={<Navigate to="/platform/tenants" replace />} />
         </Routes>
         {toastConfig}
@@ -224,6 +233,11 @@ function TenantApp() {
                 <AccountingSettingsPage />
               </AccountingRoute>
             } />
+            <Route path="/accounting/fiscal" element={
+              <AccountingRoute requiredPermission={['accounting.invoices.view', 'accounting.invoices.manage', 'accounting.creditNotes.view', 'accounting.debitNotes.view', 'accounting.settings.manage']}>
+                <FiscalPage />
+              </AccountingRoute>
+            } />
             <Route path="/accounting/products" element={
               <AccountingRoute requiredPermission={['accounting.inventory.view', 'accounting.inventory.manage']}>
                 <InventoryProductsPage />
@@ -237,6 +251,21 @@ function TenantApp() {
             <Route path="/accounting/invoices" element={
               <AccountingRoute requiredPermission={['accounting.invoices.view', 'accounting.invoices.manage']}>
                 <InvoicesPage />
+              </AccountingRoute>
+            } />
+            <Route path="/accounting/invoices/new" element={
+              <AccountingRoute requiredPermission="accounting.invoices.manage">
+                <InvoiceEditorPage mode="create" />
+              </AccountingRoute>
+            } />
+            <Route path="/accounting/invoices/:id/edit" element={
+              <AccountingRoute requiredPermission="accounting.invoices.manage">
+                <InvoiceEditorPage mode="edit" />
+              </AccountingRoute>
+            } />
+            <Route path="/accounting/invoices/:id" element={
+              <AccountingRoute requiredPermission={['accounting.invoices.view', 'accounting.invoices.manage']}>
+                <InvoiceDetailPage />
               </AccountingRoute>
             } />
             <Route path="/accounting/quotes" element={

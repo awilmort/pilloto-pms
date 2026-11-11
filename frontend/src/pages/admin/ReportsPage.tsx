@@ -26,9 +26,10 @@ import EventNoteIcon from '@mui/icons-material/EventNote';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
-import MonthlyTaxReport from '../../components/admin/ecf/reports/MonthlyTaxReport';
-import SequenceManagement from '../../components/admin/ecf/reports/SequenceManagement';
-import PendingInvoiceQueue from '../../components/admin/ecf/reports/PendingInvoiceQueue';
+import FiscalTaxReportTab from '../../components/fiscal/FiscalTaxReportTab';
+import FiscalSequencesTab from '../../components/fiscal/FiscalSequencesTab';
+import FiscalDocumentsTab from '../../components/fiscal/FiscalDocumentsTab';
+import { useFiscalAccess } from '../../components/fiscal/useFiscalAccess';
 import OccupancyReport from '../../components/admin/reports/OccupancyReport';
 import NightAuditReport from '../../components/admin/reports/NightAuditReport';
 import ArrivalsDeparturesReport from '../../components/admin/reports/ArrivalsDeparturesReport';
@@ -138,14 +139,21 @@ const REPORT_CARDS: ReportCard[] = [
   },
 ];
 
+/** The e-CF reports in this hub are the Fiscal Center's own tabs, shown here with the access of the current app. */
+const SequencesReport: React.FC = () => <FiscalSequencesTab canManage={useFiscalAccess().canManage} />;
+const PendingDocumentsReport: React.FC = () => {
+  const { canIssue } = useFiscalAccess();
+  return <FiscalDocumentsTab canIssue={canIssue} initialEstado="attention" />;
+};
+
 const REPORT_COMPONENTS: Record<ReportId, React.ComponentType> = {
   'manager-flash': ManagerFlashReport,
   'forecast': ForecastReport,
   'segmentation': SegmentationReport,
   'booking-insights': BookingInsightsReport,
-  'monthly-tax': MonthlyTaxReport,
-  'sequences': SequenceManagement,
-  'pending-invoices': PendingInvoiceQueue,
+  'monthly-tax': FiscalTaxReportTab,
+  'sequences': SequencesReport,
+  'pending-invoices': PendingDocumentsReport,
   'occupancy': OccupancyReport,
   'night-audit': NightAuditReport,
   'arrivals-departures': ArrivalsDeparturesReport,

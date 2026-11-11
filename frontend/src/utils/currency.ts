@@ -47,6 +47,17 @@ export function formatMoney(value?: number): string {
   return format(currencySymbol(propertyCurrency), value);
 }
 
+/** Pesos with cents — for documents (invoices) where every centavo matters. */
+export function formatAccountingMoneyExact(value?: number): string {
+  const n = Number(value || 0);
+  const sign = n < 0 ? '-' : '';
+  try {
+    return `${sign}${currencySymbol(DEFAULT_CODE)}${new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(n))}`;
+  } catch {
+    return `${sign}${currencySymbol(DEFAULT_CODE)}${Math.abs(n).toFixed(2)}`;
+  }
+}
+
 /** An amount in pesos (Accounting screens). */
 export function formatAccountingMoney(value?: number): string {
   return format(currencySymbol(DEFAULT_CODE), value);

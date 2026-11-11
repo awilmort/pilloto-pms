@@ -14,6 +14,7 @@ import PaymentIcon from '@mui/icons-material/Payment';
 import BlockIcon from '@mui/icons-material/Block';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { useTranslation } from 'react-i18next';
+import { fiscalErrorMessage } from '../../fiscal/fiscalUi';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { usePermission } from '../../../lib/permissions';
 import { debitNotesService, invoicesService, DebitNoteLineItemInput } from '../../../services/api';
@@ -256,7 +257,7 @@ const DebitNotesContent: React.FC = () => {
       await load();
       if (res.data.data) setViewDebitNote(res.data.data.debitNote);
     } catch (e: any) {
-      setIssueError(e.response?.data?.message || t('accounting.debitNotes.messages.issueFailed'));
+      setIssueError(e.response?.data?.code || e.response?.data?.message ? fiscalErrorMessage(e, t) : t('accounting.debitNotes.messages.issueFailed'));
     } finally {
       setIssuing(false);
     }
@@ -550,10 +551,6 @@ const DebitNotesContent: React.FC = () => {
                       <Typography variant="body2"><strong>{t('accounting.creditNotes.dialog.ecfModifies')}:</strong> {electronicInvoiceOf(viewDebitNote)?.originalENCF}</Typography>
                       <Typography variant="body2"><strong>{t('accounting.invoices.dialog.ecfStatus')}:</strong> {electronicInvoiceOf(viewDebitNote)?.estadoECF}</Typography>
                     </Box>
-                    {electronicInvoiceOf(viewDebitNote)?.urlCodigoQr && (
-                      // eslint-disable-next-line jsx-a11y/img-redundant-alt
-                      <img src={electronicInvoiceOf(viewDebitNote)?.urlCodigoQr} alt="QR" style={{ width: 96, height: 96 }} />
-                    )}
                   </Box>
                 </Paper>
               )}

@@ -176,6 +176,14 @@ const BillsContent: React.FC = () => {
     }
   }, [location.state, location.pathname, navigate]);
 
+  // Deep link from the Accounting dashboard: { create: true } opens the new-bill form.
+  useEffect(() => {
+    if (!(location.state as { create?: boolean } | null)?.create) return;
+    navigate(location.pathname, { replace: true, state: {} });
+    if (canManage) openCreate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
+
   const openCreate = () => {
     setEditingBill(null);
     setCreateState(emptyCreateState());

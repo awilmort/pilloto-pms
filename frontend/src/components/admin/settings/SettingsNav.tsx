@@ -11,6 +11,11 @@ import { ChevronLeft, ChevronRight, Search } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '../../../lib/permissions';
+import { BRAND, PRODUCT_COLORS, PRODUCT_COLORS_DEEP, alpha } from '../../../brand';
+
+// Settings lives inside the PMS app, so it takes the PMS accent.
+const ACCENT = PRODUCT_COLORS.pms;
+const ACCENT_DEEP = PRODUCT_COLORS_DEEP.pms;
 
 export interface SettingsItem {
   section: string;
@@ -89,16 +94,24 @@ const SearchBox: React.FC<{ id: string; value: string; onChange: (v: string) => 
     <TextField id={id} size="small" fullWidth type="search" value={value} onChange={(e) => onChange(e.target.value)}
       placeholder={t('admin.settings.nav.search')} inputProps={{ 'aria-label': t('admin.settings.nav.search') }}
       InputProps={{ startAdornment: <InputAdornment position="start"><Search fontSize="small" /></InputAdornment> }}
-      sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'background.paper' } }} />
+      sx={{ '& .MuiOutlinedInput-root': { bgcolor: BRAND.paper } }} />
   );
 };
 
+/** Same language as the main sidebar: the current page is a solid deep-accent pill with white text. */
 const linkSx = (active: boolean) => ({
-  justifyContent: 'flex-start', textTransform: 'none', fontWeight: active ? 600 : 400, px: 1, py: 0.6, borderRadius: 1,
-  color: active ? 'primary.main' : 'text.primary', bgcolor: active ? 'background.paper' : 'transparent',
-  boxShadow: active ? (th: any) => `0 0 0 1px ${th.palette.divider}` : 'none',
-  '&:hover': { bgcolor: active ? 'background.paper' : 'action.hover' },
+  justifyContent: 'flex-start', textTransform: 'none', fontSize: '0.875rem', fontWeight: active ? 600 : 500,
+  px: 1.25, py: 0.75, borderRadius: '8px', minHeight: 36, textAlign: 'left',
+  color: active ? BRAND.white : BRAND.inkSoft,
+  bgcolor: active ? ACCENT_DEEP : 'transparent',
+  boxShadow: active ? `0 1px 2px ${alpha(ACCENT_DEEP, 0.35)}` : 'none',
+  '&:hover': { bgcolor: active ? ACCENT_DEEP : alpha(ACCENT, 0.1), color: active ? BRAND.white : BRAND.ink },
 });
+
+const groupHeadingSx = {
+  px: 1.25, pt: 2, pb: 0.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase',
+  color: ACCENT_DEEP, fontSize: '0.6875rem',
+} as const;
 
 /** The secondary column (md and up). */
 const SettingsColumn: React.FC<{ section: string }> = ({ section }) => {
@@ -109,7 +122,8 @@ const SettingsColumn: React.FC<{ section: string }> = ({ section }) => {
   return (
     <Box component="nav" aria-label={t('admin.settings.title')} sx={{
       width: 236, flex: 'none', alignSelf: 'flex-start', position: 'sticky', top: 16, maxHeight: 'calc(100vh - 112px)', overflowY: 'auto',
-      bgcolor: 'grey.100', border: 1, borderColor: 'divider', borderRadius: 2, p: 1.25, display: 'flex', flexDirection: 'column', gap: 0.25,
+      bgcolor: BRAND.white, border: `1px solid ${BRAND.mist}`, borderTop: `3px solid ${ACCENT}`, borderRadius: 2, p: 1.5,
+      display: 'flex', flexDirection: 'column', gap: 0.25,
     }}>
       <SearchBox id="settings-nav-search" value={query} onChange={setQuery} />
       <Button sx={{ ...linkSx(section === 'overview'), mt: 1 }} onClick={() => navigate('/admin/settings')} aria-current={section === 'overview' ? 'page' : undefined}>
@@ -118,7 +132,7 @@ const SettingsColumn: React.FC<{ section: string }> = ({ section }) => {
       {groups.length === 0 && <Typography variant="caption" color="text.secondary" sx={{ p: 1 }}>{t('admin.settings.nav.noResults', { query })}</Typography>}
       {groups.map((g) => (
         <React.Fragment key={g.key}>
-          <Typography variant="caption" sx={{ px: 1, pt: 1.5, pb: 0.25, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.secondary', fontSize: '0.68rem' }}>
+          <Typography variant="caption" sx={groupHeadingSx}>
             {t(g.labelKey)}
           </Typography>
           {g.items.map((i) => (
@@ -152,12 +166,12 @@ export const SettingsOverview: React.FC = () => {
       {wide ? (
         <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
           {groups.map((g) => (
-            <Paper key={g.key} variant="outlined" sx={{ p: 2, display: 'grid', gap: 0.5, alignContent: 'start' }}>
-              <Typography fontWeight={700}>{t(g.labelKey)}</Typography>
+            <Paper key={g.key} variant="outlined" sx={{ p: 2, display: 'grid', gap: 0.5, alignContent: 'start', borderTop: `3px solid ${ACCENT}` }}>
+              <Typography fontWeight={700} sx={{ color: ACCENT_DEEP }}>{t(g.labelKey)}</Typography>
               <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5 }}>{t(g.descKey)}</Typography>
               {g.items.map((i) => (
                 <Box key={i.section}>
-                  <Button size="small" onClick={() => navigate(`/admin/settings/${i.section}`)} sx={{ textTransform: 'none', p: 0, minWidth: 0, fontWeight: 600 }}>
+                  <Button size="small" onClick={() => navigate(`/admin/settings/${i.section}`)} sx={{ textTransform: 'none', p: 0, minWidth: 0, fontWeight: 600, color: ACCENT_DEEP }}>
                     {t(i.labelKey)}
                   </Button>
                   <Typography variant="caption" color="text.secondary" display="block">{t(i.descKey)}</Typography>
@@ -170,7 +184,7 @@ export const SettingsOverview: React.FC = () => {
         <Box sx={{ display: 'grid', gap: 2 }}>
           {groups.map((g) => (
             <Box key={g.key}>
-              <Typography variant="caption" sx={{ px: 0.5, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: 'text.secondary' }}>{t(g.labelKey)}</Typography>
+              <Typography variant="caption" sx={{ px: 0.5, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: ACCENT_DEEP }}>{t(g.labelKey)}</Typography>
               <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
                 {g.items.map((i, idx) => (
                   <Button key={i.section} fullWidth onClick={() => navigate(`/admin/settings/${i.section}`)} endIcon={<ChevronRight />}

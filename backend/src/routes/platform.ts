@@ -12,6 +12,7 @@
  *   PATCH  /api/platform/tenants/:id        — update metadata / enable-disable
  *   DELETE /api/platform/tenants/:id        — permanently delete (soft disabled instead)
  *   GET    /api/platform/tenants/:id/stats  — basic stats for a single tenant
+ *   /api/platform/billing/*          — how Pilloto charges its tenants: price list, contracts, charges, payments, Pilloto's own e-CF (routes/platformBilling.ts)
  *   GET    /api/platform/channex/health     — Channex connectivity check (never returns the key)
  *   GET    /api/platform/channex/tenants    — every tenant with its Channex property (current environment)
  *   GET    /api/platform/channex/webhook    — webhook setup state + latest received events
@@ -36,6 +37,7 @@
  *     PUT  channel-connection ({ setting: 'default' | 'tenant' | 'platform_only' })
  */
 
+import platformBillingRoutes from './platformBilling';
 import { tenantBaseUrl } from '../utils/appUrls';
 import express, { Response } from 'express';
 import { authenticate, authorize, AuthRequest } from '../middleware/auth';
@@ -68,6 +70,11 @@ import ChannexChannel from '../models/ChannexChannel';
 import { ALERT_ACTIONS, AlertAction, PLATFORM_ALERT_TYPES, transitionAlert } from '../services/channex/alerts.service';
 import { loadRepairView, recreateEntity, recreateRatePlansForRoomType, relinkEntity } from '../services/channex/repair';
 import { getChannexWorkerStatus, invalidateChannexSwitchCache } from '../utils/channexCron';
+import FiscalStatement from '../models/FiscalStatement';
+import { includedFiscalPlan } from '../config/fiscal';
+import { FiscalError } from '../services/fiscal/fiscalCore';
+import { setFiscalActive, syncFiscal } from '../services/fiscal/fiscalLifecycle';
+import { closeStatement, markStatementPaid, voidStatement } from '../services/fiscal/fiscalStatements';
 
 const router = express.Router();
 
@@ -77,7 +84,7 @@ router.use(authenticate, authorize('superadmin'));
 // ── List all tenants ───────────────────────────────────────────────────────────
 router.get('/tenants', async (_req: AuthRequest, res: Response) => {
   try {
-    const tenants = await Tenant.find().sort({ createdAt: -1 }).lean();
+    const tenants = await Tenant.find().select("-fiscal.webhookSecret").sort({ createdAt: -1 }).lean();
     // The owner's invitation (no tenant context here, so this query is not tenant-scoped)
     const owners = await User.find({ tenantId: { $in: tenants.map((t) => t._id) }, isSuperAdmin: true })
       .select('tenantId email invitedAt invitationExpires invitationAcceptedAt').lean();
@@ -98,7 +105,7 @@ router.get('/tenants', async (_req: AuthRequest, res: Response) => {
 // ── Get single tenant ──────────────────────────────────────────────────────────
 router.get('/tenants/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const tenant = await Tenant.findById(req.params.id).lean();
+    const tenant = await Tenant.findById(req.params.id).select("-fiscal.webhookSecret").lean();
     if (!tenant) return res.status(404).json({ success: false, message: 'Tenant not found.' });
     res.status(200).json({ success: true, data: tenant });
   } catch (error) {
@@ -604,5 +611,69 @@ router.post('/channex/tenants/:tenantId/full-sync', withTenant(async () => {
   const r = await requestManualFullSync(property);
   return r.ok ? { queued: r.queued } : { ok: false, reason: 'too_soon', message: `A full sync was queued less than 10 minutes ago; retry in ${r.retryAfterSeconds}s.` };
 }));
+
+// ── Electronic invoicing (e-CF) ──────────────────────────────────────────────
+//   GET  /api/platform/fiscal/tenants                              — every company with e-CF activated
+//   GET  /api/platform/fiscal/statements?period=YYYY-MM&status=    — monthly statements across companies
+//   POST /api/platform/fiscal/statements/:tenantId/:period/close   — close a month now
+//   POST /api/platform/fiscal/statements/:tenantId/:period/paid    ({ reference?, method? })
+//   POST /api/platform/fiscal/statements/:tenantId/:period/void    ({ reason })
+//   POST /api/platform/fiscal/tenants/:tenantId/suspend | resume | sync
+const fiscalAction = (fn: (req: AuthRequest) => Promise<unknown>) => async (req: AuthRequest, res: Response) => {
+  try {
+    return res.json({ success: true, data: await fn(req) });
+  } catch (err) {
+    if (err instanceof FiscalError) {
+      return res.status(err.statusCode).json({ success: false, code: err.code, message: err.message, ...(err.fields ? { fields: err.fields } : {}) });
+    }
+    console.error('Platform e-CF error:', (err as Error)?.message ?? err);
+    return res.status(500).json({ success: false, message: 'Electronic invoicing action failed.' });
+  }
+};
+
+const fiscalTenant = async (id: string) => {
+  const tenant = mongoose.Types.ObjectId.isValid(id) ? await Tenant.findById(id) : null;
+  if (!tenant?.fiscal?.organizationId) throw new FiscalError(404, 'NOT_FOUND', 'This company has no electronic invoicing');
+  return tenant;
+};
+
+router.get('/fiscal/tenants', fiscalAction(async () => {
+  const tenants = await Tenant.find({ 'fiscal.organizationId': { $exists: true } }).select('-fiscal.webhookSecret').sort({ name: 1 }).lean();
+  return tenants.map((t: any) => ({
+    id: t._id,
+    name: t.name,
+    slug: t.slug,
+    products: t.products,
+    plan: t.plan,
+    accountingPlan: t.plans?.accounting ?? null,
+    includedPlan: includedFiscalPlan(t),
+    fiscal: t.fiscal,
+  }));
+}));
+
+router.get('/fiscal/statements', fiscalAction(async (req) => {
+  const { period, status } = req.query as Record<string, string | undefined>;
+  const filter: Record<string, unknown> = {};
+  if (period) filter.period = period;
+  if (status) filter.status = status;
+  const statements = await tenantLocalStorage.run(null, () => FiscalStatement.find(filter).sort({ period: -1, createdAt: -1 }).limit(500).lean());
+  const tenants = await Tenant.find({ _id: { $in: statements.map((s) => s.tenantId) } }).select('name slug').lean();
+  const byId = new Map(tenants.map((t: any) => [String(t._id), t]));
+  return statements.map((s) => ({ ...s, tenant: byId.get(String(s.tenantId)) ?? null }));
+}));
+
+router.post('/fiscal/statements/:tenantId/:period/close', fiscalAction(async (req) =>
+  closeStatement(await fiscalTenant(req.params.tenantId), req.params.period)));
+router.post('/fiscal/statements/:tenantId/:period/paid', fiscalAction(async (req) =>
+  markStatementPaid(req.params.tenantId, req.params.period, { reference: req.body?.reference, method: req.body?.method })));
+router.post('/fiscal/statements/:tenantId/:period/void', fiscalAction(async (req) =>
+  voidStatement(req.params.tenantId, req.params.period, String(req.body?.reason ?? ''))));
+
+router.post('/fiscal/tenants/:tenantId/suspend', fiscalAction(async (req) => (await setFiscalActive(await fiscalTenant(req.params.tenantId), false)).fiscal));
+router.post('/fiscal/tenants/:tenantId/resume', fiscalAction(async (req) => (await setFiscalActive(await fiscalTenant(req.params.tenantId), true)).fiscal));
+router.post('/fiscal/tenants/:tenantId/sync', fiscalAction(async (req) => (await syncFiscal(await fiscalTenant(req.params.tenantId))).fiscal));
+
+// Subscription billing: price list, contracts, charges, payments and Pilloto's own e-CF.
+router.use('/billing', platformBillingRoutes);
 
 export default router;

@@ -4,14 +4,16 @@ import { AuthRequest } from '../../middleware/auth';
 import Invoice, { IInvoiceLineItem, InvoicePaymentMethod } from '../../models/Invoice';
 import Customer from '../../models/Customer';
 import Tenant from '../../models/Tenant';
-import ElectronicInvoice from '../../models/ElectronicInvoice';
 import { nextSequence } from '../../models/Counter';
 import { resolveWarehouseId, getAvailableQty, deductStockForSale } from '../../services/accounting/inventory.service';
-import { citrusEcfService, CitrusError, CitrusInvoiceResponse } from '../../services/citrusEcf';
-import { mapToAccountingInvoice, EcfMapperError, type EcfBuyerInfo } from '../../utils/ecfMapper';
-import type { IEcfLineItem } from '../../models/ElectronicInvoice';
+import { issueFiscalDocument } from '../../services/fiscal/fiscalIssuer';
+import { assertCanIssue, FiscalError, fiscalState } from '../../services/fiscal/fiscalCore';
+import { getBillingSoftClient } from '../../services/fiscal/fiscalClient';
+import { accountingInvoiceRequest, normalizeRnc, type BuyerInfo } from '../../services/fiscal/mappers';
 import { postJournalEntry, getSystemAccountIds, cashAccountCodeForMethod, reversePostedEntries } from '../../services/accounting/ledger.service';
 import { SYSTEM_ACCOUNT_CODES } from '../../constants/accounting';
+import path from 'path';
+import { generateInvoicePdf, loadLogo, type InvoicePdfData } from '../../services/accounting/invoicePdf.service';
 
 /**
  * Invoice controller (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md Phase 5.1).
@@ -28,6 +30,15 @@ interface RawLineItemInput {
   discountPercent?: number;
   taxRate?: number;
   warehouseId?: string; // only used at send() time to resolve which warehouse to deduct from
+}
+
+/**
+ * A date-only string ("2026-12-09") becomes noon UTC that day: stored at midnight UTC it would read as
+ * the previous evening in the Dominican Republic (UTC-4) everywhere the date is displayed.
+ */
+function parseDateOnly(value: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], 12)) : new Date(value);
 }
 
 async function resolveDefaultTaxRate(tenantId: unknown): Promise<number> {
@@ -81,7 +92,7 @@ export const listInvoices = async (req: AuthRequest, res: Response) => {
     const [invoices, total] = await Promise.all([
       Invoice.find(filter)
         .populate('customer', 'name rnc razonSocial email')
-        .populate('electronicInvoiceId', 'eNCF estadoECF urlCodigoQr')
+        .populate('electronicInvoiceId', 'eNCF estadoECF tipo mensaje')
         .sort({ issueDate: -1 })
         .skip((pageNum - 1) * limitNum)
         .limit(limitNum)
@@ -103,7 +114,7 @@ export const listInvoices = async (req: AuthRequest, res: Response) => {
 export const getInvoice = async (req: AuthRequest, res: Response) => {
   try {
     const invoice = await Invoice.findById(req.params.id)
-      .populate('customer', 'name rnc razonSocial email phone')
+      .populate('customer', 'name rnc razonSocial email phone address')
       .populate('lineItems.product', 'name sku unitOfMeasure')
       .populate('electronicInvoiceId')
       .lean({ virtuals: true });
@@ -119,13 +130,14 @@ export const getInvoice = async (req: AuthRequest, res: Response) => {
 export const createInvoice = async (req: AuthRequest, res: Response) => {
   try {
     const {
-      customer, isIndividual, individualCustomer, dueDate, notes, lineItems: rawLines,
+      customer, isIndividual, individualCustomer, dueDate, notes, reference, lineItems: rawLines,
     } = req.body as {
       customer?: string;
       isIndividual?: boolean;
       individualCustomer?: { name?: string; email?: string; phone?: string };
       dueDate?: string;
       notes?: string;
+      reference?: string;
       lineItems?: RawLineItemInput[];
     };
 
@@ -153,8 +165,9 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
       individualCustomer: isIndividual
         ? { name: individualCustomer!.name!.trim(), email: individualCustomer?.email?.trim(), phone: individualCustomer?.phone?.trim() }
         : undefined,
-      dueDate: dueDate ? new Date(dueDate) : undefined,
+      dueDate: dueDate ? parseDateOnly(dueDate) : undefined,
       notes,
+      reference: reference?.trim() || undefined,
       lineItems,
       status: 'draft',
       createdBy: req.user._id,
@@ -180,13 +193,14 @@ export const updateInvoice = async (req: AuthRequest, res: Response) => {
     }
 
     const {
-      customer, isIndividual, individualCustomer, dueDate, notes, lineItems: rawLines,
+      customer, isIndividual, individualCustomer, dueDate, notes, reference, lineItems: rawLines,
     } = req.body as {
       customer?: string;
       isIndividual?: boolean;
       individualCustomer?: { name?: string; email?: string; phone?: string };
       dueDate?: string;
       notes?: string;
+      reference?: string;
       lineItems?: RawLineItemInput[];
     };
 
@@ -211,8 +225,9 @@ export const updateInvoice = async (req: AuthRequest, res: Response) => {
       invoice.customer = new mongoose.Types.ObjectId(customer);
     }
 
-    if (dueDate !== undefined) invoice.dueDate = dueDate ? new Date(dueDate) : undefined;
+    if (dueDate !== undefined) invoice.dueDate = dueDate ? parseDateOnly(dueDate) : undefined;
     if (notes !== undefined) invoice.notes = notes;
+    if (reference !== undefined) invoice.reference = reference.trim() || undefined;
 
     if (rawLines) {
       const defaultTaxRate = await resolveDefaultTaxRate(req.tenantId);
@@ -231,8 +246,8 @@ export const updateInvoice = async (req: AuthRequest, res: Response) => {
 };
 
 // Resolves the Customer/individual customer fields on an Invoice into the shape
-// ecfMapper's buyer-facing functions expect.
-function resolveBuyer(invoice: { isIndividual: boolean; individualCustomer?: any; customer?: any }): EcfBuyerInfo {
+// the e-CF mappers expect.
+function resolveBuyer(invoice: { isIndividual: boolean; individualCustomer?: any; customer?: any }): BuyerInfo {
   if (invoice.isIndividual) {
     return {
       name: invoice.individualCustomer?.name,
@@ -248,9 +263,9 @@ function resolveBuyer(invoice: { isIndividual: boolean; individualCustomer?: any
   };
 }
 
-// Sends a draft invoice: deducts stock for any inventory-backed lines, calls the existing
-// e-CF pipeline (reusing citrusEcfService the same way the Folio-driven /api/ecf/invoices
-// route does), and links the resulting ElectronicInvoice back onto this Invoice.
+// Sends a draft invoice: deducts stock for any inventory-backed lines, issues its e-CF through the
+// shared fiscal pipeline (the same one PMS folios use), and links the resulting ElectronicInvoice
+// back onto this Invoice.
 export const sendInvoice = async (req: AuthRequest, res: Response) => {
   try {
     const invoice = await Invoice.findById(req.params.id).populate('customer', 'name rnc razonSocial email');
@@ -261,12 +276,9 @@ export const sendInvoice = async (req: AuthRequest, res: Response) => {
 
     const tenant = await Tenant.findById(req.tenantId);
     if (!tenant) return res.status(404).json({ success: false, message: 'Tenant not found' });
-    if (!tenant.ecfConfig?.isActive) {
-      return res.status(400).json({ success: false, message: 'e-CF invoicing is not active for this tenant' });
-    }
-    if (!tenant.ecfConfig?.citrusToken) {
-      return res.status(400).json({ success: false, message: 'Citrus API token is not configured' });
-    }
+    // Fails before anything is touched when the company cannot issue e-CF (not activated, suspended,
+    // or not yet certified by DGII).
+    assertCanIssue(tenant);
 
     // ── Pre-check stock availability for every inventory-backed line before touching
     // anything externally irreversible (issuing a real e-CF). Resolves a warehouse per
@@ -288,95 +300,25 @@ export const sendInvoice = async (req: AuthRequest, res: Response) => {
     }
 
     const buyer = resolveBuyer(invoice as any);
-    const tipo: 'E31' | 'E32' = buyer.rnc ? 'E31' : 'E32';
+    const request = accountingInvoiceRequest({
+      type: normalizeRnc(buyer.rnc) ? '31' : '32',
+      lines: invoice.lineItems.map(l => ({ description: l.description, quantity: l.quantity, taxRate: l.taxRate, lineTotal: l.lineTotal })),
+      buyer,
+      dueDate: invoice.dueDate,
+    });
 
-    let payload;
-    try {
-      payload = mapToAccountingInvoice(
-        tipo,
-        invoice.lineItems.map(l => ({ description: l.description, quantity: l.quantity, taxRate: l.taxRate, lineTotal: l.lineTotal })),
-        buyer,
-        tenant,
-        invoice.invoiceNumber,
-      );
-    } catch (err: any) {
-      if (err instanceof EcfMapperError) return res.status(400).json({ success: false, message: err.message });
-      throw err;
-    }
-
-    let citrusResponse: CitrusInvoiceResponse;
-    let isContingency = false;
-    try {
-      citrusResponse = tipo === 'E31'
-        ? await citrusEcfService.generateFactura(tenant, payload)
-        : await citrusEcfService.generateFacturaConsumo(tenant, payload);
-    } catch (err: any) {
-      if (err instanceof CitrusError && err.statusCode === 503) {
-        isContingency = true;
-        citrusResponse = {
-          TransaccionId: 0,
-          eNCF: `CONTINGENCIA-${Date.now()}`,
-          FechaVencimientoSecuencia: null,
-          TrackId: `contingency-${Date.now()}`,
-          Estatus: 'Contingencia',
-          EstadoeCF: 'Emitido Contingencia',
-          Mensaje: 'Issued in contingency mode — will be auto-submitted within 72h',
-          UrlCodigoQr: null,
-          CodigoSeguridad: null,
-          SecuenciaUtilizada: false,
-          FechaFirmaDigital: null,
-          Url: null,
-        };
-      } else if (err instanceof CitrusError) {
-        if (err.statusCode === 401) {
-          return res.status(401).json({ success: false, message: 'Citrus API token is invalid or expired — please update the token in settings' });
-        }
-        if (err.statusCode === 400) {
-          return res.status(400).json({ success: false, message: err.message, detail: err.citrusResponse });
-        }
-        return res.status(502).json({ success: false, message: `Citrus error: ${err.message}` });
-      } else {
-        throw err;
-      }
-    }
-
-    const estadoECF = isContingency ? 'Emitido Contingencia' : citrusResponse.EstadoeCF;
-
-    const lineItemsSnapshot: IEcfLineItem[] = invoice.lineItems.map(l => ({
-      description: l.description,
-      qty: l.quantity,
-      netPrice: l.lineTotal,
-      itbisRate: l.taxRate,
-      itbisAmount: l.taxAmount,
-      grossAmount: l.total,
-    }));
-
-    const electronicInvoice = await ElectronicInvoice.create({
-      invoiceId: invoice._id,
-      tipo,
-      eNCF: citrusResponse.eNCF,
-      transaccionId: citrusResponse.TransaccionId,
-      ...(citrusResponse.TrackId ? { trackId: citrusResponse.TrackId } : {}),
+    // One e-CF per invoice: the key comes from the invoice, so a double click or a retry after a
+    // timeout can never issue a second fiscal document. If BillingSoft cannot be reached the e-CF is
+    // saved and sent automatically (`queued`); the invoice is sent either way.
+    const { record: electronicInvoice, queued } = await issueFiscalDocument({
+      tenant,
+      route: 'invoices',
+      request,
+      actorId: req.user._id,
+      source: 'accounting_invoice',
+      links: { invoiceId: invoice._id as any },
       numeroFacturaInterna: invoice.invoiceNumber,
-      estadoECF: estadoECF as any,
-      estatus: citrusResponse.Estatus ?? '',
-      mensaje: citrusResponse.Mensaje || undefined,
-      totalFactura: invoice.total,
-      totalImpuestos: invoice.taxAmount,
-      currency: 'DOP',
-      buyerRnc: buyer.rnc,
-      buyerName: buyer.name,
-      buyerEmail: buyer.email,
-      lineItems: lineItemsSnapshot,
-      tipoPago: '2',
-      urlCodigoQr: citrusResponse.UrlCodigoQr ?? undefined,
-      codigoSeguridad: citrusResponse.CodigoSeguridad ?? undefined,
-      fechaFirmaDigital: citrusResponse.FechaFirmaDigital ? new Date(citrusResponse.FechaFirmaDigital) : undefined,
-      fechaVencimientoSecuencia: citrusResponse.FechaVencimientoSecuencia ? new Date(citrusResponse.FechaVencimientoSecuencia) : undefined,
-      generatedBy: req.user._id,
-      generationSource: 'accounting_invoice',
-      issuedAt: new Date(),
-      retryCount: 0,
+      idempotencyKey: `acct-invoice-${invoice._id}`,
     });
 
     // Stock is only deducted once the e-CF has actually been issued — an insufficient-stock
@@ -437,8 +379,11 @@ export const sendInvoice = async (req: AuthRequest, res: Response) => {
       console.error(`[Invoice.send] GL posting failed for invoice ${invoice.invoiceNumber}:`, glErr?.message || glErr);
     }
 
-    res.status(200).json({ success: true, message: 'Invoice sent successfully', data: { invoice, electronicInvoice } });
+    res.status(200).json({ success: true, message: 'Invoice sent successfully', queued, data: { invoice, electronicInvoice } });
   } catch (error: any) {
+    if (error instanceof FiscalError) {
+      return res.status(error.statusCode).json({ success: false, code: error.code, message: error.message, ...(error.fields ? { fields: error.fields } : {}) });
+    }
     if (error?.status) return res.status(error.status).json({ success: false, message: error.message });
     if (error.name === 'CastError') return res.status(400).json({ success: false, message: 'Invalid invoice ID' });
     console.error('Send invoice error:', error);
@@ -544,5 +489,127 @@ export const voidInvoice = async (req: AuthRequest, res: Response) => {
     if (error.name === 'CastError') return res.status(400).json({ success: false, message: 'Invalid invoice ID' });
     console.error('Void invoice error:', error);
     res.status(500).json({ success: false, message: 'Server error while voiding invoice' });
+  }
+};
+
+// What the create/edit page needs besides the invoice itself: the issuer details printed on the
+// letterhead (Settings → Property profile), the tenant's default ITBIS rate, and whether e-CF
+// issuing is available (so the page can say why before the user tries to issue).
+export const getInvoiceFormMeta = async (req: AuthRequest, res: Response) => {
+  try {
+    const tenant = await Tenant.findById(req.tenantId).select('name profile settings.logoUrl fiscal ecfConfig.defaultItbisRate');
+    if (!tenant) return res.status(404).json({ success: false, message: 'Tenant not found' });
+    const t = tenant.toObject() as any;
+    let canIssue = true;
+    try { assertCanIssue(tenant); } catch { canIssue = false; }
+    res.status(200).json({
+      success: true,
+      data: {
+        issuer: {
+          name: t.name,
+          legalName: t.profile?.legalName,
+          rnc: t.profile?.rnc,
+          address: t.profile?.address,
+          phone: t.profile?.phone,
+          email: t.profile?.email,
+          logoUrl: t.settings?.logoUrl,
+        },
+        defaultItbisRate: t.ecfConfig?.defaultItbisRate ?? 18,
+        // Whether this company can issue an e-CF right now, and where it stands if it cannot.
+        ecfActive: canIssue,
+        fiscalState: fiscalState(tenant),
+      },
+    });
+  } catch (error: any) {
+    console.error('Invoice form meta error:', error);
+    res.status(500).json({ success: false, message: 'Server error while loading invoice settings' });
+  }
+};
+
+// The printable invoice. Generated on demand from the stored invoice, so it always reflects the
+// current status, payments and e-CF data.
+export const getInvoicePdf = async (req: AuthRequest, res: Response) => {
+  try {
+    const invoice = await Invoice.findById(req.params.id)
+      .populate('customer', 'name rnc razonSocial email phone address')
+      .populate('electronicInvoiceId')
+      .lean({ virtuals: true });
+    if (!invoice) return res.status(404).json({ success: false, message: 'Invoice not found' });
+
+    // Once an e-CF exists, the printed representation is BillingSoft's: it is the one that carries
+    // DGII's QR (which needs the signing time only BillingSoft holds). Pilloto's own layout is for
+    // drafts and for invoices whose e-CF BillingSoft has not confirmed yet.
+    const issued = invoice.electronicInvoiceId as any;
+    if (issued && typeof issued === 'object' && issued.billingsoftDocumentId) {
+      const fiscalTenant = await Tenant.findById(req.tenantId).select('fiscal');
+      const organizationId = fiscalTenant?.fiscal?.organizationId;
+      if (organizationId) {
+        try {
+          const official = await getBillingSoftClient().getDocumentPdf(organizationId, issued.billingsoftDocumentId);
+          res.setHeader('Content-Type', 'application/pdf');
+          res.setHeader('Content-Disposition', `inline; filename="Factura-${invoice.invoiceNumber}.pdf"`);
+          res.setHeader('Cache-Control', 'no-store');
+          return res.send(official);
+        } catch (err: any) {
+          console.warn(`[Invoice.pdf] BillingSoft PDF unavailable for ${invoice.invoiceNumber}, using Pilloto's layout: ${err?.message}`);
+        }
+      }
+    }
+
+    const tenant: any = await Tenant.findById(req.tenantId).select('name profile settings.logoUrl settings.timezone').lean();
+    const uploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, '../../../uploads');
+    const logo = await loadLogo(tenant?.settings?.logoUrl, uploadsDir);
+
+    const customer = invoice.customer as any;
+    const ecf = invoice.electronicInvoiceId as any;
+    const data: InvoicePdfData = {
+      invoiceNumber: invoice.invoiceNumber,
+      status: invoice.status,
+      timezone: tenant?.settings?.timezone,
+      issueDate: new Date(invoice.issueDate),
+      dueDate: invoice.dueDate ? new Date(invoice.dueDate) : undefined,
+      reference: invoice.reference,
+      notes: invoice.notes,
+      lines: invoice.lineItems.map((l) => ({
+        description: l.description, quantity: l.quantity, unitPrice: l.unitPrice, discountPercent: l.discountPercent,
+        taxRate: l.taxRate, lineTotal: l.lineTotal, total: l.total,
+      })),
+      subtotal: invoice.subtotal,
+      taxAmount: invoice.taxAmount,
+      total: invoice.total,
+      amountPaid: invoice.amountPaid,
+      balanceDue: invoice.balanceDue,
+      issuer: {
+        name: tenant?.name || '',
+        legalName: tenant?.profile?.legalName,
+        rnc: tenant?.profile?.rnc,
+        address: tenant?.profile?.address,
+        phone: tenant?.profile?.phone,
+        email: tenant?.profile?.email,
+        logo,
+      },
+      buyer: invoice.isIndividual
+        ? { name: invoice.individualCustomer?.name || '—', email: invoice.individualCustomer?.email, phone: invoice.individualCustomer?.phone }
+        : { name: customer?.razonSocial || customer?.name || '—', rnc: customer?.rnc, address: customer?.address, email: customer?.email, phone: customer?.phone },
+      ecf: ecf && typeof ecf === 'object' && ecf.eNCF
+        ? {
+          tipo: ecf.tipo,
+          eNCF: ecf.eNCF,
+          estado: ecf.estadoECF,
+          securityCode: ecf.codigoSeguridad,
+          signedAt: ecf.fechaFirmaDigital ? new Date(ecf.fechaFirmaDigital) : undefined,
+        }
+        : undefined,
+    };
+
+    const pdf = await generateInvoicePdf(data);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="Factura-${invoice.invoiceNumber}.pdf"`);
+    res.setHeader('Cache-Control', 'no-store');
+    res.send(pdf);
+  } catch (error: any) {
+    if (error.name === 'CastError') return res.status(400).json({ success: false, message: 'Invalid invoice ID' });
+    console.error('Invoice PDF error:', error);
+    res.status(500).json({ success: false, message: 'Server error while generating the invoice PDF' });
   }
 };

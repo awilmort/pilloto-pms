@@ -18,7 +18,8 @@ import {
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import { useTranslation } from 'react-i18next';
 import { ElectronicInvoice } from '../../types';
-import { ecfService } from '../../services/api';
+import { fiscalService } from '../../services/api';
+import { fiscalErrorMessage } from '../fiscal/fiscalUi';
 import EcfStatusBadge from './EcfStatusBadge';
 
 interface InvoiceGenerationModalProps {
@@ -67,6 +68,8 @@ const InvoiceGenerationModal: React.FC<InvoiceGenerationModalProps> = ({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [generatedInvoice, setGeneratedInvoice] = useState<ElectronicInvoice | null>(null);
+  /** BillingSoft could not be reached: the e-CF is saved and goes out by itself. */
+  const [queued, setQueued] = useState(false);
 
   const RNC_REGEX = /^\d{9}$|^\d{11}$/;
 
@@ -80,6 +83,7 @@ const InvoiceGenerationModal: React.FC<InvoiceGenerationModalProps> = ({
     setBuyerRazonSocial(prefillBuyerRazonSocial ?? '');
     setError(null);
     setGeneratedInvoice(null);
+    setQueued(false);
     onClose();
   }
 
@@ -104,7 +108,7 @@ const InvoiceGenerationModal: React.FC<InvoiceGenerationModalProps> = ({
 
     setSubmitting(true);
     try {
-      const res = await ecfService.generateInvoice({
+      const res = await fiscalService.issueFromFolio({
         folioId,
         paymentId,
         tipoECF: invoiceType as 'E31' | 'E32',
@@ -113,16 +117,13 @@ const InvoiceGenerationModal: React.FC<InvoiceGenerationModalProps> = ({
         buyerEmail: buyerEmail.trim().toLowerCase() || undefined,
         buyerRazonSocial: buyerRazonSocial.trim() || undefined,
       });
-      const invoice = res.data.data!;
+      const invoice = res.data.data;
       setGeneratedInvoice(invoice);
+      setQueued(Boolean(res.data.queued));
       setStep('result');
       if (onInvoiceGenerated) onInvoiceGenerated(invoice);
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.response?.data?.detail ||
-        t('admin.settings.ecfInvoices.generate.errors.generationFailed');
-      setError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+      setError(fiscalErrorMessage(err, t));
     } finally {
       setSubmitting(false);
     }
@@ -130,7 +131,7 @@ const InvoiceGenerationModal: React.FC<InvoiceGenerationModalProps> = ({
 
   function handleRefreshStatus() {
     if (!generatedInvoice?._id) return;
-    ecfService.refreshStatus(generatedInvoice._id).then((res) => {
+    fiscalService.refreshDocument(generatedInvoice._id).then((res) => {
       if (res.data.data) setGeneratedInvoice(res.data.data);
     }).catch(() => {});
   }
@@ -285,7 +286,7 @@ const InvoiceGenerationModal: React.FC<InvoiceGenerationModalProps> = ({
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <Typography variant="h6" fontFamily="monospace">
-                {generatedInvoice.eNCF}
+                {generatedInvoice.eNCF ?? t('fiscal.documents.noEncf', 'Number pending')}
               </Typography>
               <EcfStatusBadge status={generatedInvoice.estadoECF} />
             </Box>
@@ -294,10 +295,13 @@ const InvoiceGenerationModal: React.FC<InvoiceGenerationModalProps> = ({
               {' · '}
               {t('admin.settings.ecfInvoices.generate.itbisLabel')}: {formatCurrency(generatedInvoice.totalImpuestos)}
             </Typography>
-            {generatedInvoice.mensaje && (
+            {queued && (
+              <Alert severity="info">{t('fiscal.documents.queuedAtDesk', 'Saved. We could not reach the invoicing service just now, so it will be sent automatically in a moment. The payment is not affected.')}</Alert>
+            )}
+            {!queued && generatedInvoice.mensaje && (
               <Alert severity="info">{generatedInvoice.mensaje}</Alert>
             )}
-            {generatedInvoice.estadoECF === 'En Proceso' && (
+            {!queued && generatedInvoice.estadoECF === 'En Proceso' && (
               <Alert severity="info">
                 {t('admin.settings.ecfInvoices.generate.pendingInfo')}
               </Alert>
@@ -308,7 +312,7 @@ const InvoiceGenerationModal: React.FC<InvoiceGenerationModalProps> = ({
         )}
       </DialogContent>
       <DialogActions>
-        {generatedInvoice?.estadoECF === 'En Proceso' && (
+        {!queued && generatedInvoice?.estadoECF === 'En Proceso' && (
           <Button variant="outlined" size="small" onClick={handleRefreshStatus}>
             {t('admin.settings.ecfInvoices.actions.refreshStatus')}
           </Button>

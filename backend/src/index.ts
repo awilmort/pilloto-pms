@@ -41,7 +41,8 @@ import channexWebhookRoutes from './routes/channexWebhook';
 import privacyRoutes from './routes/privacy';
 import bookingRoutes from './routes/booking';
 import reviewRoutes from './routes/reviews';
-import ecfRoutes from './routes/ecf';
+import fiscalRoutes from './routes/fiscal';
+import fiscalWebhookRoutes from './routes/fiscalWebhook';
 import reportsRoutes from './routes/reports';
 import accountingRoutes from './routes/accounting';
 import { syncUploadsToMedia } from './utils/mediaSync';
@@ -51,6 +52,8 @@ import cron from 'node-cron';
 import { resolveTenant } from './middleware/tenantContext';
 import { logChannexConfigWarnings } from './services/channex/config';
 import { startChannexWorkers, stopChannexWorkers } from './utils/channexCron';
+import { startFiscalWorkers, stopFiscalWorkers } from './utils/fiscalCron';
+import { startBillingWorkers, stopBillingWorkers } from './utils/billingCron';
 import { requireTenantProduct } from './middleware/auth';
 import Tenant from './models/Tenant';
 
@@ -165,6 +168,11 @@ app.use(morgan('combined'));
 // resolveTenant (the tenant comes from the verified payload, not the Host).
 app.use('/api/webhooks/channex', channexWebhookRoutes);
 
+// ── BillingSoft webhook (raw body, no tenant context, no JWT) ───────────────
+// Same constraints as Channex's: the signature covers the raw bytes, and the tenant comes from
+// the path and is confirmed by the verified event, never from the Host header.
+app.use('/api/webhooks/billingsoft', fiscalWebhookRoutes);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -239,7 +247,9 @@ app.use('/api/audit', requireTenantProduct('pms'), auditRoutes);
 app.use('/api/privacy', privacyRoutes);
 app.use('/api/booking', requireTenantProduct('pms'), bookingRoutes);
 app.use('/api/reviews', requireTenantProduct('pms'), reviewRoutes);
-app.use('/api/ecf', requireTenantProduct('pms'), ecfRoutes);
+// Electronic invoicing belongs to the company, not to one app: any tenant can reach it, and the
+// router checks each caller's permission in whichever app they hold a role in.
+app.use('/api/fiscal', fiscalRoutes);
 app.use('/api/admin/reports', requireTenantProduct('pms'), reportsRoutes);
 app.use('/api/accounting', requireTenantProduct('accounting'), accountingRoutes);
 
@@ -308,6 +318,8 @@ const connectDB = async () => {
 const gracefulShutdown = (signal: string, server: ReturnType<typeof app.listen>) => {
   console.log(`\n${signal} received — shutting down gracefully…`);
   stopChannexWorkers();
+  stopFiscalWorkers();
+  stopBillingWorkers();
   server.close(async () => {
     try {
       await mongoose.connection.close();
@@ -350,6 +362,8 @@ const startServer = async () => {
   // Channex channel manager — warn about missing/odd config; the app runs without it.
   logChannexConfigWarnings();
   startChannexWorkers();
+  startFiscalWorkers();
+  startBillingWorkers();
 
   // Night audit cron — fires every hour.
   // Each tenant's configured time (Settings → Night Audit) determines which hour it actually runs.

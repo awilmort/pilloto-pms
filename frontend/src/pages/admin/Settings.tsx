@@ -29,7 +29,7 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import { Navigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import AdminLayout from '../../components/admin/AdminLayout';
 import { SETTINGS_SECTIONS, SettingsOverview, SettingsShell, settingsItem } from '../../components/admin/settings/SettingsNav';
 import NumberField from '../../components/common/NumberField';
@@ -44,7 +44,8 @@ import BookingSettingsTab from '../../components/admin/BookingSettingsTab';
 import MediaPicker from '../../components/admin/MediaPicker';
 import { RoomIllustration, isIllustrationUrl, getIllustrationByKey, getIllustrationKey } from '../../components/illustrations';
 import ReviewsContent from '../../components/admin/ReviewsContent';
-import EcfSettingsTab from '../../components/admin/EcfSettingsTab';
+import FiscalSettingsPanel from '../../components/fiscal/FiscalSettingsPanel';
+import { FISCAL_PATHS } from '../../components/fiscal/useFiscalAccess';
 import ChannelManagerTab from '../../components/admin/channelManager/ChannelManagerTab';
 import PropertyProfileForm from '../../components/admin/PropertyProfileForm';
 
@@ -90,6 +91,7 @@ const defaultSettings: AppSettings = {
 const Settings: React.FC = () => {
   const { t } = useTranslation();
   const { section = 'overview' } = useParams<{ section: string }>();
+  const navigate = useNavigate();
   const [settings, setSettings] = React.useState<AppSettings>(defaultSettings);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -625,7 +627,7 @@ const Settings: React.FC = () => {
             </SectionPanel>
             <SectionPanel show={section === 'e-invoicing'}>
               <Box sx={{ px: 3, pb: 3 }}>
-                <EcfSettingsTab />
+                <FiscalSettingsPanel sequencesPath={`${FISCAL_PATHS.pms.center}?tab=sequences`} documentsPath={FISCAL_PATHS.pms.center} onNavigate={navigate} />
               </Box>
             </SectionPanel>
             <SectionPanel show={section === 'channel-manager'}>

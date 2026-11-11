@@ -16,6 +16,7 @@ import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
 import BlockIcon from '@mui/icons-material/Block';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import { useTranslation } from 'react-i18next';
+import { fiscalErrorMessage } from '../../fiscal/fiscalUi';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { usePermission } from '../../../lib/permissions';
 import { creditNotesService, invoicesService, warehousesService, CreditNoteLineItemInput } from '../../../services/api';
@@ -343,7 +344,7 @@ const CreditNotesContent: React.FC = () => {
       await load();
       if (res.data.data) setViewCreditNote(res.data.data.creditNote);
     } catch (e: any) {
-      setIssueError(e.response?.data?.message || t('accounting.creditNotes.messages.issueFailed'));
+      setIssueError(e.response?.data?.code || e.response?.data?.message ? fiscalErrorMessage(e, t) : t('accounting.creditNotes.messages.issueFailed'));
     } finally {
       setIssuing(false);
     }
@@ -715,10 +716,6 @@ const CreditNotesContent: React.FC = () => {
                       <Typography variant="body2"><strong>{t('accounting.creditNotes.dialog.ecfModifies')}:</strong> {electronicInvoiceOf(viewCreditNote)?.originalENCF}</Typography>
                       <Typography variant="body2"><strong>{t('accounting.invoices.dialog.ecfStatus')}:</strong> {electronicInvoiceOf(viewCreditNote)?.estadoECF}</Typography>
                     </Box>
-                    {electronicInvoiceOf(viewCreditNote)?.urlCodigoQr && (
-                      // eslint-disable-next-line jsx-a11y/img-redundant-alt
-                      <img src={electronicInvoiceOf(viewCreditNote)?.urlCodigoQr} alt="QR" style={{ width: 96, height: 96 }} />
-                    )}
                   </Box>
                 </Paper>
               )}

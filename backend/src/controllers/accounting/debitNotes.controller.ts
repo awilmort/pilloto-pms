@@ -6,9 +6,9 @@ import Invoice from '../../models/Invoice';
 import Tenant from '../../models/Tenant';
 import ElectronicInvoice from '../../models/ElectronicInvoice';
 import { nextSequence } from '../../models/Counter';
-import { citrusEcfService, CitrusError, CitrusInvoiceResponse } from '../../services/citrusEcf';
-import { mapToAccountingDebitNote, EcfMapperError, type OriginalInvoiceRef } from '../../utils/ecfMapper';
-import type { IEcfLineItem } from '../../models/ElectronicInvoice';
+import { issueFiscalDocument } from '../../services/fiscal/fiscalIssuer';
+import { assertCanIssue, FiscalError } from '../../services/fiscal/fiscalCore';
+import { accountingNoteLines, noteRequest } from '../../services/fiscal/mappers';
 import { postJournalEntry, getSystemAccountIds, cashAccountCodeForMethod, reversePostedEntries } from '../../services/accounting/ledger.service';
 import { SYSTEM_ACCOUNT_CODES } from '../../constants/accounting';
 
@@ -90,7 +90,7 @@ export const listDebitNotes = async (req: AuthRequest, res: Response) => {
       DebitNote.find(filter)
         .populate('customer', 'name rnc razonSocial email')
         .populate('invoice', 'invoiceNumber total')
-        .populate('electronicInvoiceId', 'eNCF estadoECF urlCodigoQr')
+        .populate('electronicInvoiceId', 'eNCF estadoECF tipo mensaje')
         .sort({ issueDate: -1 })
         .skip((pageNum - 1) * limitNum)
         .limit(limitNum)
@@ -254,108 +254,33 @@ export const issueDebitNote = async (req: AuthRequest, res: Response) => {
 
     const tenant = await Tenant.findById(req.tenantId);
     if (!tenant) return res.status(404).json({ success: false, message: 'Tenant not found' });
-    if (!tenant.ecfConfig?.isActive) {
-      return res.status(400).json({ success: false, message: 'e-CF invoicing is not active for this tenant' });
-    }
-    if (!tenant.ecfConfig?.citrusToken) {
-      return res.status(400).json({ success: false, message: 'Citrus API token is not configured' });
-    }
+    // Fails before anything is touched when the company cannot issue e-CF.
+    assertCanIssue(tenant);
 
-    const originalInvoiceRef: OriginalInvoiceRef = {
-      eNCF: originalEcf.eNCF,
-      tipo: originalEcf.tipo,
-      buyerRnc: originalEcf.buyerRnc,
-      buyerName: originalEcf.buyerName,
-      buyerEmail: originalEcf.buyerEmail,
-      issuedAt: originalEcf.issuedAt,
-    };
     const razonModificacion = debitNote.notes?.trim() || REASON_LABELS[debitNote.reason];
 
-    let payload;
-    try {
-      payload = mapToAccountingDebitNote(
-        originalInvoiceRef,
-        debitNote.fiscalModificationCode as any,
-        razonModificacion,
+    const request = noteRequest({
+      note: 'debit',
+      original: originalEcf,
+      modificationCode: debitNote.fiscalModificationCode,
+      reason: razonModificacion,
+      lines: accountingNoteLines(
         debitNote.lineItems.map((l) => ({ description: l.description, quantity: 1, taxRate: l.taxRate, lineTotal: l.lineTotal })),
-        tenant,
-      );
-    } catch (err: any) {
-      if (err instanceof EcfMapperError) return res.status(400).json({ success: false, message: err.message });
-      throw err;
-    }
+      ),
+    });
 
-    let citrusResponse: CitrusInvoiceResponse;
-    let isContingency = false;
-    try {
-      citrusResponse = await citrusEcfService.generateNotaDebito(tenant, payload);
-    } catch (err: any) {
-      if (err instanceof CitrusError && err.statusCode === 503) {
-        isContingency = true;
-        citrusResponse = {
-          TransaccionId: 0,
-          eNCF: `CONTINGENCIA-${Date.now()}`,
-          FechaVencimientoSecuencia: null,
-          TrackId: `contingency-${Date.now()}`,
-          Estatus: 'Contingencia',
-          EstadoeCF: 'Emitido Contingencia',
-          Mensaje: 'Issued in contingency mode — will be auto-submitted within 72h',
-          UrlCodigoQr: null,
-          CodigoSeguridad: null,
-          SecuenciaUtilizada: false,
-          FechaFirmaDigital: null,
-          Url: null,
-        };
-      } else if (err instanceof CitrusError) {
-        if (err.statusCode === 401) {
-          return res.status(401).json({ success: false, message: 'Citrus API token is invalid or expired — please update the token in settings' });
-        }
-        if (err.statusCode === 400) {
-          return res.status(400).json({ success: false, message: err.message, detail: err.citrusResponse });
-        }
-        return res.status(502).json({ success: false, message: `Citrus error: ${err.message}` });
-      } else {
-        throw err;
-      }
-    }
-
-    const estadoECF = isContingency ? 'Emitido Contingencia' : citrusResponse.EstadoeCF;
-
-    const lineItemsSnapshot: IEcfLineItem[] = debitNote.lineItems.map((l) => ({
-      description: l.description,
-      qty: 1,
-      netPrice: l.lineTotal,
-      itbisRate: l.taxRate,
-      itbisAmount: l.taxAmount,
-      grossAmount: l.total,
-    }));
-
-    const electronicInvoice = await ElectronicInvoice.create({
-      tipo: 'E33',
-      eNCF: citrusResponse.eNCF,
-      transaccionId: citrusResponse.TransaccionId,
-      ...(citrusResponse.TrackId ? { trackId: citrusResponse.TrackId } : {}),
+    // The key comes from the note, so a repeated request or a retry after a timeout can never issue
+    // a second fiscal document. If BillingSoft cannot be reached the e-CF is saved and sent
+    // automatically (`queued`); the debit note is issued either way.
+    const { record: electronicInvoice, queued } = await issueFiscalDocument({
+      tenant,
+      route: 'debit-notes',
+      request,
+      actorId: req.user._id,
+      source: 'debit_note',
       numeroFacturaInterna: debitNote.debitNoteNumber,
-      estadoECF: estadoECF as any,
-      estatus: citrusResponse.Estatus ?? '',
-      mensaje: citrusResponse.Mensaje || undefined,
-      totalFactura: debitNote.total,
-      totalImpuestos: debitNote.taxAmount,
-      currency: 'DOP',
-      buyerRnc: originalEcf.buyerRnc,
-      buyerName: originalEcf.buyerName,
-      buyerEmail: originalEcf.buyerEmail,
-      lineItems: lineItemsSnapshot,
-      originalENCF: originalEcf.eNCF,
-      codigoModificacion: debitNote.fiscalModificationCode,
-      urlCodigoQr: citrusResponse.UrlCodigoQr ?? undefined,
-      codigoSeguridad: citrusResponse.CodigoSeguridad ?? undefined,
-      fechaFirmaDigital: citrusResponse.FechaFirmaDigital ? new Date(citrusResponse.FechaFirmaDigital) : undefined,
-      fechaVencimientoSecuencia: citrusResponse.FechaVencimientoSecuencia ? new Date(citrusResponse.FechaVencimientoSecuencia) : undefined,
-      generatedBy: req.user._id,
-      generationSource: 'debit_note',
-      issuedAt: new Date(),
-      retryCount: 0,
+      original: { eNCF: originalEcf.eNCF!, codigoModificacion: debitNote.fiscalModificationCode },
+      idempotencyKey: `acct-debit-note-${debitNote._id}`,
     });
 
     debitNote.status = 'issued';
@@ -385,8 +310,11 @@ export const issueDebitNote = async (req: AuthRequest, res: Response) => {
       console.error(`[DebitNote.issue] GL posting failed for debit note ${debitNote.debitNoteNumber}:`, glErr?.message || glErr);
     }
 
-    res.status(200).json({ success: true, message: 'Debit note issued successfully', data: { debitNote, electronicInvoice } });
+    res.status(200).json({ success: true, message: 'Debit note issued successfully', queued, data: { debitNote, electronicInvoice } });
   } catch (error: any) {
+    if (error instanceof FiscalError) {
+      return res.status(error.statusCode).json({ success: false, code: error.code, message: error.message, ...(error.fields ? { fields: error.fields } : {}) });
+    }
     if (error?.status) return res.status(error.status).json({ success: false, message: error.message });
     if (error.name === 'CastError') return res.status(400).json({ success: false, message: 'Invalid debit note ID' });
     console.error('Issue debit note error:', error);

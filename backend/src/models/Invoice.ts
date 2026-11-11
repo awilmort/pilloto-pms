@@ -67,6 +67,7 @@ export interface IInvoice extends Document {
   individualCustomer?: IIndividualCustomer; // required when isIndividual
   issueDate: Date;
   dueDate?: Date;
+  reference?: string; // the customer's own reference (purchase order no., contract, …) — printed on the invoice
   lineItems: IInvoiceLineItem[];
   subtotal: number;
   taxAmount: number;
@@ -142,6 +143,7 @@ const invoiceSchema = new Schema<IInvoice>(
     individualCustomer: { type: individualCustomerSchema },
     issueDate: { type: Date, required: true, default: () => new Date() },
     dueDate: { type: Date },
+    reference: { type: String, trim: true, maxlength: 100 },
     lineItems: {
       type: [invoiceLineItemSchema],
       validate: {

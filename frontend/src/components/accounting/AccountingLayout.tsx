@@ -1,5 +1,5 @@
 import React from 'react';
-import { DashboardOutlined, SettingsOutlined, Inventory2Outlined, WarehouseOutlined, ReceiptLongOutlined, PeopleAltOutlined, RequestQuoteOutlined, RequestPageOutlined, StorefrontOutlined, AssignmentReturnOutlined, PostAddOutlined, MenuBookOutlined, AssessmentOutlined, LocationCityOutlined } from '@mui/icons-material';
+import { DashboardOutlined, SettingsOutlined, Inventory2Outlined, WarehouseOutlined, ReceiptLongOutlined, PeopleAltOutlined, RequestQuoteOutlined, RequestPageOutlined, StorefrontOutlined, AssignmentReturnOutlined, PostAddOutlined, MenuBookOutlined, AssessmentOutlined, LocationCityOutlined, VerifiedOutlined } from '@mui/icons-material';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { hasPermission } from '../../lib/permissions';
@@ -33,9 +33,10 @@ const AccountingLayout: React.FC<AccountingLayoutProps> = ({ children, title }) 
     const ledger = t('accounting.nav.accounting', 'Accounting');
     return [
       { text: t('accounting.nav.dashboard', 'Dashboard'), icon: <DashboardOutlined />, path: '/accounting', key: 'dashboard', perm: 'accounting.dashboard' },
-      { section: sales, text: t('accounting.nav.invoices', 'Invoices'), icon: <ReceiptLongOutlined />, path: '/accounting/invoices', key: 'invoicing-invoices', perm: ['accounting.invoices.view', 'accounting.invoices.manage'] },
+      { section: sales, text: t('accounting.nav.invoices', 'Invoices'), icon: <ReceiptLongOutlined />, path: '/accounting/invoices', activePrefix: '/accounting/invoices/', key: 'invoicing-invoices', perm: ['accounting.invoices.view', 'accounting.invoices.manage'] },
       { section: sales, text: t('accounting.nav.creditNotes', 'Credit Notes'), icon: <AssignmentReturnOutlined />, path: '/accounting/credit-notes', key: 'invoicing-credit-notes', perm: ['accounting.creditNotes.view', 'accounting.creditNotes.manage'] },
       { section: sales, text: t('accounting.nav.debitNotes', 'Debit Notes'), icon: <PostAddOutlined />, path: '/accounting/debit-notes', key: 'invoicing-debit-notes', perm: ['accounting.debitNotes.view', 'accounting.debitNotes.manage'] },
+      { section: sales, text: t('fiscal.nav.accounting', 'E-invoices (e-CF)'), icon: <VerifiedOutlined />, path: '/accounting/fiscal', key: 'invoicing-fiscal', perm: ['accounting.invoices.view', 'accounting.invoices.manage', 'accounting.creditNotes.view', 'accounting.debitNotes.view', 'accounting.settings.manage'] },
       { section: sales, text: t('accounting.nav.quotes', 'Quotes'), icon: <RequestQuoteOutlined />, path: '/accounting/quotes', key: 'invoicing-quotes', perm: ['accounting.quotes.view', 'accounting.quotes.manage'] },
       { section: sales, text: t('accounting.nav.customers', 'Customers'), icon: <PeopleAltOutlined />, path: '/accounting/customers', key: 'invoicing-customers', perm: 'accounting.customers.manage' },
       { section: sales, text: t('accounting.nav.cityLedger', 'City Ledger'), icon: <LocationCityOutlined />, path: '/accounting/city-ledger', key: 'invoicing-city-ledger', perm: ['accounting.cityLedger.view', 'accounting.cityLedger.authorize'] },

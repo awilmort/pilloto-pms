@@ -5,9 +5,12 @@ import type { OccupancyReportData, ManagerFlashData, ForecastData, SegmentationD
 import type { DashboardData } from '../types/dashboard';
 import type { Customer, RoomBlock, RoomBlockReason } from '../types';
 import type { ChargeTemplate, ChargeRule, ChargeRuleExecution, AuditRun } from '../types';
-import type { TenantEcfConfig, ElectronicInvoice, EcfMonthlyTaxRow, EcfSequenceInfo } from '../types';
+import type {
+  ElectronicInvoice, EcfMonthlyTaxRow, FiscalActivation, FiscalAlert, FiscalPlanId, FiscalPlans, FiscalReadiness, FiscalSequence,
+  FiscalStatement, FiscalStatus, FiscalUsage, ReceivedDecision, ReceivedDocument, ReceivedDocumentDetail,
+} from '../types';
 import type { Warehouse, Product, InventoryTransaction, InventoryAdjustmentReason } from '../types';
-import type { Invoice, InvoicePaymentMethod, Quote } from '../types';
+import type { Invoice, InvoicePaymentMethod, Quote, InvoiceFormMeta } from '../types';
 import type { Account, Supplier, Bill, BillPaymentMethod } from '../types';
 import type { CreditNote, CreditNoteReason, CreditNoteFiscalModificationCode, CreditNoteRefundMethod } from '../types';
 import type { DebitNote, DebitNoteReason, DebitNoteFiscalModificationCode, DebitNotePaymentMethod } from '../types';
@@ -15,8 +18,11 @@ import type { JournalEntry, JournalEntrySource } from '../types';
 import type {
   TrialBalanceReport, ProfitAndLossReport, BalanceSheetReport,
   ApAgingReport, ArAgingReport, GeneralLedgerReport,
-  SupplierStatementReport, CustomerStatementReport,
+  SupplierStatementReport, CustomerStatementReport, AccountingDashboardData, DashboardPeriod,
 } from '../types';
+import type {
+  BillingCharge, BillingIssuer, BillingIssuerReadiness, BillingOverview, BillingPayment, BillingPlanEntry, BillingProduct, BillingSequence, BillingSettings, BillingTenant, BillingTenantDetail, Paged, RecordPaymentBody,
+} from '../types/billing';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
 // Prefer the explicit public backend URL env var; fall back to deriving from API_BASE_URL.
@@ -2103,171 +2109,124 @@ export const auditService = {
     apiClient.get('/audit/runs', { params }),
 };
 
-// ─── e-CF (Electronic Fiscal Invoicing) ──────────────────────────────────────
+// ─── e-CF (electronic fiscal invoicing) ──────────────────────────────────────
+// One module for the company, used by PMS and Accounting alike (backend: /api/fiscal).
 
-export const ecfService = {
-  /** Get tenant's ECF config (token is masked — only hasToken flag is returned) */
-  getConfig: (): Promise<AxiosResponse<ApiResponse<TenantEcfConfig | null>>> =>
-    apiClient.get('/ecf/config'),
+type FiscalList<T> = ApiResponse<T[]> & { meta?: { total: number; page: number; limit: number; pages: number } };
 
-  /** Save/update ECF configuration (pass citrusToken only when rotating) */
-  saveConfig: (data: Partial<TenantEcfConfig & { citrusToken?: string }>): Promise<AxiosResponse<ApiResponse<null>>> =>
-    apiClient.put('/ecf/config', data),
+export interface FiscalDocumentQuery {
+  q?: string;
+  estadoECF?: string;
+  tipo?: string;
+  fechaInicio?: string;
+  fechaFin?: string;
+  folioId?: string;
+  paymentId?: string;
+  invoiceId?: string;
+  page?: number;
+  limit?: number;
+}
 
-  /** Revoke the stored Citrus API token */
-  revokeToken: (): Promise<AxiosResponse<ApiResponse<null>>> =>
-    apiClient.delete('/ecf/config/token'),
+export interface FiscalIssueResult {
+  success: boolean;
+  /** True when BillingSoft could not be reached: saved, and sent automatically. */
+  queued?: boolean;
+  data: ElectronicInvoice;
+  message?: string;
+}
 
-  /** Test the Citrus connection with the stored token */
-  testConnection: (): Promise<AxiosResponse<ApiResponse<null>>> =>
-    apiClient.post('/ecf/config/test'),
+export interface FiscalOtherLine {
+  name: string;
+  kind: 'good' | 'service';
+  quantity: string;
+  unitPrice: string;
+  tax: 'itbis18' | 'itbis16' | 'itbis0' | 'exempt';
+  withholding?: { itbis?: string; isr?: string };
+}
 
-  /** List electronic invoices with optional filters */
-  getInvoices: (params?: {
-    folioId?: string;
-    paymentId?: string;
-    estadoECF?: string;
-    tipo?: string;
-    fechaInicio?: string;
-    fechaFin?: string;
-    eNCF?: string;
-    buyerRnc?: string;
-    page?: number;
-    limit?: number;
-  }): Promise<AxiosResponse<ApiResponse<ElectronicInvoice[]>>> =>
-    apiClient.get('/ecf/invoices', { params }),
+export const fiscalService = {
+  // ── The company's e-CF ─────────────────────────────────────────────────────
+  getStatus: (): Promise<AxiosResponse<ApiResponse<FiscalStatus>>> => apiClient.get('/fiscal/status'),
+  sync: (): Promise<AxiosResponse<ApiResponse<FiscalStatus>>> => apiClient.post('/fiscal/sync'),
+  activate: (data: FiscalActivation): Promise<AxiosResponse<ApiResponse<FiscalStatus>>> => apiClient.post('/fiscal/activate', data),
+  getPlans: (): Promise<AxiosResponse<ApiResponse<FiscalPlans>>> => apiClient.get('/fiscal/plans'),
+  changePlan: (plan: FiscalPlanId): Promise<AxiosResponse<ApiResponse<FiscalStatus> & { outcome: 'applied' | 'scheduled' | 'unchanged' | 'cancelled' }>> =>
+    apiClient.put('/fiscal/plan', { plan }),
+  getReadiness: (): Promise<AxiosResponse<ApiResponse<FiscalReadiness>>> => apiClient.get('/fiscal/readiness'),
+  getUsage: (): Promise<AxiosResponse<ApiResponse<FiscalUsage>>> => apiClient.get('/fiscal/usage'),
+  getStatements: (): Promise<AxiosResponse<ApiResponse<FiscalStatement[]>>> => apiClient.get('/fiscal/statements'),
+  getAlerts: (): Promise<AxiosResponse<ApiResponse<FiscalAlert[]>>> => apiClient.get('/fiscal/alerts'),
 
-  /** Get a single invoice by ID */
-  getInvoice: (id: string): Promise<AxiosResponse<ApiResponse<ElectronicInvoice>>> =>
-    apiClient.get(`/ecf/invoices/${id}`),
+  // ── Documents ──────────────────────────────────────────────────────────────
+  getDocuments: (params?: FiscalDocumentQuery): Promise<AxiosResponse<FiscalList<ElectronicInvoice>>> =>
+    apiClient.get('/fiscal/documents', { params }),
+  getDocument: (id: string): Promise<AxiosResponse<ApiResponse<ElectronicInvoice>>> => apiClient.get(`/fiscal/documents/${id}`),
+  refreshDocument: (id: string): Promise<AxiosResponse<ApiResponse<ElectronicInvoice>>> => apiClient.post(`/fiscal/documents/${id}/refresh`),
+  retryDocument: (id: string): Promise<AxiosResponse<FiscalIssueResult>> => apiClient.post(`/fiscal/documents/${id}/retry`),
+  emailDocument: (id: string, email?: string): Promise<AxiosResponse<ApiResponse<null>>> =>
+    apiClient.post(`/fiscal/documents/${id}/email`, email ? { email } : {}),
+  getDocumentPdfBlob: (id: string): Promise<AxiosResponse<Blob>> => apiClient.get(`/fiscal/documents/${id}/pdf`, { responseType: 'blob' }),
+  getDocumentXmlBlob: (id: string): Promise<AxiosResponse<Blob>> => apiClient.get(`/fiscal/documents/${id}/xml`, { responseType: 'blob' }),
 
-  /** Generate an invoice from a folio/payment */
-  generateInvoice: (data: {
+  /** PMS: an e-CF for a folio's charges (31 with a buyer RNC, else 32). */
+  issueFromFolio: (data: {
     folioId: string;
     paymentId?: string;
-    tipoECF?: string;
+    tipoECF?: 'E31' | 'E32';
     buyerRnc?: string;
     buyerName?: string;
     buyerEmail?: string;
     buyerRazonSocial?: string;
-  }): Promise<AxiosResponse<ApiResponse<ElectronicInvoice>>> =>
-    apiClient.post('/ecf/invoices', data),
+  }): Promise<AxiosResponse<FiscalIssueResult>> => apiClient.post('/fiscal/documents/from-folio', data),
 
-  /** Re-check invoice status with Citrus */
-  refreshStatus: (id: string): Promise<AxiosResponse<ApiResponse<ElectronicInvoice>>> =>
-    apiClient.post(`/ecf/invoices/${id}/refresh-status`),
-
-  /** Send the representación impresa (PDF) by email for an invoice */
-  sendInvoiceEmail: (id: string, email?: string): Promise<AxiosResponse<ApiResponse<null>>> =>
-    apiClient.post(`/ecf/invoices/${id}/send-email`, email ? { email } : undefined),
-
-  /** Fetch invoice PDF as blob (auth-aware, avoids direct window navigation issues) */
-  getInvoicePdfBlob: (id: string): Promise<AxiosResponse<Blob>> =>
-    apiClient.get(`/ecf/invoices/${id}/pdf`, { responseType: 'blob' }),
-
-  /** Fetch invoice XML as blob (auth-aware, avoids direct window navigation issues) */
-  getInvoiceXmlBlob: (id: string): Promise<AxiosResponse<Blob>> =>
-    apiClient.get(`/ecf/invoices/${id}/xml`, { responseType: 'blob' }),
-
-  /** Create a credit note (E34) for an accepted invoice */
-  createCreditNote: (data: {
-    originalEcfId: string;
-    codigoModificacion: '1' | '2' | '3' | '4' | '5';
+  /** A credit note (34) on an accepted invoice. `codigoModificacion`: DGII's code, '1' void · '2' text · '3' amounts. */
+  issueCreditNote: (data: {
+    originalId: string;
+    codigoModificacion: '1' | '2' | '3';
     razonModificacion: string;
     items?: Array<{ description: string; amount: number }>;
     totalAmount?: number;
-  }): Promise<AxiosResponse<ApiResponse<ElectronicInvoice>>> =>
-    apiClient.post('/ecf/credit-notes', data),
+  }): Promise<AxiosResponse<FiscalIssueResult>> => apiClient.post('/fiscal/documents/credit-note', data),
 
-  /** Create a debit note (E33) for an accepted invoice */
-  createDebitNote: (data: {
-    originalEcfId: string;
-    reason: string;
+  issueDebitNote: (data: {
+    originalId: string;
+    razonModificacion: string;
     items?: Array<{ description: string; amount: number }>;
     totalAmount?: number;
-  }): Promise<AxiosResponse<ApiResponse<ElectronicInvoice>>> =>
-    apiClient.post('/ecf/debit-notes', data),
+  }): Promise<AxiosResponse<FiscalIssueResult>> => apiClient.post('/fiscal/documents/debit-note', data),
 
-  // ─── Phase 4: Reporting & Operational Tools ────────────────────────────────
-
-  /** Monthly tax report — totals by year-month and tipo */
-  getMonthlyTaxReport: (params?: {
-    year?: number;
-    limit?: number;
-  }): Promise<AxiosResponse<ApiResponse<EcfMonthlyTaxRow[]>>> =>
-    apiClient.get('/ecf/reports/monthly-tax', { params }),
-
-  /** Sequence info derived from stored invoices (per tipo) */
-  getSequences: (): Promise<AxiosResponse<ApiResponse<EcfSequenceInfo[]>>> =>
-    apiClient.get('/ecf/sequences'),
-
-  /** Submit sequence annulment to Citrus */
-  annulSequences: (data: {
-    tipo: string;
-    secuencias: string[];
-  }): Promise<AxiosResponse<ApiResponse<null>>> =>
-    apiClient.post('/ecf/sequences/annul', data),
-
-  /** Bulk refresh all En Proceso / Contingencia invoices */
-  bulkRefreshPending: (): Promise<AxiosResponse<ApiResponse<{
-    total: number;
-    refreshed: number;
-    failed: number;
-  }>>> =>
-    apiClient.post('/ecf/invoices/bulk-refresh'),
-
-  // ─── Phase 5: Received invoices, other types, health, directory, alerts ───
-
-  /** List received invoices (Comprobantes Recibidos) from Citrus */
-  getReceivedInvoices: (params?: {
-    fechaDesde?: string;
-    fechaHasta?: string;
-    rnc?: string;
-    page?: number;
-    limit?: number;
-  }): Promise<AxiosResponse<ApiResponse<unknown>>> =>
-    apiClient.get('/ecf/received-invoices', { params }),
-
-  /** Submit commercial approval (approve/reject) for a received invoice */
-  submitCommercialApproval: (data: {
-    trackId: string;
-    aprobado: boolean;
-    motivoRechazo?: string;
-  }): Promise<AxiosResponse<ApiResponse<unknown>>> =>
-    apiClient.post('/ecf/commercial-approval', data),
-
-  /** Generate an other invoice type (E41/E43/E44/E45/E46/E47) */
-  generateOtherInvoice: (data: {
-    tipo: string;
-    items: Array<{ description: string; amount: number; exempt?: boolean }>;
-    buyer?: {
-      rnc?: string;
-      razonSocial?: string;
-      name?: string;
-      email?: string;
-      country?: string;
-    };
-    tipoPago?: number;
+  /** Purchases, minor expenses, special regime, government, export and payments abroad (41–47). */
+  issueOther: (data: {
+    type: '41' | '43' | '44' | '45' | '46' | '47';
+    buyer?: { name: string; rnc?: string; foreignId?: string; email?: string; address?: string };
+    incomeType?: string;
+    payment?: { type: 'cash' } | { type: 'credit'; dueOn: string } | { type: 'free' };
+    lines: FiscalOtherLine[];
     refNumber?: string;
-  }): Promise<AxiosResponse<ApiResponse<ElectronicInvoice>>> =>
-    apiClient.post('/ecf/invoices/other', data),
+  }): Promise<AxiosResponse<FiscalIssueResult>> => apiClient.post('/fiscal/documents/other', data),
 
-  /** Check Citrus connectivity */
-  checkHealth: (): Promise<AxiosResponse<ApiResponse<{ online: boolean; reason?: string; checkedAt: string }>>> =>
-    apiClient.get('/ecf/health'),
+  // ── Reports, sequences, received documents, directory ──────────────────────
+  getMonthlyTaxReport: (params?: { year?: number; limit?: number }): Promise<AxiosResponse<ApiResponse<EcfMonthlyTaxRow[]>>> =>
+    apiClient.get('/fiscal/reports/monthly-tax', { params }),
 
-  /** Get the electronic billers directory (cached 24h server-side) */
-  getDirectory: (params?: { refresh?: boolean }): Promise<AxiosResponse<ApiResponse<unknown>>> =>
-    apiClient.get('/ecf/directory', { params }),
+  getSequences: (): Promise<AxiosResponse<ApiResponse<FiscalSequence[]>>> => apiClient.get('/fiscal/sequences'),
+  recordSequence: (data: { documentType: string; rangeStart: number; rangeEnd: number; expiresOn?: string }): Promise<AxiosResponse<ApiResponse<FiscalSequence>>> =>
+    apiClient.post('/fiscal/sequences', data),
+  annulSequences: (ranges: Array<{ documentType: string; from: number; to: number }>): Promise<AxiosResponse<ApiResponse<{ count: number; outcome: string; fileName: string }>>> =>
+    apiClient.post('/fiscal/sequences/annul', { ranges }),
 
-  /** Get current alerts: rejected invoices, stale pending, token/sequence expiry */
-  getAlerts: (): Promise<AxiosResponse<ApiResponse<Array<{
-    type: string;
-    severity: 'info' | 'warning' | 'error';
-    message: string;
-    count?: number;
-  }>>>> =>
-    apiClient.get('/ecf/alerts'),
+  getReceived: (params?: { page?: number; filter?: 'undecided' | 'approved' | 'rejected'; q?: string }): Promise<AxiosResponse<FiscalList<ReceivedDocument>>> =>
+    apiClient.get('/fiscal/received', { params }),
+  getReceivedOne: (id: string): Promise<AxiosResponse<ApiResponse<ReceivedDocumentDetail>>> => apiClient.get(`/fiscal/received/${id}`),
+  getReceivedFileBlob: (id: string, file: 'xml' | 'pdf' | 'acknowledgment'): Promise<AxiosResponse<Blob>> =>
+    apiClient.get(`/fiscal/received/${id}/${file}`, { responseType: 'blob' }),
+  decideReceived: (id: string, decision: ReceivedDecision, reason?: string): Promise<AxiosResponse<ApiResponse<ReceivedDocumentDetail>>> =>
+    apiClient.post(`/fiscal/received/${id}/decision`, decision === 'rejected' ? { decision, reason } : { decision }),
+  retryReceivedDelivery: (id: string, target: 'dgii' | 'issuer'): Promise<AxiosResponse<ApiResponse<ReceivedDocumentDetail>>> =>
+    apiClient.post(`/fiscal/received/${id}/deliveries/${target}/retry`),
+
+  lookupDirectory: (rnc: string): Promise<AxiosResponse<ApiResponse<{ rnc: string; name: string } | null>>> =>
+    apiClient.get('/fiscal/directory', { params: { rnc } }),
 };
 
 // ─── Reports Service ──────────────────────────────────────────────────────────
@@ -2419,12 +2378,20 @@ export const invoicesService = {
   getInvoice: (id: string): Promise<AxiosResponse<ApiResponse<Invoice>>> =>
     apiClient.get(`/accounting/invoices/${id}`),
 
+  getFormMeta: (): Promise<AxiosResponse<ApiResponse<InvoiceFormMeta>>> =>
+    apiClient.get('/accounting/invoices/form-meta'),
+
+  /** The printable invoice, generated server-side from the stored document. */
+  getPdfBlob: (id: string): Promise<AxiosResponse<Blob>> =>
+    apiClient.get(`/accounting/invoices/${id}/pdf`, { responseType: 'blob', timeout: 30000 }),
+
   createInvoice: (data: {
     customer?: string;
     isIndividual?: boolean;
     individualCustomer?: { name: string; email?: string; phone?: string };
     dueDate?: string;
     notes?: string;
+    reference?: string;
     lineItems: InvoiceLineItemInput[];
   }): Promise<AxiosResponse<ApiResponse<Invoice>>> =>
     apiClient.post('/accounting/invoices', data),
@@ -2435,6 +2402,7 @@ export const invoicesService = {
     individualCustomer?: { name: string; email?: string; phone?: string };
     dueDate?: string;
     notes?: string;
+    reference?: string;
     lineItems?: InvoiceLineItemInput[];
   }): Promise<AxiosResponse<ApiResponse<Invoice>>> =>
     apiClient.put(`/accounting/invoices/${id}`, data),
@@ -2651,6 +2619,12 @@ export const journalEntriesService = {
 // PMS-side hotel reports at `/api/reports/*`) — every call here hits `/api/accounting/reports/*`,
 // computed live server-side on each request, no cached tables.
 
+// Everything on the Accounting dashboard in one request (each block permission-gated server-side).
+export const accountingDashboardService = {
+  get: (period: DashboardPeriod): Promise<AxiosResponse<ApiResponse<AccountingDashboardData>>> =>
+    apiClient.get('/accounting/dashboard', { params: { period } }),
+};
+
 export const accountingReportsService = {
   getTrialBalance: (params?: { asOf?: string }): Promise<AxiosResponse<ApiResponse<TrialBalanceReport>>> =>
     apiClient.get('/accounting/reports/trial-balance', { params }),
@@ -2758,3 +2732,60 @@ export const billsService = {
     apiClient.post(`/accounting/bills/${id}/void`, data || {}),
 };
 
+
+// ─── Platform: how Pilloto charges its tenants ──────────────────────────────
+
+type Ok<T> = Promise<AxiosResponse<ApiResponse<T>>>;
+const billingBase = '/platform/billing';
+
+export const platformBillingService = {
+  overview: (): Ok<BillingOverview> => apiClient.get(`${billingBase}/overview`),
+  getSettings: (): Ok<BillingSettings> => apiClient.get(`${billingBase}/settings`),
+  saveSettings: (data: Partial<BillingSettings>): Ok<BillingSettings> => apiClient.put(`${billingBase}/settings`, data),
+
+  plans: (): Ok<BillingPlanEntry[]> => apiClient.get(`${billingBase}/plans`),
+  setPlanPrice: (product: BillingProduct, plan: string, price: number): Ok<BillingPlanEntry> =>
+    apiClient.put(`${billingBase}/plans/${product}/${plan}`, { price }),
+
+  tenants: (): Ok<BillingTenant[]> => apiClient.get(`${billingBase}/tenants`),
+  tenant: (id: string): Ok<BillingTenantDetail> => apiClient.get(`${billingBase}/tenants/${id}`),
+  updateTenant: (id: string, data: { billingEmail?: string; paused?: boolean }): Ok<BillingTenant> =>
+    apiClient.patch(`${billingBase}/tenants/${id}`, data),
+  addPriceChange: (id: string, data: { product: BillingProduct; price: number; effectiveFrom: string; reason: string }): Ok<BillingTenant> =>
+    apiClient.post(`${billingBase}/tenants/${id}/price-changes`, data),
+  cancelPriceChange: (id: string, changeId: string): Ok<BillingTenant> =>
+    apiClient.delete(`${billingBase}/tenants/${id}/price-changes/${changeId}`),
+  addDiscount: (id: string, data: { product: BillingProduct; type: 'percent' | 'amount'; value: number; effectiveFrom: string; effectiveUntil?: string; reason: string }): Ok<BillingTenant> =>
+    apiClient.post(`${billingBase}/tenants/${id}/discounts`, data),
+  endDiscount: (id: string, discountId: string): Ok<BillingTenant> =>
+    apiClient.delete(`${billingBase}/tenants/${id}/discounts/${discountId}`),
+
+  charges: (params: { status?: string; tenantId?: string; period?: string; overdue?: boolean; page?: number; limit?: number } = {}): Promise<AxiosResponse<{ success: boolean } & Paged<BillingCharge>>> =>
+    apiClient.get(`${billingBase}/charges`, { params }),
+  charge: (id: string): Ok<BillingCharge> => apiClient.get(`${billingBase}/charges/${id}`),
+  generateCharge: (data: { tenantId: string; period: string; notify?: boolean }): Ok<{ created: boolean; charge: BillingCharge }> =>
+    apiClient.post(`${billingBase}/charges/generate`, data),
+  runBilling: (): Ok<{ period: string; created: number; existing: number; skipped: number; failed: number }> =>
+    apiClient.post(`${billingBase}/charges/run`),
+  voidCharge: (id: string, reason: string): Ok<BillingCharge> => apiClient.post(`${billingBase}/charges/${id}/void`, { reason }),
+  notifyCharge: (id: string): Ok<{ sent: boolean }> => apiClient.post(`${billingBase}/charges/${id}/notify`),
+  recordPayment: (chargeId: string, data: RecordPaymentBody): Ok<{ payment: BillingPayment; charge: BillingCharge }> =>
+    apiClient.post(`${billingBase}/charges/${chargeId}/payments`, data),
+
+  payments: (params: { status?: string; tenantId?: string; ecf?: 'missing'; page?: number; limit?: number } = {}): Promise<AxiosResponse<{ success: boolean } & Paged<BillingPayment>>> =>
+    apiClient.get(`${billingBase}/payments`, { params }),
+  retryEcf: (id: string): Ok<BillingPayment> => apiClient.post(`${billingBase}/payments/${id}/ecf`),
+  refreshEcf: (id: string): Ok<BillingPayment> => apiClient.post(`${billingBase}/payments/${id}/refresh`, {}),
+  reversePayment: (id: string, reason: string): Ok<{ payment: BillingPayment; charge: BillingCharge }> =>
+    apiClient.post(`${billingBase}/payments/${id}/reverse`, { reason }),
+  ecfPdf: (id: string): Promise<AxiosResponse<Blob>> => apiClient.get(`${billingBase}/payments/${id}/ecf/pdf`, { responseType: 'blob' }),
+  ecfXml: (id: string): Promise<AxiosResponse<Blob>> => apiClient.get(`${billingBase}/payments/${id}/ecf/xml`, { responseType: 'blob' }),
+  emailEcf: (id: string, email?: string): Ok<{ sentTo: string | null }> => apiClient.post(`${billingBase}/payments/${id}/ecf/email`, { email }),
+
+  issuer: (): Ok<BillingIssuer> => apiClient.get(`${billingBase}/issuer`),
+  issuerReadiness: (): Ok<BillingIssuerReadiness> => apiClient.get(`${billingBase}/issuer/readiness`),
+  linkIssuer: (): Ok<BillingIssuer> => apiClient.post(`${billingBase}/issuer/link`),
+  syncIssuer: (): Ok<BillingIssuer> => apiClient.post(`${billingBase}/issuer/sync`),
+  recordSequence: (data: { documentType: string; rangeStart: number; rangeEnd: number; expiresOn?: string }): Ok<BillingSequence> =>
+    apiClient.post(`${billingBase}/issuer/sequences`, data),
+};
