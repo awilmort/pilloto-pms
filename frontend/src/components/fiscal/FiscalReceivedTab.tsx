@@ -10,6 +10,7 @@ import type { ReceivedDocument, ReceivedDocumentDetail } from '../../types';
 import FiscalPdfDialog from './FiscalPdfDialog';
 import { chipTone, downloadBlob, fiscalErrorMessage, formatDate, formatDateTime, formatDop, formatTaxId } from './fiscalUi';
 import i18n from '../../i18n';
+import { useLoadedOnce } from '../../hooks/useLoadedOnce';
 
 type Filter = 'undecided' | 'approved' | 'rejected' | '';
 
@@ -37,6 +38,7 @@ const FiscalReceivedTab: React.FC<Props> = ({ canDecide, onPendingCount }) => {
   const [total, setTotal] = useState(0);
   const [pageSize, setPageSize] = useState(25);
   const [loading, setLoading] = useState(true);
+  const loadedOnce = useLoadedOnce(loading);
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<ReceivedDocumentDetail | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
@@ -136,7 +138,9 @@ const FiscalReceivedTab: React.FC<Props> = ({ canDecide, onPendingCount }) => {
             </TableBody>
           </Table>
         </TableContainer>
-        <TablePagination component="div" count={total} page={page} rowsPerPage={pageSize} rowsPerPageOptions={[pageSize]} onPageChange={(_, p) => setPage(p)} labelRowsPerPage={t('common.rowsPerPage', 'Rows per page')} />
+        {loadedOnce && (
+          <TablePagination component="div" count={total} page={page} rowsPerPage={pageSize} rowsPerPageOptions={[pageSize]} onPageChange={(_, p) => setPage(p)} labelRowsPerPage={t('common.rowsPerPage', 'Rows per page')} />
+        )}
       </Paper>
 
       {detail && <ReceivedDetailDialog doc={detail} canDecide={canDecide} onClose={() => setDetail(null)} onChanged={(d) => { setDetail(d); void load(); }} />}

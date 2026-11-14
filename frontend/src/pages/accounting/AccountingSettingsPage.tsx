@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import FiscalSettingsPanel from '../../components/fiscal/FiscalSettingsPanel';
 import { FISCAL_PATHS } from '../../components/fiscal/useFiscalAccess';
-import AccountingLayout from '../../components/accounting/AccountingLayout';
+import { usePageTitle } from '../../components/shared/PageTitle';
 import { RolesContent } from '../admin/RolesManagement';
 import { UsersContent } from '../admin/UsersManagement';
 
@@ -28,6 +28,7 @@ const TabPanel: React.FC<TabPanelProps> = ({ children, value, index }) => (
  */
 const AccountingSettingsPage: React.FC = () => {
   const { t } = useTranslation();
+  usePageTitle(t('accounting.settings.title', 'Settings'));
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const tabs = ['roles', 'users', 'fiscal'] as const;
@@ -39,33 +40,31 @@ const AccountingSettingsPage: React.FC = () => {
   };
 
   return (
-    <AccountingLayout title={t('accounting.settings.title', 'Settings')}>
-      <Box sx={{ pb: 4 }}>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-          {t('accounting.settings.subtitle', 'Manage Accounting roles and users, and your company’s electronic invoicing.')}
-        </Typography>
+    <Box sx={{ pb: 4 }}>
+      <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
+        {t('accounting.settings.subtitle', 'Manage Accounting roles and users, and your company’s electronic invoicing.')}
+      </Typography>
 
-        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
-          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-            <Tabs value={activeTab} onChange={(_e, v) => setActiveTab(v)} aria-label={t('nav.accountingSettingsTabs')}>
-              <Tab label={t('accounting.settings.tabs.roles', 'Roles')} id="accounting-settings-tab-0" />
-              <Tab label={t('accounting.settings.tabs.users', 'Users')} id="accounting-settings-tab-1" />
-              <Tab label={t('fiscal.settingsTab', 'Electronic invoicing')} id="accounting-settings-tab-2" />
-            </Tabs>
-          </Box>
+      <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs value={activeTab} onChange={(_e, v) => setActiveTab(v)} aria-label={t('nav.accountingSettingsTabs')}>
+            <Tab label={t('accounting.settings.tabs.roles', 'Roles')} id="accounting-settings-tab-0" />
+            <Tab label={t('accounting.settings.tabs.users', 'Users')} id="accounting-settings-tab-1" />
+            <Tab label={t('fiscal.settingsTab', 'Electronic invoicing')} id="accounting-settings-tab-2" />
+          </Tabs>
+        </Box>
 
-          <TabPanel value={activeTab} index={0}>
-            <RolesContent />
-          </TabPanel>
-          <TabPanel value={activeTab} index={1}>
-            <UsersContent />
-          </TabPanel>
-          <TabPanel value={activeTab} index={2}>
-            <FiscalSettingsPanel sequencesPath={`${FISCAL_PATHS.accounting.center}?tab=sequences`} documentsPath={FISCAL_PATHS.accounting.center} onNavigate={navigate} />
-          </TabPanel>
-        </Paper>
-      </Box>
-    </AccountingLayout>
+        <TabPanel value={activeTab} index={0}>
+          <RolesContent />
+        </TabPanel>
+        <TabPanel value={activeTab} index={1}>
+          <UsersContent />
+        </TabPanel>
+        <TabPanel value={activeTab} index={2}>
+          <FiscalSettingsPanel sequencesPath={`${FISCAL_PATHS.accounting.center}?tab=sequences`} documentsPath={FISCAL_PATHS.accounting.center} onNavigate={navigate} />
+        </TabPanel>
+      </Paper>
+    </Box>
   );
 };
 

@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import { ContentCopy, Refresh } from '@mui/icons-material';
 import { platformChannexService, PlatformAlertRow, PlatformChannexOverview, PlatformWebhookStatus } from '../../../services/api';
+import { usePolling } from '../../../hooks/usePolling';
 
 const time = (d?: string | null) => (d ? new Date(d).toLocaleString() : '—');
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -27,7 +28,8 @@ const yesNo = (ok: boolean, yes = 'yes', no = 'no') => <Chip size="small" color=
 const ChannexGlobalPanel: React.FC<{ onChanged?: () => void }> = ({ onChanged }) => {
   const [overview, setOverview] = useState<PlatformChannexOverview | null>(null);
   const [webhook, setWebhook] = useState<PlatformWebhookStatus | null>(null);
-  const [alerts, setAlerts] = useState<PlatformAlertRow[]>([]);
+  // null until the first answer: "None open." must not show before we know
+  const [alerts, setAlerts] = useState<PlatformAlertRow[] | null>(null);
   const [message, setMessage] = useState<{ severity: 'success' | 'error' | 'info'; text: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [health, setHealth] = useState<any>(null);
@@ -42,8 +44,10 @@ const ChannexGlobalPanel: React.FC<{ onChanged?: () => void }> = ({ onChanged })
     if (o.status === 'fulfilled') setOverview(o.value.data.data ?? null);
     if (w.status === 'fulfilled') setWebhook(w.value.data.data ?? null);
     if (a.status === 'fulfilled') setAlerts(a.value.data.data ?? []);
+    else setAlerts((prev) => prev ?? []);
   }, []);
-  useEffect(() => { load(); const timer = setInterval(load, 15_000); return () => clearInterval(timer); }, [load]);
+  useEffect(() => { load(); }, [load]);
+  usePolling(load, 15_000);
 
   const run = async (key: string, fn: () => Promise<string | void>) => {
     setBusy(key);
@@ -164,7 +168,7 @@ const ChannexGlobalPanel: React.FC<{ onChanged?: () => void }> = ({ onChanged })
       </Box>
 
       <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Platform alerts</Typography>
-      {alerts.length === 0 ? <Typography variant="body2" color="text.secondary">None open.</Typography> : (
+      {alerts === null ? <CircularProgress size={18} /> : alerts.length === 0 ? <Typography variant="body2" color="text.secondary">None open.</Typography> : (
         <Box sx={{ overflowX: 'auto' }}>
           <Table size="small">
             <TableHead><TableRow>{['Last seen', 'Type', 'Key', 'Title', 'Details', ''].map((c) => <TableCell key={c}>{c}</TableCell>)}</TableRow></TableHead>

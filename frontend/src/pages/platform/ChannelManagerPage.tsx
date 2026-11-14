@@ -25,8 +25,8 @@ import {
 import ChannexGlobalPanel from '../../components/platform/channex/ChannexGlobalPanel';
 import ChannexRepairPanel from '../../components/platform/channex/ChannexRepairPanel';
 import { channelCatalog } from '../../utils/channelGuides';
-import PlatformLayout from './PlatformLayout';
 import ChannelConnectFrame, { ChannelConnectFrameLabels } from '../../components/admin/channelManager/ChannelConnectFrame';
+import { usePolling } from '../../hooks/usePolling';
 
 const STATE_COLOR: Record<string, 'success' | 'warning' | 'error' | 'default'> = { active: 'success', provisioning: 'warning', error: 'error', disabled: 'default' };
 const time = (d?: string) => (d ? new Date(d).toLocaleString() : '—');
@@ -191,7 +191,8 @@ const TenantDetail: React.FC<{ tenant: PlatformChannexTenantRow; onChanged: () =
     if (a.status === 'fulfilled') setActivity(a.value.data.data ?? null);
     if (m.status === 'fulfilled') setMappings(m.value.data.data ?? []);
   }, [tenant._id, page]);
-  useEffect(() => { load(); const timer = setInterval(load, 10_000); return () => clearInterval(timer); }, [load]);
+  useEffect(() => { load(); }, [load]);
+  usePolling(load, 10_000);
 
   const act = async (kind: 'full' | 'resync' | 'enable' | 'pause' | 'resume') => {
     setBusy(kind);
@@ -399,7 +400,7 @@ const ChannelManagerPage: React.FC = () => {
   const tenant = data?.tenants.find((t) => t._id === selected) ?? null;
 
   return (
-    <PlatformLayout>
+    <>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
         <Typography variant="h5" fontWeight={700} sx={{ flex: 1 }}>Channel Manager (Channex)</Typography>
         {data && <Chip label={`CHANNEX_ENV: ${data.environment}`} color={data.environment === 'production' ? 'primary' : 'default'} />}
@@ -451,7 +452,7 @@ const ChannelManagerPage: React.FC = () => {
 
       {tenant ? <TenantDetail key={tenant._id} tenant={tenant} onChanged={load} />
         : <Typography color="text.secondary">Select a tenant to see its sync log, task ids and mappings.</Typography>}
-    </PlatformLayout>
+    </>
   );
 };
 

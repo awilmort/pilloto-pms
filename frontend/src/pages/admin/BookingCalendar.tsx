@@ -46,7 +46,7 @@ import {
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
-import AdminLayout from '../../components/admin/AdminLayout';
+import { usePageTitle } from '../../components/shared/PageTitle';
 import CalendarReservationModal from '../../components/admin/reservations/CalendarReservationModal';
 import CreateReservationDialog from '../../components/admin/reservations/CreateReservationDialog';
 import RoomBlockDialog from '../../components/admin/roomBlocks/RoomBlockDialog';
@@ -108,6 +108,7 @@ const getGuestName = (res: Reservation, fallback: string) => {
 // ─── Component ───────────────────────────────────────────────────────────────
 const BookingCalendar: React.FC = () => {
   const { t } = useTranslation();
+  usePageTitle(t('admin.bookingCalendar.title'));
   const { user, permissions } = useAuth();
   const isAdmin           = String(user?.role).toLowerCase() === 'admin';
   const canCheckIn        = isAdmin || (permissions || []).includes('admin.reservations.checkin');
@@ -754,7 +755,7 @@ const BookingCalendar: React.FC = () => {
 
   // ─── Render ────────────────────────────────────────────────────────────────
   return (
-    <AdminLayout title={t('admin.bookingCalendar.title')}>
+    <>
       <Container maxWidth={false} sx={{ pt: 0, pb: 4, px: { xs: 2, md: 3 } }}>
 
         {/* ── Legend + Date nav on same row ── */}
@@ -1117,7 +1118,7 @@ const BookingCalendar: React.FC = () => {
         </Alert>
       </Snackbar>
 
-    </AdminLayout>
+    </>
   );
 };
 

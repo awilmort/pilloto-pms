@@ -15,7 +15,7 @@ import {
 import { Close, ErrorOutline, Refresh, WarningAmber } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import AdminLayout from '../../components/admin/AdminLayout';
+import { usePageTitle } from '../../components/shared/PageTitle';
 import {
   AIRBNB_DECLINE_REASONS, AirbnbDeclineReason, ChannelAlert, ChannelAlertDetail, ChannelAlertList, ChannelAlertSummary, channelAlertsService,
 } from '../../services/api';
@@ -260,14 +260,14 @@ const AlertDrawer: React.FC<{ id: string | null; onClose: () => void; onChanged:
                     <Typography variant="body2" fontWeight={700}>{p.reservationCode} {p.otaName ? `· ${p.otaName}` : ''}</Typography>
                     <Typography variant="body2">{p.guestName}</Typography>
                     <Typography variant="caption" color="text.secondary" display="block">{formatDay(p.checkIn, i18n.language)} → {formatDay(p.checkOut, i18n.language)}</Typography>
-                    <Button size="small" onClick={() => go(`/admin/reservations?id=${alert.reservationId}`)}>{t('admin.channelAlerts.openReservation')}</Button>
+                    <Button size="small" onClick={() => go(`/admin/reservations/${alert.reservationId}`)}>{t('admin.channelAlerts.openReservation')}</Button>
                   </Paper>
                 )}
                 {(p.competingReservations ?? []).map((c: any) => (
                   <Paper key={c.reservationId} variant="outlined" sx={{ p: 1.5 }}>
                     <Typography variant="body2" fontWeight={700}>{c.reservationCode} {c.otaName ? `· ${c.otaName}` : ''}</Typography>
                     <Typography variant="body2">{c.guestName}</Typography>
-                    <Button size="small" onClick={() => go(`/admin/reservations?id=${c.reservationId}`)}>{t('admin.channelAlerts.openReservation')}</Button>
+                    <Button size="small" onClick={() => go(`/admin/reservations/${c.reservationId}`)}>{t('admin.channelAlerts.openReservation')}</Button>
                   </Paper>
                 ))}
               </Box>
@@ -301,6 +301,7 @@ const AlertDrawer: React.FC<{ id: string | null; onClose: () => void; onChanged:
 
 const ChannelAlertsPage: React.FC = () => {
   const { t, i18n } = useTranslation();
+  usePageTitle(t('admin.channelAlerts.title'));
   const navigate = useNavigate();
   const [status, setStatus] = useState<string>('active');
   const [severity, setSeverity] = useState('');
@@ -333,7 +334,7 @@ const ChannelAlertsPage: React.FC = () => {
   };
 
   return (
-    <AdminLayout title={t('admin.channelAlerts.title')}>
+    <>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
         <Typography variant="h5" fontWeight={700} sx={{ flex: 1 }}>{t('admin.channelAlerts.title')}</Typography>
         <Tooltip title={t('admin.channelAlerts.refresh')}><IconButton onClick={load}><Refresh /></IconButton></Tooltip>
@@ -405,7 +406,7 @@ const ChannelAlertsPage: React.FC = () => {
         </>
       )}
       <AlertDrawer id={selected} onClose={() => setSelected(null)} onChanged={load} />
-    </AdminLayout>
+    </>
   );
 };
 

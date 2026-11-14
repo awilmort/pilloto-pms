@@ -26,7 +26,7 @@ const SuppliersContent: React.FC = () => {
   const canManage = usePermission('accounting.suppliers.manage');
 
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<boolean | undefined>(true);

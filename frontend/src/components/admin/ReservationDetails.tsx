@@ -15,6 +15,7 @@ import EcfStatusBadge from './EcfStatusBadge';
 import ChannelBadge from './reservations/ChannelBadge';
 import ReservationChannelSection from './reservations/ReservationChannelSection';
 import ReservationHistorySection from './reservations/ReservationHistorySection';
+import PageLoader from '../common/PageLoader';
 
 type Props = {
   reservation: Reservation;
@@ -30,6 +31,10 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
   const [folioId, setFolioId] = useState<string | null>(null);
   const [summary, setSummary] = useState<{ stage: 'pre_arrival' | 'in_house' | 'checked_out'; estimatedTotal: number; totalCharges: number; totalPayments: number; depositTotal: number; balance: number; balanceOnArrival: number; creditAvailability: number }>({ stage: 'pre_arrival', estimatedTotal: 0, totalCharges: 0, totalPayments: 0, depositTotal: 0, balance: 0, balanceOnArrival: 0, creditAvailability: 0 });
   const [activeTab, setActiveTab] = useState(0);
+  // The money figures and the e-CF tab depend on two more requests; the page waits for both so it never shows
+  // `RD$0` / "no charges" and then changes (a zero balance reads as "paid").
+  const [financialReady, setFinancialReady] = useState(false);
+  const [fiscalReady, setFiscalReady] = useState(false);
 
   // ECF state
   const [ecfInvoices, setEcfInvoices] = useState<ElectronicInvoice[]>([]);
@@ -46,15 +51,10 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
     }).catch(() => {});
   }, []);
 
-  // Fetch the fully-populated reservation (payments.createdBy, etc.) on mount and whenever the ID changes.
-  // The list endpoint omits nested population for performance; the single-resource endpoint provides the full object.
+  // The page (`/admin/reservations/:id`) hands over the fully-populated reservation from the single-resource
+  // endpoint, so only the financial data and e-CF status are loaded here, on mount and whenever the ID changes.
   useEffect(() => {
     let cancelled = false;
-    reservationsService.getReservation(reservation._id as string).then((res) => {
-      if (!cancelled && res.data?.data) setCurrent(res.data.data);
-    }).catch(() => {
-      // Fall back to the prop data already in state
-    });
     reservationsService.getReservationFinancial(reservation._id as string).then((res) => {
       if (!cancelled && res.data?.data) {
         setCharges(res.data.data.charges || []);
@@ -67,14 +67,14 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
       }
     }).catch(() => {
       // keep defaults when financial endpoint fails
-    });
+    }).finally(() => { if (!cancelled) setFinancialReady(true); });
     // Is electronic invoicing set up for this company, and can it issue yet?
     fiscalService.getStatus().then((res) => {
       const st = res.data.data;
       if (cancelled) return;
       setEcfIsActive(Boolean(st?.organization));
       setEcfCanIssue(Boolean(st?.canIssue));
-    }).catch(() => {});
+    }).catch(() => {}).finally(() => { if (!cancelled) setFiscalReady(true); });
     return () => { cancelled = true; };
   }, [reservation._id, fetchEcfInvoices]);
 
@@ -160,6 +160,8 @@ const ReservationDetails: React.FC<Props> = ({ reservation, onBack, onUpdated })
   const [chargeCategory, setChargeCategory] = useState<string>('');
   const [chargeSubmitting, setChargeSubmitting] = useState(false);
   const [chargeError, setChargeError] = useState<string | null>(null);
+
+  if (!financialReady || !fiscalReady) return <PageLoader />;
 
   return (
     <>

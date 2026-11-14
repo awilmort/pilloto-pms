@@ -1,14 +1,10 @@
 import React from 'react';
 import { DashboardOutlined, SettingsOutlined, Inventory2Outlined, WarehouseOutlined, ReceiptLongOutlined, PeopleAltOutlined, RequestQuoteOutlined, RequestPageOutlined, StorefrontOutlined, AssignmentReturnOutlined, PostAddOutlined, MenuBookOutlined, AssessmentOutlined, LocationCityOutlined, VerifiedOutlined } from '@mui/icons-material';
+import { Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { hasPermission } from '../../lib/permissions';
 import AppShell, { AppShellNavItem } from '../shared/AppShell';
-
-interface AccountingLayoutProps {
-  children: React.ReactNode;
-  title?: React.ReactNode;
-}
 
 interface AccountingNavItem extends AppShellNavItem {
   /** Permission(s) required for a leaf item — any one grants it, mirroring the backend route guard's OR semantics. */
@@ -17,12 +13,12 @@ interface AccountingNavItem extends AppShellNavItem {
 }
 
 /**
- * Accounting-app counterpart of `AdminLayout` — renders through the shared
- * `AppShell` (1.2) with an accounting-scoped nav config; the shell carries the
- * Accounting product accent (green). Modules are sidebar sections rather than
- * tabs — Phase 4.2.
+ * Accounting-app counterpart of `AdminLayout` — a layout route that renders the shared
+ * `AppShell` (1.2) once, with an accounting-scoped nav config, and the active page through
+ * `<Outlet />`; the shell carries the Accounting product accent (green). Modules are sidebar
+ * sections rather than tabs — Phase 4.2. Pages set their header title with `usePageTitle`.
  */
-const AccountingLayout: React.FC<AccountingLayoutProps> = ({ children, title }) => {
+const AccountingLayout: React.FC = () => {
   const { user, resolvedAppRoles } = useAuth();
   const { t } = useTranslation();
 
@@ -66,14 +62,13 @@ const AccountingLayout: React.FC<AccountingLayoutProps> = ({ children, title }) 
   return (
     <AppShell
       app="accounting"
-      title={title}
       navItems={visibleItems}
       homePath="/accounting"
       profilePath="/accounting/profile"
       mobileTitle={t('brand.appName.accounting', 'Pilloto Accounting')}
       storageKey="accountingSidebarOpen"
     >
-      {children}
+      <Outlet />
     </AppShell>
   );
 };

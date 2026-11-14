@@ -11,6 +11,7 @@ import {
 import { Refresh } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { channelManagerService, SyncActivity as SyncActivityData, SyncLogRow } from '../../../services/api';
+import { usePolling } from '../../../hooks/usePolling';
 
 interface Props {
   canManage: boolean;
@@ -32,12 +33,8 @@ const SyncActivity: React.FC<Props> = ({ canManage, active }) => {
     try { setData((await channelManagerService.syncActivity(page)).data.data ?? null); } catch { /* keep the last data */ }
   }, [page]);
 
-  useEffect(() => {
-    load();
-    if (!active) return undefined;
-    const timer = setInterval(load, POLL_MS);
-    return () => clearInterval(timer);
-  }, [load, active]);
+  useEffect(() => { load(); }, [load]);
+  usePolling(load, POLL_MS, active);
 
   const fullSync = async () => {
     setBusy(true);

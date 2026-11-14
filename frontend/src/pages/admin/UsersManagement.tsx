@@ -27,7 +27,7 @@ import {
   Checkbox,
 } from '@mui/material';
 import { useLocation } from 'react-router-dom';
-import AdminLayout from '../../components/admin/AdminLayout';
+import { usePageTitle } from '../../components/shared/PageTitle';
 import { adminService, rolesService } from '../../services/api';
 import { User, AppCode } from '../../types';
 import { useTranslation } from 'react-i18next';
@@ -466,10 +466,9 @@ export const UsersContent: React.FC = () => {
 
 const UsersManagement: React.FC = () => {
   const { t } = useTranslation();
+  usePageTitle(t('admin.users.title'));
   return (
-    <AdminLayout title={t('admin.users.title')}>
-      <UsersContent />
-    </AdminLayout>
+    <UsersContent />
   );
 };
 

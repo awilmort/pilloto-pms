@@ -897,14 +897,15 @@ export const reservationsService = {
   getPublicReservation: (confirmationToken: string): Promise<AxiosResponse<ApiResponse<Reservation>>> =>
     apiClient.get(`/reservations/public/${confirmationToken}`),
 
-  getPublicReservationByCode: (reservationCode: string): Promise<AxiosResponse<ApiResponse<Reservation>>> =>
-    apiClient.get(`/reservations/public/code/${reservationCode}`),
+  /** The reservation number alone opens nothing (it is sequential and guessable): the guest's confirmation token is required too. */
+  getPublicReservationByCode: (reservationCode: string, token: string): Promise<AxiosResponse<ApiResponse<Reservation>>> =>
+    apiClient.get(`/reservations/public/code/${encodeURIComponent(reservationCode)}`, { params: { token } }),
 
   cancelPublicReservation: (confirmationToken: string, cancellationReason?: string): Promise<AxiosResponse<ApiResponse<Reservation>>> =>
     apiClient.put(`/reservations/public/${confirmationToken}/cancel`, { cancellationReason }),
 
-  cancelPublicReservationByCode: (reservationCode: string, cancellationReason?: string): Promise<AxiosResponse<ApiResponse<Reservation>>> =>
-    apiClient.put(`/reservations/public/code/${reservationCode}/cancel`, { cancellationReason }),
+  cancelPublicReservationByCode: (reservationCode: string, token: string, cancellationReason?: string): Promise<AxiosResponse<ApiResponse<Reservation>>> =>
+    apiClient.put(`/reservations/public/code/${encodeURIComponent(reservationCode)}/cancel`, { cancellationReason, token }),
 
   cancelReservation: (id: string): Promise<AxiosResponse<ApiResponse>> =>
     apiClient.patch(`/reservations/${id}/cancel`),

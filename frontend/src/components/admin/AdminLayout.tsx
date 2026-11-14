@@ -20,6 +20,7 @@ import {
   GroupOutlined,
   SettingsOutlined,
 } from '@mui/icons-material';
+import { Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../../contexts/SettingsContext';
@@ -27,6 +28,9 @@ import AppShell, { AppShellNavItem } from '../shared/AppShell';
 import { usePlanFeature } from '../../contexts/TenantContext';
 import { channelAlertsService } from '../../services/api';
 import { usePermission } from '../../lib/permissions';
+import { usePolling } from '../../hooks/usePolling';
+import { useLoadedOnce } from '../../hooks/useLoadedOnce';
+import { useReservationServices } from '../../hooks/useReservationServices';
 
 /** Fired by the Channel Alerts page when alerts change, so the badge refreshes at once */
 const CHANNEL_ALERTS_CHANGED = 'pilloto:channel-alerts-changed';
@@ -35,33 +39,40 @@ const BADGE_POLL_MS = 60_000;
 /** Open critical channel alerts (nav badge); polled while the user can see channel alerts. */
 function useChannelAlertBadge(enabled: boolean): number {
   const [count, setCount] = React.useState(0);
+  const load = React.useCallback(
+    () => channelAlertsService.summary()
+      .then((r) => setCount(r.data.data?.openCritical ?? 0))
+      .catch(() => undefined),
+    []
+  );
   React.useEffect(() => {
-    if (!enabled) { setCount(0); return; }
-    let alive = true;
-    const load = () => channelAlertsService.summary()
-      .then((r) => { if (alive) setCount(r.data.data?.openCritical ?? 0); })
-      .catch(() => undefined);
+    if (!enabled) { setCount(0); return undefined; }
     load();
-    const timer = setInterval(load, BADGE_POLL_MS);
     window.addEventListener(CHANNEL_ALERTS_CHANGED, load);
-    return () => { alive = false; clearInterval(timer); window.removeEventListener(CHANNEL_ALERTS_CHANGED, load); };
-  }, [enabled]);
+    return () => window.removeEventListener(CHANNEL_ALERTS_CHANGED, load);
+  }, [enabled, load]);
+  usePolling(load, BADGE_POLL_MS, enabled);
   return count;
 }
 
 
-interface AdminLayoutProps {
-  children: React.ReactNode;
-  title?: React.ReactNode;
-}
-
-const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
-  const { activeSections: enabledSections } = useSettings();
+/**
+ * Layout route for every `/admin/*` page: renders the shell once and the active page through `<Outlet />`,
+ * so the sidebar (scroll, open groups) and the alert-badge poll survive navigation. Pages set their header
+ * title with `usePageTitle`.
+ */
+const AdminLayout: React.FC = () => {
+  const { activeSections: enabledSections, loading: settingsLoading } = useSettings();
+  // Which sections the property turned off is only known once settings arrive; until then show placeholders
+  // instead of every item (which would then lose some). Later refreshes keep the list as it is.
+  const settingsReady = useLoadedOnce(settingsLoading);
   const { user, permissions } = useAuth();
   const { t } = useTranslation();
   const hasChannelManager = usePlanFeature('channelManager');
   const canViewAlerts = usePermission('admin.ota.view');
   const alertBadge = useChannelAlertBadge(hasChannelManager && canViewAlerts);
+  // Warm the shared service-kinds cache while the shell mounts, so schedule / wristbands / revenue open complete.
+  useReservationServices();
 
   // Build menu and filter by granular permissions (admin sees all)
   const menuItems: AppShellNavItem[] = React.useMemo(() => {
@@ -75,7 +86,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
     const items = [
       { text: t('admin.nav.dashboard'), icon: <DashboardOutlined />, path: '/admin', key: 'dashboard', perm: 'admin.dashboard' },
       { section: sec.frontDesk, text: t('admin.nav.bookingCalendar'), icon: <CalendarMonthOutlined />, path: '/admin/booking-calendar', key: 'booking-calendar', perm: 'admin.schedule' },
-      { section: sec.frontDesk, text: t('admin.nav.reservations'), icon: <BookOnlineOutlined />, path: '/admin/reservations', key: 'reservations', perm: 'admin.reservations' },
+      { section: sec.frontDesk, text: t('admin.nav.reservations'), icon: <BookOnlineOutlined />, path: '/admin/reservations', activePrefix: '/admin/reservations/', key: 'reservations', perm: 'admin.reservations' },
       { section: sec.frontDesk, text: t('admin.nav.schedule'), icon: <ViewTimelineOutlined />, path: '/admin/schedule', key: 'schedule', perm: 'admin.schedule' },
       { section: sec.frontDesk, text: t('admin.nav.guests'), icon: <PersonOutline />, path: '/admin/guests', key: 'guests', perm: 'admin.guests' },
       { section: sec.frontDesk, text: t('admin.nav.wristbands'), icon: <ConfirmationNumberOutlined />, path: '/admin/wristbands', key: 'wristbands', perm: 'admin.wristbands' },
@@ -112,14 +123,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
   return (
     <AppShell
       app="pms"
-      title={title}
       navItems={menuItems}
+      navLoading={!settingsReady}
       homePath="/admin"
       profilePath="/admin/profile"
       mobileTitle={t('brand.appName.pms', 'Pilloto PMS')}
       storageKey="adminSidebarOpen"
     >
-      {children}
+      <Outlet />
     </AppShell>
   );
 };

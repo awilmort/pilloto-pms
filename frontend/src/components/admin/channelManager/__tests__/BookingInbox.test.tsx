@@ -45,7 +45,7 @@ describe('BookingInbox', () => {
       ],
     } } });
     render(<BookingInbox active={false} />);
-    expect(await screen.findByText('BDC-123')).toHaveAttribute('href', '/admin/reservations?id=r1');
+    expect(await screen.findByText('BDC-123')).toHaveAttribute('href', '/admin/reservations/r1');
     expect(screen.getByText('Booking.com')).toBeInTheDocument();
     expect(screen.getByText('Ana Pérez')).toBeInTheDocument();
     expect(screen.getByText('Imported')).toBeInTheDocument();

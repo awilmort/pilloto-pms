@@ -14,6 +14,7 @@ import { guideFor } from '../../../utils/channelGuides';
 import ChannelStateChip from './ChannelStateChip';
 import ConnectChannelsDialog from './ConnectChannelsDialog';
 import ConnectChannelWizard from './ConnectChannelWizard';
+import { usePolling } from '../../../hooks/usePolling';
 
 interface Props {
   canManage: boolean;
@@ -43,11 +44,8 @@ const ChannelsPanel: React.FC<Props> = ({ canManage, active, openWizard = false 
       setFailed(true);
     }
   }, []);
-  useEffect(() => {
-    load();
-    const timer = setInterval(load, POLL_MS);
-    return () => clearInterval(timer);
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
+  usePolling(load, POLL_MS);
 
   const platformOnly = list?.connection === 'platform_only';
   const canConnect = canManage && active && !platformOnly && (list?.offered.length ?? 0) > 0;

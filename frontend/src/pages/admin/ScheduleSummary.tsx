@@ -16,8 +16,10 @@ import {
   TableBody,
   Divider,
 } from '@mui/material';
-import AdminLayout from '../../components/admin/AdminLayout';
-import { reservationsService, servicesService } from '../../services/api';
+import { usePageTitle } from '../../components/shared/PageTitle';
+import { reservationsService } from '../../services/api';
+import { useReservationServices } from '../../hooks/useReservationServices';
+import PageLoader from '../../components/common/PageLoader';
 import { Reservation } from '../../types';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
@@ -25,26 +27,15 @@ import i18n from '../../i18n';
 
 const ScheduleSummary: React.FC = () => {
   const { t } = useTranslation();
+  usePageTitle(t('admin.schedule.title'));
   // Using unified admin.schedule.* keys
   const [period, setPeriod] = useState<'today' | 'tomorrow'>('today');
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [services, setServices] = useState({ daypass: false, accommodation: true, pasatarde: false, event: false });
-
-  useEffect(() => {
-    servicesService.getServices({ active: true })
-      .then(res => {
-        const list: any[] = res.data.data ?? [];
-        const hasKind = (k: string) => list.some(svc => svc.kind === k);
-        setServices(s => ({
-          ...s,
-          daypass:   hasKind('daypass'),
-          pasatarde: hasKind('pasatarde'),
-          event:     hasKind('event'),
-        }));
-      })
-      .catch(() => {});
-  }, []);
+  const [loading, setLoading] = useState<boolean>(true);
+  // The page appears once, complete: the enabled services decide which sections exist, so wait for them and for
+  // the first load instead of drawing defaults and rearranging.
+  const { services, ready } = useReservationServices();
+  const [loadedOnce, setLoadedOnce] = useState(false);
 
   const selectedDate = useMemo(() => period === 'tomorrow' ? dayjs().add(1, 'day') : dayjs(), [period]);
   const dayStr = useMemo(() => selectedDate.format('YYYY-MM-DD'), [selectedDate]);
@@ -61,6 +52,7 @@ const ScheduleSummary: React.FC = () => {
         setReservations([]);
       } finally {
         setLoading(false);
+        setLoadedOnce(true);
       }
     })();
   }, [dayStr]);
@@ -115,151 +107,151 @@ const ScheduleSummary: React.FC = () => {
 
   const formatDate = (d: Date) => d.toLocaleDateString(i18n.language, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
+  if (!ready || !loadedOnce) return <PageLoader />;
+
   return (
-    <AdminLayout title={t('admin.schedule.title')}>
-      <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
+    <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="subtitle1" color="text.secondary">
-            {formatDate(selectedDate.toDate())}
-          </Typography>
-          <ToggleButtonGroup value={period} exclusive onChange={(_, val) => val && setPeriod(val)}>
-            <ToggleButton value="today">{t('admin.schedule.today')}</ToggleButton>
-            <ToggleButton value="tomorrow">{t('admin.schedule.tomorrow')}</ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="subtitle1" color="text.secondary">
+          {formatDate(selectedDate.toDate())}
+        </Typography>
+        <ToggleButtonGroup value={period} exclusive onChange={(_, val) => val && setPeriod(val)}>
+          <ToggleButton value="today">{t('admin.schedule.today')}</ToggleButton>
+          <ToggleButton value="tomorrow">{t('admin.schedule.tomorrow')}</ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
 
-        <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={12} md={4}>
-            <Card>
-              <CardContent>
-                <Typography variant="subtitle2" color="text.secondary">{t('admin.schedule.cards.totalPeople')}</Typography>
-                <Typography variant="h5">{totals.totalPeople}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Card>
-              <CardContent>
-                <Typography variant="subtitle2" color="text.secondary">{t('admin.schedule.cards.adults')}</Typography>
-                <Typography variant="h5">{totals.adults}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Card>
-              <CardContent>
-                <Typography variant="subtitle2" color="text.secondary">{t('admin.schedule.cards.children')}</Typography>
-                <Typography variant="h5">{totals.children}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
+      <Grid container spacing={3} sx={{ mb: 3 }}>
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardContent>
+              <Typography variant="subtitle2" color="text.secondary">{t('admin.schedule.cards.totalPeople')}</Typography>
+              <Typography variant="h5">{totals.totalPeople}</Typography>
+            </CardContent>
+          </Card>
         </Grid>
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardContent>
+              <Typography variant="subtitle2" color="text.secondary">{t('admin.schedule.cards.adults')}</Typography>
+              <Typography variant="h5">{totals.adults}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardContent>
+              <Typography variant="subtitle2" color="text.secondary">{t('admin.schedule.cards.children')}</Typography>
+              <Typography variant="h5">{totals.children}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
 
-        <Grid container spacing={3}>
-          {/* Left side: DayPass table */}
-          {services.daypass && (
-          <Grid item xs={12} md={6}>
-            <Paper>
+      <Grid container spacing={3}>
+        {/* Left side: DayPass table */}
+        {services.daypass && (
+        <Grid item xs={12} md={6}>
+          <Paper>
+            <Box sx={{ p: 2 }}>
+              <Typography variant="h6">{t('admin.schedule.sections.daypass', { count: categoryGuestTotals.daypass })}</Typography>
+            </Box>
+            <Divider />
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>{t('admin.schedule.table.guest')}</TableCell>
+                  <TableCell align="right">{t('admin.schedule.table.totalGuests')}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {categorized.daypass.map(r => (
+                  <TableRow key={r._id}>
+                    <TableCell>{getGuestName(r)}</TableCell>
+                    <TableCell align="right">{getTotalGuests(r)}</TableCell>
+                  </TableRow>
+                ))}
+                {categorized.daypass.length === 0 && !loading && (
+                  <TableRow>
+                    <TableCell colSpan={2} align="center">{t('admin.schedule.empty.daypass')}</TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </Paper>
+        </Grid>
+        )}
+
+        {/* Right side: Accommodations (Room reservations), Events below */}
+        {(services.accommodation || services.event) && (
+        <Grid item xs={12} md={6}>
+          <Box sx={{ display: 'grid', gap: 3 }}>
+            {services.accommodation && <Paper>
               <Box sx={{ p: 2 }}>
-                <Typography variant="h6">{t('admin.schedule.sections.daypass', { count: categoryGuestTotals.daypass })}</Typography>
+                  <Typography variant="h6">{t('admin.schedule.sections.accommodations', { count: categoryGuestTotals.rooms })}</Typography>
               </Box>
               <Divider />
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>{t('admin.schedule.table.guest')}</TableCell>
-                    <TableCell align="right">{t('admin.schedule.table.totalGuests')}</TableCell>
+                      <TableCell>{t('admin.schedule.table.guest')}</TableCell>
+                      <TableCell>{t('admin.schedule.table.room')}</TableCell>
+                      <TableCell align="right">{t('admin.schedule.table.totalGuests')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {categorized.daypass.map(r => (
+                  {categorized.rooms.map(r => {
+                    const roomName = r.room && typeof r.room === 'object' ? (r.room as any).name : '';
+                    return (
+                      <TableRow key={r._id}>
+                        <TableCell>{getGuestName(r)}</TableCell>
+                          <TableCell>{roomName || t('admin.schedule.notAssigned')}</TableCell>
+                        <TableCell align="right">{getTotalGuests(r)}</TableCell>
+                      </TableRow>
+                    );
+                  })}
+                  {categorized.rooms.length === 0 && !loading && (
+                    <TableRow>
+                        <TableCell colSpan={3} align="center">{t('admin.schedule.empty.rooms')}</TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </Paper>}
+
+            {services.event && <Paper>
+              <Box sx={{ p: 2 }}>
+                  <Typography variant="h6">{t('admin.schedule.sections.events', { count: categoryGuestTotals.events })}</Typography>
+              </Box>
+              <Divider />
+              <Table>
+                <TableHead>
+                  <TableRow>
+                      <TableCell>{t('admin.schedule.table.guest')}</TableCell>
+                      <TableCell align="right">{t('admin.schedule.table.totalGuests')}</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {categorized.events.map(r => (
                     <TableRow key={r._id}>
                       <TableCell>{getGuestName(r)}</TableCell>
                       <TableCell align="right">{getTotalGuests(r)}</TableCell>
                     </TableRow>
                   ))}
-                  {categorized.daypass.length === 0 && !loading && (
+                  {categorized.events.length === 0 && !loading && (
                     <TableRow>
-                      <TableCell colSpan={2} align="center">{t('admin.schedule.empty.daypass')}</TableCell>
+                        <TableCell colSpan={2} align="center">{t('admin.schedule.empty.events')}</TableCell>
                     </TableRow>
                   )}
                 </TableBody>
               </Table>
-            </Paper>
-          </Grid>
-          )}
-
-          {/* Right side: Accommodations (Room reservations), Events below */}
-          {(services.accommodation || services.event) && (
-          <Grid item xs={12} md={6}>
-            <Box sx={{ display: 'grid', gap: 3 }}>
-              {services.accommodation && <Paper>
-                <Box sx={{ p: 2 }}>
-                    <Typography variant="h6">{t('admin.schedule.sections.accommodations', { count: categoryGuestTotals.rooms })}</Typography>
-                </Box>
-                <Divider />
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                        <TableCell>{t('admin.schedule.table.guest')}</TableCell>
-                        <TableCell>{t('admin.schedule.table.room')}</TableCell>
-                        <TableCell align="right">{t('admin.schedule.table.totalGuests')}</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {categorized.rooms.map(r => {
-                      const roomName = r.room && typeof r.room === 'object' ? (r.room as any).name : '';
-                      return (
-                        <TableRow key={r._id}>
-                          <TableCell>{getGuestName(r)}</TableCell>
-                            <TableCell>{roomName || t('admin.schedule.notAssigned')}</TableCell>
-                          <TableCell align="right">{getTotalGuests(r)}</TableCell>
-                        </TableRow>
-                      );
-                    })}
-                    {categorized.rooms.length === 0 && !loading && (
-                      <TableRow>
-                          <TableCell colSpan={3} align="center">{t('admin.schedule.empty.rooms')}</TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </Paper>}
-
-              {services.event && <Paper>
-                <Box sx={{ p: 2 }}>
-                    <Typography variant="h6">{t('admin.schedule.sections.events', { count: categoryGuestTotals.events })}</Typography>
-                </Box>
-                <Divider />
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                        <TableCell>{t('admin.schedule.table.guest')}</TableCell>
-                        <TableCell align="right">{t('admin.schedule.table.totalGuests')}</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {categorized.events.map(r => (
-                      <TableRow key={r._id}>
-                        <TableCell>{getGuestName(r)}</TableCell>
-                        <TableCell align="right">{getTotalGuests(r)}</TableCell>
-                      </TableRow>
-                    ))}
-                    {categorized.events.length === 0 && !loading && (
-                      <TableRow>
-                          <TableCell colSpan={2} align="center">{t('admin.schedule.empty.events')}</TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </Paper>}
-            </Box>
-          </Grid>
-          )}
+            </Paper>}
+          </Box>
         </Grid>
-      </Container>
-    </AdminLayout>
+        )}
+      </Grid>
+    </Container>
   );
 };
 

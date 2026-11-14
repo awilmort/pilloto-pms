@@ -1,15 +1,12 @@
 import React from 'react';
 import { Box } from '@mui/material';
 import { ApartmentOutlined, HubOutlined, PaymentsOutlined } from '@mui/icons-material';
+import { Outlet } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import AppShell, { AppShellNavItem } from '../../components/shared/AppShell';
 
-interface PlatformLayoutProps {
-  children: React.ReactNode;
-}
-
-/** Super-admin console (admin.pilloto.com) — same shell as the tenant apps, with the brand accent. */
-const PlatformLayout: React.FC<PlatformLayoutProps> = ({ children }) => {
+/** Super-admin console (admin.pilloto.com) — layout route using the same shell as the tenant apps, with the brand accent. */
+const PlatformLayout: React.FC = () => {
   const { t } = useTranslation();
 
   const navItems: AppShellNavItem[] = React.useMemo(() => {
@@ -31,7 +28,7 @@ const PlatformLayout: React.FC<PlatformLayoutProps> = ({ children }) => {
       workspaceLabel={t('platform.superAdmin', 'Super admin')}
       storageKey="platformSidebarOpen"
     >
-      <Box sx={{ maxWidth: 1200, mx: 'auto', py: 1 }}>{children}</Box>
+      <Box sx={{ maxWidth: 1200, mx: 'auto', py: 1 }}><Outlet /></Box>
     </AppShell>
   );
 };

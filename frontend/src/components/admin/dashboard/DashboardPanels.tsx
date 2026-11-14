@@ -35,7 +35,8 @@ export function useDayFormat() {
   return (iso: string, opts: Intl.DateTimeFormatOptions) => new Date(`${iso}T12:00:00Z`).toLocaleDateString(i18n.language, { timeZone: 'UTC', ...opts });
 }
 
-export const reservationPath = (id: string, action?: 'checkin' | 'checkout') => `/admin/reservations?id=${id}${action ? `&action=${action}` : ''}`;
+/** A reservation's own page, or — with an action — the list with that check-in / check-out dialog open. */
+export const reservationPath = (id: string, action?: 'checkin' | 'checkout') => (action ? `/admin/reservations?id=${id}&action=${action}` : `/admin/reservations/${id}`);
 
 const STATUS_CHIP: Record<string, 'default' | 'warning' | 'info' | 'success' | 'error'> = {
   pending: 'warning', confirmed: 'info', 'checked-in': 'success', completed: 'default', cancelled: 'error',

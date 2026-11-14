@@ -1,15 +1,14 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import AccountingLayout from '../../components/accounting/AccountingLayout';
+import { usePageTitle } from '../../components/shared/PageTitle';
 import QuotesContent from '../../components/accounting/quotes/QuotesContent';
 
 /** `/accounting/quotes` — its own route + sidebar entry, per decision #9 (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md Phase 5.4). */
 const QuotesPage: React.FC = () => {
   const { t } = useTranslation();
+  usePageTitle(t('accounting.quotes.title', 'Quotes'));
   return (
-    <AccountingLayout title={t('accounting.quotes.title', 'Quotes')}>
-      <QuotesContent />
-    </AccountingLayout>
+    <QuotesContent />
   );
 };
 

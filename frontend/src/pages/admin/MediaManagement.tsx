@@ -38,7 +38,7 @@ export const MediaContent: React.FC = () => {
   const [editOpen, setEditOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MediaItem | null>(null);
   const [snackbar, setSnackbar] = useState<{open: boolean; message: string; severity: 'success'|'error'}>({ open: false, message: '', severity: 'success' });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Upload form state
   const [file, setFile] = useState<File | null>(null);

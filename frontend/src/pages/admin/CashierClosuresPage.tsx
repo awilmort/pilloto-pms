@@ -22,7 +22,7 @@ import {
 } from '@mui/material';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
-import AdminLayout from '../../components/admin/AdminLayout';
+import { usePageTitle } from '../../components/shared/PageTitle';
 import { cashierClosuresService, CashierClosure } from '../../services/api';
 
 const DEFAULT_DENOMINATIONS = [2000, 1000, 500, 200, 100, 50, 25, 10, 5, 1];
@@ -32,8 +32,9 @@ const formatMoney = (value: number) =>
 
 const CashierClosuresPage: React.FC = () => {
   const { t } = useTranslation();
+  usePageTitle(t('admin.cashierClosures.title'));
   const [closures, setClosures] = useState<CashierClosure[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [from, setFrom] = useState<string>(dayjs().subtract(30, 'day').format('YYYY-MM-DD'));
@@ -204,142 +205,140 @@ const CashierClosuresPage: React.FC = () => {
   };
 
   return (
-    <AdminLayout title={t('admin.cashierClosures.title')}>
-      <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
+    <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
 
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-            <TextField label={t('admin.cashierClosures.from')} type="date" value={from} onChange={(e) => setFrom(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ maxWidth: 200 }} />
-            <TextField label={t('admin.cashierClosures.to')} type="date" value={to} onChange={(e) => setTo(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ maxWidth: 200 }} />
-            <Button variant="outlined" onClick={loadClosures}>{t('admin.cashierClosures.applyFilters')}</Button>
-            <Box sx={{ ml: 'auto' }}>
-              <Button variant="contained" onClick={openGenerate}>{t('admin.cashierClosures.generate')}</Button>
-            </Box>
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField label={t('admin.cashierClosures.from')} type="date" value={from} onChange={(e) => setFrom(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ maxWidth: 200 }} />
+          <TextField label={t('admin.cashierClosures.to')} type="date" value={to} onChange={(e) => setTo(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ maxWidth: 200 }} />
+          <Button variant="outlined" onClick={loadClosures}>{t('admin.cashierClosures.applyFilters')}</Button>
+          <Box sx={{ ml: 'auto' }}>
+            <Button variant="contained" onClick={openGenerate}>{t('admin.cashierClosures.generate')}</Button>
           </Box>
-        </Paper>
+        </Box>
+      </Paper>
 
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>{t('admin.cashierClosures.periodStart')}</TableCell>
-                <TableCell>{t('admin.cashierClosures.periodEnd')}</TableCell>
-                <TableCell align="right">{t('admin.cashierClosures.cash')}</TableCell>
-                <TableCell align="right">{t('admin.cashierClosures.card')}</TableCell>
-                <TableCell align="right">{t('admin.cashierClosures.transfer')}</TableCell>
-                <TableCell align="right">{t('admin.cashierClosures.check')}</TableCell>
-                <TableCell align="right">{t('admin.cashierClosures.total')}</TableCell>
-                <TableCell align="right">{t('admin.cashierClosures.actions')}</TableCell>
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>{t('admin.cashierClosures.periodStart')}</TableCell>
+              <TableCell>{t('admin.cashierClosures.periodEnd')}</TableCell>
+              <TableCell align="right">{t('admin.cashierClosures.cash')}</TableCell>
+              <TableCell align="right">{t('admin.cashierClosures.card')}</TableCell>
+              <TableCell align="right">{t('admin.cashierClosures.transfer')}</TableCell>
+              <TableCell align="right">{t('admin.cashierClosures.check')}</TableCell>
+              <TableCell align="right">{t('admin.cashierClosures.total')}</TableCell>
+              <TableCell align="right">{t('admin.cashierClosures.actions')}</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {loading ? (
+              <TableRow><TableCell colSpan={8} align="center"><CircularProgress size={24} /></TableCell></TableRow>
+            ) : closures.length === 0 ? (
+              <TableRow><TableCell colSpan={8} align="center">{t('admin.cashierClosures.noData')}</TableCell></TableRow>
+            ) : closures.map((closure) => (
+              <TableRow key={closure._id}>
+                <TableCell>{dayjs(closure.periodStart).format('YYYY-MM-DD HH:mm')}</TableCell>
+                <TableCell>{dayjs(closure.periodEnd).format('YYYY-MM-DD HH:mm')}</TableCell>
+                <TableCell align="right">{formatMoney(closure.paymentTotals.cash)}</TableCell>
+                <TableCell align="right">{formatMoney(closure.paymentTotals.card)}</TableCell>
+                <TableCell align="right">{formatMoney(closure.paymentTotals.transfer)}</TableCell>
+                <TableCell align="right">{formatMoney(closure.paymentTotals.check)}</TableCell>
+                <TableCell align="right">{formatMoney(closure.paymentTotals.total)}</TableCell>
+                <TableCell align="right">
+                  <Button size="small" onClick={() => printClosure(closure)}>{t('admin.cashierClosures.print')}</Button>
+                </TableCell>
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {loading ? (
-                <TableRow><TableCell colSpan={8} align="center"><CircularProgress size={24} /></TableCell></TableRow>
-              ) : closures.length === 0 ? (
-                <TableRow><TableCell colSpan={8} align="center">{t('admin.cashierClosures.noData')}</TableCell></TableRow>
-              ) : closures.map((closure) => (
-                <TableRow key={closure._id}>
-                  <TableCell>{dayjs(closure.periodStart).format('YYYY-MM-DD HH:mm')}</TableCell>
-                  <TableCell>{dayjs(closure.periodEnd).format('YYYY-MM-DD HH:mm')}</TableCell>
-                  <TableCell align="right">{formatMoney(closure.paymentTotals.cash)}</TableCell>
-                  <TableCell align="right">{formatMoney(closure.paymentTotals.card)}</TableCell>
-                  <TableCell align="right">{formatMoney(closure.paymentTotals.transfer)}</TableCell>
-                  <TableCell align="right">{formatMoney(closure.paymentTotals.check)}</TableCell>
-                  <TableCell align="right">{formatMoney(closure.paymentTotals.total)}</TableCell>
-                  <TableCell align="right">
-                    <Button size="small" onClick={() => printClosure(closure)}>{t('admin.cashierClosures.print')}</Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+            ))}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-        <Dialog open={generateOpen} onClose={() => { setGenerateOpen(false); setNote(''); }} maxWidth="md" fullWidth>
-          <DialogTitle>{t('admin.cashierClosures.generate')}</DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label={t('admin.cashierClosures.shiftStart', 'Shift Start')}
-                    type="datetime-local"
-                    value={shiftStart}
-                    onChange={(e) => { setShiftStart(e.target.value); setPreview(null); }}
-                    InputLabelProps={{ shrink: true }}
-                    fullWidth
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <TextField
-                    label={t('admin.cashierClosures.shiftEnd', 'Shift End')}
-                    type="datetime-local"
-                    value={shiftEnd}
-                    onChange={(e) => { setShiftEnd(e.target.value); setPreview(null); }}
-                    InputLabelProps={{ shrink: true }}
-                    fullWidth
-                  />
-                </Grid>
+      <Dialog open={generateOpen} onClose={() => { setGenerateOpen(false); setNote(''); }} maxWidth="md" fullWidth>
+        <DialogTitle>{t('admin.cashierClosures.generate')}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label={t('admin.cashierClosures.shiftStart', 'Shift Start')}
+                  type="datetime-local"
+                  value={shiftStart}
+                  onChange={(e) => { setShiftStart(e.target.value); setPreview(null); }}
+                  InputLabelProps={{ shrink: true }}
+                  fullWidth
+                />
               </Grid>
-              <Box>
-                <Button
-                  variant="outlined"
-                  onClick={loadPreview}
-                  disabled={previewLoading || !shiftStart || !shiftEnd}
-                >
-                  {previewLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
-                  {t('admin.cashierClosures.loadPreview', 'Load Preview')}
-                </Button>
-              </Box>
-
-              {preview && (
-                <>
-                  <Paper variant="outlined" sx={{ p: 2 }}>
-                    <Typography variant="subtitle2">{t('admin.cashierClosures.paymentsByMethod')}</Typography>
-                    <Typography>{t('admin.cashierClosures.cash')}: {formatMoney(preview.paymentTotals.cash)}</Typography>
-                    <Typography>{t('admin.cashierClosures.card')}: {formatMoney(preview.paymentTotals.card)}</Typography>
-                    <Typography>{t('admin.cashierClosures.transfer')}: {formatMoney(preview.paymentTotals.transfer)}</Typography>
-                    <Typography>{t('admin.cashierClosures.check')}: {formatMoney(preview.paymentTotals.check)}</Typography>
-                    <Typography fontWeight={700}>{t('admin.cashierClosures.total')}: {formatMoney(preview.paymentTotals.total)}</Typography>
-                  </Paper>
-
-                  <Typography variant="subtitle2">{t('admin.cashierClosures.cashDistribution')}</Typography>
-                  <Grid container spacing={2}>
-                    {denominations.map((denomination) => (
-                      <Grid item xs={12} sm={6} md={4} key={denomination}>
-                        <TextField
-                          label={`$${denomination}`}
-                          type="number"
-                          inputProps={{ min: 0, step: 1 }}
-                          value={cashDistribution[String(denomination)] ?? ''}
-                          onChange={(e) => setCashDistribution(prev => ({ ...prev, [String(denomination)]: e.target.value }))}
-                          fullWidth
-                        />
-                      </Grid>
-                    ))}
-                  </Grid>
-                  <Typography variant="body2">{t('admin.cashierClosures.cashCounted')}: {formatMoney(getCashDeclared())}</Typography>
-                  <TextField
-                    label={t('admin.cashierClosures.note')}
-                    multiline
-                    minRows={2}
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    fullWidth
-                  />
-                </>
-              )}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label={t('admin.cashierClosures.shiftEnd', 'Shift End')}
+                  type="datetime-local"
+                  value={shiftEnd}
+                  onChange={(e) => { setShiftEnd(e.target.value); setPreview(null); }}
+                  InputLabelProps={{ shrink: true }}
+                  fullWidth
+                />
+              </Grid>
+            </Grid>
+            <Box>
+              <Button
+                variant="outlined"
+                onClick={loadPreview}
+                disabled={previewLoading || !shiftStart || !shiftEnd}
+              >
+                {previewLoading ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+                {t('admin.cashierClosures.loadPreview', 'Load Preview')}
+              </Button>
             </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setGenerateOpen(false)}>{t('admin.cashierClosures.cancel')}</Button>
-            <Button variant="contained" onClick={createClosure} disabled={generating || !preview}>{t('admin.cashierClosures.confirm')}</Button>
-          </DialogActions>
-        </Dialog>
-      </Container>
-    </AdminLayout>
+
+            {preview && (
+              <>
+                <Paper variant="outlined" sx={{ p: 2 }}>
+                  <Typography variant="subtitle2">{t('admin.cashierClosures.paymentsByMethod')}</Typography>
+                  <Typography>{t('admin.cashierClosures.cash')}: {formatMoney(preview.paymentTotals.cash)}</Typography>
+                  <Typography>{t('admin.cashierClosures.card')}: {formatMoney(preview.paymentTotals.card)}</Typography>
+                  <Typography>{t('admin.cashierClosures.transfer')}: {formatMoney(preview.paymentTotals.transfer)}</Typography>
+                  <Typography>{t('admin.cashierClosures.check')}: {formatMoney(preview.paymentTotals.check)}</Typography>
+                  <Typography fontWeight={700}>{t('admin.cashierClosures.total')}: {formatMoney(preview.paymentTotals.total)}</Typography>
+                </Paper>
+
+                <Typography variant="subtitle2">{t('admin.cashierClosures.cashDistribution')}</Typography>
+                <Grid container spacing={2}>
+                  {denominations.map((denomination) => (
+                    <Grid item xs={12} sm={6} md={4} key={denomination}>
+                      <TextField
+                        label={`$${denomination}`}
+                        type="number"
+                        inputProps={{ min: 0, step: 1 }}
+                        value={cashDistribution[String(denomination)] ?? ''}
+                        onChange={(e) => setCashDistribution(prev => ({ ...prev, [String(denomination)]: e.target.value }))}
+                        fullWidth
+                      />
+                    </Grid>
+                  ))}
+                </Grid>
+                <Typography variant="body2">{t('admin.cashierClosures.cashCounted')}: {formatMoney(getCashDeclared())}</Typography>
+                <TextField
+                  label={t('admin.cashierClosures.note')}
+                  multiline
+                  minRows={2}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  fullWidth
+                />
+              </>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setGenerateOpen(false)}>{t('admin.cashierClosures.cancel')}</Button>
+          <Button variant="contained" onClick={createClosure} disabled={generating || !preview}>{t('admin.cashierClosures.confirm')}</Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
   );
 };
 

@@ -34,6 +34,7 @@ import { Reservation } from '../../../types';
 import { useTranslation } from 'react-i18next';
 import { formatMoney } from '../../../utils/currency';
 import i18n from '../../../i18n';
+import { reservationHref } from '../../../utils/reservationPaths';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type FinancialData = {
@@ -368,7 +369,7 @@ const CalendarReservationModal: React.FC<Props> = ({
             startIcon={<OpenInNew fontSize="small" />}
             onClick={() => {
               onClose();
-              navigate(`/admin/reservations?id=${reservation._id as string}`);
+              navigate(reservationHref(reservation as { _id: string; reservationCode?: string }));
             }}
           >
             {t('admin.reservations.actions.viewFullDetails', 'View Details')}

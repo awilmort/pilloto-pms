@@ -85,8 +85,8 @@ function roleChip(role: string): { label: string; bg: string; color: string } {
 
 /**
  * Profile content shared by every app's profile page (PMS, accounting, ...).
- * Each app supplies its own layout wrapper (AdminLayout, AccountingLayout, ...)
- * around this component rather than duplicating the form/logic per app.
+ * Each app's profile page renders this inside that app's layout route (AdminLayout,
+ * AccountingLayout, ...) rather than duplicating the form/logic per app.
  */
 const ProfileView: React.FC = () => {
   const { user, refreshUser, permissions } = useAuth();

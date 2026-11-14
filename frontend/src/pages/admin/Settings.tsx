@@ -30,7 +30,7 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import AdminLayout from '../../components/admin/AdminLayout';
+import { usePageTitle } from '../../components/shared/PageTitle';
 import { SETTINGS_SECTIONS, SettingsOverview, SettingsShell, settingsItem } from '../../components/admin/settings/SettingsNav';
 import NumberField from '../../components/common/NumberField';
 import { useTranslation } from 'react-i18next';
@@ -223,11 +223,13 @@ const Settings: React.FC = () => {
   // A section is enabled when not explicitly set to false
   const isSectionEnabled = (key: string) => settings.sections?.[key] !== false;
 
-  if (section !== 'overview' && !SETTINGS_SECTIONS.includes(section)) return <Navigate to="/admin/settings" replace />;
   const current = settingsItem(section);
+  usePageTitle(current ? `${t('admin.settings.title')} · ${t(current.labelKey)}` : t('admin.settings.title'));
+
+  if (section !== 'overview' && !SETTINGS_SECTIONS.includes(section)) return <Navigate to="/admin/settings" replace />;
 
   return (
-    <AdminLayout title={current ? `${t('admin.settings.title')} · ${t(current.labelKey)}` : t('admin.settings.title')}>
+    <>
       <SettingsShell section={section}>
 
         {error && (
@@ -649,7 +651,7 @@ const Settings: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </AdminLayout>
+    </>
   );
 };
 

@@ -83,7 +83,9 @@ const PaymentsTab: React.FC<{ onChanged: () => void }> = ({ onChanged }) => {
             </TableBody>
           </Table>
         </TableContainer>
-        <TablePagination component="div" count={total} page={page} onPageChange={(_, p) => setPage(p)} rowsPerPage={PAGE_SIZE} rowsPerPageOptions={[PAGE_SIZE]} />
+        {rows !== null && (
+          <TablePagination component="div" count={total} page={page} onPageChange={(_, p) => setPage(p)} rowsPerPage={PAGE_SIZE} rowsPerPageOptions={[PAGE_SIZE]} />
+        )}
       </Paper>
     </Box>
   );

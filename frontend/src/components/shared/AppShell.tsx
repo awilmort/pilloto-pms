@@ -17,6 +17,7 @@ import {
   Avatar,
   Menu as MuiMenu,
   MenuItem as MuiMenuItem,
+  Skeleton,
 } from '@mui/material';
 import {
   KeyboardDoubleArrowLeft,
@@ -41,9 +42,29 @@ import { APP_METADATA, useAccessibleApps } from '../../lib/apps';
 import { ThemeProvider } from '@mui/material/styles';
 import { BRAND, PRODUCT_COLORS, PRODUCT_COLORS_DEEP, alpha } from '../../brand';
 import { appTheme } from '../../theme';
+import { PageTitleSetterContext } from './PageTitle';
+import LazyBoundary from '../common/LazyBoundary';
+import RoutedErrorBoundary from '../common/PageErrorBoundary';
 
 const drawerWidth = 264;
 const collapsedWidth = 76;
+
+/**
+ * Scrolls the nav container so its active item is visible. `partialOk` also reveals an item that is
+ * only partly clipped; without it the nav is left alone unless the item is entirely out of view,
+ * so clicking a half-visible item doesn't make the list jump.
+ */
+function revealActiveNavItem(container: HTMLElement | null, partialOk: boolean) {
+  if (!container) return;
+  const selected = container.querySelectorAll<HTMLElement>('.Mui-selected');
+  const active = selected[selected.length - 1];
+  if (!active) return;
+  const c = container.getBoundingClientRect();
+  const a = active.getBoundingClientRect();
+  if (!partialOk && a.bottom > c.top && a.top < c.bottom) return;
+  if (a.top < c.top) container.scrollTop -= c.top - a.top;
+  else if (a.bottom > c.bottom) container.scrollTop += a.bottom - c.bottom;
+}
 
 export interface AppShellNavItem {
   key: string;
@@ -63,10 +84,12 @@ export interface AppShellNavItem {
 export type AppShellApp = AppCode | 'platform';
 
 interface AppShellProps {
+  /** The routed page — layouts pass an `<Outlet />`; pages set the header title with `usePageTitle`. */
   children: React.ReactNode;
-  title?: React.ReactNode;
   /** Already permission-filtered and translated nav items for the current app. */
   navItems: AppShellNavItem[];
+  /** The items are not final yet (e.g. which sections the property enabled is still loading): show placeholders, not a list that then shrinks. */
+  navLoading?: boolean;
   app: AppShellApp;
   /** Path the brand mark navigates to (e.g. `/admin`, `/accounting`). */
   homePath: string;
@@ -90,8 +113,8 @@ export const appAccentDeep = (app: AppShellApp): string =>
 
 const AppShell: React.FC<AppShellProps> = ({
   children,
-  title,
   navItems,
+  navLoading = false,
   app,
   homePath,
   profilePath,
@@ -120,7 +143,8 @@ const AppShell: React.FC<AppShellProps> = ({
   const [userMenuAnchor, setUserMenuAnchor] = React.useState<null | HTMLElement>(null);
   const [appMenuAnchor, setAppMenuAnchor] = React.useState<null | HTMLElement>(null);
   const [flyout, setFlyout] = React.useState<{ anchor: HTMLElement; item: AppShellNavItem } | null>(null);
-  const navListRef = React.useRef<HTMLUListElement>(null);
+  const navScrollRef = React.useRef<HTMLDivElement>(null);
+  const [pageTitle, setPageTitle] = React.useState<string | undefined>(undefined);
 
   // Explicit open/close overrides for collapsible nav groups — a group with no
   // override yet defaults open when one of its children is the active route.
@@ -136,9 +160,14 @@ const AppShell: React.FC<AppShellProps> = ({
   const isActive = (item: AppShellNavItem): boolean =>
     location.pathname === item.path || (!!item.activePrefix && location.pathname.startsWith(item.activePrefix));
 
-  React.useEffect(() => {
-    const active = navListRef.current?.querySelector<HTMLElement>('.Mui-selected');
-    if (active) active.scrollIntoView({ block: 'nearest' });
+  // The shell stays mounted across navigation, so the nav keeps its own scroll position. Only bring the
+  // active item into view on first load (deep link / refresh), or when navigation lands on an item that
+  // is entirely scrolled out of sight.
+  React.useLayoutEffect(() => {
+    revealActiveNavItem(navScrollRef.current, true);
+  }, []);
+  React.useLayoutEffect(() => {
+    revealActiveNavItem(navScrollRef.current, false);
   }, [location.pathname]);
 
   // Persist sidebar state so navigation doesn't reset it
@@ -238,7 +267,7 @@ const AppShell: React.FC<AppShellProps> = ({
   );
 
   const navList = (
-    <List ref={navListRef} disablePadding sx={{ pb: 1 }}>
+    <List disablePadding sx={{ pb: 1 }}>
       {navItems.map((item, index) => {
         const hasChildren = !!item.children?.length;
         const childActive = hasChildren && item.children!.some(isActive);
@@ -378,6 +407,7 @@ const AppShell: React.FC<AppShellProps> = ({
 
       {/* Nav items */}
       <Box
+        ref={navScrollRef}
         sx={{
           flexGrow: 1,
           overflowY: 'auto',
@@ -388,7 +418,16 @@ const AppShell: React.FC<AppShellProps> = ({
           '&::-webkit-scrollbar-thumb': { background: BRAND.mist, borderRadius: 3 },
         }}
       >
-        {navList}
+        {navLoading ? (
+          <List disablePadding sx={{ pt: 1 }} aria-busy="true">
+            {Array.from({ length: 9 }, (_, i) => (
+              <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mx: 1.5, mb: 0.25, minHeight: 38, px: expanded ? 1.25 : 0, justifyContent: expanded ? 'flex-start' : 'center' }}>
+                <Skeleton variant="circular" width={20} height={20} />
+                {expanded && <Skeleton variant="text" width={`${55 + ((i * 17) % 35)}%`} />}
+              </Box>
+            ))}
+          </List>
+        ) : navList}
       </Box>
 
       {/* Footer: collapse + user */}
@@ -499,9 +538,9 @@ const AppShell: React.FC<AppShellProps> = ({
             </Box>
             {/* Desktop: page title */}
             <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', minWidth: 0 }}>
-              {title && (
+              {pageTitle && (
                 <Typography variant="h4" component="h1" sx={{ lineHeight: 1.2, color: 'text.primary' }} noWrap>
-                  {title}
+                  {pageTitle}
                 </Typography>
               )}
             </Box>
@@ -510,7 +549,11 @@ const AppShell: React.FC<AppShellProps> = ({
             </Box>
           </Box>
           <Box component="main" sx={{ flexGrow: 1, px: { xs: 2, md: 3 }, pb: 3, pt: 1 }}>
-            {children}
+            <PageTitleSetterContext.Provider value={setPageTitle}>
+              <RoutedErrorBoundary>
+                <LazyBoundary>{children}</LazyBoundary>
+              </RoutedErrorBoundary>
+            </PageTitleSetterContext.Provider>
           </Box>
         </Box>
       </Box>

@@ -13,6 +13,8 @@ import EcfStatusBadge from '../admin/EcfStatusBadge';
 import FiscalDocumentDrawer from './FiscalDocumentDrawer';
 import { downloadBlob, ESTADO_META, estadoKey, fiscalErrorMessage, formatDateTime, formatDop } from './fiscalUi';
 import i18n from '../../i18n';
+import { usePolling } from '../../hooks/usePolling';
+import { useLoadedOnce } from '../../hooks/useLoadedOnce';
 
 interface Props {
   canIssue: boolean;
@@ -39,6 +41,7 @@ const FiscalDocumentsTab: React.FC<Props> = ({ canIssue, openId, onChanged, fixe
   const [rows, setRows] = useState<ElectronicInvoice[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const loadedOnce = useLoadedOnce(loading);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
@@ -92,11 +95,7 @@ const FiscalDocumentsTab: React.FC<Props> = ({ canIssue, openId, onChanged, fixe
   }, [openId]);
 
   const anyBusy = rows.some((r) => ESTADO_META[r.estadoECF]?.busy);
-  useEffect(() => {
-    if (!anyBusy) return undefined;
-    const id = setInterval(() => { if (!document.hidden) void load(true); }, AUTO_REFRESH_MS);
-    return () => clearInterval(id);
-  }, [anyBusy, load]);
+  usePolling(() => load(true), AUTO_REFRESH_MS, anyBusy);
 
   const changed = (doc?: ElectronicInvoice) => {
     if (doc) setRows((rs) => rs.map((r) => (r._id === doc._id ? doc : r)));
@@ -196,11 +195,13 @@ const FiscalDocumentsTab: React.FC<Props> = ({ canIssue, openId, onChanged, fixe
             </TableBody>
           </Table>
         </TableContainer>
-        <TablePagination
+        {loadedOnce && (
+          <TablePagination
           component="div" count={total} page={page} rowsPerPage={rowsPerPage} rowsPerPageOptions={[25, 50, 100]}
           onPageChange={(_, p) => setPage(p)} onRowsPerPageChange={(e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
           labelRowsPerPage={t('common.rowsPerPage', 'Rows per page')}
         />
+        )}
       </Paper>
 
       <FiscalDocumentDrawer document={selected} canIssue={canIssue} onClose={() => setSelected(null)} onChanged={changed} />

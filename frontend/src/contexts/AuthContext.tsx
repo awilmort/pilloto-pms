@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useReducer, useEffect, ReactNode } from 'react';
 import { AppCode, AuthContextType, RegisterData, ResolvedAppRole, User } from '../types';
 import { authService } from '../services/api';
 import { toast } from 'react-toastify';
@@ -90,6 +90,15 @@ const authReducer = (state: AuthState, action: AuthAction): AuthState => {
   }
 };
 
+/** Fetches the current user with resolved per-app roles/permissions already joined server-side. */
+const fetchResolvedUser = async (): Promise<User | null> => {
+  const response = await authService.getCurrentUser();
+  if (response.data.success && response.data.user) {
+    return response.data.user;
+  }
+  return null;
+};
+
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = (): AuthContextType => {
@@ -106,15 +115,6 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
-
-  // Fetches the current user with resolved per-app roles/permissions already joined server-side.
-  const fetchResolvedUser = async (): Promise<User | null> => {
-    const response = await authService.getCurrentUser();
-    if (response.data.success && response.data.user) {
-      return response.data.user;
-    }
-    return null;
-  };
 
   // Check if user is logged in on app start
   useEffect(() => {
@@ -141,7 +141,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     checkAuth();
   }, []);
 
-  const refreshUser = async (): Promise<void> => {
+  const refreshUser = useCallback(async (): Promise<void> => {
     const token = localStorage.getItem('token');
     if (!token) return;
     try {
@@ -152,9 +152,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } catch (e) {
       // ignore errors; leave current state
     }
-  };
+  }, []);
 
-  const login = async (email: string, password: string): Promise<void> => {
+  const login = useCallback(async (email: string, password: string): Promise<void> => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const response = await authService.login({ email, password });
@@ -176,9 +176,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       toast.error(message);
       throw error;
     }
-  };
+  }, []);
 
-  const register = async (userData: RegisterData): Promise<void> => {
+  const register = useCallback(async (userData: RegisterData): Promise<void> => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       const response = await authService.register(userData);
@@ -197,9 +197,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       toast.error(message);
       throw error;
     }
-  };
+  }, []);
 
-  const logout = async (): Promise<void> => {
+  const logout = useCallback(async (): Promise<void> => {
     try {
       await authService.logout();
     } catch (error) {
@@ -210,9 +210,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       dispatch({ type: 'LOGOUT' });
       toast.success(i18n.t('auth.messages.logoutSuccess'));
     }
-  };
+  }, []);
 
-  const value: AuthContextType = {
+  // Memoized so consumers re-render only when auth state actually changes, not whenever a parent re-renders.
+  const value: AuthContextType = useMemo(() => ({
     user: state.user,
     token: state.token,
     isAuthenticated: state.isAuthenticated,
@@ -224,7 +225,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     discountLimit: state.discountLimit,
     resolvedAppRoles: state.resolvedAppRoles,
     refreshUser,
-  };
+  }), [state, login, register, logout, refreshUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { tenantPlugin } from '../plugins/tenantPlugin';
 import { changeCapturePlugin } from '../services/channex/changeCapture';
+import { allocateReservationCode } from '../services/reservationCode';
 
 export type RateSelectionReason = 'manual' | 'contract' | 'promo' | 'default' | 'cheapest' | 'restricted';
 
@@ -244,12 +245,12 @@ const reservationSchema = new Schema<IReservation>({
     // unique implies an index; no need for additional index flag
   },
 
-  // Human-friendly reservation code
+  // Human-friendly reservation number (RES-000123), assigned on creation from the property's own counter — see
+  // services/reservationCode.ts. Unique per property (index below), immutable, never reused. Older reservations
+  // keep their original codes (B26X7KQ); the field is not `required` so those can still be saved.
   reservationCode: {
     type: String,
-    unique: true,
-    sparse: true,
-    // unique implies an index; no need for additional index flag
+    trim: true,
   },
 
   // Reservation type
@@ -570,7 +571,18 @@ reservationSchema.index({ checkInDate: 1, checkOutDate: 1 });
 reservationSchema.index({ actualCheckInAt: 1 });
 reservationSchema.index({ actualCheckOutAt: 1 });
 reservationSchema.index({ 'channelSource.channexBookingId': 1 }, { sparse: true });
-// reservationCode already has a unique index via field definition; avoid duplicate index
+// Unique per property, not across all properties: every property numbers its reservations from 1, so the same
+// number legitimately exists in several. Partial (not sparse) so reservations without a code never collide.
+reservationSchema.index(
+  { tenantId: 1, reservationCode: 1 },
+  { unique: true, partialFilterExpression: { reservationCode: { $type: 'string' } } }
+);
+
+// Every reservation gets its number here, so a creation path cannot forget it (admin, booking engine, channel
+// imports, anything added later). Runs after validation, so a reservation that fails validation uses no number.
+reservationSchema.pre('save', async function () {
+  if (this.isNew && !this.reservationCode) this.reservationCode = await allocateReservationCode();
+});
 
 // Backward-compat alias during transition: totalPrice -> estimatedTotal
 reservationSchema.virtual('totalPrice')

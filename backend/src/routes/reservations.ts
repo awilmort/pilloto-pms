@@ -1,5 +1,6 @@
 import { tenantBaseUrl } from '../utils/appUrls';
 import express, { Request, Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import Reservation from '../models/Reservation';
 import Room from '../models/Room';
 import Role from '../models/Role';
@@ -20,7 +21,8 @@ import { postChargeAddedEntry, postPaymentCompletedEntry, reversePaymentEntry, t
 import { transferFolioBalanceToCityLedger } from '../services/accounting/cityLedger.service';
 import { validateRoomAssignment } from '../services/roomAssignment';
 import { stayRestrictionWarnings, toStay, StayWarning } from '../services/stayQuote';
-import { BOOKING_ENGINE_TOKEN_RE, ensureFolio, generateReservationCode, realignRoomItems } from '../services/reservationRecords';
+import { BOOKING_ENGINE_TOKEN_RE, ensureFolio, realignRoomItems } from '../services/reservationRecords';
+import { newFrontDeskToken, tokensMatch } from '../utils/guestAccess';
 import {
   pricingSnapshotFrom, quoteRooms, RateSelectionError, requoteRoomItems, roomItemsFromQuote, RoomRatesResult,
 } from '../services/ratePlanSelection';
@@ -29,6 +31,15 @@ import { loadChannelHistory } from '../services/channex/tenantViews';
 import { actorFromRequest, diffSnapshots, GUEST_ACTOR, loadReservationHistory, recordReservationEvent, snapshotReservation } from '../services/reservationHistory';
 
 const router = express.Router();
+
+// Guests open and cancel reservations here without logging in, so the routes are throttled per IP.
+const publicReservationLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many requests. Please try again later.' },
+});
 
 /**
  * The signed-in user on a route that also accepts anonymous calls (public booking, email
@@ -333,9 +344,16 @@ router.get('/:id/history', authenticate, authorizePermission('pms', 'admin.reser
   }
 });
 
+// `:id` is either the database id or the human reservation code (e.g. B26X7KQ, any case) — staff use the code on
+// the phone and it is what the confirmation shows, so the admin page links to it. A value that is neither a
+// valid id nor a known code is simply "not found".
 router.get('/:id', authenticate, authorizeAppAccess('pms'), async (req: AuthRequest, res: Response) => {
   try {
-    const reservation = await Reservation.findById(req.params.id)
+    const ref = String(req.params.id).trim();
+    const lookup = mongoose.isValidObjectId(ref) && /^[a-f\d]{24}$/i.test(ref)
+      ? Reservation.findById(ref)
+      : Reservation.findOne({ reservationCode: ref.toUpperCase() });
+    const reservation = await lookup
       .populate('user', 'firstName lastName email')
       .populate('room', 'name status amenities')
       .populate('rooms', 'name status amenities')
@@ -820,13 +838,11 @@ router.post('/', async (req: Request, res: Response) => {
       reservationData.user = authenticatedUser.id;
     }
 
-    // Always generate a confirmation token for deep-link viewing (guest or authenticated)
+    // Always generate a confirmation token for deep-link viewing (guest or authenticated). It is the guest's only
+    // proof of access, so it is 256 random bits — not a timestamp. The reservation number is assigned on save.
     if (!reservationData.confirmationToken) {
-      reservationData.confirmationToken = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      reservationData.confirmationToken = newFrontDeskToken();
     }
-
-    // Generate human-friendly reservation code
-    reservationData.reservationCode = generateReservationCode();
 
     // Add type-specific fields
     if (normalizedType === 'room') {
@@ -1684,7 +1700,7 @@ router.put('/:id/move', authenticate, authorizeAppAccess('pms'), async (req: Aut
 // @route   GET /api/reservations/public/:confirmationToken
 // @desc    Get reservation by confirmation token (public access for guests)
 // @access  Public
-router.get('/public/:confirmationToken', async (req: Request, res: Response) => {
+router.get('/public/:confirmationToken', publicReservationLimiter, async (req: Request, res: Response) => {
   try {
     const { confirmationToken } = req.params;
 
@@ -1712,16 +1728,18 @@ router.get('/public/:confirmationToken', async (req: Request, res: Response) => 
   }
 });
 
-// @route   GET /api/reservations/public/code/:reservationCode
-// @desc    Get reservation by reservation code (public access for guests)
-// @access  Public
-router.get('/public/code/:reservationCode', async (req: Request, res: Response) => {
+// @route   GET /api/reservations/public/code/:reservationCode?token=…
+// @desc    Get reservation by reservation number + confirmation token (public access for guests)
+// @access  Public — the number alone opens nothing: it is sequential and guessable, so the guest must also
+//          present the token from their confirmation. A wrong token and an unknown number answer identically.
+router.get('/public/code/:reservationCode', publicReservationLimiter, async (req: Request, res: Response) => {
   try {
     const { reservationCode } = req.params;
 
-    const reservation = await Reservation.findOne({ reservationCode })
+    const found = await Reservation.findOne({ reservationCode: String(reservationCode).trim().toUpperCase() })
       .populate('user', 'firstName lastName email')
       .populate('room', 'name status amenities');
+    const reservation = found && tokensMatch(found.confirmationToken, req.query.token) ? found : null;
 
     if (!reservation) {
       return res.status(404).json({
@@ -1746,7 +1764,7 @@ router.get('/public/code/:reservationCode', async (req: Request, res: Response) 
 // @route   PUT /api/reservations/public/:confirmationToken/cancel
 // @desc    Cancel reservation by confirmation token (public access for guests)
 // @access  Public
-router.put('/public/:confirmationToken/cancel', async (req: Request, res: Response) => {
+router.put('/public/:confirmationToken/cancel', publicReservationLimiter, async (req: Request, res: Response) => {
   try {
     const { confirmationToken } = req.params;
     const { cancellationReason } = req.body;
@@ -1809,15 +1827,17 @@ router.put('/public/:confirmationToken/cancel', async (req: Request, res: Respon
   }
 });
 
-// @route   PUT /api/reservations/public/code/:reservationCode/cancel
+// @route   PUT /api/reservations/public/code/:reservationCode/cancel   (body or query: token)
 // @desc    Cancel reservation by reservation code (public access for guests)
 // @access  Public
-router.put('/public/code/:reservationCode/cancel', async (req: Request, res: Response) => {
+router.put('/public/code/:reservationCode/cancel', publicReservationLimiter, async (req: Request, res: Response) => {
   try {
     const { reservationCode } = req.params;
     const { cancellationReason } = req.body;
 
-    const reservation = await Reservation.findOne({ reservationCode });
+    // Cancelling needs the same proof as viewing: the confirmation token, never the number alone.
+    const found = await Reservation.findOne({ reservationCode: String(reservationCode).trim().toUpperCase() });
+    const reservation = found && tokensMatch(found.confirmationToken, req.body?.token ?? req.query.token) ? found : null;
 
     if (!reservation) {
       return res.status(404).json({

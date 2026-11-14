@@ -198,7 +198,7 @@ describe('applyBookingRevision (local Mongo)', () => {
     const r = (await res('N1'))!;
     expect(String(out.reservationId)).toBe(String(r._id));
     expect(r).toMatchObject({ type: 'room', status: 'confirmed', estimatedTotal: 200, roomCount: 1, guests: 2 });
-    expect(r.reservationCode).toMatch(/^B\d{2}[A-Z0-9]{4}$/);
+    expect(r.reservationCode).toMatch(/^RES-\d{6,}$/); // numbered by the model from the property's own counter
     expect(roomsOf(r)).toEqual([String(ids.t1)]);
     expect(String(r.items[0].roomTypeId)).toBe(String(ids.twin));
     expect(String(r.items[0].ratePlanId)).toBe(String(ids.twinBar));

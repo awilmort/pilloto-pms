@@ -1,14 +1,13 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import AccountingLayout from '../../components/accounting/AccountingLayout';
+import { usePageTitle } from '../../components/shared/PageTitle';
 import ProfileView from '../../components/shared/ProfileView';
 
 const AccountingProfilePage: React.FC = () => {
   const { t } = useTranslation();
+  usePageTitle(t('pages.profile.title', 'Profile'));
   return (
-    <AccountingLayout title={t('pages.profile.title', 'Profile')}>
-      <ProfileView />
-    </AccountingLayout>
+    <ProfileView />
   );
 };
 

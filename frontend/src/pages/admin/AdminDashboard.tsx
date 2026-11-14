@@ -14,12 +14,13 @@ import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 import { adminService } from '../../services/api';
-import AdminLayout from '../../components/admin/AdminLayout';
+import { usePageTitle } from '../../components/shared/PageTitle';
 import type { DashboardData } from '../../types/dashboard';
 import { KpiTile, fmtInt, fmtMoney, fmtPct, pctChange } from '../../components/admin/reports/kit';
 import {
   ActivityCard, AttentionPanel, DayVisitorsStrip, MovementCard, MovementIcons, OutlookChart, RoomStatusCard, Worklist, WorklistTab, useDayFormat,
 } from '../../components/admin/dashboard/DashboardPanels';
+import { usePolling } from '../../hooks/usePolling';
 
 const REFRESH_MS = 5 * 60 * 1000;
 
@@ -37,6 +38,7 @@ const AdminDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
   const k = (key: string, opts?: Record<string, unknown>) => t(`admin.dashboard.${key}`, opts);
+  usePageTitle(k('title'));
   const day = useDayFormat();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -87,14 +89,10 @@ const AdminDashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!allowed) return undefined;
-    load();
-    // Keep the panel current while it is on screen; skip refreshes in background tabs
-    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') load(); }, REFRESH_MS);
-    const onVisible = () => { if (document.visibilityState === 'visible') load(); };
-    document.addEventListener('visibilitychange', onVisible);
-    return () => { window.clearInterval(timer); document.removeEventListener('visibilitychange', onVisible); };
+    if (allowed) load();
   }, [allowed, load]);
+  // Keep the panel current while it is on screen; usePolling skips background tabs and refreshes on return
+  usePolling(load, REFRESH_MS, allowed);
 
   if (!allowed) return null;
 
@@ -133,21 +131,19 @@ const AdminDashboard: React.FC = () => {
 
   if (!data) {
     return (
-      <AdminLayout title={k('title')}>
-        <Box sx={{ pb: 4 }}>
-          {header}
-          {error ? (
-            <Alert severity="error" action={<Button color="inherit" size="small" onClick={load}>{k('retry')}</Button>}>{k('loadFailed')}</Alert>
-          ) : (
-            <Grid container spacing={2}>
-              {[0, 1, 2, 3, 4].map((i) => <Grid item xs={6} md={12 / 5} key={i}><Skeleton variant="rounded" height={112} /></Grid>)}
-              {[0, 1, 2, 3].map((i) => <Grid item xs={6} md={3} key={`m${i}`}><Skeleton variant="rounded" height={140} /></Grid>)}
-              <Grid item xs={12} lg={8}><Skeleton variant="rounded" height={380} /></Grid>
-              <Grid item xs={12} lg={4}><Skeleton variant="rounded" height={380} /></Grid>
-            </Grid>
-          )}
-        </Box>
-      </AdminLayout>
+      <Box sx={{ pb: 4 }}>
+        {header}
+        {error ? (
+          <Alert severity="error" action={<Button color="inherit" size="small" onClick={load}>{k('retry')}</Button>}>{k('loadFailed')}</Alert>
+        ) : (
+          <Grid container spacing={2}>
+            {[0, 1, 2, 3, 4].map((i) => <Grid item xs={6} md={12 / 5} key={i}><Skeleton variant="rounded" height={112} /></Grid>)}
+            {[0, 1, 2, 3].map((i) => <Grid item xs={6} md={3} key={`m${i}`}><Skeleton variant="rounded" height={140} /></Grid>)}
+            <Grid item xs={12} lg={8}><Skeleton variant="rounded" height={380} /></Grid>
+            <Grid item xs={12} lg={4}><Skeleton variant="rounded" height={380} /></Grid>
+          </Grid>
+        )}
+      </Box>
     );
   }
 
@@ -179,76 +175,74 @@ const AdminDashboard: React.FC = () => {
   ];
 
   return (
-    <AdminLayout title={k('title')}>
-      <Box sx={{ pb: 4 }}>
-        {header}
-        {error && <Alert severity="warning" sx={{ mb: 2 }} action={<Button color="inherit" size="small" onClick={load}>{k('retry')}</Button>}>{k('staleData')}</Alert>}
+    <Box sx={{ pb: 4 }}>
+      {header}
+      {error && <Alert severity="warning" sx={{ mb: 2 }} action={<Button color="inherit" size="small" onClick={load}>{k('retry')}</Button>}>{k('staleData')}</Alert>}
 
-        {/* Tonight */}
-        <Grid container spacing={2} mb={2}>
-          {tiles.map((tile, i) => <Grid item xs={6} sm={4} md={12 / tiles.length} key={i}>{tile}</Grid>)}
-        </Grid>
+      {/* Tonight */}
+      <Grid container spacing={2} mb={2}>
+        {tiles.map((tile, i) => <Grid item xs={6} sm={4} md={12 / tiles.length} key={i}>{tile}</Grid>)}
+      </Grid>
 
-        {/* Today's movement and rooms */}
-        <Grid container spacing={2} mb={2}>
-          <Grid item xs={6} md={3}>
-            <MovementCard
-              icon={MovementIcons.arrivals}
-              label={k('movement.arrivals')}
-              value={mv.arrivals.rooms}
-              done={mv.arrivals.done}
-              progressText={k('movement.checkedIn', { done: mv.arrivals.done, total: mv.arrivals.rooms })}
-              onClick={() => setTab('arrivals')}
-            />
-          </Grid>
-          <Grid item xs={6} md={3}>
-            <MovementCard
-              icon={MovementIcons.departures}
-              label={k('movement.departures')}
-              value={mv.departures.rooms}
-              done={mv.departures.done}
-              progressText={k('movement.checkedOut', { done: mv.departures.done, total: mv.departures.rooms })}
-              onClick={() => setTab('departures')}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <MovementCard
-              icon={MovementIcons.inHouse}
-              label={k('movement.inHouse')}
-              value={mv.inHouse.rooms}
-              caption={k('movement.inHouseCaption', { guests: fmtInt(mv.inHouse.guests), stayovers: fmtInt(mv.inHouse.stayovers) })}
-              onClick={() => setTab('inHouse')}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <RoomStatusCard status={data.roomStatus} onManage={can('admin.rooms') ? () => navigate('/admin/rooms') : undefined} />
-          </Grid>
-          {data.dayVisits && (
-            <Grid item xs={12}><DayVisitorsStrip visits={data.dayVisits} /></Grid>
-          )}
+      {/* Today's movement and rooms */}
+      <Grid container spacing={2} mb={2}>
+        <Grid item xs={6} md={3}>
+          <MovementCard
+            icon={MovementIcons.arrivals}
+            label={k('movement.arrivals')}
+            value={mv.arrivals.rooms}
+            done={mv.arrivals.done}
+            progressText={k('movement.checkedIn', { done: mv.arrivals.done, total: mv.arrivals.rooms })}
+            onClick={() => setTab('arrivals')}
+          />
         </Grid>
+        <Grid item xs={6} md={3}>
+          <MovementCard
+            icon={MovementIcons.departures}
+            label={k('movement.departures')}
+            value={mv.departures.rooms}
+            done={mv.departures.done}
+            progressText={k('movement.checkedOut', { done: mv.departures.done, total: mv.departures.rooms })}
+            onClick={() => setTab('departures')}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <MovementCard
+            icon={MovementIcons.inHouse}
+            label={k('movement.inHouse')}
+            value={mv.inHouse.rooms}
+            caption={k('movement.inHouseCaption', { guests: fmtInt(mv.inHouse.guests), stayovers: fmtInt(mv.inHouse.stayovers) })}
+            onClick={() => setTab('inHouse')}
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <RoomStatusCard status={data.roomStatus} onManage={can('admin.rooms') ? () => navigate('/admin/rooms') : undefined} />
+        </Grid>
+        {data.dayVisits && (
+          <Grid item xs={12}><DayVisitorsStrip visits={data.dayVisits} /></Grid>
+        )}
+      </Grid>
 
-        {/* Work */}
-        <Grid container spacing={2} mb={2}>
-          <Grid item xs={12} lg={8}>
-            <Worklist data={data} tab={tab} onTab={setTab} canCheckIn={can('admin.reservations.checkin')} canOpen={can('admin.reservations')} />
-          </Grid>
-          <Grid item xs={12} lg={4}>
-            <AttentionPanel items={data.attention} canOpen={can('admin.reservations')} canViewRooms={can('admin.rooms')} />
-          </Grid>
+      {/* Work */}
+      <Grid container spacing={2} mb={2}>
+        <Grid item xs={12} lg={8}>
+          <Worklist data={data} tab={tab} onTab={setTab} canCheckIn={can('admin.reservations.checkin')} canOpen={can('admin.reservations')} />
         </Grid>
+        <Grid item xs={12} lg={4}>
+          <AttentionPanel items={data.attention} canOpen={can('admin.reservations')} canViewRooms={can('admin.rooms')} />
+        </Grid>
+      </Grid>
 
-        {/* Ahead */}
-        <Grid container spacing={2}>
-          <Grid item xs={12} lg={8}>
-            <OutlookChart data={data} onForecast={can('admin.ecf.view') ? () => navigate('/admin/reports/forecast') : undefined} />
-          </Grid>
-          <Grid item xs={12} lg={4}>
-            <ActivityCard data={data} canOpen={can('admin.reservations')} />
-          </Grid>
+      {/* Ahead */}
+      <Grid container spacing={2}>
+        <Grid item xs={12} lg={8}>
+          <OutlookChart data={data} onForecast={can('admin.ecf.view') ? () => navigate('/admin/reports/forecast') : undefined} />
         </Grid>
-      </Box>
-    </AdminLayout>
+        <Grid item xs={12} lg={4}>
+          <ActivityCard data={data} canOpen={can('admin.reservations')} />
+        </Grid>
+      </Grid>
+    </Box>
   );
 };
 

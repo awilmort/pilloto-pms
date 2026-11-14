@@ -49,7 +49,12 @@
     "tooManyRequests": "Too many requests. Please try again later.",
     "error": "Error",
     "hotelFallback": "Hotel",
-    "selectLanguage": "Select language"
+    "selectLanguage": "Select language",
+    "updatedReload": "Pilloto was updated. Reload the page to continue.",
+    "reloadPage": "Reload page",
+    "pageErrorTitle": "Something went wrong on this page",
+    "pageErrorBody": "The rest of the app is still working. You can try again, or go to another section from the menu.",
+    "tryAgain": "Try again"
   },
   "nav": {
     "home": "Home",
@@ -792,7 +797,8 @@
         "statusLabel": "Filter by Status",
         "typeLabel": "Filter by Type",
         "status": {
-          "all": "All Reservations"
+          "all": "All Reservations",
+          "allShort": "All"
         },
         "types": {
           "all": "All Types"
@@ -833,7 +839,8 @@
         "cancel": "Cancel",
         "saveChanges": "Save Changes",
         "newReservation": "New Reservation",
-        "viewFullDetails": "View Details"
+        "viewFullDetails": "View Details",
+        "moreActions": "More actions"
       },
       "dialog": {
         "editTitle": "Edit Reservation",
@@ -1157,7 +1164,10 @@
         "payments": "Payments",
         "primaryContact": "Primary Contact",
         "reservationDetails": "Reservation Details",
-        "reservationTitle": "Reservation"
+        "reservationTitle": "Reservation",
+        "notFoundTitle": "We could not find this reservation",
+        "notFoundBody": "It may have been deleted, or the link may be wrong.",
+        "retry": "Try again"
       },
       "bookingRuleWarnings": {
         "title": "This booking breaks a booking rule",
@@ -1281,7 +1291,9 @@
         "check": "Check",
         "credit": "Credit",
         "transfer": "Transfer"
-      }
+      },
+      "resultCount_one": "{{count}} reservation",
+      "resultCount_other": "{{count}} reservations"
     },
     "schedule": {
       "title": "Schedule Summary",

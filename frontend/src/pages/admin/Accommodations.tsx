@@ -27,7 +27,7 @@ import {
   InputLabel,
   Chip,
 } from '@mui/material';
-import AdminLayout from '../../components/admin/AdminLayout';
+import { usePageTitle } from '../../components/shared/PageTitle';
 import { reservationsService, roomsService, adminService } from '../../services/api';
 import { Reservation, Room } from '../../types';
 import dayjs from 'dayjs';
@@ -36,6 +36,7 @@ import i18n from '../../i18n';
 
 const Accommodations: React.FC = () => {
   const { t } = useTranslation();
+  usePageTitle(t('admin.accommodations.title'));
 
   const statusOptions = [
     { value: 'active', label: t('admin.rooms.statusLabels.active') },
@@ -208,167 +209,163 @@ const Accommodations: React.FC = () => {
 
   if (loading) {
     return (
-      <AdminLayout>
-        <Container maxWidth="lg" sx={{ py: 6, textAlign: 'center' }}>
-          <CircularProgress size={60} />
-          <Typography variant="h6" sx={{ mt: 2 }}>{t('admin.accommodations.loading')}</Typography>
-        </Container>
-      </AdminLayout>
+      <Container maxWidth="lg" sx={{ py: 6, textAlign: 'center' }}>
+        <CircularProgress size={60} />
+        <Typography variant="h6" sx={{ mt: 2 }}>{t('admin.accommodations.loading')}</Typography>
+      </Container>
     );
   }
 
   return (
-    <AdminLayout title={t('admin.accommodations.title')}>
-      <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
+    <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
 
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Typography variant="subtitle1" color="text.secondary">{dateLabel}</Typography>
-          <ToggleButtonGroup value={period} exclusive onChange={(_, val) => val && setPeriod(val)}>
-            <ToggleButton value="today">{t('admin.schedule.today')}</ToggleButton>
-            <ToggleButton value="tomorrow">{t('admin.schedule.tomorrow')}</ToggleButton>
-          </ToggleButtonGroup>
-        </Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="subtitle1" color="text.secondary">{dateLabel}</Typography>
+        <ToggleButtonGroup value={period} exclusive onChange={(_, val) => val && setPeriod(val)}>
+          <ToggleButton value="today">{t('admin.schedule.today')}</ToggleButton>
+          <ToggleButton value="tomorrow">{t('admin.schedule.tomorrow')}</ToggleButton>
+        </ToggleButtonGroup>
+      </Box>
 
-        {/* Reservations for selected day (room type) */}
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Typography variant="h6">{t('admin.reservations.title')}</Typography>
-          <Divider sx={{ my: 2 }} />
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>{t('admin.schedule.table.guest')}</TableCell>
-                <TableCell>{t('admin.schedule.table.room')}</TableCell>
-                <TableCell sx={{ minWidth: 140 }}>{t('admin.reservations.table.status')}</TableCell>
-                <TableCell>{t('admin.reservations.table.dates')}</TableCell>
-                <TableCell align="right">{t('admin.schedule.table.totalGuests')}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {reservations.map(r => {
-                const guest = r.guestName?.firstName
-                  ? `${r.guestName.firstName} ${r.guestName.lastName || ''}`.trim()
-                  : (typeof r.user === 'object' ? `${(r.user as any).firstName} ${(r.user as any).lastName}` : t('admin.dashboard.recentReservations.guestFallback'));
-                const totalGuests = (r.guestDetails?.adults || 0) + (r.guestDetails?.children || 0) + (r.guestDetails?.infants || 0);
-                const dateStr = r.type === 'room'
-                  ? `${new Date(r.checkInDate).toLocaleDateString(i18n.language)} - ${r.checkOutDate ? new Date(r.checkOutDate).toLocaleDateString(i18n.language) : ''}`
-                  : new Date(r.checkInDate).toLocaleDateString(i18n.language);
-                const roomName = (() => {
-                  const rooms = (r as any).rooms as any[] | undefined;
-                  if (Array.isArray(rooms) && rooms.length > 0) {
-                    return rooms.map(rm => (typeof rm === 'object' ? rm.name : String(rm))).join(', ');
-                  }
-                  return r.room && typeof r.room === 'object' ? (r.room as any).name : t('admin.schedule.notAssigned');
-                })();
-                const opsStatus = renderReservationOpsBadge(getReservationOpsStatus(r));
-                return (
-                  <TableRow key={r._id}>
-                    <TableCell>{guest}</TableCell>
-                    <TableCell>{roomName}</TableCell>
-                    <TableCell sx={{ minWidth: 140 }}>{opsStatus}</TableCell>
-                    <TableCell>{dateStr}</TableCell>
-                    <TableCell align="right">{totalGuests}</TableCell>
-                  </TableRow>
-                );
-              })}
-              {reservations.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} align="center">{t('admin.schedule.empty.rooms')}</TableCell>
+      {/* Reservations for selected day (room type) */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <Typography variant="h6">{t('admin.reservations.title')}</Typography>
+        <Divider sx={{ my: 2 }} />
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>{t('admin.schedule.table.guest')}</TableCell>
+              <TableCell>{t('admin.schedule.table.room')}</TableCell>
+              <TableCell sx={{ minWidth: 140 }}>{t('admin.reservations.table.status')}</TableCell>
+              <TableCell>{t('admin.reservations.table.dates')}</TableCell>
+              <TableCell align="right">{t('admin.schedule.table.totalGuests')}</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {reservations.map(r => {
+              const guest = r.guestName?.firstName
+                ? `${r.guestName.firstName} ${r.guestName.lastName || ''}`.trim()
+                : (typeof r.user === 'object' ? `${(r.user as any).firstName} ${(r.user as any).lastName}` : t('admin.dashboard.recentReservations.guestFallback'));
+              const totalGuests = (r.guestDetails?.adults || 0) + (r.guestDetails?.children || 0) + (r.guestDetails?.infants || 0);
+              const dateStr = r.type === 'room'
+                ? `${new Date(r.checkInDate).toLocaleDateString(i18n.language)} - ${r.checkOutDate ? new Date(r.checkOutDate).toLocaleDateString(i18n.language) : ''}`
+                : new Date(r.checkInDate).toLocaleDateString(i18n.language);
+              const roomName = (() => {
+                const rooms = (r as any).rooms as any[] | undefined;
+                if (Array.isArray(rooms) && rooms.length > 0) {
+                  return rooms.map(rm => (typeof rm === 'object' ? rm.name : String(rm))).join(', ');
+                }
+                return r.room && typeof r.room === 'object' ? (r.room as any).name : t('admin.schedule.notAssigned');
+              })();
+              const opsStatus = renderReservationOpsBadge(getReservationOpsStatus(r));
+              return (
+                <TableRow key={r._id}>
+                  <TableCell>{guest}</TableCell>
+                  <TableCell>{roomName}</TableCell>
+                  <TableCell sx={{ minWidth: 140 }}>{opsStatus}</TableCell>
+                  <TableCell>{dateStr}</TableCell>
+                  <TableCell align="right">{totalGuests}</TableCell>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </Paper>
-
-        {/* Rooms Ops Table */}
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="h6" sx={{ mb: 2 }}>{t('admin.rooms.title')}</Typography>
-          <Table>
-            <TableHead>
+              );
+            })}
+            {reservations.length === 0 && (
               <TableRow>
-                <TableCell>{t('admin.schedule.table.room')}</TableCell>
-                <TableCell>{t('admin.rooms.table.type')}</TableCell>
-                <TableCell>{t('admin.rooms.table.status')}</TableCell>
-                <TableCell>{t('admin.accommodations.table.availability')}</TableCell>
-                <TableCell>{t('admin.rooms.form.condition')}</TableCell>
-                <TableCell>{t('admin.rooms.form.comment')}</TableCell>
-                <TableCell>{t('admin.rooms.table.actions')}</TableCell>
+                <TableCell colSpan={5} align="center">{t('admin.schedule.empty.rooms')}</TableCell>
               </TableRow>
-            </TableHead>
-            <TableBody>
-              {rooms.map(room => (
-                <TableRow key={room._id}>
-                  <TableCell>{room.name}</TableCell>
-                  <TableCell>
-                    {typeof room.roomTypeId === 'object' && room.roomTypeId
-                      ? (room.roomTypeId as any).name
-                      : '—'}
-                  </TableCell>
-                  <TableCell>{renderStatusBadge((room as any).status)}</TableCell>
-                  <TableCell>{renderAvailabilityBadge(getAvailabilityState(room))}</TableCell>
-                  <TableCell>{renderConditionBadge((room as any).condition)}</TableCell>
-                  <TableCell sx={{ minWidth: 300 }}>{(room as any).comment}</TableCell>
-                  <TableCell>
-                    <Button variant="contained" size="small" onClick={() => openEdit(room)}>{t('admin.rooms.actions.edit')}</Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Paper>
+            )}
+          </TableBody>
+        </Table>
+      </Paper>
 
-        {/* Edit Room Dialog */}
-        <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="md" fullWidth>
-          <DialogTitle>{t('admin.rooms.dialog.editTitle')}</DialogTitle>
-          <DialogContent sx={{ pt: 2 }}>
-            <Typography variant="subtitle2" sx={{ mb: 2 }}>{editingRoom?.name}</Typography>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 3 }}>
-              <FormControl fullWidth size="small">
-                <InputLabel>{t('admin.rooms.form.status')}</InputLabel>
-                <Select
-                  label={t('admin.rooms.form.status')}
-                  value={editFields.status ?? ''}
-                  onChange={(e) => setEditFields({ ...editFields, status: e.target.value as any })}
-                >
-                  {statusOptions.map(opt => (
-                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+      {/* Rooms Ops Table */}
+      <Paper sx={{ p: 2 }}>
+        <Typography variant="h6" sx={{ mb: 2 }}>{t('admin.rooms.title')}</Typography>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>{t('admin.schedule.table.room')}</TableCell>
+              <TableCell>{t('admin.rooms.table.type')}</TableCell>
+              <TableCell>{t('admin.rooms.table.status')}</TableCell>
+              <TableCell>{t('admin.accommodations.table.availability')}</TableCell>
+              <TableCell>{t('admin.rooms.form.condition')}</TableCell>
+              <TableCell>{t('admin.rooms.form.comment')}</TableCell>
+              <TableCell>{t('admin.rooms.table.actions')}</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {rooms.map(room => (
+              <TableRow key={room._id}>
+                <TableCell>{room.name}</TableCell>
+                <TableCell>
+                  {typeof room.roomTypeId === 'object' && room.roomTypeId
+                    ? (room.roomTypeId as any).name
+                    : '—'}
+                </TableCell>
+                <TableCell>{renderStatusBadge((room as any).status)}</TableCell>
+                <TableCell>{renderAvailabilityBadge(getAvailabilityState(room))}</TableCell>
+                <TableCell>{renderConditionBadge((room as any).condition)}</TableCell>
+                <TableCell sx={{ minWidth: 300 }}>{(room as any).comment}</TableCell>
+                <TableCell>
+                  <Button variant="contained" size="small" onClick={() => openEdit(room)}>{t('admin.rooms.actions.edit')}</Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </Paper>
 
-              <FormControl fullWidth size="small">
-                <InputLabel>{t('admin.rooms.form.condition')}</InputLabel>
-                <Select
-                  label={t('admin.rooms.form.condition')}
-                  value={editFields.condition ?? ''}
-                  onChange={(e) => setEditFields({ ...editFields, condition: e.target.value as any })}
-                >
-                  {conditionOptions.map(opt => (
-                    <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+      {/* Edit Room Dialog */}
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>{t('admin.rooms.dialog.editTitle')}</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography variant="subtitle2" sx={{ mb: 2 }}>{editingRoom?.name}</Typography>
+          <Box sx={{ display: 'grid', gridTemplateColumns: '1fr', gap: 3 }}>
+            <FormControl fullWidth size="small">
+              <InputLabel>{t('admin.rooms.form.status')}</InputLabel>
+              <Select
+                label={t('admin.rooms.form.status')}
+                value={editFields.status ?? ''}
+                onChange={(e) => setEditFields({ ...editFields, status: e.target.value as any })}
+              >
+                {statusOptions.map(opt => (
+                  <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
-              <TextField
-                fullWidth
-                label={t('admin.rooms.form.comment')}
-                multiline
-                minRows={4}
-                value={editFields.comment}
-                onChange={(e) => setEditFields({ ...editFields, comment: e.target.value })}
-              />
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setEditOpen(false)}>{t('admin.amenities.actions.cancel')}</Button>
-            <Button variant="contained" onClick={saveEdit}>{t('admin.roles.actions.save')}</Button>
-          </DialogActions>
-        </Dialog>
+            <FormControl fullWidth size="small">
+              <InputLabel>{t('admin.rooms.form.condition')}</InputLabel>
+              <Select
+                label={t('admin.rooms.form.condition')}
+                value={editFields.condition ?? ''}
+                onChange={(e) => setEditFields({ ...editFields, condition: e.target.value as any })}
+              >
+                {conditionOptions.map(opt => (
+                  <MenuItem key={opt.value} value={opt.value}>{opt.label}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
-        <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
-          <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>{snackbar.message}</Alert>
-        </Snackbar>
-      </Container>
-    </AdminLayout>
+            <TextField
+              fullWidth
+              label={t('admin.rooms.form.comment')}
+              multiline
+              minRows={4}
+              value={editFields.comment}
+              onChange={(e) => setEditFields({ ...editFields, comment: e.target.value })}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditOpen(false)}>{t('admin.amenities.actions.cancel')}</Button>
+          <Button variant="contained" onClick={saveEdit}>{t('admin.roles.actions.save')}</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar({ ...snackbar, open: false })}>
+        <Alert severity={snackbar.severity} onClose={() => setSnackbar({ ...snackbar, open: false })}>{snackbar.message}</Alert>
+      </Snackbar>
+    </Container>
   );
 };
 

@@ -23,6 +23,7 @@
 import express, { Request, Response } from 'express';
 import { body, query } from 'express-validator';
 import rateLimit from 'express-rate-limit';
+import { tokensMatch } from '../utils/guestAccess';
 import crypto from 'crypto';
 import mongoose from 'mongoose';
 import { handleValidationErrors } from '../middleware/validation';
@@ -53,7 +54,6 @@ import { renderBookingVerification } from '../utils/emailTemplates/bookingVerifi
 import { renderReservationConfirmation } from '../utils/emailTemplates/reservationConfirmation';
 import Tenant from '../models/Tenant';
 import { formatAddress, tenantCurrency } from '../services/propertyProfile';
-import { generateReservationCode } from '../services/reservationRecords';
 import { GUEST_ACTOR, recordReservationEvent } from '../services/reservationHistory';
 
 const router = express.Router();
@@ -907,9 +907,8 @@ router.post(
         else if (firstService?.kind === 'event') reservationType = 'event';
       }
 
-      // ── 4. Generate confirmation token and code ──────────────
+      // ── 4. Generate the confirmation token (the guest's proof of access; the reservation number is assigned on save) ──
       const confirmationToken = crypto.randomBytes(32).toString('hex');
-      const reservationCode = generateReservationCode();
 
       // ── 5. Assign rooms ──────────────────────────────────────
       const assignedRoomIds = processedItems
@@ -948,7 +947,6 @@ router.post(
         status: 'pending',
         guestName: { firstName, lastName },
         confirmationToken,
-        reservationCode,
         checkInDate: primaryCheckIn || new Date(items[0].checkIn || items[0].date),
         checkOutDate: primaryCheckOut,
         guests: totalAdults + totalChildren,
@@ -1017,7 +1015,7 @@ router.post(
 
         await sendEmail({
           to: email,
-          subject: `Booking Confirmation — ${reservationCode}`,
+          subject: `Booking Confirmation — ${reservation.reservationCode}`,
           html,
           text,
           replyTo: emailConfig.replyTo || undefined,
@@ -1032,7 +1030,7 @@ router.post(
         message: 'Reservation created successfully. Pay at the property.',
         data: {
           reservationId: reservation._id,
-          reservationCode,
+          reservationCode: reservation.reservationCode,
           confirmationToken,
           status: reservation.status,
           estimatedTotal: totalEstimate,
@@ -1251,8 +1249,9 @@ router.get('/reservation/:code', bookingLimiter, requireBookingEngine, async (re
       return;
     }
 
-    if (reservation.confirmationToken !== token) {
-      res.status(403).json({ success: false, message: 'Invalid access token.' });
+    // Same answer as "no such reservation": a wrong token must not reveal that the number exists.
+    if (!tokensMatch(reservation.confirmationToken, token)) {
+      res.status(404).json({ success: false, message: 'Reservation not found.' });
       return;
     }
 

@@ -1,15 +1,14 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import AccountingLayout from '../../components/accounting/AccountingLayout';
+import { usePageTitle } from '../../components/shared/PageTitle';
 import AccountingDashboardContent from '../../components/accounting/dashboard/AccountingDashboardContent';
 
 /** `/accounting` — the Accounting landing dashboard (see AccountingDashboardContent). */
 const AccountingDashboard: React.FC = () => {
   const { t } = useTranslation();
+  usePageTitle(t('accounting.dashboard.title', 'Accounting Dashboard'));
   return (
-    <AccountingLayout title={t('accounting.dashboard.title', 'Accounting Dashboard')}>
-      <AccountingDashboardContent />
-    </AccountingLayout>
+    <AccountingDashboardContent />
   );
 };
 

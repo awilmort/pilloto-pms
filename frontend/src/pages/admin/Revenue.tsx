@@ -4,8 +4,10 @@ import { AttachMoney, Group, Payments, ExpandMore } from '@mui/icons-material';
 import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { formatMoney } from '../../utils/currency';
-import AdminLayout from '../../components/admin/AdminLayout';
-import { adminService, servicesService } from '../../services/api';
+import { usePageTitle } from '../../components/shared/PageTitle';
+import { adminService } from '../../services/api';
+import { useReservationServices } from '../../hooks/useReservationServices';
+import PageLoader from '../../components/common/PageLoader';
 import i18n from '../../i18n';
 
 type ReservationEntry = {
@@ -127,10 +129,12 @@ const ReservationBreakdownSection = ({ title, rows }: { title: string; rows: Res
 
 const Revenue: React.FC = () => {
   const { t } = useTranslation();
+  usePageTitle(t('admin.revenue.title'));
   const [from, setFrom] = useState<string>(dayjs().format('YYYY-MM-DD'));
   const [to, setTo] = useState<string>(dayjs().format('YYYY-MM-DD'));
   const [data, setData] = useState<RevenueData | null>(null);
-  const [services, setServices] = useState({ daypass: false, accommodation: true, pasatarde: false, event: false });
+  const { services, ready } = useReservationServices();
+  const [loadedOnce, setLoadedOnce] = useState(false);
   const [processOpen, setProcessOpen] = useState(false);
   const [selectedAr, setSelectedAr] = useState<RevenueData['pending'][number] | null>(null);
   const [creditPaymentMethod, setCreditPaymentMethod] = useState<CreditPaymentMethod>('cash');
@@ -145,23 +149,13 @@ const Revenue: React.FC = () => {
       }
     } catch (e) {
       console.error('Revenue fetch error:', e);
+    } finally {
+      setLoadedOnce(true);
     }
   };
 
   useEffect(() => {
     loadData();
-    servicesService.getServices({ active: true })
-      .then(res => {
-        const list: any[] = res.data.data ?? [];
-        const hasKind = (k: string) => list.some(svc => svc.kind === k);
-        setServices(s => ({
-          ...s,
-          daypass:   hasKind('daypass'),
-          pasatarde: hasKind('pasatarde'),
-          event:     hasKind('event'),
-        }));
-      })
-      .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -198,194 +192,194 @@ const Revenue: React.FC = () => {
     }
   };
 
+  if (!ready || !loadedOnce) return <PageLoader />;
+
   return (
-    <AdminLayout title={t('admin.revenue.title')}>
-      <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
+    <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
 
-        {/* Filters */}
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-            <TextField
-              label={t('admin.revenue.filters.from')}
-              type="date"
-              value={from}
-              inputProps={{ max: today }}
-              onChange={(e) => setFrom(e.target.value)}
-            />
-            <TextField
-              label={t('admin.revenue.filters.to')}
-              type="date"
-              value={to}
-              inputProps={{ max: today }}
-              onChange={(e) => setTo(e.target.value)}
-            />
-            <Button variant="contained" onClick={applyFilters}>
-              {t('admin.revenue.filters.apply')}
-            </Button>
-          </Box>
-        </Paper>
-
-        {/* Category cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          {services.daypass && (
-            <Grid item xs={12} sm={6} md={3}>
-              <CombinedStatCard title={t('admin.revenue.cards.daypass')} adults={cat?.daypass.adults || 0} children={cat?.daypass.children || 0} revenue={cat?.daypass.revenue || 0} color={'primary.main'} />
-            </Grid>
-          )}
-          {services.accommodation && (
-            <Grid item xs={12} sm={6} md={3}>
-              <CombinedStatCard title={t('admin.revenue.cards.room')} adults={cat?.room.adults || 0} children={cat?.room.children || 0} revenue={cat?.room.revenue || 0} color={'info.main'} />
-            </Grid>
-          )}
-          {services.event && (
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard title={t('admin.revenue.cards.events')} guests={cat?.event.guests || 0} revenue={cat?.event.revenue || 0} color={'success.main'} />
-            </Grid>
-          )}
-          {services.pasatarde && (
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard title={t('admin.revenue.cards.pasatarde')} guests={cat?.pasatarde.guests || 0} revenue={cat?.pasatarde.revenue || 0} color={'error.main'} />
-            </Grid>
-          )}
-        </Grid>
-
-        {/* Income summary */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          <Grid item xs={12} sm={6} md={3}>
-            <IncomeCard title={t('admin.revenue.summary.totalIncomeCash')} amount={income?.cash || 0} />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <IncomeCard title={t('admin.revenue.summary.totalIncomeTransfers')} amount={income?.transfer || 0} />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <IncomeCard title={t('admin.revenue.summary.totalIncomeCard')} amount={income?.card || 0} />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <IncomeCard title={t('admin.revenue.summary.totalIncome')} amount={income?.total || 0} highlight />
-          </Grid>
-        </Grid>
-
-        {/* Account Receivable */}
-        <Accordion sx={{ mb: 2 }}>
-          <AccordionSummary expandIcon={<ExpandMore />}>
-            <Typography variant="h5">{t('admin.revenue.accountReceivable.title', 'Account Receivable')} ({data?.pending?.length ?? 0})</Typography>
-          </AccordionSummary>
-          <AccordionDetails sx={{ p: 0 }}>
-            <TableContainer>
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>{t('reservations.code', 'Reservation')}</TableCell>
-                    <TableCell>{t('admin.revenue.pending.table.guest')}</TableCell>
-                    <TableCell>{t('admin.revenue.pending.table.type')}</TableCell>
-                    <TableCell>{t('admin.revenue.pending.table.endedOn')}</TableCell>
-                    <TableCell>{t('admin.revenue.pending.table.balanceDue')}</TableCell>
-                    <TableCell align="right">{t('common.actions', 'Actions')}</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {data?.pending?.map((r) => (
-                    <TableRow key={r.paymentId}>
-                      <TableCell>{r.reservationCode}</TableCell>
-                      <TableCell>{r.guest}</TableCell>
-                      <TableCell>
-                        <Chip label={t(`admin.revenue.typeLabels.${r.type === 'PasaTarde' ? 'pasatarde' : r.type}`)} size="small" />
-                      </TableCell>
-                      <TableCell>{r.endedOn ? dayjs(r.endedOn).format('YYYY-MM-DD') : '-'}</TableCell>
-                      <TableCell>{formatMoney(r.balanceDue || 0)}</TableCell>
-                      <TableCell align="right">
-                        <Button size="small" variant="contained" onClick={() => openProcessModal(r)}>
-                          {t('admin.revenue.accountReceivable.processPayment', 'Process Payment')}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </AccordionDetails>
-        </Accordion>
-
-        <Dialog open={processOpen} onClose={() => setProcessOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>{t('admin.revenue.accountReceivable.processPayment', 'Process Payment')}</DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
-              <TextField
-                label={t('admin.revenue.accountReceivable.reservationNumber', 'Reservation Number')}
-                value={selectedAr?.reservationCode || ''}
-                InputProps={{ readOnly: true }}
-                fullWidth
-              />
-              <TextField
-                label={t('admin.revenue.accountReceivable.guestCompany', 'Guest + Company')}
-                value={selectedAr ? `${selectedAr.guest}${selectedAr.company?.name ? ` / ${selectedAr.company.name}` : ''}` : ''}
-                InputProps={{ readOnly: true }}
-                fullWidth
-              />
-              <TextField
-                label={t('admin.revenue.accountReceivable.balance', 'Balance')}
-                value={selectedAr ? formatMoney(selectedAr.balanceDue || 0) : ''}
-                InputProps={{ readOnly: true }}
-                fullWidth
-              />
-              <FormControl fullWidth>
-                <InputLabel>{t('admin.revenue.accountReceivable.creditPaymentMethod', 'Credit Payment Method')}</InputLabel>
-                <Select
-                  label={t('admin.revenue.accountReceivable.creditPaymentMethod', 'Credit Payment Method')}
-                  value={creditPaymentMethod}
-                  onChange={(e) => setCreditPaymentMethod(e.target.value as CreditPaymentMethod)}
-                >
-                  <MenuItem value="cash">{t('admin.revenue.methods.cash')}</MenuItem>
-                  <MenuItem value="card">{t('admin.revenue.methods.card')}</MenuItem>
-                  <MenuItem value="transfer">{t('admin.revenue.methods.transfer')}</MenuItem>
-                  <MenuItem value="check">{t('admin.revenue.methods.check')}</MenuItem>
-                </Select>
-              </FormControl>
-              <TextField
-                label={t('admin.revenue.accountReceivable.creditPaymentDate', 'Credit Payment Date')}
-                value={dayjs().format('YYYY-MM-DD')}
-                InputProps={{ readOnly: true }}
-                fullWidth
-              />
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setProcessOpen(false)}>{t('common.cancel', 'Cancel')}</Button>
-            <Button variant="contained" onClick={processPayment} disabled={processing || !selectedAr}>
-              {t('common.confirm', 'Confirm')}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* Per-category reservation breakdowns */}
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {services.daypass && (
-            <ReservationBreakdownSection
-              title={t('admin.revenue.cards.daypass')}
-              rows={data?.reservations?.daypass ?? []}
-            />
-          )}
-          {services.accommodation && (
-            <ReservationBreakdownSection
-              title={t('admin.revenue.cards.room')}
-              rows={data?.reservations?.room ?? []}
-            />
-          )}
-          {services.event && (
-            <ReservationBreakdownSection
-              title={t('admin.revenue.cards.events')}
-              rows={data?.reservations?.event ?? []}
-            />
-          )}
-          {services.pasatarde && (
-            <ReservationBreakdownSection
-              title={t('admin.revenue.cards.pasatarde')}
-              rows={data?.reservations?.pasatarde ?? []}
-            />
-          )}
+      {/* Filters */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField
+            label={t('admin.revenue.filters.from')}
+            type="date"
+            value={from}
+            inputProps={{ max: today }}
+            onChange={(e) => setFrom(e.target.value)}
+          />
+          <TextField
+            label={t('admin.revenue.filters.to')}
+            type="date"
+            value={to}
+            inputProps={{ max: today }}
+            onChange={(e) => setTo(e.target.value)}
+          />
+          <Button variant="contained" onClick={applyFilters}>
+            {t('admin.revenue.filters.apply')}
+          </Button>
         </Box>
-      </Container>
-    </AdminLayout>
+      </Paper>
+
+      {/* Category cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {services.daypass && (
+          <Grid item xs={12} sm={6} md={3}>
+            <CombinedStatCard title={t('admin.revenue.cards.daypass')} adults={cat?.daypass.adults || 0} children={cat?.daypass.children || 0} revenue={cat?.daypass.revenue || 0} color={'primary.main'} />
+          </Grid>
+        )}
+        {services.accommodation && (
+          <Grid item xs={12} sm={6} md={3}>
+            <CombinedStatCard title={t('admin.revenue.cards.room')} adults={cat?.room.adults || 0} children={cat?.room.children || 0} revenue={cat?.room.revenue || 0} color={'info.main'} />
+          </Grid>
+        )}
+        {services.event && (
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard title={t('admin.revenue.cards.events')} guests={cat?.event.guests || 0} revenue={cat?.event.revenue || 0} color={'success.main'} />
+          </Grid>
+        )}
+        {services.pasatarde && (
+          <Grid item xs={12} sm={6} md={3}>
+            <StatCard title={t('admin.revenue.cards.pasatarde')} guests={cat?.pasatarde.guests || 0} revenue={cat?.pasatarde.revenue || 0} color={'error.main'} />
+          </Grid>
+        )}
+      </Grid>
+
+      {/* Income summary */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <IncomeCard title={t('admin.revenue.summary.totalIncomeCash')} amount={income?.cash || 0} />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <IncomeCard title={t('admin.revenue.summary.totalIncomeTransfers')} amount={income?.transfer || 0} />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <IncomeCard title={t('admin.revenue.summary.totalIncomeCard')} amount={income?.card || 0} />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <IncomeCard title={t('admin.revenue.summary.totalIncome')} amount={income?.total || 0} highlight />
+        </Grid>
+      </Grid>
+
+      {/* Account Receivable */}
+      <Accordion sx={{ mb: 2 }}>
+        <AccordionSummary expandIcon={<ExpandMore />}>
+          <Typography variant="h5">{t('admin.revenue.accountReceivable.title', 'Account Receivable')} ({data?.pending?.length ?? 0})</Typography>
+        </AccordionSummary>
+        <AccordionDetails sx={{ p: 0 }}>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>{t('reservations.code', 'Reservation')}</TableCell>
+                  <TableCell>{t('admin.revenue.pending.table.guest')}</TableCell>
+                  <TableCell>{t('admin.revenue.pending.table.type')}</TableCell>
+                  <TableCell>{t('admin.revenue.pending.table.endedOn')}</TableCell>
+                  <TableCell>{t('admin.revenue.pending.table.balanceDue')}</TableCell>
+                  <TableCell align="right">{t('common.actions', 'Actions')}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {data?.pending?.map((r) => (
+                  <TableRow key={r.paymentId}>
+                    <TableCell>{r.reservationCode}</TableCell>
+                    <TableCell>{r.guest}</TableCell>
+                    <TableCell>
+                      <Chip label={t(`admin.revenue.typeLabels.${r.type === 'PasaTarde' ? 'pasatarde' : r.type}`)} size="small" />
+                    </TableCell>
+                    <TableCell>{r.endedOn ? dayjs(r.endedOn).format('YYYY-MM-DD') : '-'}</TableCell>
+                    <TableCell>{formatMoney(r.balanceDue || 0)}</TableCell>
+                    <TableCell align="right">
+                      <Button size="small" variant="contained" onClick={() => openProcessModal(r)}>
+                        {t('admin.revenue.accountReceivable.processPayment', 'Process Payment')}
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </AccordionDetails>
+      </Accordion>
+
+      <Dialog open={processOpen} onClose={() => setProcessOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('admin.revenue.accountReceivable.processPayment', 'Process Payment')}</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
+            <TextField
+              label={t('admin.revenue.accountReceivable.reservationNumber', 'Reservation Number')}
+              value={selectedAr?.reservationCode || ''}
+              InputProps={{ readOnly: true }}
+              fullWidth
+            />
+            <TextField
+              label={t('admin.revenue.accountReceivable.guestCompany', 'Guest + Company')}
+              value={selectedAr ? `${selectedAr.guest}${selectedAr.company?.name ? ` / ${selectedAr.company.name}` : ''}` : ''}
+              InputProps={{ readOnly: true }}
+              fullWidth
+            />
+            <TextField
+              label={t('admin.revenue.accountReceivable.balance', 'Balance')}
+              value={selectedAr ? formatMoney(selectedAr.balanceDue || 0) : ''}
+              InputProps={{ readOnly: true }}
+              fullWidth
+            />
+            <FormControl fullWidth>
+              <InputLabel>{t('admin.revenue.accountReceivable.creditPaymentMethod', 'Credit Payment Method')}</InputLabel>
+              <Select
+                label={t('admin.revenue.accountReceivable.creditPaymentMethod', 'Credit Payment Method')}
+                value={creditPaymentMethod}
+                onChange={(e) => setCreditPaymentMethod(e.target.value as CreditPaymentMethod)}
+              >
+                <MenuItem value="cash">{t('admin.revenue.methods.cash')}</MenuItem>
+                <MenuItem value="card">{t('admin.revenue.methods.card')}</MenuItem>
+                <MenuItem value="transfer">{t('admin.revenue.methods.transfer')}</MenuItem>
+                <MenuItem value="check">{t('admin.revenue.methods.check')}</MenuItem>
+              </Select>
+            </FormControl>
+            <TextField
+              label={t('admin.revenue.accountReceivable.creditPaymentDate', 'Credit Payment Date')}
+              value={dayjs().format('YYYY-MM-DD')}
+              InputProps={{ readOnly: true }}
+              fullWidth
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setProcessOpen(false)}>{t('common.cancel', 'Cancel')}</Button>
+          <Button variant="contained" onClick={processPayment} disabled={processing || !selectedAr}>
+            {t('common.confirm', 'Confirm')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Per-category reservation breakdowns */}
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {services.daypass && (
+          <ReservationBreakdownSection
+            title={t('admin.revenue.cards.daypass')}
+            rows={data?.reservations?.daypass ?? []}
+          />
+        )}
+        {services.accommodation && (
+          <ReservationBreakdownSection
+            title={t('admin.revenue.cards.room')}
+            rows={data?.reservations?.room ?? []}
+          />
+        )}
+        {services.event && (
+          <ReservationBreakdownSection
+            title={t('admin.revenue.cards.events')}
+            rows={data?.reservations?.event ?? []}
+          />
+        )}
+        {services.pasatarde && (
+          <ReservationBreakdownSection
+            title={t('admin.revenue.cards.pasatarde')}
+            rows={data?.reservations?.pasatarde ?? []}
+          />
+        )}
+      </Box>
+    </Container>
   );
 };
 

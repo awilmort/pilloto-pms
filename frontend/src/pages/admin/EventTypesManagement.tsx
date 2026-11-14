@@ -11,7 +11,7 @@ import { formatMoney } from '../../utils/currency';
 export const EventTypesContent: React.FC = () => {
   const { t } = useTranslation();
   const [eventTypes, setEventTypes] = useState<EventType[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openDialog, setOpenDialog] = useState(false);
   const [editing, setEditing] = useState<EventType | null>(null);

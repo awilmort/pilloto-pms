@@ -16,7 +16,6 @@ import PaymentsTab from '../../components/platform/billing/PaymentsTab';
 import PlansTab from '../../components/platform/billing/PlansTab';
 import SettingsTab from '../../components/platform/billing/SettingsTab';
 import TenantsTab from '../../components/platform/billing/TenantsTab';
-import PlatformLayout from './PlatformLayout';
 
 export const BILLING_TABS = ['charges', 'payments', 'tenants', 'plans', 'settings', 'ecf'] as const;
 type BillingTab = (typeof BILLING_TABS)[number];
@@ -38,7 +37,7 @@ const BillingPage: React.FC = () => {
   const go = (next: BillingTab) => setParams({ tab: next }, { replace: false });
 
   return (
-    <PlatformLayout>
+    <>
       <Typography variant="h5" fontWeight={700} sx={{ mb: 0.5 }}>{t('platformBilling.title', 'Billing')}</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
         {t('platformBilling.subtitle', 'What tenants owe Pilloto, what they paid, and the e-CF each payment issues.')}
@@ -58,7 +57,7 @@ const BillingPage: React.FC = () => {
         {tab === 'settings' && <SettingsTab onSaved={loadOverview} />}
         {tab === 'ecf' && <IssuerTab onChanged={loadOverview} />}
       </Box>
-    </PlatformLayout>
+    </>
   );
 };
 

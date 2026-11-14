@@ -10,7 +10,7 @@
  *   - localhost / custom dev host → reads REACT_APP_TENANT_SLUG env var
  */
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { getPlanFeatures, PlanFeatures } from '../config/plans';
 import { AppCode } from '../types';
@@ -161,10 +161,14 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       .finally(() => setLoading(false));
   }, []);
 
-  const planFeatures = tenant ? getPlanFeatures(tenant.plan) : null;
+  const planFeatures = useMemo(() => (tenant ? getPlanFeatures(tenant.plan) : null), [tenant]);
+  const value = useMemo(
+    () => ({ tenant, isPlatform, loading, tenantSlug, tenantNotFound, planFeatures, isLoginPortal }),
+    [tenant, isPlatform, loading, tenantSlug, tenantNotFound, planFeatures, isLoginPortal]
+  );
 
   return (
-    <TenantContext.Provider value={{ tenant, isPlatform, loading, tenantSlug, tenantNotFound, planFeatures, isLoginPortal }}>
+    <TenantContext.Provider value={value}>
       {children}
     </TenantContext.Provider>
   );

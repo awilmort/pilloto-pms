@@ -27,12 +27,22 @@ const Counter = mongoose.model<ICounter>('Counter', counterSchema);
 // AsyncLocalStorage context — same mechanism every other model uses, applied to
 // the one primitive that has to be correct under concurrency.
 export async function nextSequence(key: string): Promise<number> {
-  const counter = await Counter.findOneAndUpdate(
-    { key },
-    { $inc: { seq: 1 } },
-    { new: true, upsert: true }
-  );
-  return counter.seq;
+  // Two concurrent *first* calls for a tenant both try to create the counter document. The server retries that
+  // upsert race itself on MongoDB 4.2+, but a duplicate-key error is cheap to absorb and must never reach a
+  // caller that is in the middle of creating a document.
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const counter = await Counter.findOneAndUpdate(
+        { key },
+        { $inc: { seq: 1 } },
+        { new: true, upsert: true }
+      );
+      return counter.seq;
+    } catch (err: any) {
+      if (err?.code === 11000 && attempt < 3) continue;
+      throw err;
+    }
+  }
 }
 
 export default Counter;

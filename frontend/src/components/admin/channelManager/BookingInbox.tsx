@@ -13,6 +13,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { BookingInbox as BookingInboxData, BookingInboxState, channelManagerService } from '../../../services/api';
 import { otaLabel } from '../../../utils/channels';
+import { usePolling } from '../../../hooks/usePolling';
 
 interface Props {
   /** Only poll while the property is active */
@@ -34,12 +35,8 @@ const BookingInbox: React.FC<Props> = ({ active }) => {
     try { setData((await channelManagerService.bookingInbox(page)).data.data ?? null); } catch { /* keep the last data */ }
   }, [page]);
 
-  useEffect(() => {
-    load();
-    if (!active) return undefined;
-    const timer = setInterval(load, POLL_MS);
-    return () => clearInterval(timer);
-  }, [load, active]);
+  useEffect(() => { load(); }, [load]);
+  usePolling(load, POLL_MS, active);
 
   const time = (d?: string) => (d ? new Date(d).toLocaleString(i18n.language) : '—');
   const pages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
@@ -73,7 +70,7 @@ const BookingInbox: React.FC<Props> = ({ active }) => {
                   <TableCell>
                     {r.reservationId ? (
                       <Tooltip title={t(k('open'))}>
-                        <Link component={RouterLink} to={`/admin/reservations?id=${r.reservationId}`}>{r.otaReservationCode ?? r.reservationCode ?? t(k('open'))}</Link>
+                        <Link component={RouterLink} to={`/admin/reservations/${r.reservationId}`}>{r.otaReservationCode ?? r.reservationCode ?? t(k('open'))}</Link>
                       </Tooltip>
                     ) : (r.otaReservationCode ?? '—')}
                   </TableCell>

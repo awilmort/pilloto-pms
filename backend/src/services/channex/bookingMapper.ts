@@ -46,7 +46,7 @@ import RoomType from '../../models/RoomType';
 import Tenant from '../../models/Tenant';
 import { getTenantId } from '../../middleware/tenantContext';
 import { sendReservationConfirmationEmail } from '../../utils/email';
-import { ensureFolio, generateReservationCode, RESERVATION_EMAIL_RE } from '../reservationRecords';
+import { ensureFolio, RESERVATION_EMAIL_RE } from '../reservationRecords';
 import { IChannexBookingRevision } from '../../models/ChannexBookingRevision';
 import { getChannexConfig } from './config';
 import { ChannexDate, diffDays, eachNight, fromChannexDate, isChannexDate, parseChannexTimestamp, toChannexDate } from './dates';
@@ -415,15 +415,10 @@ async function upsertGuest(m: MappedBooking): Promise<Id | undefined> {
   }
 }
 
+// The reservation number is assigned by the model on save (services/reservationCode.ts), from the property's own
+// counter — so there is no code to collide and nothing to retry here.
 async function saveNewReservation(data: Record<string, unknown>): Promise<IReservation> {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      return await Reservation.create({ ...data, reservationCode: generateReservationCode() });
-    } catch (err: any) {
-      if (err?.code === 11000 && err?.keyPattern?.reservationCode && attempt < 5) continue;
-      throw err;
-    }
-  }
+  return Reservation.create(data);
 }
 
 const otaLabel = (m: MappedBooking) => `${m.channelSource.otaName}${m.channelSource.otaReservationCode ? ` ${m.channelSource.otaReservationCode}` : ''}`;

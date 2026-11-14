@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useCallback, useContext, useMemo, useState, useEffect } from 'react';
 import { settingsService, AppSettings } from '../services/api';
 import { useAuth } from './AuthContext';
 
@@ -9,6 +9,9 @@ interface SettingsContextValue {
   loading: boolean;
   refresh: () => void;
 }
+
+/** Stable empty map, so `activeSections` keeps its identity while settings are not loaded. */
+const NO_SECTIONS: Record<string, boolean> = {};
 
 const SettingsContext = createContext<SettingsContextValue>({
   settings: null,
@@ -22,13 +25,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchSettings = () => {
+  const fetchSettings = useCallback(() => {
     setLoading(true);
     settingsService.getSettings()
       .then(res => setSettings(res.data.data ?? null))
       .catch(() => setSettings(null))
       .finally(() => setLoading(false));
-  };
+  }, []);
 
   useEffect(() => {
     // Wait until auth state is resolved
@@ -39,12 +42,16 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       return;
     }
     fetchSettings();
-  }, [isAuthenticated, authLoading]);
+  }, [isAuthenticated, authLoading, fetchSettings]);
 
-  const activeSections: Record<string, boolean> = settings?.sections ?? {};
+  const activeSections: Record<string, boolean> = settings?.sections ?? NO_SECTIONS;
+  const value = useMemo(
+    () => ({ settings, activeSections, loading, refresh: fetchSettings }),
+    [settings, activeSections, loading, fetchSettings]
+  );
 
   return (
-    <SettingsContext.Provider value={{ settings, activeSections, loading, refresh: fetchSettings }}>
+    <SettingsContext.Provider value={value}>
       {children}
     </SettingsContext.Provider>
   );

@@ -11,7 +11,7 @@ import { Edit, Delete, Search, ArrowBack, Email, Phone, Business, Add, LinkOff }
 import { useTranslation } from 'react-i18next';
 import { guestsService, companiesService } from '../../services/api';
 import { Guest, GuestCompanyLink, Reservation, Company } from '../../types';
-import AdminLayout from '../../components/admin/AdminLayout';
+import { usePageTitle } from '../../components/shared/PageTitle';
 import i18n from '../../i18n';
 
 interface PendingCompanyLink {
@@ -33,13 +33,14 @@ const GuestsManagement: React.FC = () => {
   const { t } = useTranslation();
 
   const [guests, setGuests] = useState<Guest[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
 
   // Detail view
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
+  usePageTitle(selectedGuest ? `${selectedGuest.firstName} ${selectedGuest.lastName}` : t('admin.nav.guests', 'Guests'));
   const [guestReservations, setGuestReservations] = useState<Reservation[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
 
@@ -238,7 +239,6 @@ const GuestsManagement: React.FC = () => {
   // ── Detail page / List page ──────────────────────────────────
 
   return (
-    <AdminLayout title={selectedGuest ? `${selectedGuest.firstName} ${selectedGuest.lastName}` : t('admin.nav.guests', 'Guests')}>
     <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
 
       {selectedGuest ? (
@@ -412,9 +412,11 @@ const GuestsManagement: React.FC = () => {
               </TableBody>
             </Table>
           </TableContainer>
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-            {total} {t('guests.total', 'guests')}
-          </Typography>
+          {total !== null && (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              {total} {t('guests.total', 'guests')}
+            </Typography>
+          )}
         </>
       )}
 
@@ -640,7 +642,6 @@ const GuestsManagement: React.FC = () => {
         </DialogActions>
       </Dialog>
     </Container>
-    </AdminLayout>
   );
 };
 

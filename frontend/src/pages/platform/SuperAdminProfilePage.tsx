@@ -23,7 +23,6 @@ import { useAuth } from '../../contexts/AuthContext';
 import { authService } from '../../services/api';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
-import PlatformLayout from './PlatformLayout';
 
 const SuperAdminProfilePage: React.FC = () => {
   const { user, refreshUser } = useAuth();
@@ -114,7 +113,7 @@ const SuperAdminProfilePage: React.FC = () => {
     currentPassword.length > 0 && newPassword.length >= 8 && confirmPassword.length > 0;
 
   return (
-    <PlatformLayout>
+    <>
       {/* Page header */}
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" fontWeight={700} color="text.primary" gutterBottom>
@@ -345,7 +344,7 @@ const SuperAdminProfilePage: React.FC = () => {
           </Box>
         </CardContent>
       </Card>
-    </PlatformLayout>
+    </>
   );
 };
 

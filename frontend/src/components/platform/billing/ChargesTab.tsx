@@ -125,7 +125,9 @@ const ChargesTab: React.FC<Props> = ({ issuerReady, onChanged, initialChargeId }
             </TableBody>
           </Table>
         </TableContainer>
-        <TablePagination component="div" count={total} page={page} onPageChange={(_, p) => setPage(p)} rowsPerPage={PAGE_SIZE} rowsPerPageOptions={[PAGE_SIZE]} />
+        {rows !== null && (
+          <TablePagination component="div" count={total} page={page} onPageChange={(_, p) => setPage(p)} rowsPerPage={PAGE_SIZE} rowsPerPageOptions={[PAGE_SIZE]} />
+        )}
       </Paper>
 
       <ChargeDrawer chargeId={openId} onClose={() => setOpenId(null)} onRecordPayment={setPaying} refreshKey={refreshKey} onChanged={() => { load(); onChanged(); }} />

@@ -12,7 +12,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { companiesService } from '../../services/api';
 import { Company, Reservation } from '../../types';
-import AdminLayout from '../../components/admin/AdminLayout';
+import { usePageTitle } from '../../components/shared/PageTitle';
 import i18n from '../../i18n';
 
 const emptyForm: Partial<Company> = {
@@ -31,14 +31,15 @@ const CompaniesManagement: React.FC = () => {
   const { t } = useTranslation();
 
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [total, setTotal] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<boolean | undefined>(undefined);
 
   // Detail view
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
+  usePageTitle(selectedCompany ? selectedCompany.name : t('admin.nav.companies', 'Companies'));
   const [companyReservations, setCompanyReservations] = useState<Reservation[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
 
@@ -137,7 +138,6 @@ const CompaniesManagement: React.FC = () => {
 
   if (selectedCompany) {
     return (
-      <AdminLayout title={selectedCompany.name}>
       <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
         <Button startIcon={<ArrowBack />} onClick={() => setSelectedCompany(null)} sx={{ mb: 2 }}>
           {t('common.back', 'Back')}
@@ -196,12 +196,10 @@ const CompaniesManagement: React.FC = () => {
           </TableContainer>
         )}
       </Container>
-      </AdminLayout>
     );
   }
 
   return (
-    <AdminLayout title={t('admin.nav.companies', 'Companies')}>
     <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
 
       {/* Filter card */}
@@ -286,9 +284,11 @@ const CompaniesManagement: React.FC = () => {
           </TableBody>
         </Table>
       </TableContainer>
-      <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-        {total} {t('companies.total', 'companies')}
-      </Typography>
+      {total !== null && (
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+          {total} {t('companies.total', 'companies')}
+        </Typography>
+      )}
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
@@ -401,7 +401,6 @@ const CompaniesManagement: React.FC = () => {
         </DialogActions>
       </Dialog>
     </Container>
-    </AdminLayout>
   );
 };
 

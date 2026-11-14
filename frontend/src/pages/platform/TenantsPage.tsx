@@ -14,7 +14,6 @@ import BarChartIcon from '@mui/icons-material/BarChart';
 import EditIcon from '@mui/icons-material/Edit';
 import ForwardToInboxIcon from '@mui/icons-material/ForwardToInbox';
 import { platformService, TenantRecord, ProvisionTenantPayload, TenantProduct, AccountingPlanSlug } from '../../services/api';
-import PlatformLayout from './PlatformLayout';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
 
@@ -171,7 +170,7 @@ const TenantsPage: React.FC = () => {
     (e: React.ChangeEvent<HTMLInputElement>) => setForm(f => ({ ...f, [key]: e.target.value }));
 
   return (
-    <PlatformLayout>
+    <>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h5" fontWeight={700}>{tr('platform.tenants.title')}</Typography>
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
@@ -445,7 +444,7 @@ const TenantsPage: React.FC = () => {
           <Button onClick={() => setStatsOpen(false)}>{tr('platform.tenants.stats.close')}</Button>
         </DialogActions>
       </Dialog>
-    </PlatformLayout>
+    </>
   );
 };
 

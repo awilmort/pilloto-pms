@@ -3,15 +3,44 @@ import { Box, Container, Paper, Typography, Grid, TextField, Button, Alert, Tabl
 import { format } from 'date-fns';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
-import AdminLayout from '../../components/admin/AdminLayout';
+import { usePageTitle } from '../../components/shared/PageTitle';
 import NumberField from '../../components/common/NumberField';
-import { wristbandsService, servicesService } from '../../services/api';
+import { wristbandsService } from '../../services/api';
+import { useReservationServices } from '../../hooks/useReservationServices';
+import PageLoader from '../../components/common/PageLoader';
 import { Edit, Delete } from '@mui/icons-material';
 import { WristbandDelivery } from '../../types';
 import i18n from '../../i18n';
 
+/** Defined at module level: inside the page component it would be a new component type on every render and remount. */
+const WristbandStatCard: React.FC<{ title: string; available: number; used: number; total: number }> = ({ title, available, used, total }) => {
+  const { t } = useTranslation();
+  return (
+    <Paper sx={{ p: 2 }}>
+      <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+        {title}
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+          <Typography variant="body2" color="text.secondary">{t('admin.wristbands.summary.available')}</Typography>
+          <Typography variant="h6" sx={{ color: available < 0 ? 'error.main' : 'success.main' }}>{available.toLocaleString(i18n.language)}</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+          <Typography variant="body2" color="text.secondary">{t('admin.wristbands.summary.used')}</Typography>
+          <Typography variant="h6" sx={{ color: 'warning.main' }}>{used.toLocaleString(i18n.language)}</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+          <Typography variant="body2" color="text.secondary">{t('admin.wristbands.summary.total')}</Typography>
+          <Typography variant="h6" sx={{ color: 'text.primary' }}>{total.toLocaleString(i18n.language)}</Typography>
+        </Box>
+      </Box>
+    </Paper>
+  );
+};
+
 const WristbandControl: React.FC = () => {
   const { t } = useTranslation();
+  usePageTitle(t('admin.wristbands.title'));
   const { user, permissions } = useAuth();
   const [date, setDate] = useState<Date>(new Date());
   const [type, setType] = useState<'delivery' | 'collection'>('delivery');
@@ -68,6 +97,8 @@ const WristbandControl: React.FC = () => {
         });
       } catch (err) {
         console.error('Usage fetch failed', err);
+      } finally {
+        setLoadedOnce(true);
       }
     };
     loadAll();
@@ -220,302 +251,268 @@ const WristbandControl: React.FC = () => {
     }, 0),
   };
   const [used, setUsed] = useState({ daypassAdults: 0, daypassChildren: 0, accommodations: 0, pasatarde: 0 });
-  const [services, setServices] = useState({ daypass: false, accommodation: true, pasatarde: false, event: false });
+  const { services, ready } = useReservationServices();
+  const [loadedOnce, setLoadedOnce] = useState(false);
 
-  useEffect(() => {
-    servicesService.getServices({ active: true })
-      .then(res => {
-        const list: any[] = res.data.data ?? [];
-        const hasKind = (k: string) => list.some(svc => svc.kind === k);
-        setServices(s => ({
-          ...s,
-          daypass:   hasKind('daypass'),
-          pasatarde: hasKind('pasatarde'),
-          event:     hasKind('event'),
-        }));
-      })
-      .catch(() => {});
-  }, []);
 
-  const WristbandStatCard = ({ title, available, used, total }: { title: string; available: number; used: number; total: number }) => (
-    <Paper sx={{ p: 2 }}>
-      <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-        {title}
-      </Typography>
-      <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'center' }}>
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-          <Typography variant="body2" color="text.secondary">{t('admin.wristbands.summary.available')}</Typography>
-          <Typography variant="h6" sx={{ color: available < 0 ? 'error.main' : 'success.main' }}>{available.toLocaleString(i18n.language)}</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-          <Typography variant="body2" color="text.secondary">{t('admin.wristbands.summary.used')}</Typography>
-          <Typography variant="h6" sx={{ color: 'warning.main' }}>{used.toLocaleString(i18n.language)}</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
-          <Typography variant="body2" color="text.secondary">{t('admin.wristbands.summary.total')}</Typography>
-          <Typography variant="h6" sx={{ color: 'text.primary' }}>{total.toLocaleString(i18n.language)}</Typography>
-        </Box>
-      </Box>
-    </Paper>
-  );
+  // One complete first paint: the enabled services decide which cards and columns exist, and the numbers come from the load.
+  if (!ready || !loadedOnce) return <PageLoader />;
 
   return (
-    <AdminLayout title={t('admin.wristbands.title')}>
-      <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
+    <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
 
-        {/* Alerts */}
-        {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
-        {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
+      {/* Alerts */}
+      {error && <Alert severity="error" sx={{ mb: 3 }}>{error}</Alert>}
+      {success && <Alert severity="success" sx={{ mb: 3 }}>{success}</Alert>}
 
-        {/* Filters */}
-        <Paper sx={{ p: 3, mb: 3 }}>
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
-            <TextField
-              label={t('admin.revenue.filters.from')}
-              type="date"
-              value={format(from, 'yyyy-MM-dd')}
-              onChange={(e) => {
-                const [y, m, d] = e.target.value.split('-').map(Number);
-                setFrom(new Date(y, m - 1, d));
-              }}
-              InputLabelProps={{ shrink: true }}
-            />
-            <TextField
-              label={t('admin.revenue.filters.to')}
-              type="date"
-              value={format(to, 'yyyy-MM-dd')}
-              onChange={(e) => {
-                const [y, m, d] = e.target.value.split('-').map(Number);
-                setTo(new Date(y, m - 1, d));
-              }}
-              InputLabelProps={{ shrink: true }}
-            />
-            <Button
-              variant="outlined"
-              onClick={async () => {
-                await loadDeliveries();
-                try {
-                  const params = { from: format(from, 'yyyy-MM-dd'), to: format(to, 'yyyy-MM-dd') };
-                  const usageRes = await wristbandsService.getUsage(params);
-                  const u = usageRes.data?.data as any;
-                  if (u) setUsed({
-                    daypassAdults: Number(u.daypassAdults) || 0,
-                    daypassChildren: Number(u.daypassChildren) || 0,
-                    accommodations: Number(u.accommodations) || 0,
-                    pasatarde: Number(u.pasatarde) || 0,
-                  });
-                } catch (err) {
-                  console.error('Usage fetch failed', err);
-                }
-              }}
-              disabled={loading}
-            >
-              {t('admin.revenue.filters.apply')}
-            </Button>
-            {hasManagePermission() && (
-              <Box sx={{ ml: 'auto' }}>
-                <Button variant="contained" onClick={openCreate} sx={{ alignSelf: 'flex-start' }}>{t('admin.wristbands.actions.addDelivery')}</Button>
-              </Box>
-            )}
-          </Box>
-        </Paper>
-
-        {/* Summary cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          {services.daypass && (
-            <Grid item xs={12} sm={6} md={3}>
-              <WristbandStatCard title={t('admin.wristbands.categories.daypassAdults')} available={totals.daypassAdults - used.daypassAdults} used={used.daypassAdults} total={totals.daypassAdults} />
-            </Grid>
+      {/* Filters */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField
+            label={t('admin.revenue.filters.from')}
+            type="date"
+            value={format(from, 'yyyy-MM-dd')}
+            onChange={(e) => {
+              const [y, m, d] = e.target.value.split('-').map(Number);
+              setFrom(new Date(y, m - 1, d));
+            }}
+            InputLabelProps={{ shrink: true }}
+          />
+          <TextField
+            label={t('admin.revenue.filters.to')}
+            type="date"
+            value={format(to, 'yyyy-MM-dd')}
+            onChange={(e) => {
+              const [y, m, d] = e.target.value.split('-').map(Number);
+              setTo(new Date(y, m - 1, d));
+            }}
+            InputLabelProps={{ shrink: true }}
+          />
+          <Button
+            variant="outlined"
+            onClick={async () => {
+              await loadDeliveries();
+              try {
+                const params = { from: format(from, 'yyyy-MM-dd'), to: format(to, 'yyyy-MM-dd') };
+                const usageRes = await wristbandsService.getUsage(params);
+                const u = usageRes.data?.data as any;
+                if (u) setUsed({
+                  daypassAdults: Number(u.daypassAdults) || 0,
+                  daypassChildren: Number(u.daypassChildren) || 0,
+                  accommodations: Number(u.accommodations) || 0,
+                  pasatarde: Number(u.pasatarde) || 0,
+                });
+              } catch (err) {
+                console.error('Usage fetch failed', err);
+              }
+            }}
+            disabled={loading}
+          >
+            {t('admin.revenue.filters.apply')}
+          </Button>
+          {hasManagePermission() && (
+            <Box sx={{ ml: 'auto' }}>
+              <Button variant="contained" onClick={openCreate} sx={{ alignSelf: 'flex-start' }}>{t('admin.wristbands.actions.addDelivery')}</Button>
+            </Box>
           )}
-          {services.daypass && (
-            <Grid item xs={12} sm={6} md={3}>
-              <WristbandStatCard title={t('admin.wristbands.categories.daypassChildren')} available={totals.daypassChildren - used.daypassChildren} used={used.daypassChildren} total={totals.daypassChildren} />
-            </Grid>
-          )}
-          {services.accommodation && (
-            <Grid item xs={12} sm={6} md={3}>
-              <WristbandStatCard title={t('admin.wristbands.categories.accommodations')} available={totals.accommodations - used.accommodations} used={used.accommodations} total={totals.accommodations} />
-            </Grid>
-          )}
-          {services.pasatarde && (
-            <Grid item xs={12} sm={6} md={3}>
-              <WristbandStatCard title={t('admin.wristbands.categories.pasatarde')} available={totals.pasatarde - used.pasatarde} used={used.pasatarde} total={totals.pasatarde} />
-            </Grid>
-          )}
-        </Grid>
+        </Box>
+      </Paper>
 
-        {/* Table */}
-        <TableContainer component={Paper}>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>{t('admin.wristbands.deliveryDate')}</TableCell>
-                <TableCell>{t('admin.wristbands.type')}</TableCell>
-                <TableCell>{t('admin.wristbands.recipient')}</TableCell>
-                {services.daypass && <TableCell>{t('admin.wristbands.categories.daypassAdults')}</TableCell>}
-                {services.daypass && <TableCell>{t('admin.wristbands.categories.daypassChildren')}</TableCell>}
-                {services.accommodation && <TableCell>{t('admin.wristbands.categories.accommodations')}</TableCell>}
-                {services.pasatarde && <TableCell>{t('admin.wristbands.categories.pasatarde')}</TableCell>}
-                <TableCell>{t('admin.wristbands.notes')}</TableCell>
-                <TableCell align="right">{t('admin.wristbands.actionsColumn')}</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {deliveries.map((d) => (
-                <TableRow key={d._id}>
-                  <TableCell>{format(new Date(d.date), 'yyyy-MM-dd')}</TableCell>
-                  <TableCell>
-                    <Box 
-                      sx={{ 
-                        display: 'inline-block',
-                        px: 1.5, 
-                        py: 0.5, 
-                        borderRadius: 1, 
-                        bgcolor: d.type === 'collection' ? 'error.light' : 'success.light',
-                        color: d.type === 'collection' ? 'error.dark' : 'success.dark',
-                        fontWeight: 500,
-                        fontSize: '0.875rem'
-                      }}
-                    >
-                      {d.type === 'collection' ? '← Collection' : '→ Delivery'}
-                    </Box>
-                  </TableCell>
-                  <TableCell>{d.recipient || '-'}</TableCell>
-                  {services.daypass && <TableCell>{d.counts?.daypassAdults ?? 0}</TableCell>}
-                  {services.daypass && <TableCell>{d.counts?.daypassChildren ?? 0}</TableCell>}
-                  {services.accommodation && <TableCell>{d.counts?.accommodations ?? 0}</TableCell>}
-                  {services.pasatarde && <TableCell>{d.counts?.pasatarde ?? 0}</TableCell>}
-                  <TableCell>{d.notes || '-'}</TableCell>
-                  <TableCell align="right">
-                    {hasManagePermission() && (
-                      <>
-                        <IconButton size="small" onClick={() => handleEdit(d)}><Edit /></IconButton>
-                        <IconButton size="small" color="error" onClick={() => handleDelete(d._id)}><Delete /></IconButton>
-                      </>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {deliveries.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5 + (services.daypass ? 2 : 0) + (services.accommodation ? 1 : 0) + (services.pasatarde ? 1 : 0)} align="center">
-                    <Typography variant="body2" color="text.secondary">{t('admin.wristbands.noDeliveries')}</Typography>
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+      {/* Summary cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {services.daypass && (
+          <Grid item xs={12} sm={6} md={3}>
+            <WristbandStatCard title={t('admin.wristbands.categories.daypassAdults')} available={totals.daypassAdults - used.daypassAdults} used={used.daypassAdults} total={totals.daypassAdults} />
+          </Grid>
+        )}
+        {services.daypass && (
+          <Grid item xs={12} sm={6} md={3}>
+            <WristbandStatCard title={t('admin.wristbands.categories.daypassChildren')} available={totals.daypassChildren - used.daypassChildren} used={used.daypassChildren} total={totals.daypassChildren} />
+          </Grid>
+        )}
+        {services.accommodation && (
+          <Grid item xs={12} sm={6} md={3}>
+            <WristbandStatCard title={t('admin.wristbands.categories.accommodations')} available={totals.accommodations - used.accommodations} used={used.accommodations} total={totals.accommodations} />
+          </Grid>
+        )}
+        {services.pasatarde && (
+          <Grid item xs={12} sm={6} md={3}>
+            <WristbandStatCard title={t('admin.wristbands.categories.pasatarde')} available={totals.pasatarde - used.pasatarde} used={used.pasatarde} total={totals.pasatarde} />
+          </Grid>
+        )}
+      </Grid>
 
-        {/* Add/Edit dialog */}
-        <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth="md">
-          <DialogTitle>{editing ? t('admin.wristbands.title') : t('admin.wristbands.actions.addDelivery')}</DialogTitle>
-          <DialogContent>
-            <Grid container spacing={3} sx={{ mt: 0 }}>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  label={t('admin.wristbands.deliveryDate')}
-                  type="date"
-                  value={format(date, 'yyyy-MM-dd')}
-                  onChange={(e) => {
-                    const [y, m, d] = e.target.value.split('-').map(Number);
-                    setDate(new Date(y, m - 1, d));
-                  }}
-                  fullWidth
-                  InputLabelProps={{ shrink: true }}
-                />
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <FormControl fullWidth>
-                  <InputLabel>{t('admin.wristbands.type')}</InputLabel>
-                  <Select
-                    value={type}
-                    label={t('admin.wristbands.type')}
-                    onChange={(e) => setType(e.target.value as 'delivery' | 'collection')}
+      {/* Table */}
+      <TableContainer component={Paper}>
+        <Table>
+          <TableHead>
+            <TableRow>
+              <TableCell>{t('admin.wristbands.deliveryDate')}</TableCell>
+              <TableCell>{t('admin.wristbands.type')}</TableCell>
+              <TableCell>{t('admin.wristbands.recipient')}</TableCell>
+              {services.daypass && <TableCell>{t('admin.wristbands.categories.daypassAdults')}</TableCell>}
+              {services.daypass && <TableCell>{t('admin.wristbands.categories.daypassChildren')}</TableCell>}
+              {services.accommodation && <TableCell>{t('admin.wristbands.categories.accommodations')}</TableCell>}
+              {services.pasatarde && <TableCell>{t('admin.wristbands.categories.pasatarde')}</TableCell>}
+              <TableCell>{t('admin.wristbands.notes')}</TableCell>
+              <TableCell align="right">{t('admin.wristbands.actionsColumn')}</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {deliveries.map((d) => (
+              <TableRow key={d._id}>
+                <TableCell>{format(new Date(d.date), 'yyyy-MM-dd')}</TableCell>
+                <TableCell>
+                  <Box 
+                    sx={{ 
+                      display: 'inline-block',
+                      px: 1.5, 
+                      py: 0.5, 
+                      borderRadius: 1, 
+                      bgcolor: d.type === 'collection' ? 'error.light' : 'success.light',
+                      color: d.type === 'collection' ? 'error.dark' : 'success.dark',
+                      fontWeight: 500,
+                      fontSize: '0.875rem'
+                    }}
                   >
-                    <MenuItem value="delivery">{t('admin.wristbands.types.delivery')}</MenuItem>
-                    <MenuItem value="collection">{t('admin.wristbands.types.collection')}</MenuItem>
-                  </Select>
-                </FormControl>
-              </Grid>
-              <Grid item xs={12} md={4}>
-                <TextField
-                  label={t('admin.wristbands.recipient')}
-                  value={recipient}
-                  onChange={(e) => setRecipient(e.target.value)}
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Paper sx={{ p: 2 }}>
-                  <Typography variant="h6" sx={{ mb: 2 }}>{t('admin.wristbands.categoriesTitle')}</Typography>
-                  <Grid container spacing={2}>
-                    {services.daypass && (
-                      <Grid item xs={12} md={3}>
-                        <NumberField
-                          label={t('admin.wristbands.categories.daypassAdults')}
-                          value={counts.daypassAdults}
-                          onChange={(val) => setCounts(prev => ({ ...prev, daypassAdults: val || 0 }))}
-                          min={0}
-                          fullWidth
-                        />
-                      </Grid>
-                    )}
-                    {services.daypass && (
-                      <Grid item xs={12} md={3}>
-                        <NumberField
-                          label={t('admin.wristbands.categories.daypassChildren')}
-                          value={counts.daypassChildren}
-                          onChange={(val) => setCounts(prev => ({ ...prev, daypassChildren: val || 0 }))}
-                          min={0}
-                          fullWidth
-                        />
-                      </Grid>
-                    )}
-                    {services.accommodation && (
-                      <Grid item xs={12} md={3}>
-                        <NumberField
-                          label={t('admin.wristbands.categories.accommodations')}
-                          value={counts.accommodations}
-                          onChange={(val) => setCounts(prev => ({ ...prev, accommodations: val || 0 }))}
-                          min={0}
-                          fullWidth
-                        />
-                      </Grid>
-                    )}
-                    {services.pasatarde && (
-                      <Grid item xs={12} md={3}>
-                        <NumberField
-                          label={t('admin.wristbands.categories.pasatarde')}
-                          value={counts.pasatarde}
-                          onChange={(val) => setCounts(prev => ({ ...prev, pasatarde: val || 0 }))}
-                          min={0}
-                          fullWidth
-                        />
-                      </Grid>
-                    )}
-                  </Grid>
-                </Paper>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  label={t('admin.wristbands.notes')}
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  fullWidth
-                  multiline
-                  rows={3}
-                />
-              </Grid>
+                    {d.type === 'collection' ? '← Collection' : '→ Delivery'}
+                  </Box>
+                </TableCell>
+                <TableCell>{d.recipient || '-'}</TableCell>
+                {services.daypass && <TableCell>{d.counts?.daypassAdults ?? 0}</TableCell>}
+                {services.daypass && <TableCell>{d.counts?.daypassChildren ?? 0}</TableCell>}
+                {services.accommodation && <TableCell>{d.counts?.accommodations ?? 0}</TableCell>}
+                {services.pasatarde && <TableCell>{d.counts?.pasatarde ?? 0}</TableCell>}
+                <TableCell>{d.notes || '-'}</TableCell>
+                <TableCell align="right">
+                  {hasManagePermission() && (
+                    <>
+                      <IconButton size="small" onClick={() => handleEdit(d)}><Edit /></IconButton>
+                      <IconButton size="small" color="error" onClick={() => handleDelete(d._id)}><Delete /></IconButton>
+                    </>
+                  )}
+                </TableCell>
+              </TableRow>
+            ))}
+            {deliveries.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5 + (services.daypass ? 2 : 0) + (services.accommodation ? 1 : 0) + (services.pasatarde ? 1 : 0)} align="center">
+                  <Typography variant="body2" color="text.secondary">{t('admin.wristbands.noDeliveries')}</Typography>
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
+
+      {/* Add/Edit dialog */}
+      <Dialog open={editOpen} onClose={() => setEditOpen(false)} fullWidth maxWidth="md">
+        <DialogTitle>{editing ? t('admin.wristbands.title') : t('admin.wristbands.actions.addDelivery')}</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={3} sx={{ mt: 0 }}>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label={t('admin.wristbands.deliveryDate')}
+                type="date"
+                value={format(date, 'yyyy-MM-dd')}
+                onChange={(e) => {
+                  const [y, m, d] = e.target.value.split('-').map(Number);
+                  setDate(new Date(y, m - 1, d));
+                }}
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              />
             </Grid>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setEditOpen(false)}>{t('admin.eventTypes.actions.cancel')}</Button>
-            <Button variant="contained" onClick={handleUpdate} disabled={loading}>{editing ? t('admin.eventTypes.actions.save') : t('admin.wristbands.actions.registerDelivery')}</Button>
-          </DialogActions>
-        </Dialog>
-      </Container>
-    </AdminLayout>
+            <Grid item xs={12} md={4}>
+              <FormControl fullWidth>
+                <InputLabel>{t('admin.wristbands.type')}</InputLabel>
+                <Select
+                  value={type}
+                  label={t('admin.wristbands.type')}
+                  onChange={(e) => setType(e.target.value as 'delivery' | 'collection')}
+                >
+                  <MenuItem value="delivery">{t('admin.wristbands.types.delivery')}</MenuItem>
+                  <MenuItem value="collection">{t('admin.wristbands.types.collection')}</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <TextField
+                label={t('admin.wristbands.recipient')}
+                value={recipient}
+                onChange={(e) => setRecipient(e.target.value)}
+                fullWidth
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Paper sx={{ p: 2 }}>
+                <Typography variant="h6" sx={{ mb: 2 }}>{t('admin.wristbands.categoriesTitle')}</Typography>
+                <Grid container spacing={2}>
+                  {services.daypass && (
+                    <Grid item xs={12} md={3}>
+                      <NumberField
+                        label={t('admin.wristbands.categories.daypassAdults')}
+                        value={counts.daypassAdults}
+                        onChange={(val) => setCounts(prev => ({ ...prev, daypassAdults: val || 0 }))}
+                        min={0}
+                        fullWidth
+                      />
+                    </Grid>
+                  )}
+                  {services.daypass && (
+                    <Grid item xs={12} md={3}>
+                      <NumberField
+                        label={t('admin.wristbands.categories.daypassChildren')}
+                        value={counts.daypassChildren}
+                        onChange={(val) => setCounts(prev => ({ ...prev, daypassChildren: val || 0 }))}
+                        min={0}
+                        fullWidth
+                      />
+                    </Grid>
+                  )}
+                  {services.accommodation && (
+                    <Grid item xs={12} md={3}>
+                      <NumberField
+                        label={t('admin.wristbands.categories.accommodations')}
+                        value={counts.accommodations}
+                        onChange={(val) => setCounts(prev => ({ ...prev, accommodations: val || 0 }))}
+                        min={0}
+                        fullWidth
+                      />
+                    </Grid>
+                  )}
+                  {services.pasatarde && (
+                    <Grid item xs={12} md={3}>
+                      <NumberField
+                        label={t('admin.wristbands.categories.pasatarde')}
+                        value={counts.pasatarde}
+                        onChange={(val) => setCounts(prev => ({ ...prev, pasatarde: val || 0 }))}
+                        min={0}
+                        fullWidth
+                      />
+                    </Grid>
+                  )}
+                </Grid>
+              </Paper>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                label={t('admin.wristbands.notes')}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                fullWidth
+                multiline
+                rows={3}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditOpen(false)}>{t('admin.eventTypes.actions.cancel')}</Button>
+          <Button variant="contained" onClick={handleUpdate} disabled={loading}>{editing ? t('admin.eventTypes.actions.save') : t('admin.wristbands.actions.registerDelivery')}</Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
   );
 };
 

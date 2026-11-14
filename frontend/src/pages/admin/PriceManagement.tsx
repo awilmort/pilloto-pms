@@ -8,7 +8,8 @@ import {
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import AdminLayout from '../../components/admin/AdminLayout';
+import { usePageTitle } from '../../components/shared/PageTitle';
+import { invalidateReservationServices } from '../../hooks/useReservationServices';
 import NumberField from '../../components/common/NumberField';
 import RateCalendarTab from '../../components/admin/pricing/RateCalendarTab';
 import BookingRulesTab from '../../components/admin/pricing/BookingRulesTab';
@@ -79,6 +80,7 @@ function defaultRuleWizardForm(): RuleWizardForm {
 // ─────────────────────────────────────────────────────────────
 const PriceManagement: React.FC = () => {
   const { t } = useTranslation();
+  usePageTitle(t('admin.pricing.title'));
   const cur = getCurrencyConfig().symbol;
   // ?tab=calendar opens the Calendar (links from channel alerts)
   const [tab, setTab] = useState(() => (new URLSearchParams(window.location.search).get('tab') === 'calendar' ? 1 : 0));
@@ -622,6 +624,7 @@ const PriceManagement: React.FC = () => {
       } else {
         await servicesService.createService(serviceForm as ServiceRecord);
       }
+      invalidateReservationServices(); // schedule / wristbands / revenue / reservations shape themselves around these
       setServiceDialog(false);
       await fetchServices();
     } catch (e: any) {
@@ -633,6 +636,7 @@ const PriceManagement: React.FC = () => {
     if (!window.confirm(t('admin.pricing.dialog.deletePrompt'))) return;
     try {
       await servicesService.deleteService(id);
+      invalidateReservationServices();
       await fetchServices();
     } catch {
       setError(t('admin.pricing.messages.saveFailed'));
@@ -823,1551 +827,1549 @@ const PriceManagement: React.FC = () => {
     .sort((a, b) => String(a.dateStart).localeCompare(String(b.dateStart)));
 
   return (
-    <AdminLayout title={t('admin.pricing.title')}>
-      <Container maxWidth="lg" sx={{ pt: 0, pb: 4 }}>
+    <Container maxWidth="lg" sx={{ pt: 0, pb: 4 }}>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>
-        )}
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>{error}</Alert>
+      )}
 
-        <Paper sx={{ mb: 2 }}>
-          <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
-            <Tab label={t('admin.pricing.tabs.ratePlans')} />
-            <Tab label={t('admin.pricing.tabs.calendar')} />
-            <Tab label={t('admin.pricing.tabs.rules')} />
-            <Tab label={t('admin.pricing.tabs.bookingRules')} />
-            <Tab label={t('admin.pricing.tabs.taxes')} />
-            <Tab label={t('admin.pricing.tabs.services', 'Services')} />
-            <Tab label={t('admin.pricing.tabs.servicePrices', 'Service Prices')} />
-            <Tab label={t('admin.pricing.tabs.chargePolicies', 'Auto-Charge Policies')} />
-            <Tab label={t('admin.pricing.tabs.auditLog', 'Audit Log')} />
-          </Tabs>
-        </Paper>
+      <Paper sx={{ mb: 2 }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
+          <Tab label={t('admin.pricing.tabs.ratePlans')} />
+          <Tab label={t('admin.pricing.tabs.calendar')} />
+          <Tab label={t('admin.pricing.tabs.rules')} />
+          <Tab label={t('admin.pricing.tabs.bookingRules')} />
+          <Tab label={t('admin.pricing.tabs.taxes')} />
+          <Tab label={t('admin.pricing.tabs.services', 'Services')} />
+          <Tab label={t('admin.pricing.tabs.servicePrices', 'Service Prices')} />
+          <Tab label={t('admin.pricing.tabs.chargePolicies', 'Auto-Charge Policies')} />
+          <Tab label={t('admin.pricing.tabs.auditLog', 'Audit Log')} />
+        </Tabs>
+      </Paper>
 
-        {/* ── Rate Plans Tab ──────────────────────────────── */}
-        <TabPanel value={tab} index={0}>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={openNewRatePlan}>
-              {t('admin.pricing.ratePlans.actions.new')}
-            </Button>
-          </Box>
+      {/* ── Rate Plans Tab ──────────────────────────────── */}
+      <TabPanel value={tab} index={0}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openNewRatePlan}>
+            {t('admin.pricing.ratePlans.actions.new')}
+          </Button>
+        </Box>
 
-          {ratePlans.length === 0 && !ratePlanLoading ? (
-            <Paper sx={{ p: 4, textAlign: 'center' }}>
-              <Typography color="text.secondary">{t('admin.pricing.ratePlans.empty')}</Typography>
-            </Paper>
-          ) : (
-            <Box sx={{ display: 'grid', gap: 2 }}>
-              {ratePlans.map(plan => (
-                <Paper key={plan._id} variant="outlined" sx={{ p: 2 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
-                    <Box>
-                      <Typography variant="subtitle1" fontWeight={600}>{plan.name}</Typography>
-                      <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
-                        <Chip size="small" label={getRoomTypeName(plan.roomTypeId)} color="primary" variant="outlined" />
-                        <Chip size="small" label={`${t('admin.pricing.ratePlans.basePrice')}: ${cur}${plan.basePrice}`} />
-                        {plan.isDefault && <Chip size="small" label={t('admin.pricing.ratePlans.chips.default')} color="success" />}
-                        {plan.visibility === 'private' && (
-                          <Chip
-                            size="small"
-                            variant="outlined"
-                            label={(plan.accessCodes ?? []).length
-                              ? t('admin.pricing.ratePlans.chips.privateWithCodes', { codes: (plan.accessCodes ?? []).join(', ') })
-                              : t('admin.pricing.ratePlans.chips.private')}
-                          />
-                        )}
-                        {!plan.isActive && <Chip size="small" label={t('admin.pricing.inactive')} color="warning" />}
-                        {plan.sellOnChannels === false && <Chip size="small" label={t('admin.pricing.sellOnChannels.off')} />}
-                      </Box>
-                    </Box>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <IconButton size="small" onClick={() => openEditRatePlan(plan)}><EditIcon fontSize="small" /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => deleteRatePlan(plan._id!)}><DeleteIcon fontSize="small" /></IconButton>
+        {ratePlans.length === 0 && !ratePlanLoading ? (
+          <Paper sx={{ p: 4, textAlign: 'center' }}>
+            <Typography color="text.secondary">{t('admin.pricing.ratePlans.empty')}</Typography>
+          </Paper>
+        ) : (
+          <Box sx={{ display: 'grid', gap: 2 }}>
+            {ratePlans.map(plan => (
+              <Paper key={plan._id} variant="outlined" sx={{ p: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight={600}>{plan.name}</Typography>
+                    <Box sx={{ display: 'flex', gap: 1, mt: 0.5, flexWrap: 'wrap' }}>
+                      <Chip size="small" label={getRoomTypeName(plan.roomTypeId)} color="primary" variant="outlined" />
+                      <Chip size="small" label={`${t('admin.pricing.ratePlans.basePrice')}: ${cur}${plan.basePrice}`} />
+                      {plan.isDefault && <Chip size="small" label={t('admin.pricing.ratePlans.chips.default')} color="success" />}
+                      {plan.visibility === 'private' && (
+                        <Chip
+                          size="small"
+                          variant="outlined"
+                          label={(plan.accessCodes ?? []).length
+                            ? t('admin.pricing.ratePlans.chips.privateWithCodes', { codes: (plan.accessCodes ?? []).join(', ') })
+                            : t('admin.pricing.ratePlans.chips.private')}
+                        />
+                      )}
+                      {!plan.isActive && <Chip size="small" label={t('admin.pricing.inactive')} color="warning" />}
+                      {plan.sellOnChannels === false && <Chip size="small" label={t('admin.pricing.sellOnChannels.off')} />}
                     </Box>
                   </Box>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <IconButton size="small" onClick={() => openEditRatePlan(plan)}><EditIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => deleteRatePlan(plan._id!)}><DeleteIcon fontSize="small" /></IconButton>
+                  </Box>
+                </Box>
 
-                  {plan.occupancyTiers.length > 0 && (
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                        {t('admin.pricing.ratePlans.occupancyTiers')}
-                      </Typography>
-                      <TableContainer sx={{ mt: 1 }}>
-                        <Table size="small">
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>{t('admin.pricing.ratePlans.tiersTable.guestType')}</TableCell>
-                              <TableCell>{t('admin.pricing.ratePlans.tiersTable.guestNumber')}</TableCell>
-                              <TableCell>{t('admin.pricing.ratePlans.tiersTable.price')}</TableCell>
+                {plan.occupancyTiers.length > 0 && (
+                  <Box sx={{ mt: 2 }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={600} sx={{ textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      {t('admin.pricing.ratePlans.occupancyTiers')}
+                    </Typography>
+                    <TableContainer sx={{ mt: 1 }}>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>{t('admin.pricing.ratePlans.tiersTable.guestType')}</TableCell>
+                            <TableCell>{t('admin.pricing.ratePlans.tiersTable.guestNumber')}</TableCell>
+                            <TableCell>{t('admin.pricing.ratePlans.tiersTable.price')}</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {plan.occupancyTiers.map((tier, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell sx={{ textTransform: 'capitalize' }}>{tier.guestType}</TableCell>
+                              <TableCell>#{tier.guestNumber}</TableCell>
+                              <TableCell>
+                                {tier.price === 0
+                                  ? <Chip size="small" label={t('admin.pricing.ratePlans.included')} color="success" />
+                                  : `${cur}${tier.price}`}
+                              </TableCell>
                             </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {plan.occupancyTiers.map((tier, idx) => (
-                              <TableRow key={idx}>
-                                <TableCell sx={{ textTransform: 'capitalize' }}>{tier.guestType}</TableCell>
-                                <TableCell>#{tier.guestNumber}</TableCell>
-                                <TableCell>
-                                  {tier.price === 0
-                                    ? <Chip size="small" label={t('admin.pricing.ratePlans.included')} color="success" />
-                                    : `${cur}${tier.price}`}
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    </Box>
-                  )}
-                </Paper>
-              ))}
-            </Box>
-          )}
-        </TabPanel>
-
-        {/* ── Calendar Tab ────────────────────────────────── */}
-        <TabPanel value={tab} index={1}>
-          <RateCalendarTab />
-        </TabPanel>
-
-        {/* ── Booking rules Tab ───────────────────────────── */}
-        <TabPanel value={tab} index={3}>
-          <BookingRulesTab
-            roomTypes={roomTypes.map(rt => ({ _id: rt._id, name: rt.name }))}
-            ratePlans={ratePlans.filter(rp => rp._id).map(rp => ({ _id: rp._id!, name: rp.name, roomTypeName: getRoomTypeName(rp.roomTypeId) }))}
-            onOpenCalendar={() => setTab(1)}
-          />
-        </TabPanel>
-
-        {/* ── Rules Tab ───────────────────────────────────── */}
-        <TabPanel value={tab} index={2}>
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary">{t('admin.pricing.rules.description')}</Typography>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Box>
+                )}
+              </Paper>
+            ))}
           </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={openNewRule}>
-              {t('admin.pricing.rules.actions.new')}
-            </Button>
+        )}
+      </TabPanel>
+
+      {/* ── Calendar Tab ────────────────────────────────── */}
+      <TabPanel value={tab} index={1}>
+        <RateCalendarTab />
+      </TabPanel>
+
+      {/* ── Booking rules Tab ───────────────────────────── */}
+      <TabPanel value={tab} index={3}>
+        <BookingRulesTab
+          roomTypes={roomTypes.map(rt => ({ _id: rt._id, name: rt.name }))}
+          ratePlans={ratePlans.filter(rp => rp._id).map(rp => ({ _id: rp._id!, name: rp.name, roomTypeName: getRoomTypeName(rp.roomTypeId) }))}
+          onOpenCalendar={() => setTab(1)}
+        />
+      </TabPanel>
+
+      {/* ── Rules Tab ───────────────────────────────────── */}
+      <TabPanel value={tab} index={2}>
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="body2" color="text.secondary">{t('admin.pricing.rules.description')}</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openNewRule}>
+            {t('admin.pricing.rules.actions.new')}
+          </Button>
+        </Box>
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>{t('admin.pricing.rules.table.name')}</TableCell>
+                <TableCell>{t('admin.pricing.ruleWizard.target')}</TableCell>
+                <TableCell>{t('admin.pricing.ruleWizard.ratePlan')}</TableCell>
+                <TableCell>{t('admin.pricing.ruleWizard.rule')}</TableCell>
+                <TableCell>{t('admin.pricing.ruleWizard.period')}</TableCell>
+                <TableCell>{t('admin.pricing.rules.table.active')}</TableCell>
+                <TableCell>{t('admin.pricing.rules.table.actions')}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {namedRules.map(rule => {
+                const companyName = typeof rule.companyId === 'object' ? (rule.companyId as any)?.name : rule.companyId;
+                const ratePlanName = typeof rule.ratePlanId === 'object' && rule.ratePlanId
+                  ? (rule.ratePlanId as any).name
+                  : ratePlans.find(rp => rp._id === rule.ratePlanId)?.name || rule.ratePlanId;
+                return (
+                  <TableRow key={rule._id}>
+                    <TableCell>{rule.name}</TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        <Chip size="small"
+                          label={t(`admin.pricing.ruleWizard.targets.${rule.ruleTarget}`, rule.ruleTarget)}
+                          color={rule.ruleTarget === 'guest' ? 'success' : rule.ruleTarget === 'company' ? 'primary' : 'default'}
+                        />
+                        {rule.ruleTarget === 'company' && companyName && (
+                          <Typography variant="caption">{companyName}</Typography>
+                        )}
+                        {rule.ruleTarget === 'guest' && rule.guestEmail && (
+                          <Typography variant="caption">{rule.guestEmail}</Typography>
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">{ratePlanName || '—'}</Typography>
+                    </TableCell>
+                    <TableCell>
+                      {rule.ruleModel === 'custom' ? (
+                        <Chip size="small" label={t('admin.pricing.ruleWizard.custom')} />
+                      ) : (
+                        <Box>
+                          <Typography variant="body2">
+                            {rule.direction === 'surcharge' ? '+' : '−'}
+                            {rule.ruleModel === 'percentage' ? `${rule.value}%` : `${cur}${rule.value}`}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">{t('admin.pricing.ruleWizard.onScope', { scope: t(`admin.pricing.ruleWizard.scopeNames.${rule.scope || 'both'}`) })}</Typography>
+                        </Box>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                        <Chip size="small" label={t(`admin.pricing.ruleWizard.patterns.${rule.periodPattern || 'all_days'}`)} variant="outlined" />
+                        {rule.dateStart && (
+                          <Typography variant="caption">{rule.dateStart.substring(0, 10)} → {rule.dateEnd?.substring(0, 10)}</Typography>
+                        )}
+                        {rule.minimumNights && (
+                          <Typography variant="caption">{t('admin.pricing.ruleWizard.plusNights', { count: Number(rule.minimumNights) })}</Typography>
+                        )}
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Chip size="small" label={rule.isActive ? t('common.yes') : t('common.no')} color={rule.isActive ? 'success' : 'default'} />
+                    </TableCell>
+                    <TableCell>
+                      <IconButton size="small" onClick={() => openEditRule(rule)}><EditIcon fontSize="small" /></IconButton>
+                      <IconButton size="small" color="error" onClick={() => deleteRule(rule._id!)}><DeleteIcon fontSize="small" /></IconButton>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {namedRules.length === 0 && !rulesLoading && (
+                <TableRow><TableCell colSpan={7} align="center">{t('admin.pricing.rules.empty')}</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        {/* Calendar adjustments: prices typed in the Calendar, kept apart from named rules */}
+        <Paper variant="outlined" sx={{ p: 2, mt: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <Typography variant="subtitle1" fontWeight={700} sx={{ flex: 1 }}>
+              {t('admin.pricing.calendar.adjustments.title')} ({calendarRules.length})
+            </Typography>
+            <Button size="small" onClick={() => setTab(1)}>{t('admin.pricing.calendar.adjustments.openCalendar')}</Button>
           </Box>
-          <TableContainer component={Paper}>
-            <Table>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>{t('admin.pricing.calendar.adjustments.description')}</Typography>
+          {calendarRules.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">{t('admin.pricing.calendar.adjustments.empty')}</Typography>
+          ) : (
+            <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>{t('admin.pricing.rules.table.name')}</TableCell>
-                  <TableCell>{t('admin.pricing.ruleWizard.target')}</TableCell>
                   <TableCell>{t('admin.pricing.ruleWizard.ratePlan')}</TableCell>
-                  <TableCell>{t('admin.pricing.ruleWizard.rule')}</TableCell>
-                  <TableCell>{t('admin.pricing.ruleWizard.period')}</TableCell>
-                  <TableCell>{t('admin.pricing.rules.table.active')}</TableCell>
-                  <TableCell>{t('admin.pricing.rules.table.actions')}</TableCell>
+                  <TableCell>{t('admin.pricing.calendar.adjustments.dates')}</TableCell>
+                  <TableCell>{t('admin.pricing.calendar.adjustments.price')}</TableCell>
+                  <TableCell>{t('admin.pricing.calendar.adjustments.savedAt')}</TableCell>
+                  <TableCell />
                 </TableRow>
               </TableHead>
               <TableBody>
-                {namedRules.map(rule => {
-                  const companyName = typeof rule.companyId === 'object' ? (rule.companyId as any)?.name : rule.companyId;
-                  const ratePlanName = typeof rule.ratePlanId === 'object' && rule.ratePlanId
+                {calendarRules.map(rule => {
+                  const plan = typeof rule.ratePlanId === 'object' && rule.ratePlanId
                     ? (rule.ratePlanId as any).name
-                    : ratePlans.find(rp => rp._id === rule.ratePlanId)?.name || rule.ratePlanId;
+                    : ratePlans.find(rp => rp._id === rule.ratePlanId)?.name || '—';
+                  const days = rule.periodPattern === 'specific_days' && rule.specificDays?.length
+                    ? ` · ${(['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa'] as const).filter((_, i) => rule.specificDays!.includes(i)).map(d => t(`admin.pricing.calendar.weekdays.${d}`)).join(' ')}`
+                    : '';
                   return (
                     <TableRow key={rule._id}>
-                      <TableCell>{rule.name}</TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                          <Chip size="small"
-                            label={t(`admin.pricing.ruleWizard.targets.${rule.ruleTarget}`, rule.ruleTarget)}
-                            color={rule.ruleTarget === 'guest' ? 'success' : rule.ruleTarget === 'company' ? 'primary' : 'default'}
-                          />
-                          {rule.ruleTarget === 'company' && companyName && (
-                            <Typography variant="caption">{companyName}</Typography>
-                          )}
-                          {rule.ruleTarget === 'guest' && rule.guestEmail && (
-                            <Typography variant="caption">{rule.guestEmail}</Typography>
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2">{ratePlanName || '—'}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        {rule.ruleModel === 'custom' ? (
-                          <Chip size="small" label={t('admin.pricing.ruleWizard.custom')} />
-                        ) : (
-                          <Box>
-                            <Typography variant="body2">
-                              {rule.direction === 'surcharge' ? '+' : '−'}
-                              {rule.ruleModel === 'percentage' ? `${rule.value}%` : `${cur}${rule.value}`}
-                            </Typography>
-                            <Typography variant="caption" color="text.secondary">{t('admin.pricing.ruleWizard.onScope', { scope: t(`admin.pricing.ruleWizard.scopeNames.${rule.scope || 'both'}`) })}</Typography>
-                          </Box>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                          <Chip size="small" label={t(`admin.pricing.ruleWizard.patterns.${rule.periodPattern || 'all_days'}`)} variant="outlined" />
-                          {rule.dateStart && (
-                            <Typography variant="caption">{rule.dateStart.substring(0, 10)} → {rule.dateEnd?.substring(0, 10)}</Typography>
-                          )}
-                          {rule.minimumNights && (
-                            <Typography variant="caption">{t('admin.pricing.ruleWizard.plusNights', { count: Number(rule.minimumNights) })}</Typography>
-                          )}
-                        </Box>
-                      </TableCell>
-                      <TableCell>
-                        <Chip size="small" label={rule.isActive ? t('common.yes') : t('common.no')} color={rule.isActive ? 'success' : 'default'} />
-                      </TableCell>
-                      <TableCell>
-                        <IconButton size="small" onClick={() => openEditRule(rule)}><EditIcon fontSize="small" /></IconButton>
+                      <TableCell>{plan}</TableCell>
+                      <TableCell>{rule.dateStart?.substring(0, 10)} → {rule.dateEnd?.substring(0, 10)}{days}</TableCell>
+                      <TableCell>${rule.customBasePrice}</TableCell>
+                      <TableCell>{rule.updatedAt ? new Date(rule.updatedAt).toLocaleString(i18n.language) : ''}</TableCell>
+                      <TableCell align="right">
                         <IconButton size="small" color="error" onClick={() => deleteRule(rule._id!)}><DeleteIcon fontSize="small" /></IconButton>
                       </TableCell>
                     </TableRow>
                   );
                 })}
-                {namedRules.length === 0 && !rulesLoading && (
-                  <TableRow><TableCell colSpan={7} align="center">{t('admin.pricing.rules.empty')}</TableCell></TableRow>
-                )}
               </TableBody>
             </Table>
-          </TableContainer>
+          )}
+        </Paper>
+      </TabPanel>
 
-          {/* Calendar adjustments: prices typed in the Calendar, kept apart from named rules */}
-          <Paper variant="outlined" sx={{ p: 2, mt: 3 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-              <Typography variant="subtitle1" fontWeight={700} sx={{ flex: 1 }}>
-                {t('admin.pricing.calendar.adjustments.title')} ({calendarRules.length})
-              </Typography>
-              <Button size="small" onClick={() => setTab(1)}>{t('admin.pricing.calendar.adjustments.openCalendar')}</Button>
-            </Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>{t('admin.pricing.calendar.adjustments.description')}</Typography>
-            {calendarRules.length === 0 ? (
-              <Typography variant="body2" color="text.secondary">{t('admin.pricing.calendar.adjustments.empty')}</Typography>
-            ) : (
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>{t('admin.pricing.ruleWizard.ratePlan')}</TableCell>
-                    <TableCell>{t('admin.pricing.calendar.adjustments.dates')}</TableCell>
-                    <TableCell>{t('admin.pricing.calendar.adjustments.price')}</TableCell>
-                    <TableCell>{t('admin.pricing.calendar.adjustments.savedAt')}</TableCell>
-                    <TableCell />
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {calendarRules.map(rule => {
-                    const plan = typeof rule.ratePlanId === 'object' && rule.ratePlanId
-                      ? (rule.ratePlanId as any).name
-                      : ratePlans.find(rp => rp._id === rule.ratePlanId)?.name || '—';
-                    const days = rule.periodPattern === 'specific_days' && rule.specificDays?.length
-                      ? ` · ${(['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa'] as const).filter((_, i) => rule.specificDays!.includes(i)).map(d => t(`admin.pricing.calendar.weekdays.${d}`)).join(' ')}`
-                      : '';
-                    return (
-                      <TableRow key={rule._id}>
-                        <TableCell>{plan}</TableCell>
-                        <TableCell>{rule.dateStart?.substring(0, 10)} → {rule.dateEnd?.substring(0, 10)}{days}</TableCell>
-                        <TableCell>${rule.customBasePrice}</TableCell>
-                        <TableCell>{rule.updatedAt ? new Date(rule.updatedAt).toLocaleString(i18n.language) : ''}</TableCell>
-                        <TableCell align="right">
-                          <IconButton size="small" color="error" onClick={() => deleteRule(rule._id!)}><DeleteIcon fontSize="small" /></IconButton>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            )}
-          </Paper>
-        </TabPanel>
-
-        {/* ── Taxes Tab ───────────────────────────────────── */}
-        <TabPanel value={tab} index={4}>
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary">{t('admin.pricing.taxes.description')}</Typography>
-          </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={openNewTax}>
-              {t('admin.pricing.taxes.actions.new')}
-            </Button>
-          </Box>
-          <TableContainer component={Paper}>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>{t('admin.pricing.taxes.table.name')}</TableCell>
-                  <TableCell>{t('admin.pricing.taxes.table.type')}</TableCell>
-                  <TableCell>{t('admin.pricing.taxes.table.value')}</TableCell>
-                  <TableCell>{t('admin.pricing.taxes.table.appliesTo')}</TableCell>
-                  <TableCell>{t('admin.pricing.taxes.table.inclusive')}</TableCell>
-                  <TableCell>{t('admin.pricing.taxes.table.priority')}</TableCell>
-                  <TableCell>{t('admin.pricing.taxes.table.active')}</TableCell>
-                  <TableCell>{t('admin.pricing.taxes.table.actions')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {taxes.map(tax => (
-                  <TableRow key={tax._id}>
-                    <TableCell>{tax.name}</TableCell>
-                    <TableCell><Chip size="small" label={t(`admin.pricing.taxes.typeLabels.${tax.type}`, tax.type)} /></TableCell>
-                    <TableCell>{tax.type === 'percentage' ? `${tax.value}%` : `${cur}${tax.value}`}</TableCell>
-                    <TableCell>{taxAppliesToLabel[tax.appliesTo]}</TableCell>
-                    <TableCell>
-                      <Chip size="small"
-                        label={tax.isInclusive ? t('admin.pricing.taxes.inclusive') : t('admin.pricing.taxes.exclusive')}
-                        color={tax.isInclusive ? 'info' : 'default'}
-                      />
-                    </TableCell>
-                    <TableCell>{tax.priority}</TableCell>
-                    <TableCell>
-                      <Chip size="small" label={tax.isActive ? t('common.yes') : t('common.no')} color={tax.isActive ? 'success' : 'default'} />
-                    </TableCell>
-                    <TableCell>
-                      <IconButton size="small" onClick={() => openEditTax(tax)}><EditIcon fontSize="small" /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => deleteTax(tax._id!)}><DeleteIcon fontSize="small" /></IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {taxes.length === 0 && !taxesLoading && (
-                  <TableRow><TableCell colSpan={8} align="center">{t('admin.pricing.taxes.empty')}</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </TabPanel>
-
-        {/* ── Services Tab ─────────────────────────────────── */}
-        <TabPanel value={tab} index={5}>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={openNewService}>
-              {t('admin.pricing.services.actions.new', 'New Service')}
-            </Button>
-          </Box>
-          <TableContainer component={Paper}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>{t('admin.pricing.services.table.code', 'Code')}</TableCell>
-                  <TableCell>{t('admin.pricing.services.table.name', 'Name')}</TableCell>
-                  <TableCell>{t('admin.pricing.services.table.kind', 'Kind')}</TableCell>
-                  <TableCell>{t('admin.pricing.services.table.chargeBasis', 'Charge Basis')}</TableCell>
-                  <TableCell>{t('admin.pricing.services.table.pos', 'POS')}</TableCell>
-                  <TableCell>{t('admin.pricing.services.table.active', 'Active')}</TableCell>
-                  <TableCell>{t('admin.pricing.services.table.actions', 'Actions')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {servicesLoading ? (
-                  <TableRow><TableCell colSpan={7} align="center"><CircularProgress size={24} /></TableCell></TableRow>
-                ) : services.map(svc => (
-                  <TableRow key={svc._id} hover>
-                    <TableCell><Chip size="small" label={svc.code} /></TableCell>
-                    <TableCell>{svc.name}</TableCell>
-                    <TableCell>{serviceKindLabel[svc.kind] || svc.kind}</TableCell>
-                    <TableCell>{chargeBasisLabel[svc.chargeBasis] || svc.chargeBasis}</TableCell>
-                    <TableCell><Chip size="small" color={svc.isVisibleInPOS ? 'success' : 'default'} label={svc.isVisibleInPOS ? t('common.yes', 'Yes') : t('common.no', 'No')} /></TableCell>
-                    <TableCell><Chip size="small" color={svc.isActive ? 'success' : 'default'} label={svc.isActive ? t('common.active', 'Active') : t('common.inactive', 'Inactive')} /></TableCell>
-                    <TableCell>
-                      <IconButton size="small" onClick={() => openEditService(svc)}><EditIcon fontSize="small" /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => deleteService(svc._id!)}><DeleteIcon fontSize="small" /></IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-                {services.length === 0 && !servicesLoading && (
-                  <TableRow><TableCell colSpan={7} align="center">{t('admin.pricing.services.empty', 'No services configured.')}</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </TabPanel>
-
-        {/* ── Service Prices Tab ───────────────────────────── */}
-        <TabPanel value={tab} index={6}>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={openNewServicePrice}>
-              {t('admin.pricing.servicePrices.actions.new', 'New Price')}
-            </Button>
-          </Box>
-          <TableContainer component={Paper}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>{t('admin.pricing.servicePrices.table.service', 'Service')}</TableCell>
-                  <TableCell>{t('admin.pricing.servicePrices.table.category', 'Category')}</TableCell>
-                  <TableCell>{t('admin.pricing.servicePrices.table.validity', 'Validity')}</TableCell>
-                  <TableCell>{t('admin.pricing.servicePrices.table.dates', 'Dates')}</TableCell>
-                  <TableCell>{t('admin.pricing.servicePrices.table.adultPrice', 'Adult Price')}</TableCell>
-                  <TableCell>{t('admin.pricing.servicePrices.table.childrenPrice', 'Children Price')}</TableCell>
-                  <TableCell>{t('admin.pricing.servicePrices.table.active', 'Active')}</TableCell>
-                  <TableCell>{t('admin.pricing.servicePrices.table.actions', 'Actions')}</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {servicePricesLoading ? (
-                  <TableRow><TableCell colSpan={8} align="center"><CircularProgress size={24} /></TableCell></TableRow>
-                ) : servicePrices.map(sp => {
-                  const svcName = typeof sp.serviceId === 'object' && sp.serviceId ? (sp.serviceId as ServiceRecord).name : services.find(s => s._id === sp.serviceId)?.name || sp.serviceId;
-                  const dateRange = sp.startDate && sp.endDate ? `${sp.startDate.substring(0,10)} – ${sp.endDate.substring(0,10)}` : '—';
-                  return (
-                    <TableRow key={sp._id} hover>
-                      <TableCell>{svcName}</TableCell>
-                      <TableCell><Chip size="small" label={t(`admin.pricing.servicePrices.categories.${sp.category}`, sp.category)} /></TableCell>
-                      <TableCell>{t(`admin.pricing.servicePrices.validities.${sp.validity}`, sp.validity)}</TableCell>
-                      <TableCell>{dateRange}</TableCell>
-                      <TableCell>{sp.adultPrice}</TableCell>
-                      <TableCell>{sp.childrenPrice}</TableCell>
-                      <TableCell><Chip size="small" color={sp.isActive ? 'success' : 'default'} label={sp.isActive ? t('common.active', 'Active') : t('common.inactive', 'Inactive')} /></TableCell>
-                      <TableCell>
-                        <IconButton size="small" onClick={() => openEditServicePrice(sp)}><EditIcon fontSize="small" /></IconButton>
-                        <IconButton size="small" color="error" onClick={() => deleteServicePrice(sp._id!)}><DeleteIcon fontSize="small" /></IconButton>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-                {servicePrices.length === 0 && !servicePricesLoading && (
-                  <TableRow><TableCell colSpan={8} align="center">{t('admin.pricing.servicePrices.empty', 'No service prices configured.')}</TableCell></TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </TabPanel>
-
-        {/* ── Rate Plan Dialog ─────────────────────────────── */}
-        <Dialog open={ratePlanDialog} onClose={() => setRatePlanDialog(false)} maxWidth="md" fullWidth>
-          <DialogTitle>
-            {ratePlanForm._id ? t('admin.pricing.ratePlans.dialog.editTitle') : t('admin.pricing.ratePlans.dialog.newTitle')}
-          </DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                <TextField
-                  label={t('admin.pricing.ratePlans.form.name')}
-                  value={ratePlanForm.name}
-                  onChange={e => setRatePlanForm(p => ({ ...p, name: e.target.value }))}
-                  required fullWidth
-                />
-                <Autocomplete
-                  options={roomTypes}
-                  getOptionLabel={o => o.name}
-                  value={selectedRatePlanRoomType}
-                  onChange={(_, val) => {
-                    setSelectedRatePlanRoomType(val);
-                    setRatePlanForm(p => ({ ...p, roomTypeId: val?._id || '' }));
-                  }}
-                  renderInput={params => (
-                    <TextField {...params} label={t('admin.pricing.ratePlans.form.roomType')} required
-                      helperText={t('admin.pricing.ratePlans.form.roomTypeHelper')}
+      {/* ── Taxes Tab ───────────────────────────────────── */}
+      <TabPanel value={tab} index={4}>
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="body2" color="text.secondary">{t('admin.pricing.taxes.description')}</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openNewTax}>
+            {t('admin.pricing.taxes.actions.new')}
+          </Button>
+        </Box>
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>{t('admin.pricing.taxes.table.name')}</TableCell>
+                <TableCell>{t('admin.pricing.taxes.table.type')}</TableCell>
+                <TableCell>{t('admin.pricing.taxes.table.value')}</TableCell>
+                <TableCell>{t('admin.pricing.taxes.table.appliesTo')}</TableCell>
+                <TableCell>{t('admin.pricing.taxes.table.inclusive')}</TableCell>
+                <TableCell>{t('admin.pricing.taxes.table.priority')}</TableCell>
+                <TableCell>{t('admin.pricing.taxes.table.active')}</TableCell>
+                <TableCell>{t('admin.pricing.taxes.table.actions')}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {taxes.map(tax => (
+                <TableRow key={tax._id}>
+                  <TableCell>{tax.name}</TableCell>
+                  <TableCell><Chip size="small" label={t(`admin.pricing.taxes.typeLabels.${tax.type}`, tax.type)} /></TableCell>
+                  <TableCell>{tax.type === 'percentage' ? `${tax.value}%` : `${cur}${tax.value}`}</TableCell>
+                  <TableCell>{taxAppliesToLabel[tax.appliesTo]}</TableCell>
+                  <TableCell>
+                    <Chip size="small"
+                      label={tax.isInclusive ? t('admin.pricing.taxes.inclusive') : t('admin.pricing.taxes.exclusive')}
+                      color={tax.isInclusive ? 'info' : 'default'}
                     />
-                  )}
-                />
-              </Box>
+                  </TableCell>
+                  <TableCell>{tax.priority}</TableCell>
+                  <TableCell>
+                    <Chip size="small" label={tax.isActive ? t('common.yes') : t('common.no')} color={tax.isActive ? 'success' : 'default'} />
+                  </TableCell>
+                  <TableCell>
+                    <IconButton size="small" onClick={() => openEditTax(tax)}><EditIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => deleteTax(tax._id!)}><DeleteIcon fontSize="small" /></IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {taxes.length === 0 && !taxesLoading && (
+                <TableRow><TableCell colSpan={8} align="center">{t('admin.pricing.taxes.empty')}</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </TabPanel>
 
-              <NumberField
-                label={t('admin.pricing.ratePlans.form.basePrice')}
-                value={ratePlanForm.basePrice}
-                onChange={val => setRatePlanForm(p => ({ ...p, basePrice: val ?? 0 }))}
-                min={0}
-                allowDecimal
-              />
+      {/* ── Services Tab ─────────────────────────────────── */}
+      <TabPanel value={tab} index={5}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openNewService}>
+            {t('admin.pricing.services.actions.new', 'New Service')}
+          </Button>
+        </Box>
+        <TableContainer component={Paper}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>{t('admin.pricing.services.table.code', 'Code')}</TableCell>
+                <TableCell>{t('admin.pricing.services.table.name', 'Name')}</TableCell>
+                <TableCell>{t('admin.pricing.services.table.kind', 'Kind')}</TableCell>
+                <TableCell>{t('admin.pricing.services.table.chargeBasis', 'Charge Basis')}</TableCell>
+                <TableCell>{t('admin.pricing.services.table.pos', 'POS')}</TableCell>
+                <TableCell>{t('admin.pricing.services.table.active', 'Active')}</TableCell>
+                <TableCell>{t('admin.pricing.services.table.actions', 'Actions')}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {servicesLoading ? (
+                <TableRow><TableCell colSpan={7} align="center"><CircularProgress size={24} /></TableCell></TableRow>
+              ) : services.map(svc => (
+                <TableRow key={svc._id} hover>
+                  <TableCell><Chip size="small" label={svc.code} /></TableCell>
+                  <TableCell>{svc.name}</TableCell>
+                  <TableCell>{serviceKindLabel[svc.kind] || svc.kind}</TableCell>
+                  <TableCell>{chargeBasisLabel[svc.chargeBasis] || svc.chargeBasis}</TableCell>
+                  <TableCell><Chip size="small" color={svc.isVisibleInPOS ? 'success' : 'default'} label={svc.isVisibleInPOS ? t('common.yes', 'Yes') : t('common.no', 'No')} /></TableCell>
+                  <TableCell><Chip size="small" color={svc.isActive ? 'success' : 'default'} label={svc.isActive ? t('common.active', 'Active') : t('common.inactive', 'Inactive')} /></TableCell>
+                  <TableCell>
+                    <IconButton size="small" onClick={() => openEditService(svc)}><EditIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" color="error" onClick={() => deleteService(svc._id!)}><DeleteIcon fontSize="small" /></IconButton>
+                  </TableCell>
+                </TableRow>
+              ))}
+              {services.length === 0 && !servicesLoading && (
+                <TableRow><TableCell colSpan={7} align="center">{t('admin.pricing.services.empty', 'No services configured.')}</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </TabPanel>
 
+      {/* ── Service Prices Tab ───────────────────────────── */}
+      <TabPanel value={tab} index={6}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openNewServicePrice}>
+            {t('admin.pricing.servicePrices.actions.new', 'New Price')}
+          </Button>
+        </Box>
+        <TableContainer component={Paper}>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>{t('admin.pricing.servicePrices.table.service', 'Service')}</TableCell>
+                <TableCell>{t('admin.pricing.servicePrices.table.category', 'Category')}</TableCell>
+                <TableCell>{t('admin.pricing.servicePrices.table.validity', 'Validity')}</TableCell>
+                <TableCell>{t('admin.pricing.servicePrices.table.dates', 'Dates')}</TableCell>
+                <TableCell>{t('admin.pricing.servicePrices.table.adultPrice', 'Adult Price')}</TableCell>
+                <TableCell>{t('admin.pricing.servicePrices.table.childrenPrice', 'Children Price')}</TableCell>
+                <TableCell>{t('admin.pricing.servicePrices.table.active', 'Active')}</TableCell>
+                <TableCell>{t('admin.pricing.servicePrices.table.actions', 'Actions')}</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {servicePricesLoading ? (
+                <TableRow><TableCell colSpan={8} align="center"><CircularProgress size={24} /></TableCell></TableRow>
+              ) : servicePrices.map(sp => {
+                const svcName = typeof sp.serviceId === 'object' && sp.serviceId ? (sp.serviceId as ServiceRecord).name : services.find(s => s._id === sp.serviceId)?.name || sp.serviceId;
+                const dateRange = sp.startDate && sp.endDate ? `${sp.startDate.substring(0,10)} – ${sp.endDate.substring(0,10)}` : '—';
+                return (
+                  <TableRow key={sp._id} hover>
+                    <TableCell>{svcName}</TableCell>
+                    <TableCell><Chip size="small" label={t(`admin.pricing.servicePrices.categories.${sp.category}`, sp.category)} /></TableCell>
+                    <TableCell>{t(`admin.pricing.servicePrices.validities.${sp.validity}`, sp.validity)}</TableCell>
+                    <TableCell>{dateRange}</TableCell>
+                    <TableCell>{sp.adultPrice}</TableCell>
+                    <TableCell>{sp.childrenPrice}</TableCell>
+                    <TableCell><Chip size="small" color={sp.isActive ? 'success' : 'default'} label={sp.isActive ? t('common.active', 'Active') : t('common.inactive', 'Inactive')} /></TableCell>
+                    <TableCell>
+                      <IconButton size="small" onClick={() => openEditServicePrice(sp)}><EditIcon fontSize="small" /></IconButton>
+                      <IconButton size="small" color="error" onClick={() => deleteServicePrice(sp._id!)}><DeleteIcon fontSize="small" /></IconButton>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {servicePrices.length === 0 && !servicePricesLoading && (
+                <TableRow><TableCell colSpan={8} align="center">{t('admin.pricing.servicePrices.empty', 'No service prices configured.')}</TableCell></TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </TabPanel>
+
+      {/* ── Rate Plan Dialog ─────────────────────────────── */}
+      <Dialog open={ratePlanDialog} onClose={() => setRatePlanDialog(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          {ratePlanForm._id ? t('admin.pricing.ratePlans.dialog.editTitle') : t('admin.pricing.ratePlans.dialog.newTitle')}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
               <TextField
-                label={t('admin.pricing.ratePlans.form.description')}
-                value={ratePlanForm.description ?? ''}
-                onChange={e => setRatePlanForm(p => ({ ...p, description: e.target.value }))}
-                helperText={t('admin.pricing.ratePlans.form.descriptionHelper')}
-                inputProps={{ maxLength: 500 }}
-                multiline
-                minRows={2}
-                fullWidth
-              />
-
-              <Divider />
-
-              <Box sx={{ display: 'grid', gap: 1.5 }}>
-                <Typography variant="subtitle2">{t('admin.pricing.ratePlans.form.selectionTitle')}</Typography>
-                <Box>
-                  <FormControlLabel
-                    control={<Switch checked={ratePlanForm.isDefault ?? false} onChange={e => setRatePlanForm(p => ({ ...p, isDefault: e.target.checked }))} />}
-                    label={t('admin.pricing.ratePlans.form.isDefault')}
-                  />
-                  <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 6, mt: -0.5 }}>
-                    {t('admin.pricing.ratePlans.form.isDefaultHint')}
-                  </Typography>
-                </Box>
-                <FormControl size="small" sx={{ maxWidth: 360 }}>
-                  <InputLabel>{t('admin.pricing.ratePlans.form.visibility')}</InputLabel>
-                  <Select
-                    value={ratePlanForm.visibility ?? 'public'}
-                    label={t('admin.pricing.ratePlans.form.visibility')}
-                    onChange={e => setRatePlanForm(p => ({ ...p, visibility: e.target.value as 'public' | 'private' }))}
-                  >
-                    <MenuItem value="public">{t('admin.pricing.ratePlans.form.visibilityPublic')}</MenuItem>
-                    <MenuItem value="private">{t('admin.pricing.ratePlans.form.visibilityPrivate')}</MenuItem>
-                  </Select>
-                </FormControl>
-                <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
-                  {(ratePlanForm.visibility ?? 'public') === 'private'
-                    ? t('admin.pricing.ratePlans.form.visibilityPrivateHint')
-                    : t('admin.pricing.ratePlans.form.visibilityPublicHint')}
-                </Typography>
-                {(ratePlanForm.visibility ?? 'public') === 'private' && (
-                  <TextField
-                    size="small"
-                    label={t('admin.pricing.ratePlans.form.accessCodes')}
-                    value={accessCodesText}
-                    onChange={e => setAccessCodesText(e.target.value.toUpperCase())}
-                    helperText={t('admin.pricing.ratePlans.form.accessCodesHelper')}
-                    placeholder="VERANO26, AMIGOS"
-                    fullWidth
-                  />
-                )}
-              </Box>
-
-              <Divider />
-
-              <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                  <Typography variant="subtitle2">{t('admin.pricing.ratePlans.occupancyTiers')}</Typography>
-                  <Button size="small" startIcon={<AddIcon />} onClick={addTier}>
-                    {t('admin.pricing.ratePlans.actions.addTier')}
-                  </Button>
-                </Box>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                  {t('admin.pricing.ratePlans.tiersHint')}
-                </Typography>
-                <TableContainer component={Paper} variant="outlined">
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>{t('admin.pricing.ratePlans.tiersTable.guestType')}</TableCell>
-                        <TableCell>{t('admin.pricing.ratePlans.tiersTable.guestNumber')}</TableCell>
-                        <TableCell>{t('admin.pricing.ratePlans.tiersTable.price')}</TableCell>
-                        <TableCell />
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {ratePlanForm.occupancyTiers.map((tier, idx) => (
-                        <TableRow key={idx}>
-                          <TableCell>
-                            <FormControl size="small" fullWidth>
-                              <Select value={tier.guestType} onChange={e => updateTier(idx, 'guestType', e.target.value)}>
-                                <MenuItem value="adult">{t('admin.pricing.ratePlans.adult')}</MenuItem>
-                                <MenuItem value="child">{t('admin.pricing.ratePlans.child')}</MenuItem>
-                              </Select>
-                            </FormControl>
-                          </TableCell>
-                          <TableCell>
-                            <NumberField
-                              size="small"
-                              value={tier.guestNumber}
-                              onChange={v => updateTier(idx, 'guestNumber', v ?? 1)}
-                              min={1}
-                              sx={{ width: 80 }}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <NumberField
-                              size="small"
-                              allowDecimal
-                              value={tier.price}
-                              onChange={v => updateTier(idx, 'price', v ?? 0)}
-                              min={0}
-                              helperText={tier.price === 0 ? t('admin.pricing.ratePlans.included') : undefined}
-                              sx={{ width: 100 }}
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Tooltip title={t('admin.pricing.ratePlans.actions.removeTier')}>
-                              <IconButton size="small" onClick={() => removeTier(idx)}><DeleteIcon fontSize="small" /></IconButton>
-                            </Tooltip>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      {ratePlanForm.occupancyTiers.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={4} align="center">
-                            <Typography variant="caption" color="text.secondary">{t('admin.pricing.ratePlans.noTiers')}</Typography>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </Box>
-
-              <FormControlLabel
-                control={<Switch checked={ratePlanForm.isActive ?? true} onChange={e => setRatePlanForm(p => ({ ...p, isActive: e.target.checked }))} />}
-                label={t('admin.pricing.form.active')}
-              />
-              <Box>
-                <FormControlLabel
-                  control={<Switch checked={ratePlanForm.sellOnChannels ?? true} onChange={e => setRatePlanForm(p => ({ ...p, sellOnChannels: e.target.checked }))} />}
-                  label={t('admin.pricing.sellOnChannels.label')}
-                />
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 6, mt: -0.5 }}>{t('admin.pricing.sellOnChannels.ratePlanHint')}</Typography>
-              </Box>
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setRatePlanDialog(false)}>{t('admin.pricing.actions.cancel')}</Button>
-            <Button variant="contained" onClick={saveRatePlan}>{t('admin.pricing.actions.save')}</Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* ── Rule Wizard Dialog ───────────────────────────── */}
-        <Dialog open={ruleDialog} onClose={() => { setRuleDialog(false); setError(null); }} maxWidth="md" fullWidth>
-          <DialogTitle>
-            {ruleForm._id ? t('admin.pricing.rules.dialog.editTitle', 'Edit Price Rule') : t('admin.pricing.rules.dialog.newTitle', 'New Price Rule')}
-          </DialogTitle>
-          <DialogContent>
-            <Box sx={{ pt: 1 }}>
-              <Stepper activeStep={ruleWizardStep} sx={{ mb: 3 }}>
-                {['target', 'model', 'period', 'preview'].map(step => (
-                  <Step key={step}><StepLabel>{t(`admin.pricing.ruleWizard.steps.${step}`)}</StepLabel></Step>
-                ))}
-              </Stepper>
-
-              {/* ── Step 1: Name + Target + Rate Plan ── */}
-              {ruleWizardStep === 0 && (
-                <Box sx={{ display: 'grid', gap: 2 }}>
-                  <TextField
-                    label={t('admin.pricing.ruleWizard.name')}
-                    value={ruleForm.name}
-                    onChange={e => setRuleForm(p => ({ ...p, name: e.target.value }))}
-                    required fullWidth
-                  />
-                  <FormControl fullWidth>
-                    <InputLabel>{t('admin.pricing.ruleWizard.whoFor')}</InputLabel>
-                    <Select
-                      value={ruleForm.ruleTarget}
-                      label={t('admin.pricing.ruleWizard.whoFor')}
-                      onChange={e => setRuleForm(p => ({ ...p, ruleTarget: e.target.value as RuleTarget, companyId: '', guestEmail: '' }))}
-                    >
-                      <MenuItem value="company">{t('admin.pricing.ruleWizard.targets.company')}</MenuItem>
-                      <MenuItem value="guest">{t('admin.pricing.ruleWizard.targets.guest')}</MenuItem>
-                      <MenuItem value="promotional">{t('admin.pricing.ruleWizard.targets.promotional')}</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  {ruleForm.ruleTarget === 'company' && (
-                    <Autocomplete
-                      options={ruleCompanyOptions}
-                      getOptionLabel={o => o.name}
-                      value={selectedRuleCompany}
-                      onChange={(_, val) => {
-                        setSelectedRuleCompany(val);
-                        setRuleForm(p => ({ ...p, companyId: val?._id || '' }));
-                      }}
-                      onInputChange={(_, v) => setRuleCompanySearch(v)}
-                      renderInput={params => (
-                        <TextField {...params} label={t('admin.pricing.ruleWizard.targets.company')} required helperText={t('admin.pricing.ruleWizard.companyHelp')} />
-                      )}
-                    />
-                  )}
-
-                  {ruleForm.ruleTarget === 'guest' && (
-                    <Autocomplete
-                      options={ruleGuestOptions}
-                      getOptionLabel={o => `${o.firstName} ${o.lastName}`}
-                      value={selectedRuleGuest}
-                      onChange={(_, val) => {
-                        setSelectedRuleGuest(val);
-                        setRuleForm(p => ({ ...p, guestEmail: val?.email || '' }));
-                      }}
-                      onInputChange={(_, v) => setRuleGuestSearch(v)}
-                      renderOption={(props, o) => (
-                        <li {...props} key={o._id}>
-                          <Box>
-                            <Typography variant="body2">{o.firstName} {o.lastName}</Typography>
-                            <Typography variant="caption" color="text.secondary">{o.email}</Typography>
-                          </Box>
-                        </li>
-                      )}
-                      renderInput={params => (
-                        <TextField {...params} label={t('admin.pricing.ruleWizard.targets.guest')} required helperText={t('admin.pricing.ruleWizard.guestHelp')} />
-                      )}
-                    />
-                  )}
-
-                  {ruleForm.ruleTarget === 'guest' && ruleForm.guestEmail && (
-                    <TextField
-                      label={t('admin.pricing.ruleWizard.guestEmail')}
-                      value={ruleForm.guestEmail}
-                      onChange={e => setRuleForm(p => ({ ...p, guestEmail: e.target.value }))}
-                      size="small"
-                      helperText={t('admin.pricing.ruleWizard.guestEmailHelp')}
-                    />
-                  )}
-
-                  <Autocomplete
-                    options={ratePlans}
-                    getOptionLabel={o => o.name}
-                    value={selectedRuleRatePlan}
-                    onChange={(_, val) => {
-                      setSelectedRuleRatePlan(val);
-                      setRuleForm(p => ({ ...p, ratePlanId: val?._id || '' }));
-                    }}
-                    renderInput={params => (
-                      <TextField {...params} label={t('admin.pricing.ruleWizard.baseRatePlan')} required helperText={t('admin.pricing.ruleWizard.baseRatePlanHelp')} />
-                    )}
-                  />
-                </Box>
-              )}
-
-              {/* ── Step 2: Rule Model ── */}
-              {ruleWizardStep === 1 && (
-                <Box sx={{ display: 'grid', gap: 2 }}>
-                  <FormControl fullWidth>
-                    <InputLabel>{t('admin.pricing.ruleWizard.ruleModel')}</InputLabel>
-                    <Select
-                      value={ruleForm.ruleModel}
-                      label={t('admin.pricing.ruleWizard.ruleModel')}
-                      onChange={e => setRuleForm(p => ({ ...p, ruleModel: e.target.value as RuleModel }))}
-                    >
-                      <MenuItem value="percentage">{t('admin.pricing.ruleWizard.models.percentage')}</MenuItem>
-                      <MenuItem value="fixed">{t('admin.pricing.ruleWizard.models.fixed')}</MenuItem>
-                      <MenuItem value="custom">{t('admin.pricing.ruleWizard.models.custom')}</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  {ruleForm.ruleModel === 'custom' && (
-                    <Alert severity="info">{t('admin.pricing.ruleWizard.customInfo')}</Alert>
-                  )}
-
-                  {(ruleForm.ruleModel === 'percentage' || ruleForm.ruleModel === 'fixed') && (
-                    <>
-                      {ruleForm.ruleTarget === 'promotional' ? (
-                        <FormControl fullWidth>
-                          <InputLabel>{t('admin.pricing.ruleWizard.direction')}</InputLabel>
-                          <Select
-                            value={ruleForm.direction}
-                            label={t('admin.pricing.ruleWizard.direction')}
-                            onChange={e => setRuleForm(p => ({ ...p, direction: e.target.value as RuleDirection }))}
-                          >
-                            <MenuItem value="discount">{t('admin.pricing.ruleWizard.directions.discount')}</MenuItem>
-                            <MenuItem value="surcharge">{t('admin.pricing.ruleWizard.directions.surcharge')}</MenuItem>
-                          </Select>
-                        </FormControl>
-                      ) : (
-                        <Alert severity="info">{t('admin.pricing.ruleWizard.discountsOnly')}</Alert>
-                      )}
-                      <NumberField
-                        label={ruleForm.ruleModel === 'percentage' ? t('admin.pricing.ruleWizard.amountPercent') : t('admin.pricing.ruleWizard.amountFixed')}
-                        value={ruleForm.value}
-                        onChange={val => setRuleForm(p => ({ ...p, value: val ?? 0 }))}
-                        min={0}
-                        allowDecimal
-                      />
-                      <FormControl fullWidth>
-                        <InputLabel>{t('admin.pricing.ruleWizard.appliesTo')}</InputLabel>
-                        <Select
-                          value={ruleForm.scope}
-                          label={t('admin.pricing.ruleWizard.appliesTo')}
-                          onChange={e => setRuleForm(p => ({ ...p, scope: e.target.value as RuleScope }))}
-                        >
-                          <MenuItem value="base">{t('admin.pricing.ruleWizard.scopes.base')}</MenuItem>
-                          <MenuItem value="occupancy">{t('admin.pricing.ruleWizard.scopes.occupancy')}</MenuItem>
-                          <MenuItem value="both">{t('admin.pricing.ruleWizard.scopes.both')}</MenuItem>
-                        </Select>
-                      </FormControl>
-                    </>
-                  )}
-
-                  {ruleForm.ruleModel === 'custom' && (
-                    <>
-                      <NumberField
-                        label={t('admin.pricing.ruleWizard.customBasePrice')}
-                        value={ruleForm.customBasePrice}
-                        onChange={val => setRuleForm(p => ({ ...p, customBasePrice: val ?? 0 }))}
-                        min={0}
-                        allowDecimal
-                      />
-                      <Box>
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                          <Typography variant="subtitle2">{t('admin.pricing.ruleWizard.tiersTitle')}</Typography>
-                          <Button size="small" startIcon={<AddIcon />} onClick={addRuleTier}>{t('admin.pricing.ruleWizard.addTier')}</Button>
-                        </Box>
-                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                          {t('admin.pricing.ruleWizard.tiersHint')}
-                        </Typography>
-                        <TableContainer component={Paper} variant="outlined">
-                          <Table size="small">
-                            <TableHead>
-                              <TableRow>
-                                <TableCell>{t('admin.pricing.ruleWizard.tierType')}</TableCell>
-                                <TableCell>#</TableCell>
-                                <TableCell>{t('admin.pricing.ruleWizard.tierPrice')}</TableCell>
-                                <TableCell />
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {ruleForm.customOccupancyTiers.map((tier, idx) => (
-                                <TableRow key={idx}>
-                                  <TableCell>
-                                    <FormControl size="small" fullWidth>
-                                      <Select value={tier.guestType} onChange={e => updateRuleTier(idx, 'guestType', e.target.value)}>
-                                        <MenuItem value="adult">{t('admin.pricing.ruleWizard.adult')}</MenuItem>
-                                        <MenuItem value="child">{t('admin.pricing.ruleWizard.child')}</MenuItem>
-                                      </Select>
-                                    </FormControl>
-                                  </TableCell>
-                                  <TableCell>
-                                    <NumberField size="small" value={tier.guestNumber} onChange={v => updateRuleTier(idx, 'guestNumber', v ?? 1)} min={1} sx={{ width: 70 }} />
-                                  </TableCell>
-                                  <TableCell>
-                                    <NumberField size="small" allowDecimal value={tier.price} onChange={v => updateRuleTier(idx, 'price', v ?? 0)} min={0}
-                                      helperText={tier.price === 0 ? t('admin.pricing.ruleWizard.included') : undefined} sx={{ width: 100 }} />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Tooltip title={t('admin.pricing.ruleWizard.remove')}><IconButton size="small" onClick={() => removeRuleTier(idx)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                              {ruleForm.customOccupancyTiers.length === 0 && (
-                                <TableRow><TableCell colSpan={4} align="center"><Typography variant="caption" color="text.secondary">{t('admin.pricing.ruleWizard.noTiers')}</Typography></TableCell></TableRow>
-                              )}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                      </Box>
-                    </>
-                  )}
-                </Box>
-              )}
-
-              {/* ── Step 3: Period ── */}
-              {ruleWizardStep === 2 && (
-                <Box sx={{ display: 'grid', gap: 2 }}>
-                  <FormControl fullWidth>
-                    <InputLabel>{t('admin.pricing.ruleWizard.periodPattern')}</InputLabel>
-                    <Select
-                      value={ruleForm.periodPattern}
-                      label={t('admin.pricing.ruleWizard.periodPattern')}
-                      onChange={e => setRuleForm(p => ({ ...p, periodPattern: e.target.value as PeriodPattern, specificDays: [] }))}
-                    >
-                      <MenuItem value="all_days">{t('admin.pricing.ruleWizard.patterns.all_days')}</MenuItem>
-                      <MenuItem value="weekdays">{t('admin.pricing.ruleWizard.patterns.weekdays')}</MenuItem>
-                      <MenuItem value="weekends">{t('admin.pricing.ruleWizard.patterns.weekends')}</MenuItem>
-                      <MenuItem value="specific_days">{t('admin.pricing.ruleWizard.patterns.specific_days')}</MenuItem>
-                    </Select>
-                  </FormControl>
-
-                  {ruleForm.periodPattern === 'specific_days' && (
-                    <Box>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>{t('admin.pricing.ruleWizard.selectDays')}</Typography>
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        {['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa'].map((day, i) => (
-                          <Chip
-                            key={i}
-                            label={t(`admin.pricing.calendar.weekdays.${day}`)}
-                            clickable
-                            color={ruleForm.specificDays.includes(i) ? 'primary' : 'default'}
-                            onClick={() => toggleRuleDay(i)}
-                          />
-                        ))}
-                      </Box>
-                    </Box>
-                  )}
-
-                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                    <TextField
-                      type="date"
-                      label={t('admin.pricing.ruleWizard.validityStart')}
-                      value={ruleForm.dateStart}
-                      onChange={e => setRuleForm(p => ({ ...p, dateStart: e.target.value }))}
-                      InputLabelProps={{ shrink: true }}
-                      helperText={t('admin.pricing.ruleWizard.openEnded')}
-                    />
-                    <TextField
-                      type="date"
-                      label={t('admin.pricing.ruleWizard.validityEnd')}
-                      value={ruleForm.dateEnd}
-                      onChange={e => setRuleForm(p => ({ ...p, dateEnd: e.target.value }))}
-                      InputLabelProps={{ shrink: true }}
-                    />
-                  </Box>
-
-                  <TextField
-                    label={t('admin.pricing.ruleWizard.minNights')}
-                    type="number"
-                    value={ruleForm.minimumNights}
-                    onChange={e => setRuleForm(p => ({ ...p, minimumNights: e.target.value }))}
-                    inputProps={{ min: 1, step: 1 }}
-                    helperText={t('admin.pricing.ruleWizard.minNightsHelp')}
-                  />
-
-                  <Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="subtitle2">{t('admin.pricing.ruleWizard.blackoutTitle')}</Typography>
-                      <Button size="small" startIcon={<AddIcon />} onClick={addRuleBlackout}>{t('admin.pricing.ruleWizard.addPeriod')}</Button>
-                    </Box>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                      {t('admin.pricing.ruleWizard.blackoutHint')}
-                    </Typography>
-                    {ruleForm.blackoutDates.map((bo, i) => (
-                      <Box key={i} sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 1, mb: 1, alignItems: 'center' }}>
-                        <TextField
-                          type="date" label={t('admin.pricing.ruleWizard.from')} value={bo.start}
-                          onChange={e => updateRuleBlackout(i, 'start', e.target.value)}
-                          InputLabelProps={{ shrink: true }} size="small"
-                        />
-                        <TextField
-                          type="date" label={t('admin.pricing.ruleWizard.to')} value={bo.end}
-                          onChange={e => updateRuleBlackout(i, 'end', e.target.value)}
-                          InputLabelProps={{ shrink: true }} size="small"
-                        />
-                        <IconButton size="small" onClick={() => removeRuleBlackout(i)}><DeleteIcon /></IconButton>
-                      </Box>
-                    ))}
-                    {ruleForm.blackoutDates.length === 0 && (
-                      <Typography variant="caption" color="text.secondary">{t('admin.pricing.ruleWizard.noBlackouts')}</Typography>
-                    )}
-                  </Box>
-                </Box>
-              )}
-
-              {/* ── Step 4: Preview ── */}
-              {ruleWizardStep === 3 && (
-                <Box sx={{ display: 'grid', gap: 2 }}>
-                  <Typography variant="h6">{ruleForm.name || '—'}</Typography>
-
-                  <Paper variant="outlined" sx={{ p: 2, display: 'grid', gap: 1 }}>
-                    <Typography variant="subtitle2" color="text.secondary">{t('admin.pricing.ruleWizard.target')}</Typography>
-                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <Chip
-                        label={t(`admin.pricing.ruleWizard.targets.${ruleForm.ruleTarget}`, ruleForm.ruleTarget)}
-                        color={ruleForm.ruleTarget === 'guest' ? 'success' : ruleForm.ruleTarget === 'company' ? 'primary' : 'default'}
-                      />
-                      {ruleForm.ruleTarget === 'company' && selectedRuleCompany && (
-                        <Typography variant="body2">{selectedRuleCompany.name}</Typography>
-                      )}
-                      {ruleForm.ruleTarget === 'guest' && ruleForm.guestEmail && (
-                        <Typography variant="body2">{ruleForm.guestEmail}</Typography>
-                      )}
-                    </Box>
-                    {(ruleForm.ruleTarget === 'company' || ruleForm.ruleTarget === 'guest') && (
-                      <Typography variant="caption" color="text.secondary">
-                        {t('admin.pricing.ruleWizard.frontDeskOnly')}
-                      </Typography>
-                    )}
-                  </Paper>
-
-                  <Paper variant="outlined" sx={{ p: 2, display: 'grid', gap: 1 }}>
-                    <Typography variant="subtitle2" color="text.secondary">{t('admin.pricing.ruleWizard.baseRatePlan')}</Typography>
-                    <Typography>{selectedRuleRatePlan?.name || ruleForm.ratePlanId || '—'}</Typography>
-                  </Paper>
-
-                  <Paper variant="outlined" sx={{ p: 2, display: 'grid', gap: 1 }}>
-                    <Typography variant="subtitle2" color="text.secondary">{t('admin.pricing.ruleWizard.rule')}</Typography>
-                    {ruleForm.ruleModel === 'custom' ? (
-                      <Box>
-                        <Chip label={t('admin.pricing.ruleWizard.custom')} size="small" />
-                        <Typography variant="body2" sx={{ mt: 0.5 }}>
-                          {t('admin.pricing.ruleWizard.customSummary', { price: `${cur}${ruleForm.customBasePrice}`, count: ruleForm.customOccupancyTiers.length })}
-                        </Typography>
-                      </Box>
-                    ) : (
-                      <Typography variant="body2">
-                        {t('admin.pricing.ruleWizard.summary', {
-                          kind: t(`admin.pricing.ruleWizard.kinds.${ruleForm.ruleTarget !== 'promotional' || ruleForm.direction === 'discount' ? 'discount' : 'surcharge'}`),
-                          amount: ruleForm.ruleModel === 'percentage' ? `${ruleForm.value}%` : `${cur}${ruleForm.value}`,
-                          scope: t(`admin.pricing.ruleWizard.scopeNames.${ruleForm.scope}`),
-                        })}
-                      </Typography>
-                    )}
-                  </Paper>
-
-                  <Paper variant="outlined" sx={{ p: 2, display: 'grid', gap: 1 }}>
-                    <Typography variant="subtitle2" color="text.secondary">{t('admin.pricing.ruleWizard.period')}</Typography>
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
-                      <Chip size="small" label={t(`admin.pricing.ruleWizard.patterns.${ruleForm.periodPattern || 'all_days'}`)} />
-                      {ruleForm.periodPattern === 'specific_days' && ruleForm.specificDays.length > 0 && (
-                        <Typography variant="body2">
-                          {ruleForm.specificDays.map(d => t(`admin.pricing.calendar.weekdays.${['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa'][d]}`)).join(', ')}
-                        </Typography>
-                      )}
-                    </Box>
-                    {ruleForm.dateStart && (
-                      <Typography variant="body2">{t('admin.pricing.ruleWizard.validRange', { start: ruleForm.dateStart, end: ruleForm.dateEnd || t('admin.pricing.ruleWizard.openEndedShort') })}</Typography>
-                    )}
-                    {ruleForm.minimumNights && (
-                      <Typography variant="body2">{t('admin.pricing.ruleWizard.minStay', { count: Number(ruleForm.minimumNights) })}</Typography>
-                    )}
-                    {ruleForm.blackoutDates.length > 0 && (
-                      <Box>
-                        <Typography variant="caption" color="text.secondary">{t('admin.pricing.ruleWizard.blackoutPeriods')}</Typography>
-                        {ruleForm.blackoutDates.map((b, i) => (
-                          <Typography key={i} variant="caption" display="block">&nbsp;• {b.start} → {b.end}</Typography>
-                        ))}
-                      </Box>
-                    )}
-                  </Paper>
-
-                  <FormControlLabel
-                    control={<Switch checked={ruleForm.isActive} onChange={e => setRuleForm(p => ({ ...p, isActive: e.target.checked }))} />}
-                    label={t('admin.pricing.form.active')}
-                  />
-                </Box>
-              )}
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => { setRuleDialog(false); setError(null); }}>{t('admin.pricing.actions.cancel')}</Button>
-            <Box sx={{ flex: 1 }} />
-            {ruleWizardStep > 0 && (
-              <Button onClick={() => { setError(null); setRuleWizardStep(s => s - 1); }}>{t('admin.pricing.ruleWizard.back')}</Button>
-            )}
-            {ruleWizardStep < 3 ? (
-              <Button variant="contained" onClick={handleRuleWizardNext}>{t('admin.pricing.ruleWizard.next')}</Button>
-            ) : (
-              <Button variant="contained" onClick={saveRule}>{t('admin.pricing.actions.save')}</Button>
-            )}
-          </DialogActions>
-        </Dialog>
-
-        {/* ── Tax Dialog ───────────────────────────────────── */}
-        <Dialog open={taxDialog} onClose={() => setTaxDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            {taxForm._id ? t('admin.pricing.taxes.dialog.editTitle') : t('admin.pricing.taxes.dialog.newTitle')}
-          </DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
-              <TextField
-                label={t('admin.pricing.taxes.form.name')}
-                value={taxForm.name}
-                onChange={e => setTaxForm(p => ({ ...p, name: e.target.value }))}
+                label={t('admin.pricing.ratePlans.form.name')}
+                value={ratePlanForm.name}
+                onChange={e => setRatePlanForm(p => ({ ...p, name: e.target.value }))}
                 required fullWidth
               />
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
-                <FormControl fullWidth>
-                  <InputLabel>{t('admin.pricing.taxes.form.type')}</InputLabel>
-                  <Select
-                    value={taxForm.type}
-                    label={t('admin.pricing.taxes.form.type')}
-                    onChange={e => setTaxForm(p => ({ ...p, type: e.target.value as any }))}
-                  >
-                    <MenuItem value="percentage">{t('admin.pricing.taxes.typeLabels.percentage')}</MenuItem>
-                    <MenuItem value="fixed">{t('admin.pricing.taxes.typeLabels.fixed')}</MenuItem>
-                  </Select>
-                </FormControl>
-                <NumberField
-                  label={taxForm.type === 'percentage' ? t('admin.pricing.taxes.form.valuePercent') : t('admin.pricing.taxes.form.value')}
-                  value={taxForm.value}
-                  onChange={val => setTaxForm(p => ({ ...p, value: val ?? 0 }))}
-                  min={0}
-                  allowDecimal
-                />
-              </Box>
-              <FormControl fullWidth>
-                <InputLabel>{t('admin.pricing.taxes.form.appliesTo')}</InputLabel>
-                <Select
-                  value={taxForm.appliesTo}
-                  label={t('admin.pricing.taxes.form.appliesTo')}
-                  onChange={e => setTaxForm(p => ({ ...p, appliesTo: e.target.value as any }))}
-                >
-                  <MenuItem value="total">{taxAppliesToLabel.total}</MenuItem>
-                  <MenuItem value="room">{taxAppliesToLabel.room}</MenuItem>
-                  <MenuItem value="guest">{taxAppliesToLabel.guest}</MenuItem>
-                </Select>
-              </FormControl>
-              <FormControlLabel
-                control={<Switch checked={taxForm.isInclusive} onChange={e => setTaxForm(p => ({ ...p, isInclusive: e.target.checked }))} />}
-                label={t('admin.pricing.taxes.form.inclusive')}
-              />
-              <NumberField
-                label={t('admin.pricing.taxes.form.priority')}
-                value={taxForm.priority}
-                onChange={val => setTaxForm(p => ({ ...p, priority: val ?? 0 }))}
-              />
-              <FormControlLabel
-                control={<Switch checked={taxForm.isActive ?? true} onChange={e => setTaxForm(p => ({ ...p, isActive: e.target.checked }))} />}
-                label={t('admin.pricing.form.active')}
-              />
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setTaxDialog(false)}>{t('admin.pricing.actions.cancel')}</Button>
-            <Button variant="contained" onClick={saveTax}>{t('admin.pricing.actions.save')}</Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* ── Service Dialog ───────────────────────────────── */}
-        <Dialog open={serviceDialog} onClose={() => setServiceDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            {(serviceForm as any)._id ? t('admin.pricing.services.dialog.editTitle', 'Edit Service') : t('admin.pricing.services.dialog.newTitle', 'New Service')}
-          </DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
-              <TextField
-                label={t('admin.pricing.services.form.code', 'Code')}
-                value={serviceForm.code || ''}
-                onChange={e => setServiceForm(p => ({ ...p, code: e.target.value.toUpperCase() }))}
-                inputProps={{ maxLength: 20 }}
-                required
-              />
-              <TextField
-                label={t('admin.pricing.services.form.name', 'Name')}
-                value={serviceForm.name || ''}
-                onChange={e => setServiceForm(p => ({ ...p, name: e.target.value }))}
-                required
-              />
-              <FormControl>
-                <InputLabel>{t('admin.pricing.services.form.kind', 'Kind')}</InputLabel>
-                <Select
-                  value={serviceForm.kind || 'daypass'}
-                  label={t('admin.pricing.services.form.kind', 'Kind')}
-                  onChange={e => setServiceForm(p => ({ ...p, kind: e.target.value as ServiceKind }))}
-                >
-                  {Object.entries(serviceKindLabel).map(([v, l]) => (
-                    <MenuItem key={v} value={v}>{l}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl>
-                <InputLabel>{t('admin.pricing.services.form.chargeBasis', 'Charge Basis')}</InputLabel>
-                <Select
-                  value={serviceForm.chargeBasis || 'perPerson'}
-                  label={t('admin.pricing.services.form.chargeBasis', 'Charge Basis')}
-                  onChange={e => setServiceForm(p => ({ ...p, chargeBasis: e.target.value as ChargeBasis }))}
-                >
-                  {Object.entries(chargeBasisLabel).map(([v, l]) => (
-                    <MenuItem key={v} value={v}>{l}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControlLabel
-                control={<Switch checked={serviceForm.isOnlineBookable ?? false} onChange={e => setServiceForm(p => ({ ...p, isOnlineBookable: e.target.checked }))} />}
-                label={t('admin.pricing.services.form.onlineBookable', 'Online Bookable')}
-              />
-              {serviceForm.isOnlineBookable && (
-                <FormControl>
-                  <InputLabel>{t('admin.pricing.services.form.reservationMode', 'Reservation Mode')}</InputLabel>
-                  <Select
-                    value={serviceForm.reservationMode || 'dateRange'}
-                    label={t('admin.pricing.services.form.reservationMode', 'Reservation Mode')}
-                    onChange={e => setServiceForm(p => ({ ...p, reservationMode: e.target.value as ReservationMode }))}
-                  >
-                    <MenuItem value="dateRange">{t('admin.pricing.services.form.reservationModeRange', 'Date Range (multi-night)')}</MenuItem>
-                    <MenuItem value="singleDate">{t('admin.pricing.services.form.reservationModeSingle', 'Single Date')}</MenuItem>
-                  </Select>
-                </FormControl>
-              )}
-              <FormControlLabel
-                control={<Switch checked={serviceForm.isVisibleInPOS ?? true} onChange={e => setServiceForm(p => ({ ...p, isVisibleInPOS: e.target.checked }))} />}
-                label={t('admin.pricing.services.form.visibleInPOS', 'Visible in POS')}
-              />
-              <FormControlLabel
-                control={<Switch checked={serviceForm.isActive ?? true} onChange={e => setServiceForm(p => ({ ...p, isActive: e.target.checked }))} />}
-                label={t('admin.pricing.form.active')}
-              />
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setServiceDialog(false)}>{t('admin.pricing.actions.cancel')}</Button>
-            <Button variant="contained" onClick={saveService}>{t('admin.pricing.actions.save')}</Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* ── Service Price Dialog ─────────────────────────── */}
-        <Dialog open={servicePriceDialog} onClose={() => setServicePriceDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            {(servicePriceForm as any)._id ? t('admin.pricing.servicePrices.dialog.editTitle', 'Edit Service Price') : t('admin.pricing.servicePrices.dialog.newTitle', 'New Service Price')}
-          </DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
               <Autocomplete
-                options={services}
-                getOptionLabel={o => `${o.name} (${o.code})`}
-                value={servicePriceSelectedService}
-                onChange={(_, v) => {
-                  setServicePriceSelectedService(v);
-                  setServicePriceForm(p => ({ ...p, serviceId: v?._id || '' }));
+                options={roomTypes}
+                getOptionLabel={o => o.name}
+                value={selectedRatePlanRoomType}
+                onChange={(_, val) => {
+                  setSelectedRatePlanRoomType(val);
+                  setRatePlanForm(p => ({ ...p, roomTypeId: val?._id || '' }));
                 }}
-                renderInput={params => <TextField {...params} label={t('admin.pricing.servicePrices.form.service', 'Service')} required />}
-              />
-              <FormControl>
-                <InputLabel>{t('admin.pricing.rules.form.category', 'Category')}</InputLabel>
-                <Select
-                  value={servicePriceForm.category || 'standard'}
-                  label={t('admin.pricing.rules.form.category', 'Category')}
-                  onChange={e => setServicePriceForm(p => ({ ...p, category: e.target.value as ServicePriceCategory }))}
-                >
-                  {(['standard', 'special', 'guest', 'company'] as ServicePriceCategory[]).map(c => (
-                    <MenuItem key={c} value={c}>{t(`admin.pricing.servicePrices.categories.${c}`)}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl>
-                <InputLabel>{t('admin.pricing.rules.form.validity', 'Validity')}</InputLabel>
-                <Select
-                  value={servicePriceForm.validity || 'everyday'}
-                  label={t('admin.pricing.rules.form.validity', 'Validity')}
-                  onChange={e => setServicePriceForm(p => ({ ...p, validity: e.target.value as ServicePriceValidity }))}
-                >
-                  {(['everyday', 'weekdays', 'weekend', 'custom'] as ServicePriceValidity[]).map(v => (
-                    <MenuItem key={v} value={v}>{t(`admin.pricing.servicePrices.validities.${v}`)}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              {servicePriceForm.validity === 'custom' && (
-                <>
-                  <TextField
-                    type="date"
-                    label={t('admin.pricing.rules.form.startDate', 'Start Date')}
-                    value={servicePriceForm.startDate || ''}
-                    onChange={e => setServicePriceForm(p => ({ ...p, startDate: e.target.value }))}
-                    InputLabelProps={{ shrink: true }}
+                renderInput={params => (
+                  <TextField {...params} label={t('admin.pricing.ratePlans.form.roomType')} required
+                    helperText={t('admin.pricing.ratePlans.form.roomTypeHelper')}
                   />
-                  <TextField
-                    type="date"
-                    label={t('admin.pricing.rules.form.endDate', 'End Date')}
-                    value={servicePriceForm.endDate || ''}
-                    onChange={e => setServicePriceForm(p => ({ ...p, endDate: e.target.value }))}
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </>
-              )}
-              {servicePriceForm.category === 'guest' && (
-                <TextField
-                  label={t('admin.pricing.rules.form.guestEmail', 'Guest Email')}
-                  value={servicePriceForm.guestEmail || ''}
-                  onChange={e => setServicePriceForm(p => ({ ...p, guestEmail: e.target.value }))}
-                  type="email"
-                />
-              )}
-              {servicePriceForm.category === 'company' && (
-                <Autocomplete
-                  options={servicePriceCompanyOptions}
-                  getOptionLabel={o => o.name}
-                  value={servicePriceSelectedCompany}
-                  inputValue={servicePriceCompanySearch}
-                  onInputChange={(_, v) => setServicePriceCompanySearch(v)}
-                  onChange={(_, v) => {
-                    setServicePriceSelectedCompany(v);
-                    setServicePriceForm(p => ({ ...p, companyId: v?._id }));
-                  }}
-                  renderInput={params => <TextField {...params} label={t('admin.pricing.rules.form.company', 'Company')} />}
-                />
-              )}
-              <TextField
-                label={t('admin.pricing.rules.form.adultPrice', 'Adult Price')}
-                type="number"
-                value={servicePriceForm.adultPrice ?? ''}
-                onChange={e => setServicePriceForm(p => ({ ...p, adultPrice: e.target.value === '' ? '' as any : Number(e.target.value) }))}
-                onBlur={e => { if (e.target.value === '') setServicePriceForm(p => ({ ...p, adultPrice: 0 })); }}
-                inputProps={{ min: 0, step: 0.01 }}
-              />
-              <TextField
-                label={t('admin.pricing.rules.form.childrenPrice', 'Children Price')}
-                type="number"
-                value={servicePriceForm.childrenPrice ?? ''}
-                onChange={e => setServicePriceForm(p => ({ ...p, childrenPrice: e.target.value === '' ? '' as any : Number(e.target.value) }))}
-                onBlur={e => { if (e.target.value === '') setServicePriceForm(p => ({ ...p, childrenPrice: 0 })); }}
-                inputProps={{ min: 0, step: 0.01 }}
-              />
-              <FormControlLabel
-                control={<Switch checked={servicePriceForm.isActive ?? true} onChange={e => setServicePriceForm(p => ({ ...p, isActive: e.target.checked }))} />}
-                label={t('admin.pricing.form.active')}
+                )}
               />
             </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setServicePriceDialog(false)}>{t('admin.pricing.actions.cancel')}</Button>
-            <Button variant="contained" onClick={saveServicePrice}>{t('admin.pricing.actions.save')}</Button>
-          </DialogActions>
-        </Dialog>
 
-        {/* ── Auto-Charge Policies Tab ──────────────────────── */}
-        <TabPanel value={tab} index={7}>
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" color="text.secondary">
-              {t('admin.pricing.chargePolicies.description', 'Define automatic charges that apply when specific events occur, such as late checkouts or no-shows.')}
-            </Typography>
-          </Box>
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
-            <Button variant="contained" startIcon={<AddIcon />} onClick={openNewChargePolicy}>
-              {t('admin.pricing.chargePolicies.actions.new', 'New Policy')}
-            </Button>
-          </Box>
-          {(chargeRulesLoading || chargeTemplatesLoading) ? <CircularProgress /> : (
-            chargeRules.length === 0 ? (
-              <Paper sx={{ p: 4, textAlign: 'center' }}>
-                <Typography color="text.secondary">{t('admin.pricing.chargePolicies.empty', 'No automatic charge policies configured.')}</Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
-                  {t('admin.pricing.chargePolicies.emptyHint', 'Policies automatically charge guests for late checkouts, no-shows, and early departures.')}
+            <NumberField
+              label={t('admin.pricing.ratePlans.form.basePrice')}
+              value={ratePlanForm.basePrice}
+              onChange={val => setRatePlanForm(p => ({ ...p, basePrice: val ?? 0 }))}
+              min={0}
+              allowDecimal
+            />
+
+            <TextField
+              label={t('admin.pricing.ratePlans.form.description')}
+              value={ratePlanForm.description ?? ''}
+              onChange={e => setRatePlanForm(p => ({ ...p, description: e.target.value }))}
+              helperText={t('admin.pricing.ratePlans.form.descriptionHelper')}
+              inputProps={{ maxLength: 500 }}
+              multiline
+              minRows={2}
+              fullWidth
+            />
+
+            <Divider />
+
+            <Box sx={{ display: 'grid', gap: 1.5 }}>
+              <Typography variant="subtitle2">{t('admin.pricing.ratePlans.form.selectionTitle')}</Typography>
+              <Box>
+                <FormControlLabel
+                  control={<Switch checked={ratePlanForm.isDefault ?? false} onChange={e => setRatePlanForm(p => ({ ...p, isDefault: e.target.checked }))} />}
+                  label={t('admin.pricing.ratePlans.form.isDefault')}
+                />
+                <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 6, mt: -0.5 }}>
+                  {t('admin.pricing.ratePlans.form.isDefaultHint')}
                 </Typography>
-              </Paper>
-            ) : (
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                {chargeRules.map(rule => {
-                  const rawTmplId = typeof rule.chargeTemplateId === 'object' && rule.chargeTemplateId ? (rule.chargeTemplateId as any)._id : rule.chargeTemplateId;
-                  const tmpl = chargeTemplates.find(tmplItem => tmplItem._id === rawTmplId) || (typeof rule.chargeTemplateId === 'object' && rule.chargeTemplateId ? rule.chargeTemplateId as unknown as ChargeTemplate : undefined);
-                  const triggerSentence: Record<ChargeTrigger, string> = {
-                    checkout_overdue: t('admin.pricing.chargePolicies.triggers.checkout_overdue', 'guest checks out late'),
-                    no_show: t('admin.pricing.chargePolicies.triggers.no_show', 'guest never shows up'),
-                    early_departure: t('admin.pricing.chargePolicies.triggers.early_departure', 'guest leaves before scheduled check-out'),
-                  };
-                  let chargeDesc = '—';
-                  if (tmpl) {
-                    if (tmpl.calculationMethod === 'fixed') chargeDesc = `${cur}${Number(tmpl.amount).toFixed(2)}`;
-                    else if (tmpl.calculationMethod === 'extra_night') chargeDesc = t('admin.pricing.chargePolicies.chargeDesc.extra_night', 'one additional night at nightly rate');
-                    else if (tmpl.calculationMethod === 'percent_of_nightly_rate') chargeDesc = `${tmpl.amount}% ${t('admin.pricing.chargePolicies.chargeDesc.percent', 'of nightly rate')}`;
-                  }
-                  return (
-                    <Paper key={rule._id} variant="outlined" sx={{ p: 2 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
-                        <Box sx={{ flex: 1 }}>
-                          <Typography variant="subtitle1" fontWeight={600}>{rule.name}</Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                            {t('admin.pricing.chargePolicies.summary', 'Charges {{chargeDesc}} when {{triggerSentence}}', { chargeDesc, triggerSentence: triggerSentence[rule.trigger] })}
-                          </Typography>
-                          <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
-                            {rule.conditions?.timeThresholdHours != null && (
-                              <Chip size="small" variant="outlined" label={t('admin.pricing.chargePolicies.graceHours', '{{hours}}h grace period', { hours: rule.conditions.timeThresholdHours })} />
-                            )}
-                            {tmpl?.taxApplicable && (
-                              <Chip size="small" variant="outlined" label={t('admin.pricing.chargePolicies.taxApplicable', 'Tax applicable')} />
-                            )}
-                            <Chip size="small" label={rule.isActive ? t('common.active', 'Active') : t('common.inactive', 'Inactive')} color={rule.isActive ? 'success' : 'default'} />
-                          </Box>
-                        </Box>
-                        <Box sx={{ display: 'flex', gap: 1 }}>
-                          <IconButton size="small" onClick={() => openEditChargePolicy(rule)}><EditIcon fontSize="small" /></IconButton>
-                          <IconButton size="small" color="error" onClick={() => deleteChargePolicy(rule)}><DeleteIcon fontSize="small" /></IconButton>
-                        </Box>
-                      </Box>
-                    </Paper>
-                  );
-                })}
               </Box>
-            )
-          )}
-        </TabPanel>
-
-        {/* ── Audit Log Tab ─────────────────────────────────── */}
-        <TabPanel value={tab} index={8}>
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2 }}>
-            <Button variant="contained" onClick={() => handleRunAudit(false)} disabled={auditRunning}>
-              {auditRunning ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
-              {t('admin.pricing.auditLog.actions.run', 'Run Audit Now')}
-            </Button>
-            <Button variant="outlined" color="secondary" onClick={() => handleRunAudit(true)} disabled={auditRunning}>
-              {t('admin.pricing.auditLog.actions.dryRun', 'Preview (Dry Run)')}
-            </Button>
-            <Button variant="outlined" onClick={fetchAuditExecutions} disabled={auditLoading}>
-              {t('admin.pricing.auditLog.actions.refresh', 'Refresh')}
-            </Button>
-          </Box>
-          {auditLastSummary && (
-            <Box sx={{ mb: 2 }}>
-              {auditLastSummary.map((s, i) => (
-                <Alert key={i} severity={s.dryRun ? 'info' : 'success'} sx={{ mb: 1 }}>
-                  {s.dryRun && <strong>{t('admin.pricing.auditLog.dryRunLabel', '[DRY RUN] ')}</strong>}
-                  {t('admin.pricing.auditLog.summary', '{{chargesPosted}} charge(s) posted, {{skipped}} skipped, {{errors}} error(s) — {{rulesEvaluated}} rule(s) across {{reservationsScanned}} reservation(s)', { chargesPosted: s.chargesPosted, skipped: s.skipped, errors: s.errors, rulesEvaluated: s.rulesEvaluated, reservationsScanned: s.reservationsScanned })}
-                </Alert>
-              ))}
+              <FormControl size="small" sx={{ maxWidth: 360 }}>
+                <InputLabel>{t('admin.pricing.ratePlans.form.visibility')}</InputLabel>
+                <Select
+                  value={ratePlanForm.visibility ?? 'public'}
+                  label={t('admin.pricing.ratePlans.form.visibility')}
+                  onChange={e => setRatePlanForm(p => ({ ...p, visibility: e.target.value as 'public' | 'private' }))}
+                >
+                  <MenuItem value="public">{t('admin.pricing.ratePlans.form.visibilityPublic')}</MenuItem>
+                  <MenuItem value="private">{t('admin.pricing.ratePlans.form.visibilityPrivate')}</MenuItem>
+                </Select>
+              </FormControl>
+              <Typography variant="caption" color="text.secondary" sx={{ mt: -1 }}>
+                {(ratePlanForm.visibility ?? 'public') === 'private'
+                  ? t('admin.pricing.ratePlans.form.visibilityPrivateHint')
+                  : t('admin.pricing.ratePlans.form.visibilityPublicHint')}
+              </Typography>
+              {(ratePlanForm.visibility ?? 'public') === 'private' && (
+                <TextField
+                  size="small"
+                  label={t('admin.pricing.ratePlans.form.accessCodes')}
+                  value={accessCodesText}
+                  onChange={e => setAccessCodesText(e.target.value.toUpperCase())}
+                  helperText={t('admin.pricing.ratePlans.form.accessCodesHelper')}
+                  placeholder="VERANO26, AMIGOS"
+                  fullWidth
+                />
+              )}
             </Box>
-          )}
 
-          {/* Audit Runs (run-level records) */}
-          <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-            {t('admin.pricing.auditLog.runsTitle', 'Audit Runs')}
-          </Typography>
-          {auditLoading ? <CircularProgress sx={{ mb: 3 }} /> : (
-            <TableContainer component={Paper} sx={{ mb: 4 }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>{t('admin.pricing.auditLog.runs.businessDate', 'Business Date')}</TableCell>
-                    <TableCell>{t('admin.pricing.auditLog.runs.status', 'Status')}</TableCell>
-                    <TableCell>{t('admin.pricing.auditLog.runs.trigger', 'Triggered By')}</TableCell>
-                    <TableCell>{t('admin.pricing.auditLog.runs.dryRun', 'Dry Run')}</TableCell>
-                    <TableCell>{t('admin.pricing.auditLog.runs.charged', 'Charged')}</TableCell>
-                    <TableCell>{t('admin.pricing.auditLog.runs.skipped', 'Skipped')}</TableCell>
-                    <TableCell>{t('admin.pricing.auditLog.runs.errors', 'Errors')}</TableCell>
-                    <TableCell>{t('admin.pricing.auditLog.runs.duration', 'Duration')}</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {auditRuns.length === 0 ? (
+            <Divider />
+
+            <Box>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="subtitle2">{t('admin.pricing.ratePlans.occupancyTiers')}</Typography>
+                <Button size="small" startIcon={<AddIcon />} onClick={addTier}>
+                  {t('admin.pricing.ratePlans.actions.addTier')}
+                </Button>
+              </Box>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                {t('admin.pricing.ratePlans.tiersHint')}
+              </Typography>
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
                     <TableRow>
-                      <TableCell colSpan={8} align="center">
-                        {t('admin.pricing.auditLog.runs.empty', 'No audit runs yet')}
-                      </TableCell>
+                      <TableCell>{t('admin.pricing.ratePlans.tiersTable.guestType')}</TableCell>
+                      <TableCell>{t('admin.pricing.ratePlans.tiersTable.guestNumber')}</TableCell>
+                      <TableCell>{t('admin.pricing.ratePlans.tiersTable.price')}</TableCell>
+                      <TableCell />
                     </TableRow>
-                  ) : auditRuns.map(run => {
-                    const durationMs = run.completedAt && run.startedAt
-                      ? new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime()
-                      : null;
-                    const durationStr = durationMs !== null
-                      ? durationMs < 1000 ? `${durationMs}ms` : `${(durationMs / 1000).toFixed(1)}s`
-                      : '—';
-                    return (
-                      <TableRow key={run._id}>
-                        <TableCell>{run.businessDate}</TableCell>
+                  </TableHead>
+                  <TableBody>
+                    {ratePlanForm.occupancyTiers.map((tier, idx) => (
+                      <TableRow key={idx}>
                         <TableCell>
-                          <Chip
-                            label={t(`admin.pricing.auditLog.statuses.${run.status}`, run.status)}
+                          <FormControl size="small" fullWidth>
+                            <Select value={tier.guestType} onChange={e => updateTier(idx, 'guestType', e.target.value)}>
+                              <MenuItem value="adult">{t('admin.pricing.ratePlans.adult')}</MenuItem>
+                              <MenuItem value="child">{t('admin.pricing.ratePlans.child')}</MenuItem>
+                            </Select>
+                          </FormControl>
+                        </TableCell>
+                        <TableCell>
+                          <NumberField
                             size="small"
-                            color={run.status === 'completed' ? 'success' : run.status === 'failed' ? 'error' : run.status === 'running' ? 'warning' : 'default'}
+                            value={tier.guestNumber}
+                            onChange={v => updateTier(idx, 'guestNumber', v ?? 1)}
+                            min={1}
+                            sx={{ width: 80 }}
                           />
                         </TableCell>
-                        <TableCell>{run.triggeredBy}</TableCell>
-                        <TableCell>{run.dryRun ? <Chip label={t('admin.pricing.ruleWizard.dry')} size="small" variant="outlined" /> : '—'}</TableCell>
-                        <TableCell>{run.summary?.chargesPosted ?? '—'}</TableCell>
-                        <TableCell>{run.summary?.skipped ?? '—'}</TableCell>
-                        <TableCell>{run.summary?.errors ?? '—'}</TableCell>
-                        <TableCell>{durationStr}</TableCell>
+                        <TableCell>
+                          <NumberField
+                            size="small"
+                            allowDecimal
+                            value={tier.price}
+                            onChange={v => updateTier(idx, 'price', v ?? 0)}
+                            min={0}
+                            helperText={tier.price === 0 ? t('admin.pricing.ratePlans.included') : undefined}
+                            sx={{ width: 100 }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Tooltip title={t('admin.pricing.ratePlans.actions.removeTier')}>
+                            <IconButton size="small" onClick={() => removeTier(idx)}><DeleteIcon fontSize="small" /></IconButton>
+                          </Tooltip>
+                        </TableCell>
                       </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
+                    ))}
+                    {ratePlanForm.occupancyTiers.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} align="center">
+                          <Typography variant="caption" color="text.secondary">{t('admin.pricing.ratePlans.noTiers')}</Typography>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Box>
 
-          {/* Execution-level log */}
-          <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
-            {t('admin.pricing.auditLog.executionsTitle', 'Execution Log')}
-          </Typography>
-          {auditLoading ? <CircularProgress /> : (
-            <TableContainer component={Paper}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>{t('admin.pricing.auditLog.columns.reservation', 'Reservation')}</TableCell>
-                    <TableCell>{t('admin.pricing.auditLog.columns.rule', 'Rule')}</TableCell>
-                    <TableCell>{t('admin.pricing.auditLog.columns.businessDate', 'Business Date')}</TableCell>
-                    <TableCell>{t('admin.pricing.auditLog.columns.status', 'Status')}</TableCell>
-                    <TableCell>{t('admin.pricing.auditLog.columns.executedAt', 'Executed At')}</TableCell>
-                    <TableCell>{t('admin.pricing.auditLog.columns.error', 'Error')}</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {auditExecutions.map(ex => (
-                    <TableRow key={ex._id}>
-                      <TableCell>{typeof ex.reservationId === 'object' && ex.reservationId ? (ex.reservationId as any).code ?? ex.reservationId : ex.reservationId}</TableCell>
-                      <TableCell>{typeof ex.chargeRuleId === 'object' && ex.chargeRuleId ? (ex.chargeRuleId as any).name ?? ex.chargeRuleId : ex.chargeRuleId}</TableCell>
-                      <TableCell>{ex.businessDate}</TableCell>
-                      <TableCell>
-                        <Chip label={t(`admin.pricing.auditLog.statuses.${ex.status}`, ex.status)} size="small" color={ex.status === 'success' ? 'success' : ex.status === 'error' ? 'error' : 'default'} />
-                      </TableCell>
-                      <TableCell>{new Date(ex.executedAt).toLocaleString(i18n.language)}</TableCell>
-                      <TableCell>{ex.errorMessage || '—'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </TabPanel>
+            <FormControlLabel
+              control={<Switch checked={ratePlanForm.isActive ?? true} onChange={e => setRatePlanForm(p => ({ ...p, isActive: e.target.checked }))} />}
+              label={t('admin.pricing.form.active')}
+            />
+            <Box>
+              <FormControlLabel
+                control={<Switch checked={ratePlanForm.sellOnChannels ?? true} onChange={e => setRatePlanForm(p => ({ ...p, sellOnChannels: e.target.checked }))} />}
+                label={t('admin.pricing.sellOnChannels.label')}
+              />
+              <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 6, mt: -0.5 }}>{t('admin.pricing.sellOnChannels.ratePlanHint')}</Typography>
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRatePlanDialog(false)}>{t('admin.pricing.actions.cancel')}</Button>
+          <Button variant="contained" onClick={saveRatePlan}>{t('admin.pricing.actions.save')}</Button>
+        </DialogActions>
+      </Dialog>
 
-        {/* ── Charge Policy Dialog ─────────────────────────── */}
-        <Dialog open={chargePolicyDialog} onClose={() => setChargePolicyDialog(false)} maxWidth="sm" fullWidth>
-          <DialogTitle>
-            {chargePolicyEditIds.ruleId
-              ? t('admin.pricing.chargePolicies.dialog.edit', 'Edit Charge Policy')
-              : t('admin.pricing.chargePolicies.dialog.new', 'New Charge Policy')}
-          </DialogTitle>
-          <DialogContent>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
+      {/* ── Rule Wizard Dialog ───────────────────────────── */}
+      <Dialog open={ruleDialog} onClose={() => { setRuleDialog(false); setError(null); }} maxWidth="md" fullWidth>
+        <DialogTitle>
+          {ruleForm._id ? t('admin.pricing.rules.dialog.editTitle', 'Edit Price Rule') : t('admin.pricing.rules.dialog.newTitle', 'New Price Rule')}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 1 }}>
+            <Stepper activeStep={ruleWizardStep} sx={{ mb: 3 }}>
+              {['target', 'model', 'period', 'preview'].map(step => (
+                <Step key={step}><StepLabel>{t(`admin.pricing.ruleWizard.steps.${step}`)}</StepLabel></Step>
+              ))}
+            </Stepper>
 
-              {/* When */}
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                  {t('admin.pricing.chargePolicies.form.whenTitle', 'When should this charge apply?')}
-                </Typography>
-                <FormControl fullWidth>
-                  <InputLabel>{t('admin.pricing.chargePolicies.form.trigger', 'Situation')}</InputLabel>
-                  <Select
-                    value={chargePolicyForm.trigger}
-                    label={t('admin.pricing.chargePolicies.form.trigger', 'Situation')}
-                    onChange={e => setChargePolicyForm(p => ({ ...p, trigger: e.target.value as ChargeTrigger }))}
-                  >
-                    <MenuItem value="checkout_overdue">{t('admin.pricing.chargePolicies.triggerOptions.checkout_overdue', 'Guest checks out late')}</MenuItem>
-                    <MenuItem value="no_show">{t('admin.pricing.chargePolicies.triggerOptions.no_show', 'Guest never shows up')}</MenuItem>
-                    <MenuItem value="early_departure">{t('admin.pricing.chargePolicies.triggerOptions.early_departure', 'Guest leaves before scheduled check-out')}</MenuItem>
-                  </Select>
-                </FormControl>
-                {chargePolicyForm.trigger === 'checkout_overdue' && (
-                  <TextField
-                    fullWidth
-                    sx={{ mt: 2 }}
-                    label={t('admin.pricing.chargePolicies.form.graceHours', 'Charge after how many hours past checkout?')}
-                    type="number"
-                    value={chargePolicyForm.timeThresholdHours ?? ''}
-                    onChange={e => setChargePolicyForm(p => ({ ...p, timeThresholdHours: e.target.value === '' ? undefined : Number(e.target.value) }))}
-                    inputProps={{ min: 0, step: 1 }}
-                    helperText={t('admin.pricing.chargePolicies.form.graceHoursHint', 'Leave blank to charge immediately at checkout time')}
-                  />
-                )}
-              </Box>
-
-              <Divider />
-
-              {/* What to charge */}
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                  {t('admin.pricing.chargePolicies.form.whatTitle', 'What should we charge?')}
-                </Typography>
-                <FormControl fullWidth>
-                  <InputLabel>{t('admin.pricing.chargePolicies.form.chargeType', 'Charge type')}</InputLabel>
-                  <Select
-                    value={chargePolicyForm.calculationMethod}
-                    label={t('admin.pricing.chargePolicies.form.chargeType', 'Charge type')}
-                    onChange={e => setChargePolicyForm(p => ({ ...p, calculationMethod: e.target.value as CalculationMethod }))}
-                  >
-                    <MenuItem value="fixed">{t('admin.pricing.chargePolicies.form.chargeTypeFixed', 'Fixed amount')}</MenuItem>
-                    <MenuItem value="extra_night">{t('admin.pricing.chargePolicies.form.chargeTypeExtraNight', 'One additional night at nightly rate')}</MenuItem>
-                    <MenuItem value="percent_of_nightly_rate">{t('admin.pricing.chargePolicies.form.chargeTypePercent', 'Percentage of nightly rate')}</MenuItem>
-                  </Select>
-                </FormControl>
-                {(chargePolicyForm.calculationMethod === 'fixed' || chargePolicyForm.calculationMethod === 'percent_of_nightly_rate') && (
-                  <TextField
-                    fullWidth
-                    sx={{ mt: 2 }}
-                    label={chargePolicyForm.calculationMethod === 'fixed'
-                      ? t('admin.pricing.chargePolicies.form.amountFixed', 'Amount ($)')
-                      : t('admin.pricing.chargePolicies.form.amountPercent', 'Percentage (%)')}
-                    type="number"
-                    value={chargePolicyForm.amount}
-                    onChange={e => setChargePolicyForm(p => ({ ...p, amount: e.target.value }))}
-                    inputProps={{ min: 0, step: chargePolicyForm.calculationMethod === 'fixed' ? 0.01 : 1 }}
-                  />
-                )}
-                <FormControlLabel
-                  sx={{ mt: 1 }}
-                  control={<Switch checked={chargePolicyForm.taxApplicable} onChange={e => setChargePolicyForm(p => ({ ...p, taxApplicable: e.target.checked }))} />}
-                  label={t('admin.pricing.chargePolicies.form.taxApplicable', 'Apply taxes to this charge')}
-                />
-              </Box>
-
-              <Divider />
-
-              {/* Name and status */}
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-                  {t('admin.pricing.chargePolicies.form.identifierTitle', 'Name and status')}
-                </Typography>
+            {/* ── Step 1: Name + Target + Rate Plan ── */}
+            {ruleWizardStep === 0 && (
+              <Box sx={{ display: 'grid', gap: 2 }}>
                 <TextField
-                  fullWidth
-                  label={t('admin.pricing.chargePolicies.form.name', 'Policy name')}
-                  value={chargePolicyForm.name}
-                  onChange={e => setChargePolicyForm(p => ({ ...p, name: e.target.value }))}
-                  required
-                  helperText={t('admin.pricing.chargePolicies.form.nameHint', 'A short name to identify this policy')}
+                  label={t('admin.pricing.ruleWizard.name')}
+                  value={ruleForm.name}
+                  onChange={e => setRuleForm(p => ({ ...p, name: e.target.value }))}
+                  required fullWidth
                 />
+                <FormControl fullWidth>
+                  <InputLabel>{t('admin.pricing.ruleWizard.whoFor')}</InputLabel>
+                  <Select
+                    value={ruleForm.ruleTarget}
+                    label={t('admin.pricing.ruleWizard.whoFor')}
+                    onChange={e => setRuleForm(p => ({ ...p, ruleTarget: e.target.value as RuleTarget, companyId: '', guestEmail: '' }))}
+                  >
+                    <MenuItem value="company">{t('admin.pricing.ruleWizard.targets.company')}</MenuItem>
+                    <MenuItem value="guest">{t('admin.pricing.ruleWizard.targets.guest')}</MenuItem>
+                    <MenuItem value="promotional">{t('admin.pricing.ruleWizard.targets.promotional')}</MenuItem>
+                  </Select>
+                </FormControl>
+
+                {ruleForm.ruleTarget === 'company' && (
+                  <Autocomplete
+                    options={ruleCompanyOptions}
+                    getOptionLabel={o => o.name}
+                    value={selectedRuleCompany}
+                    onChange={(_, val) => {
+                      setSelectedRuleCompany(val);
+                      setRuleForm(p => ({ ...p, companyId: val?._id || '' }));
+                    }}
+                    onInputChange={(_, v) => setRuleCompanySearch(v)}
+                    renderInput={params => (
+                      <TextField {...params} label={t('admin.pricing.ruleWizard.targets.company')} required helperText={t('admin.pricing.ruleWizard.companyHelp')} />
+                    )}
+                  />
+                )}
+
+                {ruleForm.ruleTarget === 'guest' && (
+                  <Autocomplete
+                    options={ruleGuestOptions}
+                    getOptionLabel={o => `${o.firstName} ${o.lastName}`}
+                    value={selectedRuleGuest}
+                    onChange={(_, val) => {
+                      setSelectedRuleGuest(val);
+                      setRuleForm(p => ({ ...p, guestEmail: val?.email || '' }));
+                    }}
+                    onInputChange={(_, v) => setRuleGuestSearch(v)}
+                    renderOption={(props, o) => (
+                      <li {...props} key={o._id}>
+                        <Box>
+                          <Typography variant="body2">{o.firstName} {o.lastName}</Typography>
+                          <Typography variant="caption" color="text.secondary">{o.email}</Typography>
+                        </Box>
+                      </li>
+                    )}
+                    renderInput={params => (
+                      <TextField {...params} label={t('admin.pricing.ruleWizard.targets.guest')} required helperText={t('admin.pricing.ruleWizard.guestHelp')} />
+                    )}
+                  />
+                )}
+
+                {ruleForm.ruleTarget === 'guest' && ruleForm.guestEmail && (
+                  <TextField
+                    label={t('admin.pricing.ruleWizard.guestEmail')}
+                    value={ruleForm.guestEmail}
+                    onChange={e => setRuleForm(p => ({ ...p, guestEmail: e.target.value }))}
+                    size="small"
+                    helperText={t('admin.pricing.ruleWizard.guestEmailHelp')}
+                  />
+                )}
+
+                <Autocomplete
+                  options={ratePlans}
+                  getOptionLabel={o => o.name}
+                  value={selectedRuleRatePlan}
+                  onChange={(_, val) => {
+                    setSelectedRuleRatePlan(val);
+                    setRuleForm(p => ({ ...p, ratePlanId: val?._id || '' }));
+                  }}
+                  renderInput={params => (
+                    <TextField {...params} label={t('admin.pricing.ruleWizard.baseRatePlan')} required helperText={t('admin.pricing.ruleWizard.baseRatePlanHelp')} />
+                  )}
+                />
+              </Box>
+            )}
+
+            {/* ── Step 2: Rule Model ── */}
+            {ruleWizardStep === 1 && (
+              <Box sx={{ display: 'grid', gap: 2 }}>
+                <FormControl fullWidth>
+                  <InputLabel>{t('admin.pricing.ruleWizard.ruleModel')}</InputLabel>
+                  <Select
+                    value={ruleForm.ruleModel}
+                    label={t('admin.pricing.ruleWizard.ruleModel')}
+                    onChange={e => setRuleForm(p => ({ ...p, ruleModel: e.target.value as RuleModel }))}
+                  >
+                    <MenuItem value="percentage">{t('admin.pricing.ruleWizard.models.percentage')}</MenuItem>
+                    <MenuItem value="fixed">{t('admin.pricing.ruleWizard.models.fixed')}</MenuItem>
+                    <MenuItem value="custom">{t('admin.pricing.ruleWizard.models.custom')}</MenuItem>
+                  </Select>
+                </FormControl>
+
+                {ruleForm.ruleModel === 'custom' && (
+                  <Alert severity="info">{t('admin.pricing.ruleWizard.customInfo')}</Alert>
+                )}
+
+                {(ruleForm.ruleModel === 'percentage' || ruleForm.ruleModel === 'fixed') && (
+                  <>
+                    {ruleForm.ruleTarget === 'promotional' ? (
+                      <FormControl fullWidth>
+                        <InputLabel>{t('admin.pricing.ruleWizard.direction')}</InputLabel>
+                        <Select
+                          value={ruleForm.direction}
+                          label={t('admin.pricing.ruleWizard.direction')}
+                          onChange={e => setRuleForm(p => ({ ...p, direction: e.target.value as RuleDirection }))}
+                        >
+                          <MenuItem value="discount">{t('admin.pricing.ruleWizard.directions.discount')}</MenuItem>
+                          <MenuItem value="surcharge">{t('admin.pricing.ruleWizard.directions.surcharge')}</MenuItem>
+                        </Select>
+                      </FormControl>
+                    ) : (
+                      <Alert severity="info">{t('admin.pricing.ruleWizard.discountsOnly')}</Alert>
+                    )}
+                    <NumberField
+                      label={ruleForm.ruleModel === 'percentage' ? t('admin.pricing.ruleWizard.amountPercent') : t('admin.pricing.ruleWizard.amountFixed')}
+                      value={ruleForm.value}
+                      onChange={val => setRuleForm(p => ({ ...p, value: val ?? 0 }))}
+                      min={0}
+                      allowDecimal
+                    />
+                    <FormControl fullWidth>
+                      <InputLabel>{t('admin.pricing.ruleWizard.appliesTo')}</InputLabel>
+                      <Select
+                        value={ruleForm.scope}
+                        label={t('admin.pricing.ruleWizard.appliesTo')}
+                        onChange={e => setRuleForm(p => ({ ...p, scope: e.target.value as RuleScope }))}
+                      >
+                        <MenuItem value="base">{t('admin.pricing.ruleWizard.scopes.base')}</MenuItem>
+                        <MenuItem value="occupancy">{t('admin.pricing.ruleWizard.scopes.occupancy')}</MenuItem>
+                        <MenuItem value="both">{t('admin.pricing.ruleWizard.scopes.both')}</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </>
+                )}
+
+                {ruleForm.ruleModel === 'custom' && (
+                  <>
+                    <NumberField
+                      label={t('admin.pricing.ruleWizard.customBasePrice')}
+                      value={ruleForm.customBasePrice}
+                      onChange={val => setRuleForm(p => ({ ...p, customBasePrice: val ?? 0 }))}
+                      min={0}
+                      allowDecimal
+                    />
+                    <Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography variant="subtitle2">{t('admin.pricing.ruleWizard.tiersTitle')}</Typography>
+                        <Button size="small" startIcon={<AddIcon />} onClick={addRuleTier}>{t('admin.pricing.ruleWizard.addTier')}</Button>
+                      </Box>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                        {t('admin.pricing.ruleWizard.tiersHint')}
+                      </Typography>
+                      <TableContainer component={Paper} variant="outlined">
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>{t('admin.pricing.ruleWizard.tierType')}</TableCell>
+                              <TableCell>#</TableCell>
+                              <TableCell>{t('admin.pricing.ruleWizard.tierPrice')}</TableCell>
+                              <TableCell />
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {ruleForm.customOccupancyTiers.map((tier, idx) => (
+                              <TableRow key={idx}>
+                                <TableCell>
+                                  <FormControl size="small" fullWidth>
+                                    <Select value={tier.guestType} onChange={e => updateRuleTier(idx, 'guestType', e.target.value)}>
+                                      <MenuItem value="adult">{t('admin.pricing.ruleWizard.adult')}</MenuItem>
+                                      <MenuItem value="child">{t('admin.pricing.ruleWizard.child')}</MenuItem>
+                                    </Select>
+                                  </FormControl>
+                                </TableCell>
+                                <TableCell>
+                                  <NumberField size="small" value={tier.guestNumber} onChange={v => updateRuleTier(idx, 'guestNumber', v ?? 1)} min={1} sx={{ width: 70 }} />
+                                </TableCell>
+                                <TableCell>
+                                  <NumberField size="small" allowDecimal value={tier.price} onChange={v => updateRuleTier(idx, 'price', v ?? 0)} min={0}
+                                    helperText={tier.price === 0 ? t('admin.pricing.ruleWizard.included') : undefined} sx={{ width: 100 }} />
+                                </TableCell>
+                                <TableCell>
+                                  <Tooltip title={t('admin.pricing.ruleWizard.remove')}><IconButton size="small" onClick={() => removeRuleTier(idx)}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                            {ruleForm.customOccupancyTiers.length === 0 && (
+                              <TableRow><TableCell colSpan={4} align="center"><Typography variant="caption" color="text.secondary">{t('admin.pricing.ruleWizard.noTiers')}</Typography></TableCell></TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </Box>
+                  </>
+                )}
+              </Box>
+            )}
+
+            {/* ── Step 3: Period ── */}
+            {ruleWizardStep === 2 && (
+              <Box sx={{ display: 'grid', gap: 2 }}>
+                <FormControl fullWidth>
+                  <InputLabel>{t('admin.pricing.ruleWizard.periodPattern')}</InputLabel>
+                  <Select
+                    value={ruleForm.periodPattern}
+                    label={t('admin.pricing.ruleWizard.periodPattern')}
+                    onChange={e => setRuleForm(p => ({ ...p, periodPattern: e.target.value as PeriodPattern, specificDays: [] }))}
+                  >
+                    <MenuItem value="all_days">{t('admin.pricing.ruleWizard.patterns.all_days')}</MenuItem>
+                    <MenuItem value="weekdays">{t('admin.pricing.ruleWizard.patterns.weekdays')}</MenuItem>
+                    <MenuItem value="weekends">{t('admin.pricing.ruleWizard.patterns.weekends')}</MenuItem>
+                    <MenuItem value="specific_days">{t('admin.pricing.ruleWizard.patterns.specific_days')}</MenuItem>
+                  </Select>
+                </FormControl>
+
+                {ruleForm.periodPattern === 'specific_days' && (
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>{t('admin.pricing.ruleWizard.selectDays')}</Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa'].map((day, i) => (
+                        <Chip
+                          key={i}
+                          label={t(`admin.pricing.calendar.weekdays.${day}`)}
+                          clickable
+                          color={ruleForm.specificDays.includes(i) ? 'primary' : 'default'}
+                          onClick={() => toggleRuleDay(i)}
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+                )}
+
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+                  <TextField
+                    type="date"
+                    label={t('admin.pricing.ruleWizard.validityStart')}
+                    value={ruleForm.dateStart}
+                    onChange={e => setRuleForm(p => ({ ...p, dateStart: e.target.value }))}
+                    InputLabelProps={{ shrink: true }}
+                    helperText={t('admin.pricing.ruleWizard.openEnded')}
+                  />
+                  <TextField
+                    type="date"
+                    label={t('admin.pricing.ruleWizard.validityEnd')}
+                    value={ruleForm.dateEnd}
+                    onChange={e => setRuleForm(p => ({ ...p, dateEnd: e.target.value }))}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Box>
+
+                <TextField
+                  label={t('admin.pricing.ruleWizard.minNights')}
+                  type="number"
+                  value={ruleForm.minimumNights}
+                  onChange={e => setRuleForm(p => ({ ...p, minimumNights: e.target.value }))}
+                  inputProps={{ min: 1, step: 1 }}
+                  helperText={t('admin.pricing.ruleWizard.minNightsHelp')}
+                />
+
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                    <Typography variant="subtitle2">{t('admin.pricing.ruleWizard.blackoutTitle')}</Typography>
+                    <Button size="small" startIcon={<AddIcon />} onClick={addRuleBlackout}>{t('admin.pricing.ruleWizard.addPeriod')}</Button>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                    {t('admin.pricing.ruleWizard.blackoutHint')}
+                  </Typography>
+                  {ruleForm.blackoutDates.map((bo, i) => (
+                    <Box key={i} sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 1, mb: 1, alignItems: 'center' }}>
+                      <TextField
+                        type="date" label={t('admin.pricing.ruleWizard.from')} value={bo.start}
+                        onChange={e => updateRuleBlackout(i, 'start', e.target.value)}
+                        InputLabelProps={{ shrink: true }} size="small"
+                      />
+                      <TextField
+                        type="date" label={t('admin.pricing.ruleWizard.to')} value={bo.end}
+                        onChange={e => updateRuleBlackout(i, 'end', e.target.value)}
+                        InputLabelProps={{ shrink: true }} size="small"
+                      />
+                      <IconButton size="small" onClick={() => removeRuleBlackout(i)}><DeleteIcon /></IconButton>
+                    </Box>
+                  ))}
+                  {ruleForm.blackoutDates.length === 0 && (
+                    <Typography variant="caption" color="text.secondary">{t('admin.pricing.ruleWizard.noBlackouts')}</Typography>
+                  )}
+                </Box>
+              </Box>
+            )}
+
+            {/* ── Step 4: Preview ── */}
+            {ruleWizardStep === 3 && (
+              <Box sx={{ display: 'grid', gap: 2 }}>
+                <Typography variant="h6">{ruleForm.name || '—'}</Typography>
+
+                <Paper variant="outlined" sx={{ p: 2, display: 'grid', gap: 1 }}>
+                  <Typography variant="subtitle2" color="text.secondary">{t('admin.pricing.ruleWizard.target')}</Typography>
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <Chip
+                      label={t(`admin.pricing.ruleWizard.targets.${ruleForm.ruleTarget}`, ruleForm.ruleTarget)}
+                      color={ruleForm.ruleTarget === 'guest' ? 'success' : ruleForm.ruleTarget === 'company' ? 'primary' : 'default'}
+                    />
+                    {ruleForm.ruleTarget === 'company' && selectedRuleCompany && (
+                      <Typography variant="body2">{selectedRuleCompany.name}</Typography>
+                    )}
+                    {ruleForm.ruleTarget === 'guest' && ruleForm.guestEmail && (
+                      <Typography variant="body2">{ruleForm.guestEmail}</Typography>
+                    )}
+                  </Box>
+                  {(ruleForm.ruleTarget === 'company' || ruleForm.ruleTarget === 'guest') && (
+                    <Typography variant="caption" color="text.secondary">
+                      {t('admin.pricing.ruleWizard.frontDeskOnly')}
+                    </Typography>
+                  )}
+                </Paper>
+
+                <Paper variant="outlined" sx={{ p: 2, display: 'grid', gap: 1 }}>
+                  <Typography variant="subtitle2" color="text.secondary">{t('admin.pricing.ruleWizard.baseRatePlan')}</Typography>
+                  <Typography>{selectedRuleRatePlan?.name || ruleForm.ratePlanId || '—'}</Typography>
+                </Paper>
+
+                <Paper variant="outlined" sx={{ p: 2, display: 'grid', gap: 1 }}>
+                  <Typography variant="subtitle2" color="text.secondary">{t('admin.pricing.ruleWizard.rule')}</Typography>
+                  {ruleForm.ruleModel === 'custom' ? (
+                    <Box>
+                      <Chip label={t('admin.pricing.ruleWizard.custom')} size="small" />
+                      <Typography variant="body2" sx={{ mt: 0.5 }}>
+                        {t('admin.pricing.ruleWizard.customSummary', { price: `${cur}${ruleForm.customBasePrice}`, count: ruleForm.customOccupancyTiers.length })}
+                      </Typography>
+                    </Box>
+                  ) : (
+                    <Typography variant="body2">
+                      {t('admin.pricing.ruleWizard.summary', {
+                        kind: t(`admin.pricing.ruleWizard.kinds.${ruleForm.ruleTarget !== 'promotional' || ruleForm.direction === 'discount' ? 'discount' : 'surcharge'}`),
+                        amount: ruleForm.ruleModel === 'percentage' ? `${ruleForm.value}%` : `${cur}${ruleForm.value}`,
+                        scope: t(`admin.pricing.ruleWizard.scopeNames.${ruleForm.scope}`),
+                      })}
+                    </Typography>
+                  )}
+                </Paper>
+
+                <Paper variant="outlined" sx={{ p: 2, display: 'grid', gap: 1 }}>
+                  <Typography variant="subtitle2" color="text.secondary">{t('admin.pricing.ruleWizard.period')}</Typography>
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <Chip size="small" label={t(`admin.pricing.ruleWizard.patterns.${ruleForm.periodPattern || 'all_days'}`)} />
+                    {ruleForm.periodPattern === 'specific_days' && ruleForm.specificDays.length > 0 && (
+                      <Typography variant="body2">
+                        {ruleForm.specificDays.map(d => t(`admin.pricing.calendar.weekdays.${['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa'][d]}`)).join(', ')}
+                      </Typography>
+                    )}
+                  </Box>
+                  {ruleForm.dateStart && (
+                    <Typography variant="body2">{t('admin.pricing.ruleWizard.validRange', { start: ruleForm.dateStart, end: ruleForm.dateEnd || t('admin.pricing.ruleWizard.openEndedShort') })}</Typography>
+                  )}
+                  {ruleForm.minimumNights && (
+                    <Typography variant="body2">{t('admin.pricing.ruleWizard.minStay', { count: Number(ruleForm.minimumNights) })}</Typography>
+                  )}
+                  {ruleForm.blackoutDates.length > 0 && (
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">{t('admin.pricing.ruleWizard.blackoutPeriods')}</Typography>
+                      {ruleForm.blackoutDates.map((b, i) => (
+                        <Typography key={i} variant="caption" display="block">&nbsp;• {b.start} → {b.end}</Typography>
+                      ))}
+                    </Box>
+                  )}
+                </Paper>
+
                 <FormControlLabel
-                  sx={{ mt: 1 }}
-                  control={<Switch checked={chargePolicyForm.isActive} onChange={e => setChargePolicyForm(p => ({ ...p, isActive: e.target.checked }))} />}
+                  control={<Switch checked={ruleForm.isActive} onChange={e => setRuleForm(p => ({ ...p, isActive: e.target.checked }))} />}
                   label={t('admin.pricing.form.active')}
                 />
               </Box>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setRuleDialog(false); setError(null); }}>{t('admin.pricing.actions.cancel')}</Button>
+          <Box sx={{ flex: 1 }} />
+          {ruleWizardStep > 0 && (
+            <Button onClick={() => { setError(null); setRuleWizardStep(s => s - 1); }}>{t('admin.pricing.ruleWizard.back')}</Button>
+          )}
+          {ruleWizardStep < 3 ? (
+            <Button variant="contained" onClick={handleRuleWizardNext}>{t('admin.pricing.ruleWizard.next')}</Button>
+          ) : (
+            <Button variant="contained" onClick={saveRule}>{t('admin.pricing.actions.save')}</Button>
+          )}
+        </DialogActions>
+      </Dialog>
 
+      {/* ── Tax Dialog ───────────────────────────────────── */}
+      <Dialog open={taxDialog} onClose={() => setTaxDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {taxForm._id ? t('admin.pricing.taxes.dialog.editTitle') : t('admin.pricing.taxes.dialog.newTitle')}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
+            <TextField
+              label={t('admin.pricing.taxes.form.name')}
+              value={taxForm.name}
+              onChange={e => setTaxForm(p => ({ ...p, name: e.target.value }))}
+              required fullWidth
+            />
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+              <FormControl fullWidth>
+                <InputLabel>{t('admin.pricing.taxes.form.type')}</InputLabel>
+                <Select
+                  value={taxForm.type}
+                  label={t('admin.pricing.taxes.form.type')}
+                  onChange={e => setTaxForm(p => ({ ...p, type: e.target.value as any }))}
+                >
+                  <MenuItem value="percentage">{t('admin.pricing.taxes.typeLabels.percentage')}</MenuItem>
+                  <MenuItem value="fixed">{t('admin.pricing.taxes.typeLabels.fixed')}</MenuItem>
+                </Select>
+              </FormControl>
+              <NumberField
+                label={taxForm.type === 'percentage' ? t('admin.pricing.taxes.form.valuePercent') : t('admin.pricing.taxes.form.value')}
+                value={taxForm.value}
+                onChange={val => setTaxForm(p => ({ ...p, value: val ?? 0 }))}
+                min={0}
+                allowDecimal
+              />
             </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setChargePolicyDialog(false)}>{t('admin.pricing.actions.cancel')}</Button>
-            <Button variant="contained" onClick={saveChargePolicy}>{t('admin.pricing.actions.save')}</Button>
-          </DialogActions>
-        </Dialog>
+            <FormControl fullWidth>
+              <InputLabel>{t('admin.pricing.taxes.form.appliesTo')}</InputLabel>
+              <Select
+                value={taxForm.appliesTo}
+                label={t('admin.pricing.taxes.form.appliesTo')}
+                onChange={e => setTaxForm(p => ({ ...p, appliesTo: e.target.value as any }))}
+              >
+                <MenuItem value="total">{taxAppliesToLabel.total}</MenuItem>
+                <MenuItem value="room">{taxAppliesToLabel.room}</MenuItem>
+                <MenuItem value="guest">{taxAppliesToLabel.guest}</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControlLabel
+              control={<Switch checked={taxForm.isInclusive} onChange={e => setTaxForm(p => ({ ...p, isInclusive: e.target.checked }))} />}
+              label={t('admin.pricing.taxes.form.inclusive')}
+            />
+            <NumberField
+              label={t('admin.pricing.taxes.form.priority')}
+              value={taxForm.priority}
+              onChange={val => setTaxForm(p => ({ ...p, priority: val ?? 0 }))}
+            />
+            <FormControlLabel
+              control={<Switch checked={taxForm.isActive ?? true} onChange={e => setTaxForm(p => ({ ...p, isActive: e.target.checked }))} />}
+              label={t('admin.pricing.form.active')}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setTaxDialog(false)}>{t('admin.pricing.actions.cancel')}</Button>
+          <Button variant="contained" onClick={saveTax}>{t('admin.pricing.actions.save')}</Button>
+        </DialogActions>
+      </Dialog>
 
-      </Container>
-    </AdminLayout>
+      {/* ── Service Dialog ───────────────────────────────── */}
+      <Dialog open={serviceDialog} onClose={() => setServiceDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {(serviceForm as any)._id ? t('admin.pricing.services.dialog.editTitle', 'Edit Service') : t('admin.pricing.services.dialog.newTitle', 'New Service')}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
+            <TextField
+              label={t('admin.pricing.services.form.code', 'Code')}
+              value={serviceForm.code || ''}
+              onChange={e => setServiceForm(p => ({ ...p, code: e.target.value.toUpperCase() }))}
+              inputProps={{ maxLength: 20 }}
+              required
+            />
+            <TextField
+              label={t('admin.pricing.services.form.name', 'Name')}
+              value={serviceForm.name || ''}
+              onChange={e => setServiceForm(p => ({ ...p, name: e.target.value }))}
+              required
+            />
+            <FormControl>
+              <InputLabel>{t('admin.pricing.services.form.kind', 'Kind')}</InputLabel>
+              <Select
+                value={serviceForm.kind || 'daypass'}
+                label={t('admin.pricing.services.form.kind', 'Kind')}
+                onChange={e => setServiceForm(p => ({ ...p, kind: e.target.value as ServiceKind }))}
+              >
+                {Object.entries(serviceKindLabel).map(([v, l]) => (
+                  <MenuItem key={v} value={v}>{l}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl>
+              <InputLabel>{t('admin.pricing.services.form.chargeBasis', 'Charge Basis')}</InputLabel>
+              <Select
+                value={serviceForm.chargeBasis || 'perPerson'}
+                label={t('admin.pricing.services.form.chargeBasis', 'Charge Basis')}
+                onChange={e => setServiceForm(p => ({ ...p, chargeBasis: e.target.value as ChargeBasis }))}
+              >
+                {Object.entries(chargeBasisLabel).map(([v, l]) => (
+                  <MenuItem key={v} value={v}>{l}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControlLabel
+              control={<Switch checked={serviceForm.isOnlineBookable ?? false} onChange={e => setServiceForm(p => ({ ...p, isOnlineBookable: e.target.checked }))} />}
+              label={t('admin.pricing.services.form.onlineBookable', 'Online Bookable')}
+            />
+            {serviceForm.isOnlineBookable && (
+              <FormControl>
+                <InputLabel>{t('admin.pricing.services.form.reservationMode', 'Reservation Mode')}</InputLabel>
+                <Select
+                  value={serviceForm.reservationMode || 'dateRange'}
+                  label={t('admin.pricing.services.form.reservationMode', 'Reservation Mode')}
+                  onChange={e => setServiceForm(p => ({ ...p, reservationMode: e.target.value as ReservationMode }))}
+                >
+                  <MenuItem value="dateRange">{t('admin.pricing.services.form.reservationModeRange', 'Date Range (multi-night)')}</MenuItem>
+                  <MenuItem value="singleDate">{t('admin.pricing.services.form.reservationModeSingle', 'Single Date')}</MenuItem>
+                </Select>
+              </FormControl>
+            )}
+            <FormControlLabel
+              control={<Switch checked={serviceForm.isVisibleInPOS ?? true} onChange={e => setServiceForm(p => ({ ...p, isVisibleInPOS: e.target.checked }))} />}
+              label={t('admin.pricing.services.form.visibleInPOS', 'Visible in POS')}
+            />
+            <FormControlLabel
+              control={<Switch checked={serviceForm.isActive ?? true} onChange={e => setServiceForm(p => ({ ...p, isActive: e.target.checked }))} />}
+              label={t('admin.pricing.form.active')}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setServiceDialog(false)}>{t('admin.pricing.actions.cancel')}</Button>
+          <Button variant="contained" onClick={saveService}>{t('admin.pricing.actions.save')}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Service Price Dialog ─────────────────────────── */}
+      <Dialog open={servicePriceDialog} onClose={() => setServicePriceDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {(servicePriceForm as any)._id ? t('admin.pricing.servicePrices.dialog.editTitle', 'Edit Service Price') : t('admin.pricing.servicePrices.dialog.newTitle', 'New Service Price')}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
+            <Autocomplete
+              options={services}
+              getOptionLabel={o => `${o.name} (${o.code})`}
+              value={servicePriceSelectedService}
+              onChange={(_, v) => {
+                setServicePriceSelectedService(v);
+                setServicePriceForm(p => ({ ...p, serviceId: v?._id || '' }));
+              }}
+              renderInput={params => <TextField {...params} label={t('admin.pricing.servicePrices.form.service', 'Service')} required />}
+            />
+            <FormControl>
+              <InputLabel>{t('admin.pricing.rules.form.category', 'Category')}</InputLabel>
+              <Select
+                value={servicePriceForm.category || 'standard'}
+                label={t('admin.pricing.rules.form.category', 'Category')}
+                onChange={e => setServicePriceForm(p => ({ ...p, category: e.target.value as ServicePriceCategory }))}
+              >
+                {(['standard', 'special', 'guest', 'company'] as ServicePriceCategory[]).map(c => (
+                  <MenuItem key={c} value={c}>{t(`admin.pricing.servicePrices.categories.${c}`)}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            <FormControl>
+              <InputLabel>{t('admin.pricing.rules.form.validity', 'Validity')}</InputLabel>
+              <Select
+                value={servicePriceForm.validity || 'everyday'}
+                label={t('admin.pricing.rules.form.validity', 'Validity')}
+                onChange={e => setServicePriceForm(p => ({ ...p, validity: e.target.value as ServicePriceValidity }))}
+              >
+                {(['everyday', 'weekdays', 'weekend', 'custom'] as ServicePriceValidity[]).map(v => (
+                  <MenuItem key={v} value={v}>{t(`admin.pricing.servicePrices.validities.${v}`)}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {servicePriceForm.validity === 'custom' && (
+              <>
+                <TextField
+                  type="date"
+                  label={t('admin.pricing.rules.form.startDate', 'Start Date')}
+                  value={servicePriceForm.startDate || ''}
+                  onChange={e => setServicePriceForm(p => ({ ...p, startDate: e.target.value }))}
+                  InputLabelProps={{ shrink: true }}
+                />
+                <TextField
+                  type="date"
+                  label={t('admin.pricing.rules.form.endDate', 'End Date')}
+                  value={servicePriceForm.endDate || ''}
+                  onChange={e => setServicePriceForm(p => ({ ...p, endDate: e.target.value }))}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </>
+            )}
+            {servicePriceForm.category === 'guest' && (
+              <TextField
+                label={t('admin.pricing.rules.form.guestEmail', 'Guest Email')}
+                value={servicePriceForm.guestEmail || ''}
+                onChange={e => setServicePriceForm(p => ({ ...p, guestEmail: e.target.value }))}
+                type="email"
+              />
+            )}
+            {servicePriceForm.category === 'company' && (
+              <Autocomplete
+                options={servicePriceCompanyOptions}
+                getOptionLabel={o => o.name}
+                value={servicePriceSelectedCompany}
+                inputValue={servicePriceCompanySearch}
+                onInputChange={(_, v) => setServicePriceCompanySearch(v)}
+                onChange={(_, v) => {
+                  setServicePriceSelectedCompany(v);
+                  setServicePriceForm(p => ({ ...p, companyId: v?._id }));
+                }}
+                renderInput={params => <TextField {...params} label={t('admin.pricing.rules.form.company', 'Company')} />}
+              />
+            )}
+            <TextField
+              label={t('admin.pricing.rules.form.adultPrice', 'Adult Price')}
+              type="number"
+              value={servicePriceForm.adultPrice ?? ''}
+              onChange={e => setServicePriceForm(p => ({ ...p, adultPrice: e.target.value === '' ? '' as any : Number(e.target.value) }))}
+              onBlur={e => { if (e.target.value === '') setServicePriceForm(p => ({ ...p, adultPrice: 0 })); }}
+              inputProps={{ min: 0, step: 0.01 }}
+            />
+            <TextField
+              label={t('admin.pricing.rules.form.childrenPrice', 'Children Price')}
+              type="number"
+              value={servicePriceForm.childrenPrice ?? ''}
+              onChange={e => setServicePriceForm(p => ({ ...p, childrenPrice: e.target.value === '' ? '' as any : Number(e.target.value) }))}
+              onBlur={e => { if (e.target.value === '') setServicePriceForm(p => ({ ...p, childrenPrice: 0 })); }}
+              inputProps={{ min: 0, step: 0.01 }}
+            />
+            <FormControlLabel
+              control={<Switch checked={servicePriceForm.isActive ?? true} onChange={e => setServicePriceForm(p => ({ ...p, isActive: e.target.checked }))} />}
+              label={t('admin.pricing.form.active')}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setServicePriceDialog(false)}>{t('admin.pricing.actions.cancel')}</Button>
+          <Button variant="contained" onClick={saveServicePrice}>{t('admin.pricing.actions.save')}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Auto-Charge Policies Tab ──────────────────────── */}
+      <TabPanel value={tab} index={7}>
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            {t('admin.pricing.chargePolicies.description', 'Define automatic charges that apply when specific events occur, such as late checkouts or no-shows.')}
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 2 }}>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={openNewChargePolicy}>
+            {t('admin.pricing.chargePolicies.actions.new', 'New Policy')}
+          </Button>
+        </Box>
+        {(chargeRulesLoading || chargeTemplatesLoading) ? <CircularProgress /> : (
+          chargeRules.length === 0 ? (
+            <Paper sx={{ p: 4, textAlign: 'center' }}>
+              <Typography color="text.secondary">{t('admin.pricing.chargePolicies.empty', 'No automatic charge policies configured.')}</Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                {t('admin.pricing.chargePolicies.emptyHint', 'Policies automatically charge guests for late checkouts, no-shows, and early departures.')}
+              </Typography>
+            </Paper>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {chargeRules.map(rule => {
+                const rawTmplId = typeof rule.chargeTemplateId === 'object' && rule.chargeTemplateId ? (rule.chargeTemplateId as any)._id : rule.chargeTemplateId;
+                const tmpl = chargeTemplates.find(tmplItem => tmplItem._id === rawTmplId) || (typeof rule.chargeTemplateId === 'object' && rule.chargeTemplateId ? rule.chargeTemplateId as unknown as ChargeTemplate : undefined);
+                const triggerSentence: Record<ChargeTrigger, string> = {
+                  checkout_overdue: t('admin.pricing.chargePolicies.triggers.checkout_overdue', 'guest checks out late'),
+                  no_show: t('admin.pricing.chargePolicies.triggers.no_show', 'guest never shows up'),
+                  early_departure: t('admin.pricing.chargePolicies.triggers.early_departure', 'guest leaves before scheduled check-out'),
+                };
+                let chargeDesc = '—';
+                if (tmpl) {
+                  if (tmpl.calculationMethod === 'fixed') chargeDesc = `${cur}${Number(tmpl.amount).toFixed(2)}`;
+                  else if (tmpl.calculationMethod === 'extra_night') chargeDesc = t('admin.pricing.chargePolicies.chargeDesc.extra_night', 'one additional night at nightly rate');
+                  else if (tmpl.calculationMethod === 'percent_of_nightly_rate') chargeDesc = `${tmpl.amount}% ${t('admin.pricing.chargePolicies.chargeDesc.percent', 'of nightly rate')}`;
+                }
+                return (
+                  <Paper key={rule._id} variant="outlined" sx={{ p: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="subtitle1" fontWeight={600}>{rule.name}</Typography>
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          {t('admin.pricing.chargePolicies.summary', 'Charges {{chargeDesc}} when {{triggerSentence}}', { chargeDesc, triggerSentence: triggerSentence[rule.trigger] })}
+                        </Typography>
+                        <Box sx={{ display: 'flex', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                          {rule.conditions?.timeThresholdHours != null && (
+                            <Chip size="small" variant="outlined" label={t('admin.pricing.chargePolicies.graceHours', '{{hours}}h grace period', { hours: rule.conditions.timeThresholdHours })} />
+                          )}
+                          {tmpl?.taxApplicable && (
+                            <Chip size="small" variant="outlined" label={t('admin.pricing.chargePolicies.taxApplicable', 'Tax applicable')} />
+                          )}
+                          <Chip size="small" label={rule.isActive ? t('common.active', 'Active') : t('common.inactive', 'Inactive')} color={rule.isActive ? 'success' : 'default'} />
+                        </Box>
+                      </Box>
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <IconButton size="small" onClick={() => openEditChargePolicy(rule)}><EditIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" color="error" onClick={() => deleteChargePolicy(rule)}><DeleteIcon fontSize="small" /></IconButton>
+                      </Box>
+                    </Box>
+                  </Paper>
+                );
+              })}
+            </Box>
+          )
+        )}
+      </TabPanel>
+
+      {/* ── Audit Log Tab ─────────────────────────────────── */}
+      <TabPanel value={tab} index={8}>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2 }}>
+          <Button variant="contained" onClick={() => handleRunAudit(false)} disabled={auditRunning}>
+            {auditRunning ? <CircularProgress size={20} sx={{ mr: 1 }} /> : null}
+            {t('admin.pricing.auditLog.actions.run', 'Run Audit Now')}
+          </Button>
+          <Button variant="outlined" color="secondary" onClick={() => handleRunAudit(true)} disabled={auditRunning}>
+            {t('admin.pricing.auditLog.actions.dryRun', 'Preview (Dry Run)')}
+          </Button>
+          <Button variant="outlined" onClick={fetchAuditExecutions} disabled={auditLoading}>
+            {t('admin.pricing.auditLog.actions.refresh', 'Refresh')}
+          </Button>
+        </Box>
+        {auditLastSummary && (
+          <Box sx={{ mb: 2 }}>
+            {auditLastSummary.map((s, i) => (
+              <Alert key={i} severity={s.dryRun ? 'info' : 'success'} sx={{ mb: 1 }}>
+                {s.dryRun && <strong>{t('admin.pricing.auditLog.dryRunLabel', '[DRY RUN] ')}</strong>}
+                {t('admin.pricing.auditLog.summary', '{{chargesPosted}} charge(s) posted, {{skipped}} skipped, {{errors}} error(s) — {{rulesEvaluated}} rule(s) across {{reservationsScanned}} reservation(s)', { chargesPosted: s.chargesPosted, skipped: s.skipped, errors: s.errors, rulesEvaluated: s.rulesEvaluated, reservationsScanned: s.reservationsScanned })}
+              </Alert>
+            ))}
+          </Box>
+        )}
+
+        {/* Audit Runs (run-level records) */}
+        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+          {t('admin.pricing.auditLog.runsTitle', 'Audit Runs')}
+        </Typography>
+        {auditLoading ? <CircularProgress sx={{ mb: 3 }} /> : (
+          <TableContainer component={Paper} sx={{ mb: 4 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>{t('admin.pricing.auditLog.runs.businessDate', 'Business Date')}</TableCell>
+                  <TableCell>{t('admin.pricing.auditLog.runs.status', 'Status')}</TableCell>
+                  <TableCell>{t('admin.pricing.auditLog.runs.trigger', 'Triggered By')}</TableCell>
+                  <TableCell>{t('admin.pricing.auditLog.runs.dryRun', 'Dry Run')}</TableCell>
+                  <TableCell>{t('admin.pricing.auditLog.runs.charged', 'Charged')}</TableCell>
+                  <TableCell>{t('admin.pricing.auditLog.runs.skipped', 'Skipped')}</TableCell>
+                  <TableCell>{t('admin.pricing.auditLog.runs.errors', 'Errors')}</TableCell>
+                  <TableCell>{t('admin.pricing.auditLog.runs.duration', 'Duration')}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {auditRuns.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} align="center">
+                      {t('admin.pricing.auditLog.runs.empty', 'No audit runs yet')}
+                    </TableCell>
+                  </TableRow>
+                ) : auditRuns.map(run => {
+                  const durationMs = run.completedAt && run.startedAt
+                    ? new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime()
+                    : null;
+                  const durationStr = durationMs !== null
+                    ? durationMs < 1000 ? `${durationMs}ms` : `${(durationMs / 1000).toFixed(1)}s`
+                    : '—';
+                  return (
+                    <TableRow key={run._id}>
+                      <TableCell>{run.businessDate}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={t(`admin.pricing.auditLog.statuses.${run.status}`, run.status)}
+                          size="small"
+                          color={run.status === 'completed' ? 'success' : run.status === 'failed' ? 'error' : run.status === 'running' ? 'warning' : 'default'}
+                        />
+                      </TableCell>
+                      <TableCell>{run.triggeredBy}</TableCell>
+                      <TableCell>{run.dryRun ? <Chip label={t('admin.pricing.ruleWizard.dry')} size="small" variant="outlined" /> : '—'}</TableCell>
+                      <TableCell>{run.summary?.chargesPosted ?? '—'}</TableCell>
+                      <TableCell>{run.summary?.skipped ?? '—'}</TableCell>
+                      <TableCell>{run.summary?.errors ?? '—'}</TableCell>
+                      <TableCell>{durationStr}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+
+        {/* Execution-level log */}
+        <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
+          {t('admin.pricing.auditLog.executionsTitle', 'Execution Log')}
+        </Typography>
+        {auditLoading ? <CircularProgress /> : (
+          <TableContainer component={Paper}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>{t('admin.pricing.auditLog.columns.reservation', 'Reservation')}</TableCell>
+                  <TableCell>{t('admin.pricing.auditLog.columns.rule', 'Rule')}</TableCell>
+                  <TableCell>{t('admin.pricing.auditLog.columns.businessDate', 'Business Date')}</TableCell>
+                  <TableCell>{t('admin.pricing.auditLog.columns.status', 'Status')}</TableCell>
+                  <TableCell>{t('admin.pricing.auditLog.columns.executedAt', 'Executed At')}</TableCell>
+                  <TableCell>{t('admin.pricing.auditLog.columns.error', 'Error')}</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {auditExecutions.map(ex => (
+                  <TableRow key={ex._id}>
+                    <TableCell>{typeof ex.reservationId === 'object' && ex.reservationId ? (ex.reservationId as any).code ?? ex.reservationId : ex.reservationId}</TableCell>
+                    <TableCell>{typeof ex.chargeRuleId === 'object' && ex.chargeRuleId ? (ex.chargeRuleId as any).name ?? ex.chargeRuleId : ex.chargeRuleId}</TableCell>
+                    <TableCell>{ex.businessDate}</TableCell>
+                    <TableCell>
+                      <Chip label={t(`admin.pricing.auditLog.statuses.${ex.status}`, ex.status)} size="small" color={ex.status === 'success' ? 'success' : ex.status === 'error' ? 'error' : 'default'} />
+                    </TableCell>
+                    <TableCell>{new Date(ex.executedAt).toLocaleString(i18n.language)}</TableCell>
+                    <TableCell>{ex.errorMessage || '—'}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </TabPanel>
+
+      {/* ── Charge Policy Dialog ─────────────────────────── */}
+      <Dialog open={chargePolicyDialog} onClose={() => setChargePolicyDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {chargePolicyEditIds.ruleId
+            ? t('admin.pricing.chargePolicies.dialog.edit', 'Edit Charge Policy')
+            : t('admin.pricing.chargePolicies.dialog.new', 'New Charge Policy')}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, pt: 1 }}>
+
+            {/* When */}
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                {t('admin.pricing.chargePolicies.form.whenTitle', 'When should this charge apply?')}
+              </Typography>
+              <FormControl fullWidth>
+                <InputLabel>{t('admin.pricing.chargePolicies.form.trigger', 'Situation')}</InputLabel>
+                <Select
+                  value={chargePolicyForm.trigger}
+                  label={t('admin.pricing.chargePolicies.form.trigger', 'Situation')}
+                  onChange={e => setChargePolicyForm(p => ({ ...p, trigger: e.target.value as ChargeTrigger }))}
+                >
+                  <MenuItem value="checkout_overdue">{t('admin.pricing.chargePolicies.triggerOptions.checkout_overdue', 'Guest checks out late')}</MenuItem>
+                  <MenuItem value="no_show">{t('admin.pricing.chargePolicies.triggerOptions.no_show', 'Guest never shows up')}</MenuItem>
+                  <MenuItem value="early_departure">{t('admin.pricing.chargePolicies.triggerOptions.early_departure', 'Guest leaves before scheduled check-out')}</MenuItem>
+                </Select>
+              </FormControl>
+              {chargePolicyForm.trigger === 'checkout_overdue' && (
+                <TextField
+                  fullWidth
+                  sx={{ mt: 2 }}
+                  label={t('admin.pricing.chargePolicies.form.graceHours', 'Charge after how many hours past checkout?')}
+                  type="number"
+                  value={chargePolicyForm.timeThresholdHours ?? ''}
+                  onChange={e => setChargePolicyForm(p => ({ ...p, timeThresholdHours: e.target.value === '' ? undefined : Number(e.target.value) }))}
+                  inputProps={{ min: 0, step: 1 }}
+                  helperText={t('admin.pricing.chargePolicies.form.graceHoursHint', 'Leave blank to charge immediately at checkout time')}
+                />
+              )}
+            </Box>
+
+            <Divider />
+
+            {/* What to charge */}
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                {t('admin.pricing.chargePolicies.form.whatTitle', 'What should we charge?')}
+              </Typography>
+              <FormControl fullWidth>
+                <InputLabel>{t('admin.pricing.chargePolicies.form.chargeType', 'Charge type')}</InputLabel>
+                <Select
+                  value={chargePolicyForm.calculationMethod}
+                  label={t('admin.pricing.chargePolicies.form.chargeType', 'Charge type')}
+                  onChange={e => setChargePolicyForm(p => ({ ...p, calculationMethod: e.target.value as CalculationMethod }))}
+                >
+                  <MenuItem value="fixed">{t('admin.pricing.chargePolicies.form.chargeTypeFixed', 'Fixed amount')}</MenuItem>
+                  <MenuItem value="extra_night">{t('admin.pricing.chargePolicies.form.chargeTypeExtraNight', 'One additional night at nightly rate')}</MenuItem>
+                  <MenuItem value="percent_of_nightly_rate">{t('admin.pricing.chargePolicies.form.chargeTypePercent', 'Percentage of nightly rate')}</MenuItem>
+                </Select>
+              </FormControl>
+              {(chargePolicyForm.calculationMethod === 'fixed' || chargePolicyForm.calculationMethod === 'percent_of_nightly_rate') && (
+                <TextField
+                  fullWidth
+                  sx={{ mt: 2 }}
+                  label={chargePolicyForm.calculationMethod === 'fixed'
+                    ? t('admin.pricing.chargePolicies.form.amountFixed', 'Amount ($)')
+                    : t('admin.pricing.chargePolicies.form.amountPercent', 'Percentage (%)')}
+                  type="number"
+                  value={chargePolicyForm.amount}
+                  onChange={e => setChargePolicyForm(p => ({ ...p, amount: e.target.value }))}
+                  inputProps={{ min: 0, step: chargePolicyForm.calculationMethod === 'fixed' ? 0.01 : 1 }}
+                />
+              )}
+              <FormControlLabel
+                sx={{ mt: 1 }}
+                control={<Switch checked={chargePolicyForm.taxApplicable} onChange={e => setChargePolicyForm(p => ({ ...p, taxApplicable: e.target.checked }))} />}
+                label={t('admin.pricing.chargePolicies.form.taxApplicable', 'Apply taxes to this charge')}
+              />
+            </Box>
+
+            <Divider />
+
+            {/* Name and status */}
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+                {t('admin.pricing.chargePolicies.form.identifierTitle', 'Name and status')}
+              </Typography>
+              <TextField
+                fullWidth
+                label={t('admin.pricing.chargePolicies.form.name', 'Policy name')}
+                value={chargePolicyForm.name}
+                onChange={e => setChargePolicyForm(p => ({ ...p, name: e.target.value }))}
+                required
+                helperText={t('admin.pricing.chargePolicies.form.nameHint', 'A short name to identify this policy')}
+              />
+              <FormControlLabel
+                sx={{ mt: 1 }}
+                control={<Switch checked={chargePolicyForm.isActive} onChange={e => setChargePolicyForm(p => ({ ...p, isActive: e.target.checked }))} />}
+                label={t('admin.pricing.form.active')}
+              />
+            </Box>
+
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setChargePolicyDialog(false)}>{t('admin.pricing.actions.cancel')}</Button>
+          <Button variant="contained" onClick={saveChargePolicy}>{t('admin.pricing.actions.save')}</Button>
+        </DialogActions>
+      </Dialog>
+
+    </Container>
   );
 };
 

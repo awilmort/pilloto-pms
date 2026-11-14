@@ -51,6 +51,7 @@ import { runAudit } from './utils/chargeWorker';
 import cron from 'node-cron';
 import { resolveTenant } from './middleware/tenantContext';
 import { logChannexConfigWarnings } from './services/channex/config';
+import { ensureReservationIndexes } from './services/reservationIndexes';
 import { startChannexWorkers, stopChannexWorkers } from './utils/channexCron';
 import { startFiscalWorkers, stopFiscalWorkers } from './utils/fiscalCron';
 import { startBillingWorkers, stopBillingWorkers } from './utils/billingCron';
@@ -334,6 +335,15 @@ const gracefulShutdown = (signal: string, server: ReturnType<typeof app.listen>)
 // Start server
 const startServer = async () => {
   await connectDB();
+
+  // Reservation numbers are unique per property now; the old global unique index would reject a second
+  // property's first reservation, so it is dropped (and the new one built) before any request is served.
+  try {
+    const { droppedLegacyIndex } = await ensureReservationIndexes();
+    if (droppedLegacyIndex) console.log('🔧 Dropped the legacy global reservationCode index (numbers are now unique per property)');
+  } catch (e) {
+    console.error('❌ Could not prepare the reservation indexes — creating reservations may fail until this is fixed:', e);
+  }
 
   // Sync any files in uploads/ into Media collection so the library reflects all files
   try {

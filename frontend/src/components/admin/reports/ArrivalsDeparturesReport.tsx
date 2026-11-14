@@ -409,7 +409,7 @@ const ArrivalsDeparturesReport: React.FC = () => {
                     <Tooltip title={t('admin.reports.arrivalsDepartures.openReservation')}>
                       <IconButton
                         size="small"
-                        onClick={() => navigate(`/admin/reservations?id=${row.reservationId}`)}
+                        onClick={() => navigate(`/admin/reservations/${row.reservationId}`)}
                       >
                         <OpenInNewIcon fontSize="small" />
                       </IconButton>
@@ -557,7 +557,7 @@ const ArrivalsDeparturesReport: React.FC = () => {
                     <Tooltip title={t('admin.reports.arrivalsDepartures.openReservation')}>
                       <IconButton
                         size="small"
-                        onClick={() => navigate(`/admin/reservations?id=${row.reservationId}`)}
+                        onClick={() => navigate(`/admin/reservations/${row.reservationId}`)}
                       >
                         <OpenInNewIcon fontSize="small" />
                       </IconButton>

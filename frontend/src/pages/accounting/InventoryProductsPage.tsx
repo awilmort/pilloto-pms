@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import AccountingLayout from '../../components/accounting/AccountingLayout';
+import { usePageTitle } from '../../components/shared/PageTitle';
 import ProductsContent from '../../components/accounting/inventory/ProductsContent';
 
 /**
@@ -10,10 +10,9 @@ import ProductsContent from '../../components/accounting/inventory/ProductsConte
  */
 const InventoryProductsPage: React.FC = () => {
   const { t } = useTranslation();
+  usePageTitle(t('accounting.inventory.title', 'Products'));
   return (
-    <AccountingLayout title={t('accounting.inventory.title', 'Products')}>
-      <ProductsContent />
-    </AccountingLayout>
+    <ProductsContent />
   );
 };
 

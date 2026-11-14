@@ -27,7 +27,7 @@ const CustomersContent: React.FC = () => {
   const canManage = usePermission('accounting.customers.manage');
 
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<boolean | undefined>(true);

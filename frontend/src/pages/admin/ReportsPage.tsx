@@ -25,7 +25,6 @@ import PieChartIcon from '@mui/icons-material/PieChart';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams } from 'react-router-dom';
-import AdminLayout from '../../components/admin/AdminLayout';
 import FiscalTaxReportTab from '../../components/fiscal/FiscalTaxReportTab';
 import FiscalSequencesTab from '../../components/fiscal/FiscalSequencesTab';
 import FiscalDocumentsTab from '../../components/fiscal/FiscalDocumentsTab';
@@ -173,110 +172,106 @@ const ReportsPage: React.FC<ReportsPageProps> = ({ reportId: propReportId }) => 
   if (activeReportId && REPORT_COMPONENTS[activeReportId]) {
     const ReportComponent = REPORT_COMPONENTS[activeReportId];
     return (
-      <AdminLayout>
-        <Box>
-          <Button
-            size="small"
-            startIcon={<ArrowBackIcon />}
-            onClick={() => navigate('/admin/reports')}
-            sx={{ mb: 2 }}
-          >
-            {t('admin.reports.backToReports')}
-          </Button>
-          <ReportComponent />
-        </Box>
-      </AdminLayout>
+      <Box>
+        <Button
+          size="small"
+          startIcon={<ArrowBackIcon />}
+          onClick={() => navigate('/admin/reports')}
+          sx={{ mb: 2 }}
+        >
+          {t('admin.reports.backToReports')}
+        </Button>
+        <ReportComponent />
+      </Box>
     );
   }
 
   // Hub view — grid of report cards
   return (
-    <AdminLayout>
-      <Box>
-        <Stack direction="row" alignItems="center" spacing={1.5} mb={3}>
-          <AssessmentIcon color="primary" sx={{ fontSize: 32 }} />
-          <Box>
-            <Typography variant="h5" fontWeight={700}>
-              {t('admin.reports.title')}
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {t('admin.reports.subtitle')}
-            </Typography>
-          </Box>
-        </Stack>
+    <Box>
+      <Stack direction="row" alignItems="center" spacing={1.5} mb={3}>
+        <AssessmentIcon color="primary" sx={{ fontSize: 32 }} />
+        <Box>
+          <Typography variant="h5" fontWeight={700}>
+            {t('admin.reports.title')}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {t('admin.reports.subtitle')}
+          </Typography>
+        </Box>
+      </Stack>
 
-        {GROUPS.map((group) => (
-          <Box key={group} mb={4}>
-            <Typography variant="overline" color="text.secondary" fontWeight={700} sx={{ letterSpacing: 1 }}>
-              {t(`admin.reports.groups.${group}.title`)}
-            </Typography>
-            <Typography variant="body2" color="text.secondary" mb={1.5}>
-              {t(`admin.reports.groups.${group}.description`)}
-            </Typography>
-            <Grid container spacing={3}>
-              {REPORT_CARDS.filter((card) => card.group === group).map((card) => (
-                <Grid item xs={12} sm={6} md={4} key={card.id}>
-                  <Card
-                    variant="outlined"
-                    sx={{
-                      height: '100%',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      transition: 'box-shadow 0.2s, border-color 0.2s',
-                      '&:hover': {
-                        boxShadow: 3,
-                        borderColor: `${card.color}.main`,
-                      },
-                    }}
-                  >
-                    <CardContent sx={{ flexGrow: 1 }}>
-                      <Stack
-                        direction="row"
-                        alignItems="flex-start"
-                        justifyContent="space-between"
-                        mb={2}
+      {GROUPS.map((group) => (
+        <Box key={group} mb={4}>
+          <Typography variant="overline" color="text.secondary" fontWeight={700} sx={{ letterSpacing: 1 }}>
+            {t(`admin.reports.groups.${group}.title`)}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" mb={1.5}>
+            {t(`admin.reports.groups.${group}.description`)}
+          </Typography>
+          <Grid container spacing={3}>
+            {REPORT_CARDS.filter((card) => card.group === group).map((card) => (
+              <Grid item xs={12} sm={6} md={4} key={card.id}>
+                <Card
+                  variant="outlined"
+                  sx={{
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    transition: 'box-shadow 0.2s, border-color 0.2s',
+                    '&:hover': {
+                      boxShadow: 3,
+                      borderColor: `${card.color}.main`,
+                    },
+                  }}
+                >
+                  <CardContent sx={{ flexGrow: 1 }}>
+                    <Stack
+                      direction="row"
+                      alignItems="flex-start"
+                      justifyContent="space-between"
+                      mb={2}
+                    >
+                      <Box
+                        sx={{
+                          p: 1.5,
+                          borderRadius: 2,
+                          bgcolor: `${card.color}.50`,
+                          color: `${card.color}.main`,
+                          display: 'flex',
+                        }}
                       >
-                        <Box
-                          sx={{
-                            p: 1.5,
-                            borderRadius: 2,
-                            bgcolor: `${card.color}.50`,
-                            color: `${card.color}.main`,
-                            display: 'flex',
-                          }}
-                        >
-                          {card.icon}
-                        </Box>
-                        {card.badgeKey && (
-                          <Chip label={t(card.badgeKey)} color={card.color} size="small" />
-                        )}
-                      </Stack>
-                      <Typography variant="h6" fontWeight={700} mb={0.5}>
-                        {t(card.titleKey)}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {t(card.descriptionKey)}
-                      </Typography>
-                    </CardContent>
-                    <CardActions sx={{ px: 2, pb: 2 }}>
-                      <Button
-                        variant="contained"
-                        color={card.color}
-                        endIcon={<ArrowForwardIcon />}
-                        onClick={() => navigate(`/admin/reports/${card.id}`)}
-                        fullWidth
-                      >
-                        {t('admin.reports.openReport')}
-                      </Button>
-                    </CardActions>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-        ))}
-      </Box>
-    </AdminLayout>
+                        {card.icon}
+                      </Box>
+                      {card.badgeKey && (
+                        <Chip label={t(card.badgeKey)} color={card.color} size="small" />
+                      )}
+                    </Stack>
+                    <Typography variant="h6" fontWeight={700} mb={0.5}>
+                      {t(card.titleKey)}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {t(card.descriptionKey)}
+                    </Typography>
+                  </CardContent>
+                  <CardActions sx={{ px: 2, pb: 2 }}>
+                    <Button
+                      variant="contained"
+                      color={card.color}
+                      endIcon={<ArrowForwardIcon />}
+                      onClick={() => navigate(`/admin/reports/${card.id}`)}
+                      fullWidth
+                    >
+                      {t('admin.reports.openReport')}
+                    </Button>
+                  </CardActions>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
+      ))}
+    </Box>
   );
 };
 

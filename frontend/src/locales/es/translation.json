@@ -49,7 +49,12 @@
     "tooManyRequests": "Demasiadas solicitudes. Inténtalo de nuevo más tarde.",
     "error": "Error",
     "hotelFallback": "Hotel",
-    "selectLanguage": "Seleccionar idioma"
+    "selectLanguage": "Seleccionar idioma",
+    "updatedReload": "Pilloto se actualizó. Recarga la página para continuar.",
+    "reloadPage": "Recargar página",
+    "pageErrorTitle": "Algo salió mal en esta página",
+    "pageErrorBody": "El resto de la aplicación sigue funcionando. Puedes intentarlo de nuevo, o ir a otra sección del menú.",
+    "tryAgain": "Intentar de nuevo"
   },
   "nav": {
     "home": "Inicio",
@@ -792,7 +797,8 @@
         "statusLabel": "Filtrar por estado",
         "typeLabel": "Filtrar por tipo",
         "status": {
-          "all": "Todas las reservas"
+          "all": "Todas las reservas",
+          "allShort": "Todas"
         },
         "types": {
           "all": "Todos los tipos"
@@ -833,7 +839,8 @@
         "cancel": "Cancelar",
         "saveChanges": "Guardar cambios",
         "newReservation": "Nueva reserva",
-        "viewFullDetails": "Ver detalles"
+        "viewFullDetails": "Ver detalles",
+        "moreActions": "Más acciones"
       },
       "dialog": {
         "editTitle": "Editar reserva",
@@ -1157,7 +1164,10 @@
         "payments": "Pagos",
         "primaryContact": "Contacto principal",
         "reservationDetails": "Detalles de la reserva",
-        "reservationTitle": "Reserva"
+        "reservationTitle": "Reserva",
+        "notFoundTitle": "No encontramos esta reserva",
+        "notFoundBody": "Puede que haya sido eliminada o que el enlace no sea correcto.",
+        "retry": "Reintentar"
       },
       "bookingRuleWarnings": {
         "title": "Esta reserva no cumple una regla de reserva",
@@ -1281,7 +1291,9 @@
         "check": "Cheque",
         "credit": "Crédito",
         "transfer": "Transferencia"
-      }
+      },
+      "resultCount_one": "{{count}} reserva",
+      "resultCount_other": "{{count}} reservas"
     },
     "settings": {
       "title": "Configuración",

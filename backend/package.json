@@ -16,6 +16,7 @@
     "migrate:ical-to-channel-source": "ts-node src/scripts/migrate-ical-to-channel-source.ts",
     "migrate:property-profile": "ts-node src/scripts/migrate-property-profile.ts",
     "migrate:citrus-to-billingsoft": "ts-node src/scripts/migrate-citrus-to-billingsoft.ts",
+    "migrate:reservation-codes": "ts-node src/scripts/migrate-reservation-codes.ts",
     "audit:room-reservations": "ts-node src/scripts/audit-room-reservations.ts",
     "test": "jest --verbose --forceExit --detectOpenHandles"
   },

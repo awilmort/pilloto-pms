@@ -48,7 +48,8 @@ import {
 import { useAuth } from '../../contexts/AuthContext';
 import { roomsService, adminService, roomTypeService } from '../../services/api';
 import { Room, RoomType } from '../../types';
-import AdminLayout from '../../components/admin/AdminLayout';
+import { usePageTitle } from '../../components/shared/PageTitle';
+import { useLoadedOnce } from '../../hooks/useLoadedOnce';
 import { RoomIllustration, isIllustrationUrl, getIllustrationByKey, getIllustrationKey } from '../../components/illustrations';
 import { resolveMediaUrl } from '../../services/api';
 import { useTranslation } from 'react-i18next';
@@ -98,8 +99,10 @@ const initialFormData: RoomFormData = {
 const RoomsManagement: React.FC = () => {
   const { user, permissions } = useAuth();
   const { t } = useTranslation();
+  usePageTitle(t('admin.rooms.title'));
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
+  const loadedOnce = useLoadedOnce(loading);
   const [formDialog, setFormDialog] = useState({ open: false, mode: 'create', room: null as Room | null });
   const [deleteDialog, setDeleteDialog] = useState({ open: false, room: null as Room | null });
   const [formData, setFormData] = useState<RoomFormData>(initialFormData);
@@ -308,7 +311,7 @@ const RoomsManagement: React.FC = () => {
   }
 
   return (
-    <AdminLayout title={t('admin.rooms.title')}>
+    <>
       <Container maxWidth="xl" sx={{ pt: 0, pb: 4 }}>
 
         {/* Filters, Search and Actions */}
@@ -342,9 +345,11 @@ const RoomsManagement: React.FC = () => {
               </Box>
             </Grid>
             <Grid item xs={12} md={3}>
-              <Typography variant="body2" color="text.secondary">
-                {t('admin.rooms.roomsFound', { count: filteredRooms.length })}
-              </Typography>
+              {loadedOnce && (
+                <Typography variant="body2" color="text.secondary">
+                  {t('admin.rooms.roomsFound', { count: filteredRooms.length })}
+                </Typography>
+              )}
             </Grid>
             {canFullEdit && (
               <Grid item xs={12} md={2} sx={{ display: 'flex', justifyContent: 'flex-end' }}>
@@ -848,7 +853,7 @@ const RoomsManagement: React.FC = () => {
         onClose={() => setBlocksRoom(null)}
         onSnackbar={showSnackbar}
       />
-    </AdminLayout>
+    </>
   );
 };
 

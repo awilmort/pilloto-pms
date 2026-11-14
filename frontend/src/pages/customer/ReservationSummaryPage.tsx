@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Container,
   Paper,
@@ -34,6 +34,9 @@ import i18n from '../../i18n';
 
 const ReservationSummaryPage: React.FC = () => {
   const { confirmationToken, reservationCode } = useParams<{ confirmationToken?: string; reservationCode?: string }>();
+  // /reservation/code/:code needs the guest's token too (?token=…): the number alone is guessable and opens nothing.
+  const [searchParams] = useSearchParams();
+  const accessToken = searchParams.get('token') ?? '';
   const navigate = useNavigate();
   const { t } = useTranslation();
 
@@ -46,7 +49,7 @@ const ReservationSummaryPage: React.FC = () => {
   const [cancelSuccess, setCancelSuccess] = useState(false);
 
   const loadReservation = React.useCallback(async () => {
-    const identifier = reservationCode || confirmationToken;
+    const identifier = reservationCode ? (accessToken ? reservationCode : '') : confirmationToken;
     if (!identifier) {
       setError(t('pages.reservationSummary.notFound'));
       setLoading(false);
@@ -56,7 +59,7 @@ const ReservationSummaryPage: React.FC = () => {
     try {
       setLoading(true);
       const response = reservationCode
-        ? await reservationsService.getPublicReservationByCode(reservationCode)
+        ? await reservationsService.getPublicReservationByCode(reservationCode, accessToken)
         : await reservationsService.getPublicReservation(confirmationToken as string);
       if (response.data.data) {
         setReservation(response.data.data);
@@ -68,7 +71,7 @@ const ReservationSummaryPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [confirmationToken, reservationCode, t]);
+  }, [confirmationToken, reservationCode, accessToken, t]);
 
   useEffect(() => {
     loadReservation();
@@ -81,7 +84,7 @@ const ReservationSummaryPage: React.FC = () => {
     try {
       setCancelling(true);
       if (reservationCode) {
-        await reservationsService.cancelPublicReservationByCode(reservationCode, cancellationReason);
+        await reservationsService.cancelPublicReservationByCode(reservationCode, accessToken, cancellationReason);
       } else if (confirmationToken) {
         await reservationsService.cancelPublicReservation(confirmationToken, cancellationReason);
       }
