@@ -3,10 +3,14 @@ import { tenantPlugin } from '../plugins/tenantPlugin';
 import { UNIT_OF_MEASURE_CODES, UnitOfMeasureCode } from '../constants/unitsOfMeasure';
 
 /**
- * A stocked item. `cost`/`onHandQty` are system-maintained — only ever moved via
+ * A catalog item. `tracksStock` items are stocked (inventory module): `cost`/`onHandQty` are system-maintained — only ever moved via
  * the inventory service's `receiveStock`/adjustment path, so the
  * `InventoryTransaction` ledger stays the authoritative source of both, the same
  * way `Account.normalBalance` is derived rather than client-supplied.
+ *
+ * Items with `tracksStock: false` (services, non-inventory goods) are a price-list entry only:
+ * selling them moves no stock and posts no cost of sales. Every plan has them; stocked items need
+ * the inventory module. The flag is fixed at creation.
  *
  * `primarySupplier` is deliberately not on this model — a placeholder field
  * would just be a throwaway to migrate away from later. Add it as a proper
@@ -22,6 +26,7 @@ export interface IProduct extends Document {
   onHandQty: number; // denormalized cross-warehouse total, reconciled by InventoryTransaction rows — see ProductStock for the per-warehouse split
   reorderPoint: number; // low-stock threshold for reporting/alerts
   description?: string;
+  tracksStock: boolean; // false: a service / non-inventory item — no stock, no COGS (fixed at creation)
   isSellable: boolean; // gates whether this product can be added to an invoice
   isPurchasable: boolean; // gates whether this product can be added to a supplier bill
   notes?: string;
@@ -41,6 +46,7 @@ const productSchema = new Schema<IProduct>(
     onHandQty: { type: Number, required: true, min: 0, default: 0 },
     reorderPoint: { type: Number, min: 0, default: 0 },
     description: { type: String, trim: true, maxlength: 1000, default: '' },
+    tracksStock: { type: Boolean, default: true },
     isSellable: { type: Boolean, default: false },
     isPurchasable: { type: Boolean, default: false },
     notes: { type: String, trim: true, maxlength: 1000, default: '' },

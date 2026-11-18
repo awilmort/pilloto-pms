@@ -377,21 +377,22 @@ describe('PlansTab', () => {
 
 describe('SettingsTab', () => {
   it('loads and saves the tax, due days, notice email and payment instructions', async () => {
-    const settings = { tax: 'itbis18', dueDays: 10, notifyEmail: '', paymentInstructions: '' };
+    const settings = { tax: 'itbis18', dueDays: 10, notifyEmail: '', paymentInstructions: '', suiteDiscountPercent: 20 };
     mockApi.getSettings.mockResolvedValue(ok(settings));
     mockApi.saveSettings.mockImplementation((s: unknown) => Promise.resolve(ok(s)));
     const onSaved = jest.fn();
     render(<SettingsTab onSaved={onSaved} />);
     fireEvent.change(await screen.findByLabelText('Days to pay a charge'), { target: { value: '15' } });
     fireEvent.change(screen.getByLabelText(/How to pay/), { target: { value: 'Banco X 123' } });
+    fireEvent.change(screen.getByLabelText('Suite discount on Accounting (%)'), { target: { value: '25' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
-    await waitFor(() => expect(mockApi.saveSettings).toHaveBeenCalledWith({ tax: 'itbis18', dueDays: 15, notifyEmail: '', paymentInstructions: 'Banco X 123' }));
+    await waitFor(() => expect(mockApi.saveSettings).toHaveBeenCalledWith({ tax: 'itbis18', dueDays: 15, notifyEmail: '', paymentInstructions: 'Banco X 123', suiteDiscountPercent: 25 }));
     expect(await screen.findByText('Settings saved.')).toBeInTheDocument();
     expect(onSaved).toHaveBeenCalled();
   });
 
   it('offers the four tax treatments and warns to confirm with an accountant', async () => {
-    mockApi.getSettings.mockResolvedValue(ok({ tax: 'itbis18', dueDays: 10, notifyEmail: '', paymentInstructions: '' }));
+    mockApi.getSettings.mockResolvedValue(ok({ tax: 'itbis18', dueDays: 10, notifyEmail: '', paymentInstructions: '', suiteDiscountPercent: 20 }));
     render(<SettingsTab onSaved={jest.fn()} />);
     fireEvent.mouseDown(await screen.findByRole('combobox', { name: /Tax on subscription charges/ }));
     expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual(['ITBIS 18%', 'ITBIS 16%', 'ITBIS 0% (taxed at zero rate)', 'Exempt (no ITBIS)']);

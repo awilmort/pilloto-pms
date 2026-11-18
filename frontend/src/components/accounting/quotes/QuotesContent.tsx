@@ -21,6 +21,7 @@ import { quotesService, accountingCustomersService, productsService, InvoiceLine
 import { Quote, QuoteStatus, Customer, Product } from '../../../types';
 import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
 import i18n from '../../../i18n';
+import CurrencyFields, { currencyPayload, DocCurrency } from '../fx/CurrencyFields';
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
@@ -55,6 +56,8 @@ const emptyCreateState = () => ({
   expiryDate: '',
   notes: '',
   lines: [newLine()],
+  currency: 'DOP' as DocCurrency,
+  exchangeRate: '',
 });
 
 const STATUS_COLOR: Record<QuoteStatus, 'default' | 'info' | 'warning' | 'success' | 'error' | 'primary'> = {
@@ -161,6 +164,8 @@ const QuotesContent: React.FC = () => {
       individualPhone: q.individualCustomer?.phone || '',
       expiryDate: q.expiryDate ? q.expiryDate.slice(0, 10) : '',
       notes: q.notes || '',
+      currency: ((q as any).currency || 'DOP') as DocCurrency,
+      exchangeRate: (q as any).currency && (q as any).currency !== 'DOP' ? String((q as any).exchangeRate) : '',
       lines: q.lineItems.map(l => newLine({
         description: l.description,
         productId: l.product && typeof l.product === 'object' ? l.product._id : (l.product as string) || '',
@@ -238,6 +243,7 @@ const QuotesContent: React.FC = () => {
         expiryDate: createState.expiryDate || undefined,
         notes: createState.notes || undefined,
         lineItems,
+        ...currencyPayload(createState),
       };
       if (editingQuote) {
         await quotesService.updateQuote(editingQuote._id, payload);
@@ -460,6 +466,7 @@ const QuotesContent: React.FC = () => {
             )}
 
             <TextField label={t('accounting.quotes.form.expiryDate')} type="date" InputLabelProps={{ shrink: true }} value={createState.expiryDate} onChange={(e) => setCreateState(s => ({ ...s, expiryDate: e.target.value }))} sx={{ maxWidth: 220 }} />
+            <Box sx={{ maxWidth: 420 }}><CurrencyFields currency={createState.currency} exchangeRate={createState.exchangeRate} onChange={(c) => setCreateState(s => ({ ...s, ...c }))} /></Box>
 
             <Divider />
             <Typography variant="subtitle2">{t('accounting.quotes.form.lineItems')}</Typography>

@@ -71,7 +71,11 @@ const PaymentsTab: React.FC<{ onChanged: () => void }> = ({ onChanged }) => {
                   <TableCell>{formatDate(p.paidAt)}</TableCell>
                   <TableCell>{p.tenant?.name ?? '—'}</TableCell>
                   <TableCell sx={{ fontFamily: 'monospace' }}>{p.chargeNumber ?? '—'}</TableCell>
-                  <TableCell>{t(`platformBilling.methods.${p.method}`, p.method)}{p.reference ? <Typography variant="caption" display="block" color="text.secondary">{p.reference}</Typography> : null}</TableCell>
+                  <TableCell>
+                    {t(`platformBilling.methods.${p.method}`, p.method)}
+                    {p.source === 'handypay' ? <Typography variant="caption" color="primary" sx={{ ml: 0.75, fontWeight: 600 }}>{t('platformBilling.sources.handypay', 'Online · HandyPay')}</Typography> : null}
+                    {p.reference ? <Typography variant="caption" display="block" color="text.secondary">{p.reference}</Typography> : null}
+                  </TableCell>
                   <TableCell align="right">{formatDop(p.amount)}</TableCell>
                   <TableCell>
                     <EcfCell payment={p} />

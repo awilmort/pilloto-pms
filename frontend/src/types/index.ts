@@ -882,6 +882,10 @@ export interface Invoice {
   /** The customer's own reference (purchase order no., contract…) — printed on the invoice. */
   reference?: string;
   lineItems: InvoiceLineItem[];
+  /** DOP unless a USD/EUR invoice (multi-currency); amounts are in this currency. */
+  currency?: 'DOP' | 'USD' | 'EUR';
+  /** Pesos per unit the invoice was booked at. */
+  exchangeRate?: number;
   subtotal: number;
   taxAmount: number;
   total: number;
@@ -1294,7 +1298,10 @@ export interface Supplier {
   address?: string;
   notes?: string;
   paymentTermsDays?: number;
+  /** RNC (9 digits) or cédula (11 digits) — reported on the DGII 606. */
   taxId?: string;
+  /** 606 expense type a new bill from this supplier starts with. */
+  defaultExpenseType?: string;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -1322,6 +1329,7 @@ export interface BillLineItem {
   unitCost?: number;
   // expense lines only:
   account?: string | Account;
+  isGoods?: boolean;
 }
 
 export interface BillPayment {
@@ -1339,6 +1347,18 @@ export interface Bill {
   supplier: string | Supplier;
   warehouse?: string | Warehouse;
   vendorInvoiceNumber?: string;
+  currency?: 'DOP' | 'USD' | 'EUR';
+  exchangeRate?: number;
+  /** The supplier's comprobante (B01…, E31…). */
+  ncf?: string;
+  /** 606 "tipo de bienes y servicios" (01–11). */
+  expenseType?: string;
+  itbisToCost?: boolean;
+  itbisWithheld?: number;
+  isrWithheld?: number;
+  isrWithholdingType?: string;
+  /** What the supplier is owed: total − withholdings. */
+  payableTotal?: number;
   issueDate: string;
   dueDate: string;
   status: BillStatus;

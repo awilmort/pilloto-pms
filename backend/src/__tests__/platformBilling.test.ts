@@ -24,6 +24,7 @@ import { getPlatformIssuer, PLATFORM_ISSUER_ID } from '../services/fiscal/platfo
 import { generateCharge, runMonthlyBilling, voidCharge } from '../services/platformBilling/billingCharges';
 import { cancelPriceChange, endDiscount, grantDiscount, resolveContracts, schedulePriceChange } from '../services/platformBilling/billingContracts';
 import { getCatalog, setPlanPrice } from '../services/platformBilling/billingPlans';
+import { syncSubscriptions } from '../services/platformBilling/subscriptions';
 import { ecfOf, recordPayment, retryEcf, reversePayment, sendDueReceipts } from '../services/platformBilling/billingPayments';
 import { connectTestDb, dropTestDb } from './helpers/testDb';
 import { createFakeBillingSoft, FakeBillingSoft, networkError, validationError } from './helpers/fakeBillingSoft';
@@ -46,7 +47,7 @@ describe('platform billing (local Mongo)', () => {
   const seedPlatform = (fiscal: Record<string, unknown> | null = { organizationId: 'self', environment: 'ecf', certification: 'certified', isActive: true, plan: 'essential' }) =>
     PlatformSettings.updateOne(
       { key: 'global' },
-      { $set: { 'billing.notifyEmail': 'ops@pilloto.com', 'billing.tax': 'itbis18', 'billing.dueDays': 10, ...(fiscal ? { 'billing.fiscal': fiscal } : {}) }, ...(fiscal ? {} : { $unset: { 'billing.fiscal': '' } }) },
+      { $set: { 'billing.notifyEmail': 'ops@pilloto.com', 'billing.tax': 'itbis18', 'billing.dueDays': 10, 'billing.suiteDiscountPercent': 0, ...(fiscal ? { 'billing.fiscal': fiscal } : {}) }, ...(fiscal ? {} : { $unset: { 'billing.fiscal': '' } }) },
       { upsert: true },
     );
 
@@ -97,7 +98,7 @@ describe('platform billing (local Mongo)', () => {
       const catalog = await getCatalog();
       const price = (product: string, plan: string) => catalog.find((c) => c.product === product && c.plan === plan)!.monthlyPrice;
       expect([price('pms', 'basic'), price('pms', 'pro'), price('pms', 'enterprise')]).toEqual([2450, 5540, 9370]);
-      expect([price('accounting', 'starter'), price('accounting', 'pro'), price('accounting', 'plus')]).toEqual([2450, 5540, 9370]);
+      expect([price('accounting', 'invoicing'), price('accounting', 'essentials'), price('accounting', 'pro'), price('accounting', 'plus')]).toEqual([1590, 4090, 6890, 10690]);
     });
 
     itDb('records who changed a price and what it was', async () => {
@@ -117,10 +118,11 @@ describe('platform billing (local Mongo)', () => {
   describe('contracts', () => {
     itDb('fix the price at the first charge; a later price list change does not reach the tenant', async () => {
       const first = await resolveContracts(await loadTenant(), PERIOD);
-      expect(first).toEqual([
+      expect(first.map(({ segments, ...c }) => c)).toEqual([
         { product: 'pms', plan: 'pro', price: 5540, source: 'catalog' },
-        { product: 'accounting', plan: 'plus', price: 9370, source: 'catalog' },
+        { product: 'accounting', plan: 'plus', price: 10690, source: 'catalog' },
       ]);
+      expect(first[0].segments).toEqual([{ plan: 'pro', price: 5540, source: 'catalog', from: '2026-10-01', to: '2026-10-31', days: 31, share: 1 }]);
       await setPlanPrice('pms', 'pro', 9999, actor);
       const again = await resolveContracts(await loadTenant(), '2026-11');
       expect(again.find((c) => c.product === 'pms')!.price).toBe(5540);
@@ -130,6 +132,7 @@ describe('platform billing (local Mongo)', () => {
       await resolveContracts(await loadTenant(), PERIOD);
       await setPlanPrice('pms', 'enterprise', 9500, actor);
       await Tenant.updateOne({ _id: tenantId }, { $set: { plan: 'enterprise' } });
+      await syncSubscriptions(await loadTenant(), { now: NOW }); // the console's tenant edit
       const after = await resolveContracts(await loadTenant(), '2026-11');
       expect(after.find((c) => c.product === 'pms')).toMatchObject({ plan: 'enterprise', price: 9500 });
     });
@@ -145,7 +148,7 @@ describe('platform billing (local Mongo)', () => {
       expect((await resolveContracts(await loadTenant(), '2026-11')).find((c) => c.product === 'pms')!.price).toBe(5540);
       const december = await resolveContracts(await loadTenant(), '2026-12');
       expect(december.find((c) => c.product === 'pms')).toMatchObject({ price: 4000, source: 'override' });
-      expect(december.find((c) => c.product === 'accounting')!.price).toBe(9370);
+      expect(december.find((c) => c.product === 'accounting')!.price).toBe(10690);
       const stored = (await loadTenant()).billing!.priceChanges[0];
       expect(stored.appliedAt).toBeInstanceOf(Date);
       expect(stored.notifiedAt).toBeInstanceOf(Date);
@@ -175,11 +178,11 @@ describe('platform billing (local Mongo)', () => {
       const [pms, accounting] = c.toObject().lines;
       expect(pms).toMatchObject({ kind: 'subscription', product: 'pms', amount: 4432, discount: { type: 'percent', value: 20, amount: 1108 } });
       expect(pms.description).toContain('descuento 20%');
-      expect(accounting).toMatchObject({ product: 'accounting', amount: 9370 });
+      expect(accounting).toMatchObject({ product: 'accounting', amount: 10690 });
       expect(accounting.discount).toBeUndefined();
-      expect(c.subtotal).toBe(13802);
-      expect(c.itbis).toBe(2484.36);
-      expect(c.total).toBe(16286.36);
+      expect(c.subtotal).toBe(15122);
+      expect(c.itbis).toBe(2721.96);
+      expect(c.total).toBe(17843.96);
     });
 
     itDb('take a fixed amount off and prorate it in the first month', async () => {
@@ -270,8 +273,8 @@ describe('platform billing (local Mongo)', () => {
       await closedStatement();
       const c = await charge();
       expect(c.number).toMatch(/^COB-\d{6}$/);
-      expect(c.lines.map((l) => [l.kind, l.amount])).toEqual([['subscription', 5540], ['subscription', 9370], ['fiscal_plan', 325], ['fiscal_overage', 480]]);
-      expect(c).toMatchObject({ subtotal: 15715, itbis: 2828.7, total: 18543.7, balance: 18543.7, paidAmount: 0, status: 'open', period: PERIOD, tax: 'itbis18', dueDate: '2026-11-15' });
+      expect(c.lines.map((l) => [l.kind, l.amount])).toEqual([['subscription', 5540], ['subscription', 10690], ['fiscal_plan', 325], ['fiscal_overage', 480]]);
+      expect(c).toMatchObject({ subtotal: 17035, itbis: 3066.3, total: 20101.3, balance: 20101.3, paidAmount: 0, status: 'open', period: PERIOD, tax: 'itbis18', dueDate: '2026-11-15' });
     });
 
     itDb('is created once per tenant and month', async () => {
@@ -291,7 +294,7 @@ describe('platform billing (local Mongo)', () => {
       await Tenant.collection.updateOne({ _id: tenantId }, { $set: { createdAt: new Date('2026-10-16T16:00:00Z') } });
       const c = await charge();
       expect(c.toObject().lines[0]).toMatchObject({ amount: round(5540 * 0.5161), proration: 0.5161 });
-      expect(c.lines[0].description).toContain('proporcional 52%');
+      expect(c.lines[0].description).toContain('del 16/10 al 31/10 (16 días)');
       const before = await generateCharge(await loadTenant(), '2026-09', { now: NOW, notify: false });
       expect(before).toMatchObject({ charge: null, reason: 'before_start' });
     });
@@ -305,7 +308,7 @@ describe('platform billing (local Mongo)', () => {
     itDb('an exempt service carries no ITBIS', async () => {
       await PlatformSettings.updateOne({ key: 'global' }, { $set: { 'billing.tax': 'exempt' } });
       const c = await charge();
-      expect(c).toMatchObject({ subtotal: 14910, itbis: 0, total: 14910, tax: 'exempt' });
+      expect(c).toMatchObject({ subtotal: 16230, itbis: 0, total: 16230, tax: 'exempt' });
     });
 
     itDb('emails the tenant with the lines, the total, the due date and how to pay', async () => {
@@ -330,7 +333,8 @@ describe('platform billing (local Mongo)', () => {
     });
 
     itDb('waits when the e-invoicing statement cannot be closed yet', async () => {
-      await Tenant.updateOne({ _id: tenantId }, { $set: { fiscal: { organizationId: 'org-1', environment: 'ecf', certification: 'certified', isActive: true, plan: 'max', provisionedAt: new Date('2026-01-01') } } });
+      // Accounting Esencial includes BillingSoft essential, so the tenant pays the difference up to max.
+      await Tenant.updateOne({ _id: tenantId }, { $set: { 'plans.accounting': 'essentials', fiscal: { organizationId: 'org-1', environment: 'ecf', certification: 'certified', isActive: true, plan: 'max', provisionedAt: new Date('2026-01-01') } } });
       fake.failNext('subscription', networkError());
       const summary = await runMonthlyBilling(NOW);
       expect(summary.failed).toBe(1);
@@ -358,13 +362,13 @@ describe('platform billing (local Mongo)', () => {
       const c = await charge();
       const { payment, charge: after } = await pay(c);
 
-      expect(after).toMatchObject({ status: 'paid', paidAmount: 18543.7, balance: 0 });
+      expect(after).toMatchObject({ status: 'paid', paidAmount: 20101.3, balance: 0 });
       expect(payment.ecfError).toBeUndefined();
       const record = (await ecfOf(payment))!;
       expect(record).toMatchObject({ tipo: 'E31', generationSource: 'platform_payment', buyerRnc: '131880681', buyerName: 'Hotel Prueba SRL', numeroFacturaInterna: c.number });
       expect(String(record.tenantId)).toBe(String(PLATFORM_ISSUER_ID));
       expect(String(record.billingPaymentId)).toBe(String(payment._id));
-      expect(record.totalFactura).toBe(18543.7);
+      expect(record.totalFactura).toBe(20101.3);
       expect((record.request as any).lines).toHaveLength(4);
       expect((record.request as any).payment).toEqual({ type: 'cash' });
       expect(fake.created()).toBe(1);

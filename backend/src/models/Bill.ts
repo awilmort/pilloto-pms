@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema, Types } from 'mongoose';
 import { tenantPlugin } from '../plugins/tenantPlugin';
 import { UNIT_OF_MEASURE_CODES, UnitOfMeasureCode } from '../constants/unitsOfMeasure';
+import { EXPENSE_TYPE_CODES, ExpenseType, ISR_WITHHOLDING_CODES, IsrWithholdingType, NCF_PATTERN } from '../constants/dgii';
 
 /**
  * AP supplier bill for the standalone Accounting product, mirroring `Invoice.ts`'s
@@ -16,6 +17,13 @@ import { UNIT_OF_MEASURE_CODES, UnitOfMeasureCode } from '../constants/unitsOfMe
  * `Product` and carries its own purchase-unit/stock-unit economics (dual UOM);
  * an `expense` line codes straight to a Chart-of-Accounts `Account` (pure
  * overhead — rent, utilities — with no stock effect).
+ *
+ * DGII (Formato 606): `ncf` is the supplier's comprobante (B… or e-CF E…), `expenseType` the 606
+ * "tipo de bienes y servicios", and an expense line says whether it bought goods or services
+ * (inventory lines are goods). The ITBIS of the bill is deductible ("por adelantar") unless
+ * `itbisToCost`, when it is part of the cost. Withholdings (`itbisWithheld`, `isrWithheld`) are
+ * kept from the supplier and owed to the DGII instead, so the supplier is owed `payableTotal`
+ * (total less withholdings) and `balanceDue` counts against that.
  */
 export type BillStatus = 'draft' | 'received' | 'partial' | 'paid' | 'void';
 export type BillPaymentMethod = 'cash' | 'card' | 'transfer' | 'check' | 'other';
@@ -41,11 +49,14 @@ export interface IBillLineItem {
 
   // present only when lineType === 'expense':
   account?: Types.ObjectId; // ref 'Account' — Chart of Accounts coding
+  isGoods?: boolean; // 606: the line bought goods (default: services)
 }
 
 export interface IBillPayment {
   _id?: Types.ObjectId;
   amount: number;
+  /** Pesos per unit on the payment day (foreign-currency documents; the document's rate otherwise). */
+  exchangeRate?: number;
   method: BillPaymentMethod;
   date: Date;
   reference?: string;
@@ -57,10 +68,21 @@ export interface IBill extends Document {
   supplier: Types.ObjectId; // ref 'Supplier'
   warehouse?: Types.ObjectId; // ref 'Warehouse' — required only if >=1 inventory line exists (validated in the controller)
   vendorInvoiceNumber?: string; // the supplier's own invoice number — not globally unique
+  ncf?: string; // the supplier's comprobante fiscal (B01…, E31…) — required on the 606
+  expenseType?: ExpenseType; // 606 "tipo de bienes y servicios"
+  itbisToCost: boolean; // the ITBIS is not deductible and is part of the cost (606 "ITBIS llevado al costo")
+  itbisWithheld: number; // ITBIS kept from the supplier, owed to the DGII
+  isrWithheld: number; // ISR kept from the supplier, owed to the DGII
+  isrWithholdingType?: IsrWithholdingType; // 606 "tipo de retención en ISR" (required when isrWithheld > 0)
+  payableTotal: number; // what the supplier is owed: total − withholdings (server-computed)
   issueDate: Date;
   dueDate: Date;
   status: BillStatus; // 'received' is the AP mirror of Invoice's 'sent'
   lineItems: IBillLineItem[];
+  /** DOP (the books' currency), USD or EUR. Amounts on the document are in this currency. */
+  currency: 'DOP' | 'USD' | 'EUR';
+  /** Pesos per unit of `currency` the document was booked at (1 for DOP). */
+  exchangeRate: number;
   subtotal: number;
   taxAmount: number;
   total: number;
@@ -96,6 +118,7 @@ const billLineItemSchema = new Schema<IBillLineItem>(
     unitCost: { type: Number, min: 0 },
 
     account: { type: Schema.Types.ObjectId, ref: 'Account' },
+    isGoods: { type: Boolean },
   },
   { _id: true },
 );
@@ -103,6 +126,7 @@ const billLineItemSchema = new Schema<IBillLineItem>(
 const billPaymentSchema = new Schema<IBillPayment>(
   {
     amount: { type: Number, required: true, min: 0.01 },
+    exchangeRate: { type: Number, min: 0.000001 },
     method: { type: String, enum: ['cash', 'card', 'transfer', 'check', 'other'], required: true },
     date: { type: Date, required: true, default: () => new Date() },
     reference: { type: String, trim: true, maxlength: 200 },
@@ -117,6 +141,18 @@ const billSchema = new Schema<IBill>(
     supplier: { type: Schema.Types.ObjectId, ref: 'Supplier', required: true },
     warehouse: { type: Schema.Types.ObjectId, ref: 'Warehouse' },
     vendorInvoiceNumber: { type: String, trim: true, maxlength: 100 },
+    ncf: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      validate: { validator: (v: string) => !v || NCF_PATTERN.test(v), message: 'NCF must be B + 10 digits or E + 12 digits' },
+    },
+    expenseType: { type: String, enum: EXPENSE_TYPE_CODES },
+    itbisToCost: { type: Boolean, default: false },
+    itbisWithheld: { type: Number, min: 0, default: 0 },
+    isrWithheld: { type: Number, min: 0, default: 0 },
+    isrWithholdingType: { type: String, enum: ISR_WITHHOLDING_CODES },
+    payableTotal: { type: Number, min: 0, default: 0 },
     issueDate: { type: Date, required: true, default: () => new Date() },
     dueDate: { type: Date, required: true },
     status: { type: String, enum: ['draft', 'received', 'partial', 'paid', 'void'], default: 'draft', index: true },
@@ -127,6 +163,8 @@ const billSchema = new Schema<IBill>(
         message: 'A bill must have at least one line item',
       },
     },
+    currency: { type: String, enum: ['DOP', 'USD', 'EUR'], default: 'DOP' },
+    exchangeRate: { type: Number, default: 1, min: 0.000001 },
     subtotal: { type: Number, required: true, min: 0, default: 0 },
     taxAmount: { type: Number, required: true, min: 0, default: 0 },
     total: { type: Number, required: true, min: 0, default: 0 },
@@ -184,8 +222,18 @@ billSchema.pre('validate', function (this: IBill, next) {
   this.taxAmount = round2(taxAmount);
   this.total = round2(this.subtotal + this.taxAmount);
 
+  this.itbisWithheld = round2(this.itbisWithheld || 0);
+  this.isrWithheld = round2(this.isrWithheld || 0);
+  // Named ValidationError so the controllers answer 400 like any other invalid field.
+  const invalid = (message: string) => Object.assign(new Error(message), { name: 'ValidationError' });
+  if (this.itbisWithheld > this.taxAmount + 0.005) return next(invalid('The ITBIS withheld cannot exceed the ITBIS of the bill'));
+  if (this.isrWithheld > this.subtotal + 0.005) return next(invalid('The ISR withheld cannot exceed the bill before tax'));
+  if (this.isrWithheld > 0 && !this.isrWithholdingType) return next(invalid('Choose the type of ISR withholding'));
+  if (this.isrWithheld === 0) this.isrWithholdingType = undefined;
+  this.payableTotal = round2(this.total - this.itbisWithheld - this.isrWithheld);
+
   this.amountPaid = round2(this.payments.reduce((sum, p) => sum + p.amount, 0));
-  this.balanceDue = round2(Math.max(0, this.total - this.amountPaid));
+  this.balanceDue = round2(Math.max(0, this.payableTotal - this.amountPaid));
 
   if (this.status !== 'draft' && this.status !== 'void') {
     if (this.balanceDue <= 0.005) this.status = 'paid';
@@ -207,6 +255,16 @@ billSchema.virtual('isOverdue').get(function (this: IBill) {
 });
 billSchema.set('toJSON', { virtuals: true });
 billSchema.set('toObject', { virtuals: true });
+
+
+// A DOP document is always at rate 1.
+billSchema.pre('validate', function (this: any, next) {
+  if (!this.currency || this.currency === 'DOP') {
+    this.currency = 'DOP';
+    this.exchangeRate = 1;
+  }
+  next();
+});
 
 // ── Multi-tenancy ────────────────────────────────────────────
 billSchema.plugin(tenantPlugin);

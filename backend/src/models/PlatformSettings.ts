@@ -53,6 +53,11 @@ export interface IPlatformBillingSettings {
   /** How tenants pay today (bank account, reference to quote). Included in the charge email. */
   paymentInstructions?: string;
   /**
+   * Percent off the Accounting subscription of a tenant that also has the PMS (the suite bundle).
+   * An operator discount on Accounting replaces it for the months it covers. 0 turns it off.
+   */
+  suiteDiscountPercent: number;
+  /**
    * Pilloto's own BillingSoft Organization. Its `organizationId` is `self`: the partner key acts
    * for Pilloto when no customer header is sent.
    */
@@ -84,6 +89,7 @@ const platformSettingsSchema = new Schema<IPlatformSettings>(
       dueDays: { type: Number, default: 10, min: 0, max: 90 },
       notifyEmail: { type: String, trim: true, lowercase: true },
       paymentInstructions: { type: String, trim: true, maxlength: 2000 },
+      suiteDiscountPercent: { type: Number, default: 20, min: 0, max: 100 },
       fiscal: { type: fiscalSchema },
     },
   },

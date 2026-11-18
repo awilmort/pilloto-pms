@@ -13,6 +13,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import EditIcon from '@mui/icons-material/Edit';
 import ForwardToInboxIcon from '@mui/icons-material/ForwardToInbox';
+import { ACCOUNTING_PLAN_SLUGS, DEFAULT_ACCOUNTING_PLAN } from '../../config/accountingPlans';
 import { platformService, TenantRecord, ProvisionTenantPayload, TenantProduct, AccountingPlanSlug } from '../../services/api';
 import { toast } from 'react-toastify';
 import { useTranslation } from 'react-i18next';
@@ -24,7 +25,8 @@ const PLAN_COLORS: Record<string, 'default' | 'primary' | 'secondary'> = {
 };
 
 const ACCOUNTING_PLAN_COLORS: Record<string, 'default' | 'primary' | 'secondary'> = {
-  starter: 'default',
+  invoicing: 'default',
+  essentials: 'default',
   pro: 'primary',
   plus: 'secondary',
 };
@@ -59,14 +61,14 @@ const TenantsPage: React.FC = () => {
   const [editingTenant, setEditingTenant] = useState<TenantRecord | null>(null);
   const [editPlanValue, setEditPlanValue] = useState('basic');
   const [editProducts, setEditProducts] = useState<TenantProduct[]>(['pms']);
-  const [editAccountingPlan, setEditAccountingPlan] = useState<AccountingPlanSlug>('starter');
+  const [editAccountingPlan, setEditAccountingPlan] = useState<AccountingPlanSlug>(DEFAULT_ACCOUNTING_PLAN);
   const [editPlanSaving, setEditPlanSaving] = useState(false);
 
   const handleOpenEditPlan = (t: TenantRecord) => {
     setEditingTenant(t);
     setEditPlanValue(t.plan);
     setEditProducts(t.products?.length ? t.products : ['pms']);
-    setEditAccountingPlan(t.plans?.accounting ?? 'starter');
+    setEditAccountingPlan(t.plans?.accounting ?? DEFAULT_ACCOUNTING_PLAN);
     setEditPlanOpen(true);
   };
 
@@ -210,8 +212,8 @@ const TenantsPage: React.FC = () => {
                       {(t.products?.length ? t.products : ['pms']).map((p) => (
                         <Tooltip key={p} title={p === 'accounting' && t.plans?.accounting ? tr('platform.tenants.accountingTooltip', { plan: tr(`platform.tenants.plans.${t.plans.accounting}`) }) : undefined}>
                           <Chip
-                            label={p === 'accounting' ? tr('platform.tenants.accountingChip', { plan: tr(`platform.tenants.plans.${t.plans?.accounting ?? 'starter'}`) }) : tr('platform.tenants.create.pms')}
-                            color={p === 'accounting' ? (ACCOUNTING_PLAN_COLORS[t.plans?.accounting ?? 'starter'] ?? 'default') : 'default'}
+                            label={p === 'accounting' ? tr('platform.tenants.accountingChip', { plan: tr(`platform.tenants.plans.${t.plans?.accounting ?? DEFAULT_ACCOUNTING_PLAN}`) }) : tr('platform.tenants.create.pms')}
+                            color={p === 'accounting' ? (ACCOUNTING_PLAN_COLORS[t.plans?.accounting ?? DEFAULT_ACCOUNTING_PLAN] ?? 'default') : 'default'}
                             size="small"
                             variant={p === 'accounting' ? 'filled' : 'outlined'}
                           />
@@ -334,11 +336,11 @@ const TenantsPage: React.FC = () => {
             <TextField
               select
               label={tr('platform.tenants.create.accountingPlan')}
-              value={form.plans?.accounting ?? 'starter'}
+              value={form.plans?.accounting ?? DEFAULT_ACCOUNTING_PLAN}
               onChange={(e) => setForm(f => ({ ...f, plans: { ...f.plans, accounting: e.target.value as AccountingPlanSlug } }))}
               fullWidth
             >
-              {['starter', 'pro', 'plus'].map(p => (
+              {ACCOUNTING_PLAN_SLUGS.map(p => (
                 <MenuItem key={p} value={p}>{tr(`platform.tenants.plans.${p}`)}</MenuItem>
               ))}
             </TextField>
@@ -400,7 +402,7 @@ const TenantsPage: React.FC = () => {
                 onChange={(e) => setEditAccountingPlan(e.target.value as AccountingPlanSlug)}
                 fullWidth
               >
-                {['starter', 'pro', 'plus'].map(p => (
+                {ACCOUNTING_PLAN_SLUGS.map(p => (
                   <MenuItem key={p} value={p}>{tr(`platform.tenants.plans.${p}`)}</MenuItem>
                 ))}
               </TextField>

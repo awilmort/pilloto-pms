@@ -11,7 +11,7 @@ import i18n from '../../../i18n';
 import { accountingCustomersService, invoicesService, productsService, InvoiceLineItemInput } from '../../../services/api';
 import type { Customer, Invoice, InvoiceFormMeta, Product } from '../../../types';
 import { usePermission } from '../../../lib/permissions';
-import { formatAccountingMoneyExact as formatMoney } from '../../../utils/currency';
+import { formatDocumentMoney } from '../../../utils/currency';
 import InvoiceLetterhead from './InvoiceLetterhead';
 import QuickCustomerDialog from './QuickCustomerDialog';
 import {
@@ -19,6 +19,7 @@ import {
   termsDays, termsFromDates, toIsoDate, todayIso, validateInvoice,
 } from './invoiceMath';
 import { customerOf } from './invoiceUi';
+import CurrencyFields, { currencyPayload, DocCurrency } from '../fx/CurrencyFields';
 
 interface Props {
   /** `create` starts empty (or prefilled from `source` when duplicating); `edit` loads a draft. */
@@ -39,6 +40,8 @@ interface FormState {
   reference: string;
   notes: string;
   lines: DraftLine[];
+  currency: DocCurrency;
+  exchangeRate: string;
 }
 
 const NEW_CUSTOMER = { __new: true } as const;
@@ -72,9 +75,10 @@ const InvoiceEditor: React.FC<Props> = ({ mode, invoiceId, duplicateOf }) => {
 
   const [form, setForm] = useState<FormState>(() => ({
     isIndividual: false, customer: null, individualName: '', individualEmail: '', individualPhone: '',
-    terms: DEFAULT_TERMS, customDue: '', reference: '', notes: '', lines: [newDraftLine()],
+    terms: DEFAULT_TERMS, customDue: '', reference: '', notes: '', lines: [newDraftLine()], currency: 'DOP', exchangeRate: '',
   }));
   const [issueIso, setIssueIso] = useState(todayIso());
+  const fmtMoney = (n?: number) => formatDocumentMoney(n, form.currency);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState<null | 'draft' | 'issue'>(null);
   const [error, setError] = useState<string | null>(null);
@@ -124,6 +128,8 @@ const InvoiceEditor: React.FC<Props> = ({ mode, invoiceId, duplicateOf }) => {
             customDue: terms === 'custom' && dueIso ? dueIso : '',
             reference: src.reference || '',
             notes: src.notes || '',
+            currency: ((src as any).currency || 'DOP') as DocCurrency,
+            exchangeRate: (src as any).currency && (src as any).currency !== 'DOP' ? String((src as any).exchangeRate) : '',
             lines: src.lineItems.map((l) => newDraftLine({
               description: l.description,
               productId: l.product ? (typeof l.product === 'object' ? l.product._id : l.product) : '',
@@ -217,6 +223,7 @@ const InvoiceEditor: React.FC<Props> = ({ mode, invoiceId, duplicateOf }) => {
       notes: form.notes.trim(),
       reference: form.reference.trim(),
       lineItems,
+      ...currencyPayload(form),
     };
   };
 
@@ -411,6 +418,7 @@ const InvoiceEditor: React.FC<Props> = ({ mode, invoiceId, duplicateOf }) => {
             )}
             <TextField size="small" label={t('accounting.invoices.page.reference')} value={form.reference} onChange={(e) => update({ reference: e.target.value })}
               helperText={t('accounting.invoices.page.referenceHelp')} inputProps={{ maxLength: 100 }} />
+            <CurrencyFields currency={form.currency} exchangeRate={form.exchangeRate} date={issueIso} onChange={(c) => update(c)} />
           </Box>
         </Box>
 
@@ -449,7 +457,7 @@ const InvoiceEditor: React.FC<Props> = ({ mode, invoiceId, duplicateOf }) => {
                           <Box sx={{ width: '100%' }}>
                             <Stack direction="row" justifyContent="space-between" spacing={2}>
                               <Typography variant="body2" fontWeight={600}>{p.name}</Typography>
-                              <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>{formatMoney(p.defaultUnitPrice)}</Typography>
+                              <Typography variant="body2" sx={{ fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(p.defaultUnitPrice)}</Typography>
                             </Stack>
                             <Typography variant="caption" color="text.secondary">{p.sku} · {t('accounting.invoices.page.stockAvailable', { qty: p.onHandQty, unit: p.unitOfMeasure })}</Typography>
                           </Box>
@@ -483,7 +491,7 @@ const InvoiceEditor: React.FC<Props> = ({ mode, invoiceId, duplicateOf }) => {
                     {taxOptionsFor(line).map((r) => <MenuItem key={r} value={String(r)}>{r > 0 ? `${r}%` : t('accounting.invoices.page.exempt')}</MenuItem>)}
                   </Select></Box>
                   <Box sx={{ gridColumn: { xs: 'span 2', md: 'auto' } }}><FieldLabel>{t('accounting.invoices.page.cols.amount')}</FieldLabel>
-                  <Typography variant="body2" fontWeight={600} sx={{ textAlign: 'right', pt: { md: 1 }, fontVariantNumeric: 'tabular-nums' }}>{formatMoney(a.lineTotal)}</Typography></Box>
+                  <Typography variant="body2" fontWeight={600} sx={{ textAlign: 'right', pt: { md: 1 }, fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(a.lineTotal)}</Typography></Box>
                   <Box sx={{ gridColumn: { xs: 'span 1', md: 'auto' }, display: 'flex', justifyContent: 'flex-end', alignSelf: { xs: 'end', md: 'start' } }}>
                     <Tooltip title={t('accounting.invoices.page.removeLine')}>
                       <IconButton size="small" onClick={() => removeLine(line.key)} aria-label={t('accounting.invoices.page.removeLine')} sx={{ mt: { md: 0.25 } }}><DeleteOutline fontSize="small" /></IconButton>
@@ -501,14 +509,14 @@ const InvoiceEditor: React.FC<Props> = ({ mode, invoiceId, duplicateOf }) => {
           <TextField label={t('accounting.invoices.page.notes')} helperText={t('accounting.invoices.page.notesHelp')} value={form.notes} onChange={(e) => update({ notes: e.target.value })}
             multiline minRows={3} inputProps={{ maxLength: 1000 }} />
           <Box>
-            <TotalRow label={t('accounting.invoices.page.totals.gross')} value={formatMoney(totals.gross)} />
-            {totals.discount > 0 && <TotalRow label={t('accounting.invoices.page.totals.discount')} value={`- ${formatMoney(totals.discount)}`} />}
+            <TotalRow label={t('accounting.invoices.page.totals.gross')} value={fmtMoney(totals.gross)} />
+            {totals.discount > 0 && <TotalRow label={t('accounting.invoices.page.totals.discount')} value={`- ${fmtMoney(totals.discount)}`} />}
             {totals.byRate.length === 0
-              ? <TotalRow label="ITBIS" value={formatMoney(0)} />
-              : totals.byRate.map((r) => <TotalRow key={r.rate} label={t('accounting.invoices.page.totals.itbis', { rate: r.rate })} value={formatMoney(r.tax)} />)}
+              ? <TotalRow label="ITBIS" value={fmtMoney(0)} />
+              : totals.byRate.map((r) => <TotalRow key={r.rate} label={t('accounting.invoices.page.totals.itbis', { rate: r.rate })} value={fmtMoney(r.tax)} />)}
             <Box sx={{ mt: 1, p: 1.5, bgcolor: 'action.hover', borderRadius: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
               <Typography fontWeight={800} color="primary.main">{t('accounting.invoices.page.totals.total')}</Typography>
-              <Typography variant="h6" fontWeight={800} color="primary.main" sx={{ fontVariantNumeric: 'tabular-nums' }}>{formatMoney(totals.total)}</Typography>
+              <Typography variant="h6" fontWeight={800} color="primary.main" sx={{ fontVariantNumeric: 'tabular-nums' }}>{fmtMoney(totals.total)}</Typography>
             </Box>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.75, textAlign: 'right' }}>{t('accounting.invoices.page.currencyNote')}</Typography>
           </Box>
@@ -526,7 +534,7 @@ const InvoiceEditor: React.FC<Props> = ({ mode, invoiceId, duplicateOf }) => {
         <DialogTitle>{t('accounting.invoices.page.confirmIssue.title')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" sx={{ mb: 1.5 }}>
-            {t('accounting.invoices.page.confirmIssue.body', { type: t(`accounting.invoices.page.ecfType.${ecfKind}`), total: formatMoney(totals.total) })}
+            {t('accounting.invoices.page.confirmIssue.body', { type: t(`accounting.invoices.page.ecfType.${ecfKind}`), total: fmtMoney(totals.total) })}
           </Typography>
           <Typography variant="body2" color="text.secondary">{t('accounting.invoices.dialog.sendConsequences')}</Typography>
         </DialogContent>

@@ -26,16 +26,19 @@ import SyncAltIcon from '@mui/icons-material/SyncAlt';
 import MarketingLayout from '../../components/marketing/MarketingLayout';
 import PageMeta from '../../components/marketing/PageMeta';
 import PillotoLogo from '../../components/brand/PillotoLogo';
+import { asList, CheckList, Eyebrow, FloatingStat, SectionHeader, WindowFrame } from '../../components/marketing/MarketingAtoms';
 import { PLANS } from '../../config/plans';
+import { approxUsd, formatListPrice, usePublicPlans } from '../../hooks/usePublicPlans';
 import { BRAND, PRODUCT_COLORS, alpha } from '../../brand';
 
 const PMS = PRODUCT_COLORS.pms;
 const ACC = PRODUCT_COLORS.accounting;
 
+/** PMS tiers on the home page; prices come from the live price list (usePublicPlans). */
 const PRICING_TIERS = [
-  { slug: 'basic',      name: PLANS.basic.name,      price: PLANS.basic.displayPrice,      highlighted: false },
-  { slug: 'pro',        name: PLANS.pro.name,        price: PLANS.pro.displayPrice,        highlighted: true  },
-  { slug: 'enterprise', name: PLANS.enterprise.name, price: PLANS.enterprise.displayPrice, highlighted: false },
+  { slug: 'basic',      name: PLANS.basic.name,      highlighted: false },
+  { slug: 'pro',        name: PLANS.pro.name,        highlighted: true  },
+  { slug: 'enterprise', name: PLANS.enterprise.name, highlighted: false },
 ];
 
 const FEATURE_KEYS = [
@@ -57,55 +60,6 @@ const PILLARS = [
 ];
 
 const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
-const asList = (v: unknown): string[] => (Array.isArray(v) ? v : []);
-
-// ── Shared bits ───────────────────────────────────────────────────────────────
-const Eyebrow: React.FC<{ children: React.ReactNode; color?: string }> = ({ children, color = BRAND.vermilionText }) => (
-  <Typography variant="overline" sx={{ color, display: 'block', mb: 1.5, fontSize: '0.75rem' }}>
-    {children}
-  </Typography>
-);
-
-const SectionHeader: React.FC<{ eyebrow: string; heading: string; sub?: string; light?: boolean }> = ({ eyebrow, heading, sub, light }) => (
-  <Box textAlign="center" mb={{ xs: 6, md: 8 }} sx={{ maxWidth: 720, mx: 'auto' }}>
-    <Eyebrow color={light ? BRAND.vermilionOnDark : undefined}>{eyebrow}</Eyebrow>
-    <Typography variant="h2" sx={{ fontSize: { xs: '2rem', md: '2.75rem' }, color: light ? 'white' : BRAND.ink, mb: sub ? 2 : 0 }}>
-      {heading}
-    </Typography>
-    {sub && (
-      <Typography sx={{ color: light ? 'rgba(255,255,255,0.7)' : BRAND.slate, fontSize: '1.0625rem', lineHeight: 1.7 }}>
-        {sub}
-      </Typography>
-    )}
-  </Box>
-);
-
-const CheckList: React.FC<{ items: string[]; color: string; dense?: boolean }> = ({ items, color, dense }) => (
-  <List disablePadding>
-    {items.map(f => (
-      <ListItem key={f} disablePadding sx={{ py: dense ? 0.5 : 0.75, alignItems: 'flex-start' }}>
-        <ListItemIcon sx={{ minWidth: 28, mt: '3px' }}>
-          <CheckIcon sx={{ fontSize: 18, color }} />
-        </ListItemIcon>
-        <ListItemText primary={f} primaryTypographyProps={{ variant: 'body2', color: BRAND.ink, fontWeight: 500 }} />
-      </ListItem>
-    ))}
-  </List>
-);
-
-/** Browser-window frame used by the product illustrations. */
-const WindowFrame: React.FC<{ children: React.ReactNode; title?: string }> = ({ children, title }) => (
-  <Box sx={{
-    borderRadius: 3, bgcolor: 'white', border: `1px solid ${BRAND.mist}`, overflow: 'hidden',
-    boxShadow: `0 1px 2px ${alpha(BRAND.ink, 0.06)}, 0 24px 60px -12px ${alpha(BRAND.ink, 0.22)}`,
-  }}>
-    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, px: 2, py: 1.25, borderBottom: `1px solid ${BRAND.mist}`, bgcolor: '#FAFBFC' }}>
-      {['#FF5F57', '#FEBC2E', '#28C840'].map(c => <Box key={c} sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: c }} />)}
-      {title && <Typography sx={{ ml: 1.5, fontSize: '0.75rem', fontWeight: 600, color: BRAND.slate }}>{title}</Typography>}
-    </Box>
-    {children}
-  </Box>
-);
 
 // ── Illustrations (pure UI mock-ups, no real data) ───────────────────────────
 const CAL_ROWS: { room: string; bars: { start: number; len: number; color: string; label: string }[] }[] = [
@@ -143,22 +97,6 @@ const CalendarMock: React.FC<{ compact?: boolean }> = ({ compact }) => (
         </Box>
       </Box>
     ))}
-  </Box>
-);
-
-const FloatingStat: React.FC<{ label: string; value: string; accent: string; sx?: object; icon?: React.ReactNode }> = ({ label, value, accent, sx, icon }) => (
-  <Box sx={{
-    position: 'absolute', bgcolor: 'white', borderRadius: 2.5, px: 2, py: 1.5, display: { xs: 'none', sm: 'flex' },
-    alignItems: 'center', gap: 1.5, border: `1px solid ${BRAND.mist}`,
-    boxShadow: `0 12px 32px -8px ${alpha(BRAND.ink, 0.2)}`, ...sx,
-  }}>
-    <Box sx={{ width: 36, height: 36, borderRadius: 2, bgcolor: alpha(accent, 0.12), color: accent, display: 'grid', placeItems: 'center' }}>
-      {icon ?? <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: accent }} />}
-    </Box>
-    <Box>
-      <Typography sx={{ fontSize: '0.6875rem', color: BRAND.slate, fontWeight: 500 }}>{label}</Typography>
-      <Typography sx={{ fontSize: '1.0625rem', color: BRAND.ink, fontWeight: 800, lineHeight: 1.2 }}>{value}</Typography>
-    </Box>
   </Box>
 );
 
@@ -345,8 +283,8 @@ function ProductsSection() {
                     ))}
                   </Grid>
                   <Button endIcon={<ArrowForwardIcon />} sx={{ mt: 3, px: 0, color: BRAND.ink, '&:hover': { bgcolor: 'transparent', color: p.color } }}
-                    onClick={() => navigate('/contact')}>
-                    {t('marketing.products.learnMore')}
+                    onClick={() => (p.code === 'accounting' ? navigate('/contabilidad') : scrollTo('pricing'))}>
+                    {p.code === 'accounting' ? t('marketing.products.accountingCta', 'Explore Pilloto Contabilidad') : t('marketing.products.pmsCta', 'See PMS plans')}
                   </Button>
                 </CardContent>
               </Card>
@@ -470,6 +408,9 @@ function OnboardingSection() {
 function PricingSection() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const plans = usePublicPlans();
+  const priceOf = (slug: string) => plans.pms.find((p) => p.slug === slug)?.monthlyPrice ?? 0;
+  const accountingFrom = Math.min(...plans.accounting.map((p) => p.monthlyPrice));
   return (
     <Box id="pricing" sx={{ bgcolor: 'white', py: { xs: 10, md: 14 }, scrollMarginTop: 72 }}>
       <Container maxWidth="lg">
@@ -491,9 +432,12 @@ function PricingSection() {
                   <CardContent sx={{ p: 4, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
                     <Typography variant="overline" sx={{ color: tier.highlighted ? BRAND.vermilionOnDark : BRAND.slate }}>{tier.name}</Typography>
                     <Box display="flex" alignItems="baseline" gap={0.5} mt={1} mb={1.5}>
-                      <Typography sx={{ fontSize: '3rem', fontWeight: 800, letterSpacing: '-0.03em', color: tier.highlighted ? 'white' : BRAND.ink }}>{tier.price}</Typography>
+                      <Typography sx={{ fontSize: { xs: '2.5rem', md: '2.75rem' }, fontWeight: 800, letterSpacing: '-0.03em', color: tier.highlighted ? 'white' : BRAND.ink }}>{formatListPrice(priceOf(tier.slug))}</Typography>
                       <Typography variant="body2" sx={{ color: tier.highlighted ? 'rgba(255,255,255,0.6)' : BRAND.slate }}>{t('marketing.pricing.perMonth')}</Typography>
                     </Box>
+                    <Typography variant="caption" sx={{ color: tier.highlighted ? 'rgba(255,255,255,0.6)' : BRAND.slate, mt: -1, mb: 1.5 }}>
+                      {t('marketing.pricing.plusItbis', '+ ITBIS')} · {approxUsd(priceOf(tier.slug))}
+                    </Typography>
                     <Typography variant="body2" sx={{ color: tier.highlighted ? 'rgba(255,255,255,0.72)' : BRAND.slate, mb: 3, lineHeight: 1.7, minHeight: { md: 48 } }}>
                       {t(`marketing.pricing.${tier.slug}_desc`)}
                     </Typography>
@@ -521,9 +465,16 @@ function PricingSection() {
           })}
         </Grid>
         <Stack alignItems="center" spacing={2} mt={5}>
-          <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1.5, px: 2.5, py: 1.5, borderRadius: 3, bgcolor: alpha(ACC, 0.08), border: `1px solid ${alpha(ACC, 0.25)}` }}>
+          <Box
+            component="button"
+            onClick={() => navigate('/contabilidad#pricing')}
+            sx={{ cursor: 'pointer', font: 'inherit', display: 'inline-flex', alignItems: 'center', gap: 1.5, px: 2.5, py: 1.5, borderRadius: 3, bgcolor: alpha(ACC, 0.08), border: `1px solid ${alpha(ACC, 0.25)}`, '&:hover': { bgcolor: alpha(ACC, 0.14) } }}
+          >
             <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: ACC, flexShrink: 0 }} />
-            <Typography variant="body2" sx={{ color: BRAND.ink, fontWeight: 500 }}>{t('marketing.pricing.accountingAddon')}</Typography>
+            <Typography variant="body2" sx={{ color: BRAND.ink, fontWeight: 500 }}>
+              {t('marketing.pricing.accountingSuite', 'Add Pilloto Contabilidad from {{price}}/mo — {{discount}}% off with your PMS.', { price: formatListPrice(accountingFrom), discount: plans.suiteDiscountPercent })}
+            </Typography>
+            <ArrowForwardIcon sx={{ fontSize: 16, color: ACC }} />
           </Box>
           <Typography variant="body2" color="text.secondary" textAlign="center">
             {t('marketing.pricing.trialNotice')}

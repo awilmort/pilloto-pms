@@ -37,6 +37,8 @@
  *     PUT  channel-connection ({ setting: 'default' | 'tenant' | 'platform_only' })
  */
 
+import { DEFAULT_ACCOUNTING_PLAN } from '../config/accountingPlans';
+import { syncSubscriptions } from '../services/platformBilling/subscriptions';
 import platformBillingRoutes from './platformBilling';
 import { tenantBaseUrl } from '../utils/appUrls';
 import express, { Response } from 'express';
@@ -209,7 +211,7 @@ router.patch('/tenants/:id', async (req: AuthRequest, res: Response) => {
       !existing.products.includes('accounting');
 
     if (addingAccounting && !updates.plans?.accounting) {
-      updates.plans = { ...(updates.plans ?? existing.plans ?? {}), accounting: 'starter' };
+      updates.plans = { ...(updates.plans ?? existing.plans ?? {}), accounting: DEFAULT_ACCOUNTING_PLAN };
     }
 
     const tenant = await Tenant.findByIdAndUpdate(
@@ -224,7 +226,13 @@ router.patch('/tenants/:id', async (req: AuthRequest, res: Response) => {
       await ensureAccountingProvisioned(req.params.id);
     }
 
-    res.status(200).json({ success: true, data: tenant });
+    // Products/plans edited here are billed from today (a new product with its free trial).
+    if (updates.products !== undefined || updates.plan !== undefined || updates.plans !== undefined) {
+      const doc = await Tenant.findById(req.params.id);
+      if (doc) await syncSubscriptions(doc, { trialDays: req.body.trialDays === 0 ? 0 : undefined });
+    }
+
+    res.status(200).json({ success: true, data: (await Tenant.findById(req.params.id).lean()) ?? tenant });
   } catch (error: any) {
     console.error('Update tenant error:', error);
     res.status(500).json({ success: false, message: 'Failed to update tenant.' });

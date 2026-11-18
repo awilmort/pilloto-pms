@@ -4,6 +4,7 @@ import Room from '../models/Room';
 import { authenticate, authorize, optionalAuth, authorizePermission } from '../middleware/auth';
 import Reservation from '../models/Reservation';
 import { validateRoom } from '../middleware/validation';
+import { countLimitDenial } from '../services/entitlements';
 import { findFreeRooms, loadInventoryWindow, computeInventory } from '../services/channex/inventory.service';
 import { addDays, eachDate, fromChannexDate, isChannexDate } from '../services/channex/dates';
 
@@ -261,6 +262,10 @@ router.get('/:id', async (req, res) => {
 // @access  Private (Admin only)
 router.post('/', authenticate, authorizePermission('pms', 'admin.rooms'), validateRoom, async (req: Request, res: Response) => {
   try {
+    if (req.body?.status !== 'inactive') {
+      const denial = await countLimitDenial((req as any).tenant, 'rooms');
+      if (denial) return res.status(403).json(denial);
+    }
     const room = new Room(req.body);
     await room.save();
 
@@ -283,6 +288,13 @@ router.post('/', authenticate, authorizePermission('pms', 'admin.rooms'), valida
 // @access  Private (Admin only)
 router.put('/:id', authenticate, authorizePermission('pms', 'admin.rooms'), validateRoom, async (req: Request, res: Response) => {
   try {
+    if (req.body?.status === 'active') {
+      const current = await Room.findById(req.params.id).select('status').lean();
+      if (current && current.status !== 'active') {
+        const denial = await countLimitDenial((req as any).tenant, 'rooms');
+        if (denial) return res.status(403).json(denial);
+      }
+    }
     const room = await Room.findByIdAndUpdate(
       req.params.id,
       req.body,

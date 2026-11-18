@@ -12,6 +12,9 @@ import MongoStore from 'connect-mongo';
 
 // Import routes
 import authRoutes from './routes/auth';
+import publicPlansRoutes from './routes/publicPlans';
+import handypayWebhookRoutes from './routes/handypayWebhook';
+import subscriptionRoutes from './routes/subscription';
 import roomRoutes from './routes/rooms';
 import roomBlockRoutes from './routes/roomBlocks';
 import restrictionRuleRoutes from './routes/restrictionRules';
@@ -174,6 +177,10 @@ app.use('/api/webhooks/channex', channexWebhookRoutes);
 // the path and is confirmed by the verified event, never from the Host header.
 app.use('/api/webhooks/billingsoft', fiscalWebhookRoutes);
 
+// ── HandyPay webhook (raw body, no tenant context, no JWT) ──────────────────
+// Tenants paying Pilloto's charges online; the signature covers the raw bytes.
+app.use('/api/webhooks/handypay', handypayWebhookRoutes);
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -201,6 +208,10 @@ app.get('/health', (_req, res) => {
 app.get('/api/health', (_req, res) => {
   res.status(200).json({ status: 'OK', message: 'Pilloto API is running', timestamp: new Date().toISOString() });
 });
+
+// ── Public plan list (marketing site) ────────────────────────────────────────
+// Before resolveTenant: the marketing site runs on the root domain, with no tenant.
+app.use('/api/public/plans', publicPlansRoutes);
 
 // ── Tenant resolution middleware (runs before all API routes) ─────────────────
 // Must come after cookie-parser and body-parser but before routes
@@ -251,6 +262,7 @@ app.use('/api/reviews', requireTenantProduct('pms'), reviewRoutes);
 // Electronic invoicing belongs to the company, not to one app: any tenant can reach it, and the
 // router checks each caller's permission in whichever app they hold a role in.
 app.use('/api/fiscal', fiscalRoutes);
+app.use('/api/subscription', subscriptionRoutes);
 app.use('/api/admin/reports', requireTenantProduct('pms'), reportsRoutes);
 app.use('/api/accounting', requireTenantProduct('accounting'), accountingRoutes);
 
@@ -275,7 +287,7 @@ app.get('/api/tenant/info', async (req, res) => {
   }
 
   const tenant = await Tenant.findOne({ slug, isActive: true })
-    .select('name slug plan products settings isActive')
+    .select('name slug plan plans products settings isActive')
     .lean();
 
   if (!tenant) {

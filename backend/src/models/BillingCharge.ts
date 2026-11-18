@@ -22,10 +22,14 @@ export interface IBillingChargeLine {
   description: string;
   /** Net amount (before ITBIS) of the line, after any discount. */
   amount: number;
-  /** The subscription discount taken off this line: what was granted and the pesos it came to. */
-  discount?: { type: 'percent' | 'amount'; value: number; amount: number };
-  /** Share of the month charged, when the subscription started mid-month (0–1). */
+  /** The plan a subscription line charges. */
+  plan?: string;
+  /** The subscription discount taken off this line: what was granted, the pesos it came to, and whether it is the suite bundle's. */
+  discount?: { type: 'percent' | 'amount'; value: number; amount: number; kind?: 'operator' | 'suite' };
+  /** Share of the month charged, when the line covers part of it (0–1). */
   proration?: number;
+  /** Days charged, when the line covers part of the month. */
+  days?: number;
 }
 
 export interface IBillingCharge extends Document {
@@ -63,10 +67,12 @@ const lineSchema = new Schema<IBillingChargeLine>(
     product: { type: String, enum: BILLING_PRODUCTS },
     description: { type: String, required: true, trim: true, maxlength: 200 },
     amount: { type: Number, required: true, min: 0 },
+    plan: { type: String },
     discount: {
-      type: new Schema({ type: { type: String, enum: ['percent', 'amount'], required: true }, value: { type: Number, required: true }, amount: { type: Number, required: true } }, { _id: false }),
+      type: new Schema({ type: { type: String, enum: ['percent', 'amount'], required: true }, value: { type: Number, required: true }, amount: { type: Number, required: true }, kind: { type: String, enum: ['operator', 'suite'] } }, { _id: false }),
     },
     proration: { type: Number, min: 0, max: 1 },
+    days: { type: Number, min: 0 },
   },
   { _id: false }
 );

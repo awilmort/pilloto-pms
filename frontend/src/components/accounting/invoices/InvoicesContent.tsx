@@ -19,7 +19,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { usePermission } from '../../../lib/permissions';
 import { invoicesService, accountingCustomersService } from '../../../services/api';
 import { Invoice, InvoiceStatus, Customer } from '../../../types';
-import { formatAccountingMoneyExact as formatMoney } from '../../../utils/currency';
+import { formatDocumentMoney } from '../../../utils/currency';
 import i18n from '../../../i18n';
 import { useInvoiceActions } from './useInvoiceActions';
 import { customerLabel, isOverdueInvoice, STATUS_COLOR } from './invoiceUi';
@@ -136,8 +136,8 @@ const InvoicesContent: React.FC = () => {
                   <TableCell>{customerLabel(inv)}</TableCell>
                   <TableCell>{new Date(inv.issueDate).toLocaleDateString(i18n.language)}</TableCell>
                   <TableCell>{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString(i18n.language) : '—'}</TableCell>
-                  <TableCell align="right">{formatMoney(inv.total)}</TableCell>
-                  <TableCell align="right">{formatMoney(inv.balanceDue)}</TableCell>
+                  <TableCell align="right">{formatDocumentMoney(inv.total, inv.currency)}</TableCell>
+                  <TableCell align="right">{formatDocumentMoney(inv.balanceDue, inv.currency)}</TableCell>
                   <TableCell>
                     <Chip size="small" label={t(`accounting.invoices.status.${inv.status}`)} color={STATUS_COLOR[inv.status]} />
                     {isOverdueInvoice(inv) && <Chip size="small" label={t('accounting.invoices.status.overdue')} color="error" variant="outlined" sx={{ ml: 0.5 }} />}

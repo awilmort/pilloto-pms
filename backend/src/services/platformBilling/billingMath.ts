@@ -4,7 +4,7 @@
  * shows up on a charge.
  */
 import { BillingTax } from '../../models/PlatformSettings';
-import { dominicanDate, dominicanPeriod, periodBounds, taxRateOf } from '../fiscal/fiscalCore';
+import { taxRateOf } from '../fiscal/fiscalCore';
 
 export const toCents = (amount: number): number => Math.round((amount + Number.EPSILON) * 100);
 export const fromCents = (cents: number): number => cents / 100;
@@ -12,18 +12,6 @@ export const round2 = (amount: number): number => fromCents(toCents(amount));
 
 /** Round-half-up integer division, like BillingSoft's own rounding of a line's ITBIS. */
 const divRound = (n: number, d: number) => Math.floor((n * 2 + d) / (d * 2));
-
-/**
- * The share of `period` a subscription that started at `startedAt` is charged for: 1 for every
- * month but the first, which counts from the day it started (inclusive), in Dominican time.
- */
-export function proration(period: string, startedAt: Date): number {
-  if (dominicanPeriod(startedAt) !== period) return 1;
-  const { to } = periodBounds(period);
-  const days = Number(to.slice(8));
-  const startDay = Number(dominicanDate(startedAt).slice(8));
-  return Math.round(((days - startDay + 1) / days) * 10_000) / 10_000;
-}
 
 export interface DiscountTerms {
   type: 'percent' | 'amount';

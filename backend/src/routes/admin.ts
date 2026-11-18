@@ -14,7 +14,7 @@ import { getSortObject } from '../utils/helpers';
 import { invitationStatus, invitationView, sendInvitation } from '../services/invitations';
 import { AppCode, isAppCode } from '../constants/apps';
 import { PERMISSIONS_BY_APP, APP_ACCESS_PERMISSION, APP_USERS_PERMISSION } from '../constants/permissions';
-import { getAccountingPlanFeatures } from '../config/accountingPlans';
+import { holdsSeat, seatLimitDenial } from '../services/entitlements';
 import { postPaymentCompletedEntry } from '../services/accounting/pmsLedgerHooks';
 import { actorFromRequest, recordReservationEvent } from '../services/reservationHistory';
 import { getPlanFeatures } from '../config/plans';
@@ -944,6 +944,11 @@ router.post('/users', authenticate, authorizePermission('pms', 'admin.users'), a
       return res.status(400).json({ success: false, message: 'Email already in use' });
     }
 
+    if (role !== 'customer') {
+      const denial = await seatLimitDenial((req as any).tenant, 'pms');
+      if (denial) return res.status(403).json(denial);
+    }
+
     // generateInvitationToken (inside sendInvitation) gives the account a random, unknown password
     const user = new User({ firstName, lastName, email, phone, role, emailVerified: false });
     const invitation = await sendInvitation(user);
@@ -994,6 +999,15 @@ router.put('/users/:id', authenticate, authorizePermission('pms', 'admin.users')
         success: false,
         message: 'User not found'
       });
+    }
+
+    // A user who gains a PMS seat (a staff role, or reactivation of a staff user) needs a free one.
+    const gainsSeat =
+      (role && role !== 'customer' && !holdsSeat(user, 'pms')) ||
+      (isActive === true && user.isActive === false && holdsSeat({ role: role || user.role, appRoles: user.appRoles }, 'pms'));
+    if (gainsSeat) {
+      const denial = await seatLimitDenial((req as any).tenant, 'pms');
+      if (denial) return res.status(403).json(denial);
     }
 
     // Update fields
@@ -1063,21 +1077,11 @@ router.patch('/users/:id/role', authenticate, async (req: AuthRequest, res: Resp
         return res.status(404).json({ success: false, message: 'User not found' });
       }
 
-      // Accounting plan ladder (Phase 10.2): granting a *new* accounting seat is
-      // gated on the tenant's plan-tier user limit — per architecture §7's "gated
-      // on ... user count". Only checked when this user doesn't already hold an
-      // accounting seat (re-assigning/removing one is always allowed).
-      if (app === 'accounting' && roleDoc && !target.appRoles.some((ar) => ar.app === 'accounting')) {
-        const { maxUsers } = getAccountingPlanFeatures((req.tenant as any)?.plans?.accounting);
-        if (maxUsers !== null) {
-          const currentSeats = await User.countDocuments({ 'appRoles.app': 'accounting' });
-          if (currentSeats >= maxUsers) {
-            return res.status(403).json({
-              success: false,
-              message: `Your Accounting plan allows up to ${maxUsers} user(s). Upgrade your plan to add more.`,
-            });
-          }
-        }
+      // Granting a *new* seat is gated on the plan's user limit (PMS and Accounting each
+      // have their own). Re-assigning or removing a seat is always allowed.
+      if (roleDoc && !holdsSeat(target, app)) {
+        const denial = await seatLimitDenial(req.tenant as any, app);
+        if (denial) return res.status(403).json(denial);
       }
 
       target.appRoles = [

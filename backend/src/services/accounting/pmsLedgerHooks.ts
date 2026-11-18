@@ -1,5 +1,6 @@
 import { Types } from 'mongoose';
-import { postJournalEntry, getSystemAccountIds, cashAccountCodeForMethod, reversePostedEntries } from './ledger.service';
+import { postJournalEntry, getSystemAccountIds, reversePostedEntries } from './ledger.service';
+import { settlementAccountId } from './bank.service';
 import { SYSTEM_ACCOUNT_CODES } from '../../constants/accounting';
 
 /**
@@ -14,7 +15,8 @@ import { SYSTEM_ACCOUNT_CODES } from '../../constants/accounting';
  *
  * v1 posts to the fixed seeded Chart of Accounts (`SYSTEM_ACCOUNT_CODES`) — no
  * per-tenant revenue-account mapping (architecture §6.4) yet, the same deliberate
- * simplification `cashAccountCodeForMethod` already made for Invoice/Bill payments.
+ * simplification. Payments settle like Invoice/Bill payments: cash to Caja, the rest to the
+ * default bank account (bank.service.ts `settlementAccountId`).
  */
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
@@ -68,11 +70,11 @@ export async function postPaymentCompletedEntry(
   if (amount <= 0) return;
   const method = settlementMethod || payment.method;
   try {
-    const cashCode = cashAccountCodeForMethod(method);
-    const accounts = await getSystemAccountIds([cashCode, SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE]);
+    const settlement = await settlementAccountId(method);
+    const accounts = await getSystemAccountIds([SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE]);
     await postJournalEntry(
       [
-        { account: accounts[cashCode], debit: amount },
+        { account: settlement, debit: amount },
         { account: accounts[SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE], credit: amount },
       ],
       'pms_payment_recorded',

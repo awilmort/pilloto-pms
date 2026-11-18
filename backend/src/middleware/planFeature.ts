@@ -1,31 +1,16 @@
-import { Response, NextFunction } from 'express';
-import { AuthRequest } from './auth';
-import { getPlanFeatures, PlanFeatures } from '../config/plans';
+import { PlanFeatures } from '../config/plans';
+import { requirePmsFeature } from '../services/entitlements';
 
 /**
- * Middleware factory that gates a route behind a plan feature.
+ * Middleware factory that gates a route behind a PMS plan feature.
  *
  * Usage:
  *   router.post('/events', authenticate, requirePlanFeature('events'), handler);
  *
- * Reads the plan from `req.tenant.plan` (already populated by resolveTenant).
- * Returns 403 if the tenant's plan does not include the requested feature.
+ * Reads the plan from `req.tenant.plan` (populated by resolveTenant) and answers 403 with the
+ * shared plan-denial body (`code: 'PLAN_FEATURE'`, see services/entitlements.ts) when the plan
+ * does not include the feature.
  */
 export function requirePlanFeature(feature: keyof PlanFeatures) {
-  return (req: AuthRequest, res: Response, next: NextFunction): void => {
-    const plan: string | undefined = req.tenant?.plan;
-    if (!plan) {
-      res.status(403).json({ success: false, message: 'Tenant context required.' });
-      return;
-    }
-    const features = getPlanFeatures(plan);
-    if (!features[feature]) {
-      res.status(403).json({
-        success: false,
-        message: 'This feature is not available on your current plan.',
-      });
-      return;
-    }
-    next();
-  };
+  return requirePmsFeature(feature);
 }

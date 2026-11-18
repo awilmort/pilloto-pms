@@ -1,3 +1,5 @@
+import { isPlanDenial, showPlanPrompt } from '../lib/planPrompt';
+import type { AccountingPlanSlug } from '../config/accountingPlans';
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import i18n from '../i18n';
 import { User, Room, Reservation, MediaItem, Amenity, EventType, Company, Guest, CreditAccount, AppCode } from '../types';
@@ -90,6 +92,10 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
+    // A plan refusal (feature or limit) opens the upgrade prompt; the caller still gets the error.
+    if (error.response?.status === 403 && isPlanDenial(error.response?.data)) {
+      showPlanPrompt(error.response.data);
+    }
     // Gracefully handle rate limiting without forcing logout
     if (error.response?.status === 429) {
       const msg = error.response?.data?.message || i18n.t('common.tooManyRequests');
@@ -1830,7 +1836,7 @@ export const creditAccountsService = {
 
 // ── Platform Service (superadmin only – admin.pilloto.com) ────────────────────
 export type TenantProduct = 'pms' | 'accounting';
-export type AccountingPlanSlug = 'starter' | 'pro' | 'plus';
+export type { AccountingPlanSlug } from '../config/accountingPlans';
 
 /** Where a new account's "choose your password" invitation stands */
 export interface InvitationInfo {
@@ -2411,7 +2417,7 @@ export const invoicesService = {
   sendInvoice: (id: string, data?: { lineItemWarehouses?: Record<string, string> }): Promise<AxiosResponse<ApiResponse<{ invoice: Invoice; electronicInvoice: ElectronicInvoice }>>> =>
     apiClient.post(`/accounting/invoices/${id}/send`, data || {}),
 
-  recordPayment: (id: string, data: { amount: number; method: InvoicePaymentMethod; date?: string; reference?: string }): Promise<AxiosResponse<ApiResponse<Invoice>>> =>
+  recordPayment: (id: string, data: { amount: number; method: InvoicePaymentMethod; date?: string; reference?: string; bankAccount?: string; exchangeRate?: number }): Promise<AxiosResponse<ApiResponse<Invoice>>> =>
     apiClient.post(`/accounting/invoices/${id}/payments`, data),
 
   voidInvoice: (id: string): Promise<AxiosResponse<ApiResponse<Invoice>>> =>
@@ -2650,7 +2656,40 @@ export const accountingReportsService = {
 
   getCustomerStatement: (id: string, params?: { from?: string; to?: string }): Promise<AxiosResponse<ApiResponse<CustomerStatementReport>>> =>
     apiClient.get(`/accounting/reports/customer-statement/${id}`, { params }),
+
+  getDgii606: (period: string): Promise<AxiosResponse<ApiResponse<Dgii606Report>>> =>
+    apiClient.get('/accounting/reports/dgii-606', { params: { period } }),
+
+  getDgii606Txt: (period: string): Promise<AxiosResponse<Blob>> =>
+    apiClient.get('/accounting/reports/dgii-606/txt', { params: { period }, responseType: 'blob' }),
+
+  getItbisSummary: (period: string): Promise<AxiosResponse<ApiResponse<ItbisSummary>>> =>
+    apiClient.get('/accounting/reports/itbis-summary', { params: { period } }),
 };
+
+export interface Dgii606Row {
+  billId: string; billNumber: string; supplierName: string; rncCedula: string; idType: '1' | '2' | '';
+  expenseType: string; ncf: string; issueDate: string; paymentDate: string;
+  servicesAmount: number; goodsAmount: number; totalAmount: number; itbisBilled: number; itbisWithheld: number;
+  itbisToCost: number; itbisAdvance: number; isrType: string; isrWithheld: number; paymentForm: string;
+}
+
+export interface Dgii606Report {
+  period: string;
+  rnc: string | null;
+  rows: Dgii606Row[];
+  issues: { billId: string; billNumber: string; severity: 'error' | 'warning'; problem: 'missing_tax_id' | 'invalid_tax_id' | 'missing_ncf' | 'retention_unpaid' }[];
+  totals: { count: number; servicesAmount: number; goodsAmount: number; totalAmount: number; itbisBilled: number; itbisWithheld: number; itbisToCost: number; itbisAdvance: number; isrWithheld: number };
+}
+
+export interface ItbisSummary {
+  period: string;
+  sales: { documents: number; itbis: number; creditNotes: number; creditNotesItbis: number; netItbis: number };
+  purchases: { bills: number; itbisBilled: number; itbisAdvance: number; itbisToCost: number };
+  withheld: { itbis: number; isr: number };
+  itbisBalance: number;
+  itbisToPay: number;
+}
 
 // ─── Accounting: Suppliers (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md Phase 6.1/6.2) ──────
 // AP mirror of accountingCustomersService — a real new model (locked-in decision #5), so
@@ -2692,6 +2731,17 @@ export interface BillLineItemInput {
   // expense lines only:
   account?: string;
   lineTotal?: number;
+  isGoods?: boolean;
+}
+
+/** The DGII 606 / withholding fields a bill carries. */
+export interface BillFiscalInput {
+  ncf?: string;
+  expenseType?: string;
+  itbisToCost?: boolean;
+  itbisWithheld?: number;
+  isrWithheld?: number;
+  isrWithholdingType?: string;
 }
 
 export const billsService = {
@@ -2709,8 +2759,19 @@ export const billsService = {
     dueDate?: string;
     notes?: string;
     lineItems: BillLineItemInput[];
-  }): Promise<AxiosResponse<ApiResponse<Bill>>> =>
+  } & BillFiscalInput): Promise<AxiosResponse<ApiResponse<Bill>>> =>
     apiClient.post('/accounting/bills', data),
+
+  /** A purchase already paid, recorded, received and paid in one step (expense lines only). */
+  createQuickExpense: (data: {
+    supplier: string;
+    issueDate?: string;
+    vendorInvoiceNumber?: string;
+    notes?: string;
+    lineItems: Omit<BillLineItemInput, 'lineType'>[];
+    payment: { method: BillPaymentMethod; date?: string; reference?: string; bankAccount?: string };
+  } & BillFiscalInput): Promise<AxiosResponse<ApiResponse<Bill>>> =>
+    apiClient.post('/accounting/bills/expense', data),
 
   updateBill: (id: string, data: {
     supplier?: string;
@@ -2720,13 +2781,13 @@ export const billsService = {
     dueDate?: string;
     notes?: string;
     lineItems?: BillLineItemInput[];
-  }): Promise<AxiosResponse<ApiResponse<Bill>>> =>
+  } & BillFiscalInput): Promise<AxiosResponse<ApiResponse<Bill>>> =>
     apiClient.put(`/accounting/bills/${id}`, data),
 
   receiveBill: (id: string): Promise<AxiosResponse<ApiResponse<Bill>>> =>
     apiClient.post(`/accounting/bills/${id}/receive`),
 
-  recordPayment: (id: string, data: { amount: number; method: BillPaymentMethod; date?: string; reference?: string }): Promise<AxiosResponse<ApiResponse<Bill>>> =>
+  recordPayment: (id: string, data: { amount: number; method: BillPaymentMethod; date?: string; reference?: string; bankAccount?: string; exchangeRate?: number }): Promise<AxiosResponse<ApiResponse<Bill>>> =>
     apiClient.post(`/accounting/bills/${id}/payments`, data),
 
   voidBill: (id: string, data?: { reason?: string }): Promise<AxiosResponse<ApiResponse<Bill>>> =>

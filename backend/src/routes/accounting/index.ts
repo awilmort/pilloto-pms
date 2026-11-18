@@ -29,6 +29,8 @@ import journalEntriesRoutes from './journalEntries.routes';
 import reportsRoutes from './reports.routes';
 import cityLedgerRoutes from './cityLedger.routes';
 import dashboardRoutes from './dashboard.routes';
+import bankAccountsRoutes from './bankAccounts.routes';
+import exchangeRatesRoutes from './exchangeRates.routes';
 
 const router = express.Router();
 
@@ -47,5 +49,7 @@ router.use('/journal-entries', journalEntriesRoutes);
 router.use('/reports', reportsRoutes);
 router.use('/city-ledger', cityLedgerRoutes);
 router.use('/dashboard', dashboardRoutes);
+router.use('/bank-accounts', bankAccountsRoutes);
+router.use('/exchange-rates', exchangeRatesRoutes);
 
 export default router;

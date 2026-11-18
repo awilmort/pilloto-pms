@@ -1,3 +1,5 @@
+import { accountingPlanOf, featureDenial, hasAccountingFeature } from '../../services/entitlements';
+import { smallestAccountingPlanWith } from '../../config/accountingPlans';
 import { Response } from 'express';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../../middleware/auth';
@@ -75,13 +77,19 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
       reorderPoint?: number; description?: string; isSellable?: boolean; isPurchasable?: boolean; notes?: string;
       initialQuantity?: number; initialUnitCost?: number; warehouseId?: string;
     };
+    // Stocked items are the inventory module; without it every item is a non-stock one.
+    const hasInventory = hasAccountingFeature(req.tenant, 'inventory');
+    const tracksStock = req.body?.tracksStock === undefined ? hasInventory : req.body.tracksStock === true;
+    if (tracksStock && !hasInventory) {
+      return res.status(403).json(featureDenial('accounting', 'inventory', accountingPlanOf(req.tenant), smallestAccountingPlanWith('inventory')));
+    }
     if (!name || !sku || !unitOfMeasure) {
       return res.status(400).json({ success: false, message: 'name, sku, and unitOfMeasure are required' });
     }
     if (!UNIT_OF_MEASURE_CODES.includes(unitOfMeasure as any)) {
       return res.status(400).json({ success: false, message: `unitOfMeasure must be one of ${UNIT_OF_MEASURE_CODES.join(', ')}` });
     }
-    const hasInitialStock = !!initialQuantity && initialQuantity > 0;
+    const hasInitialStock = tracksStock && !!initialQuantity && initialQuantity > 0;
     if (hasInitialStock && (initialUnitCost === undefined || initialUnitCost === null || initialUnitCost < 0)) {
       return res.status(400).json({ success: false, message: 'initialUnitCost is required and must be >= 0 when initialQuantity is given' });
     }
@@ -92,6 +100,7 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
       defaultUnitPrice: defaultUnitPrice || 0,
       reorderPoint: reorderPoint || 0,
       description,
+      tracksStock,
       isSellable: !!isSellable,
       isPurchasable: !!isPurchasable,
       notes,
@@ -211,6 +220,7 @@ export const adjustProduct = async (req: AuthRequest, res: Response) => {
 
     const product = await Product.findById(req.params.id);
     if (!product) return res.status(404).json({ success: false, message: 'Product not found' });
+    if (product.tracksStock === false) return res.status(400).json({ success: false, message: `${product.name} does not track stock` });
 
     const stock = await ProductStock.findOne({ product: product._id, warehouse: resolvedWarehouseId });
     const currentWarehouseQty = stock?.onHandQty || 0;

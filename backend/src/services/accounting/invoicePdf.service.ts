@@ -60,6 +60,9 @@ export interface InvoicePdfData {
   reference?: string;
   notes?: string;
   lines: InvoicePdfLine[];
+  /** DOP unless the invoice is in USD/EUR; then `exchangeRate` (pesos per unit) is printed too. */
+  currency?: 'DOP' | 'USD' | 'EUR';
+  exchangeRate?: number;
   subtotal: number;
   taxAmount: number;
   total: number;
@@ -95,8 +98,10 @@ const STATUS_STAMP: Partial<Record<InvoicePdfData['status'], string>> = { draft:
 
 // ── Formatting ───────────────────────────────────────────────────────────────
 
-export const money = (n: number): string =>
-  `RD$ ${(n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const SYMBOL: Record<string, string> = { DOP: 'RD$', USD: 'US$', EUR: '€' };
+
+export const money = (n: number, currency = 'DOP'): string =>
+  `${SYMBOL[currency] ?? currency} ${(n ?? 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 const num = (n: number): string => (Number.isInteger(n) ? String(n) : n.toLocaleString('en-US', { maximumFractionDigits: 4 }));
 
@@ -218,6 +223,8 @@ function drawWatermark(doc: PDFKit.PDFDocument, text: string) {
 }
 
 export async function generateInvoicePdf(data: InvoicePdfData, options: InvoicePdfOptions = {}): Promise<Buffer> {
+  const cur = data.currency ?? 'DOP';
+  const fmt = (n: number) => money(n, cur);
   const doc = new PDFDocument({
     size: 'LETTER',
     margin: MARGIN,
@@ -320,8 +327,8 @@ export async function generateInvoicePdf(data: InvoicePdfData, options: InvoiceP
     }
     const hasDiscount = line.discountPercent > 0;
     const cells = [
-      String(i + 1), line.description, num(line.quantity), money(line.unitPrice).replace('RD$ ', ''),
-      hasDiscount ? `${num(line.discountPercent)}%` : '—', line.taxRate > 0 ? `${num(line.taxRate)}%` : 'Exento', money(line.lineTotal).replace('RD$ ', ''),
+      String(i + 1), line.description, num(line.quantity), fmt(line.unitPrice).replace(/^\S+ /, ''),
+      hasDiscount ? `${num(line.discountPercent)}%` : '—', line.taxRate > 0 ? `${num(line.taxRate)}%` : 'Exento', fmt(line.lineTotal).replace(/^\S+ /, ''),
     ];
     let x = MARGIN;
     COLS.forEach((c, idx) => {
@@ -335,16 +342,21 @@ export async function generateInvoicePdf(data: InvoicePdfData, options: InvoiceP
   y += 14;
 
   // ── Totals (right) and notes (left) ───────────────────────────────────────
-  const totals: { label: string; value: string; bold?: boolean; big?: boolean }[] = [{ label: 'Subtotal', value: money(data.subtotal + discountTotal(data.lines)) }];
+  const totals: { label: string; value: string; bold?: boolean; big?: boolean }[] = [{ label: 'Subtotal', value: fmt(data.subtotal + discountTotal(data.lines)) }];
   const discount = discountTotal(data.lines);
-  if (discount > 0) totals.push({ label: 'Descuento', value: `- ${money(discount)}` });
+  if (discount > 0) totals.push({ label: 'Descuento', value: `- ${fmt(discount)}` });
   const breakdown = taxBreakdown(data.lines).filter((b) => b.rate > 0);
-  if (breakdown.length === 0) totals.push({ label: 'ITBIS', value: money(0) });
-  breakdown.forEach((b) => totals.push({ label: `ITBIS ${num(b.rate)}%`, value: money(b.tax) }));
-  totals.push({ label: 'TOTAL', value: money(data.total), bold: true, big: true });
+  if (breakdown.length === 0) totals.push({ label: 'ITBIS', value: fmt(0) });
+  breakdown.forEach((b) => totals.push({ label: `ITBIS ${num(b.rate)}%`, value: fmt(b.tax) }));
+  totals.push({ label: 'TOTAL', value: fmt(data.total), bold: true, big: true });
   if (data.status !== 'draft') {
-    totals.push({ label: 'Pagado', value: money(data.amountPaid) });
-    totals.push({ label: 'Saldo pendiente', value: money(data.balanceDue), bold: true });
+    totals.push({ label: 'Pagado', value: fmt(data.amountPaid) });
+    totals.push({ label: 'Saldo pendiente', value: fmt(data.balanceDue), bold: true });
+  }
+  if (cur !== 'DOP' && data.exchangeRate) {
+    // The e-CF is in pesos: print the rate and the total in pesos so both documents reconcile.
+    totals.push({ label: `Tasa ${SYMBOL[cur] ?? cur}1`, value: money(data.exchangeRate, 'DOP') });
+    totals.push({ label: 'Total en pesos', value: money(Math.round(data.total * data.exchangeRate * 100) / 100, 'DOP') });
   }
 
   const totalsH = totals.reduce((s, t) => s + (t.big ? 26 : 15), 0);

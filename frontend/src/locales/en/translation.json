@@ -196,7 +196,8 @@
         "distribution": "Distribution",
         "finance": "Finance",
         "administration": "Administration"
-      }
+      },
+      "subscription": "Plan & billing"
     },
     "revenue": {
       "title": "Revenue",
@@ -3799,7 +3800,9 @@
       "sections": {
         "sales": "Sales",
         "purchases": "Purchases"
-      }
+      },
+      "subscription": "Plan & billing",
+      "banks": "Banks"
     },
     "dashboard": {
       "title": "Accounting Dashboard",
@@ -4548,6 +4551,37 @@
         "receiveFailed": "Error receiving bill",
         "paymentFailed": "Error recording payment",
         "voidFailed": "Error voiding bill"
+      },
+      "fiscal": {
+        "ncf": "Supplier NCF / e-CF",
+        "ncfHelp": "B01… or E31… — required for the 606",
+        "ncfInvalid": "The NCF must be B + 10 digits (B0100000123) or an e-CF E + 12 digits (E310000000123).",
+        "expenseType": "606 expense type",
+        "itbisToCost": "The ITBIS is not deductible (take it to cost)",
+        "withholdings": "Withholdings",
+        "suggest": "Individual supplier: suggest 100% ITBIS + 10% ISR",
+        "itbisWithheld": "ITBIS withheld",
+        "isrWithheld": "ISR withheld",
+        "isrType": "ISR withholding type",
+        "isrTypeRequired": "Choose the type of ISR withholding.",
+        "withholdingsHelp": "What you keep from the supplier and pay to the DGII instead. The supplier is owed the total less these amounts.",
+        "isGoods": "Goods (not a service)",
+        "withheldTotal": "Withheld",
+        "payable": "Owed to the supplier"
+      },
+      "expense": {
+        "open": "Record expense",
+        "title": "Record an expense",
+        "intro": "For a purchase already paid (a receipt, a utility bill). It is recorded, posted to your books and marked paid in one step.",
+        "linesRequired": "Each line needs a description, an account and an amount.",
+        "amount": "Amount before tax",
+        "addLine": "Add line",
+        "paid": "Paid to the supplier",
+        "save": "Record expense"
+      },
+      "payment": {
+        "method": "Paid with",
+        "reference": "Reference"
       }
     },
     "suppliers": {
@@ -4577,13 +4611,17 @@
         "billingInfoTitle": "Billing Information",
         "taxId": "Tax ID",
         "paymentTermsDays": "Payment Terms (days)",
-        "paymentTermsHelp": "Prefills a new bill's due date from its issue date"
+        "paymentTermsHelp": "Prefills a new bill's due date from its issue date",
+        "taxIdRnc": "RNC or cédula",
+        "taxIdHelp": "Reported on the 606 with every purchase",
+        "defaultExpenseType": "Usual 606 expense type"
       },
       "messages": {
         "loadFailed": "Error loading suppliers",
         "saveFailed": "Error saving supplier",
         "archiveFailed": "Error archiving supplier"
-      }
+      },
+      "taxIdInvalid": "The RNC has 9 digits and a cédula 11."
     },
     "creditNotes": {
       "title": "Credit Notes",
@@ -4844,7 +4882,8 @@
         "arAging": "AR Aging",
         "generalLedger": "General Ledger",
         "supplierStatement": "Supplier Statement",
-        "customerStatement": "Customer Statement"
+        "customerStatement": "Customer Statement",
+        "dgii": "DGII (606 · ITBIS)"
       },
       "filters": {
         "asOf": "As of",
@@ -4899,7 +4938,166 @@
       },
       "messages": {
         "loadFailed": "Error loading report"
+      },
+      "dgii": {
+        "period": "Month",
+        "due": "The 606 and the IT-1 are due by the 15th of the following month.",
+        "loadFailed": "Could not load the DGII figures",
+        "txtFailed": "The TXT could not be generated",
+        "noRnc": "Set your company RNC in the profile first.",
+        "fixFirst": "Fix the bills marked in red first: the DGII rejects the whole file otherwise.",
+        "itbisTitle": "ITBIS of the month (for the IT-1)",
+        "salesItbis": "ITBIS on sales (accepted e-CF, less credit notes)",
+        "advance": "ITBIS paid on purchases (deductible)",
+        "balanceToPay": "ITBIS balance to pay",
+        "balanceInFavour": "Balance in your favour",
+        "itbisWithheld": "ITBIS withheld from suppliers",
+        "isrWithheld": "ISR withheld from suppliers (IR-17)",
+        "itbisNote": "A guide from your records, for your accountant to confirm: it does not include balances carried from earlier months or payments on account.",
+        "title606": "Formato 606 — purchases",
+        "count": "{{count}} purchases · {{total}} before tax · ITBIS {{itbis}}",
+        "downloadTxt": "Download TXT for the DGII",
+        "errorsIntro": "{{count}} purchase(s) are missing data the 606 needs. Complete them in Bills or Suppliers:",
+        "empty": "No purchases this month. The 606 is still sent, with no rows.",
+        "noTaxId": "no RNC",
+        "noNcf": "missing",
+        "issues": {
+          "missing_tax_id": "the supplier has no RNC/cédula",
+          "invalid_tax_id": "the supplier's RNC/cédula is not valid",
+          "missing_ncf": "no NCF",
+          "retention_unpaid": "has withholdings but is not paid yet (the 606 reports the payment date)"
+        },
+        "cols": {
+          "bill": "Bill",
+          "supplier": "Supplier / RNC",
+          "type": "Type",
+          "date": "Date",
+          "amount": "Amount",
+          "withheld": "Withheld",
+          "payment": "Payment"
+        }
       }
+    },
+    "banks": {
+      "title": "Banks",
+      "failed": "The action failed",
+      "default": "Default",
+      "new": "Add bank account",
+      "toReview": "{{count}} movements to review",
+      "upToDate": "All movements reviewed",
+      "reconciledTo": "reconciled to {{date}}",
+      "makeDefault": "Make default",
+      "madeDefault": "Default account changed.",
+      "addLine": "Add movement",
+      "created": "Bank account added, with its own account in the chart.",
+      "paymentAccount": "Bank account",
+      "tabs": {
+        "movements": "Bank movements",
+        "reconciliation": "Reconciliation"
+      },
+      "filter": {
+        "unmatched": "To review",
+        "all": "All"
+      },
+      "noLines": "No movements. Import your bank statement to start.",
+      "cols": {
+        "date": "Date",
+        "description": "Description",
+        "amount": "Amount",
+        "status": "Status",
+        "match": "In your books"
+      },
+      "status": {
+        "unmatched": "To review",
+        "matched": "Matched",
+        "ignored": "Ignored"
+      },
+      "matched": "Matched.",
+      "noSuggestion": "No movement of this amount nearby",
+      "entries": "entry line(s)",
+      "actions": {
+        "match": "Match with entries",
+        "entry": "Record the missing entry (fee, interest…)",
+        "ignore": "Ignore",
+        "delete": "Delete",
+        "unmatch": "Undo match",
+        "restore": "Restore"
+      },
+      "form": {
+        "name": "Name",
+        "bank": "Bank",
+        "last4": "Last digits of the account",
+        "currency": "Currency",
+        "amountSigned": "Amount (− for a withdrawal)"
+      },
+      "entry": {
+        "title": "Record the missing entry",
+        "account": "Account",
+        "memo": "Memo",
+        "save": "Record and match",
+        "done": "Entry recorded and matched."
+      },
+      "matchDialog": {
+        "title": "Match {{amount}} with entries in your books",
+        "none": "No unmatched movements in your books for this account.",
+        "sum": "Selected: {{sum}}",
+        "save": "Match"
+      },
+      "rec": {
+        "last": "Last reconciled to {{date}} with a balance of {{amount}}.",
+        "first": "First reconciliation: enter the balance your statement started the period with.",
+        "date": "Statement date",
+        "opening": "Opening balance",
+        "ending": "Statement ending balance",
+        "update": "Update",
+        "start": "Start reconciliation",
+        "beginning": "Beginning balance",
+        "movements": "Statement movements to {{date}}",
+        "calculated": "Calculated balance",
+        "statement": "Statement balance",
+        "difference": "Difference",
+        "books": "Balance in your books",
+        "pending": "{{count}} movement(s) up to that date still need to be matched or ignored.",
+        "close": "Close reconciliation",
+        "closed": "Reconciliation closed."
+      },
+      "import": {
+        "open": "Import statement",
+        "title": "Import bank statement",
+        "empty": "The file has no rows.",
+        "column": "Column",
+        "intro": "Download the statement from your bank's website as CSV (Excel can save it as CSV). Movements already imported are skipped.",
+        "choose": "Choose CSV file",
+        "hasHeader": "The first row is the column names",
+        "date": "Date",
+        "description": "Description",
+        "reference": "Reference",
+        "amount": "Amount",
+        "signed": "One amount column (− for withdrawals)",
+        "split": "Debit and credit columns",
+        "debit": "Debit (money out)",
+        "credit": "Credit (money in)",
+        "dateFormat": "Date format",
+        "decimal": "Decimals",
+        "preview": "{{count}} movements read",
+        "skipped": "{{count}} lines could not be read",
+        "import": "Import {{count}} movements",
+        "done": "{{added}} movements imported, {{duplicates}} already there.",
+        "failed": "The import failed"
+      }
+    },
+    "fx": {
+      "currency": "Currency",
+      "rate": "Rate (RD$ per {{currency}} 1)",
+      "rateHelp": "The books and the e-CF are in pesos at this rate",
+      "paymentRate": "Rate on the payment day (RD$ per {{currency}} 1)",
+      "paymentRateHelp": "Booked at {{rate}}. A different rate records an exchange gain or loss.",
+      "tab": "Currencies",
+      "intro": "Record the day's rate (pesos per unit). New USD/EUR documents start from the latest rate on or before their date; you can change it on each one.",
+      "date": "Date",
+      "rateShort": "RD$ per unit",
+      "none": "No rates recorded yet.",
+      "saveFailed": "Could not save the rate"
     }
   },
   "pages": {
@@ -5425,10 +5623,11 @@
       "contact": "Contact",
       "signIn": "Sign in",
       "getStarted": "Request a demo",
-      "product": "Products",
       "faq": "FAQ",
       "menu": "Menu",
-      "close": "Close"
+      "close": "Close",
+      "pms": "Hotel PMS",
+      "accounting": "Accounting"
     },
     "hero": {
       "badge": "PMS + Accounting, one platform",
@@ -5478,11 +5677,11 @@
       "basic_desc": "Everything a small property needs to run daily operations.",
       "basic_features": [
         "Up to 15 rooms",
-        "2 Users",
+        "2 users",
+        "Electronic invoicing (e-CF): 300 a month included",
         "Reservations & booking calendar",
         "Guest profiles",
         "Room & rate management",
-        "Media library",
         "Email notifications",
         "Basic reporting"
       ],
@@ -5490,18 +5689,18 @@
       "pro_features": [
         "Everything in Basic",
         "Up to 50 rooms",
-        "Unlimited Users",
+        "Unlimited users",
+        "Electronic invoicing (e-CF): 300 a month included",
+        "Online booking engine & channel manager",
         "Day-pass & evening-pass sales",
-        "Events module",
-        "Wristband tracking",
-        "Charge rules & folios",
-        "Revenue dashboard"
+        "Events & wristband tracking",
+        "Charge rules & revenue dashboard"
       ],
       "enterprise_desc": "Full operations suite for large resorts and hotel groups.",
       "enterprise_features": [
         "Everything in Pro",
         "Up to 100 rooms",
-        "Unlimited Users",
+        "Electronic invoicing (e-CF): 1,000 a month included",
         "Agent commissions",
         "Corporate credit accounts",
         "Night audit",
@@ -5509,7 +5708,8 @@
         "Dedicated onboarding"
       ],
       "eyebrow": "Pricing",
-      "accountingAddon": "Need Pilloto Accounting too? Add it to any plan — talk to sales for pricing."
+      "plusItbis": "+ ITBIS",
+      "accountingSuite": "Add Pilloto Contabilidad from {{price}}/mo — {{discount}}% off with your PMS."
     },
     "cta": {
       "heading": "Ready to see Pilloto with your own property?",
@@ -5583,7 +5783,9 @@
       ],
       "learnMore": "Talk to sales",
       "together_title": "Better together",
-      "together_body": "Charge a stay to a company account in PMS and it lands in Accounting's City Ledger at checkout. No re-typing, no month-end surprises."
+      "together_body": "Charge a stay to a company account in PMS and it lands in Accounting's City Ledger at checkout. No re-typing, no month-end surprises.",
+      "accountingCta": "Explore Pilloto Contabilidad",
+      "pmsCta": "See PMS plans"
     },
     "deepDive": {
       "eyebrow": "How it works for your team",
@@ -5665,6 +5867,200 @@
     "meta": {
       "title": "Pilloto — Hotel PMS & Accounting for the Caribbean",
       "description": "Reservations, channel manager, folios, DGII e-CF invoicing and accounting in one cloud platform for hotels and resorts in the Dominican Republic and the Caribbean."
+    },
+    "accounting": {
+      "meta": {
+        "title": "Pilloto Contabilidad — e-CF invoicing and accounting for Dominican businesses",
+        "description": "Electronic invoicing (e-CF) included, purchases with withholdings and the 606, bank reconciliation, inventory and financial statements. Plans from RD$1,590 a month."
+      },
+      "hero": {
+        "badge": "e-CF included in every plan",
+        "headline": "Electronic invoicing and accounting",
+        "headlineAccent": "for Dominican businesses.",
+        "body": "Issue your e-CF, record purchases with their withholdings, reconcile your banks and get the 606 ready for the DGII — your books kept as you work, in one place.",
+        "ctaPrimary": "Start your 14-day free trial",
+        "ctaSecondary": "See prices",
+        "points": [
+          "14 days free, no card",
+          "Formato 606 ready to upload",
+          "Spanish & English"
+        ],
+        "mock606": "Formato 606",
+        "mock606Value": "Ready to upload",
+        "mockBank": "Bank reconciled"
+      },
+      "segments": {
+        "eyebrow": "Who it is for",
+        "heading": "Built for how Dominican businesses work",
+        "smb": {
+          "title": "Shops and services",
+          "body": "Outgrew the DGII free tool or a spreadsheet? Invoice, record expenses and keep your books in one place."
+        },
+        "hospitality": {
+          "title": "Restaurants and tourism",
+          "body": "Tour operators, venues and restaurants invoicing in pesos or dollars, with suppliers and stock to control."
+        },
+        "accountants": {
+          "title": "Accountants",
+          "body": "Your clients' 606, withholdings and statements straight from their records, without re-typing receipts."
+        },
+        "hotels": {
+          "title": "Hotels",
+          "body": "With Pilloto PMS, folios and company accounts reach the books by themselves — and the suite costs less."
+        }
+      },
+      "modules": {
+        "eyebrow": "Everything in one place",
+        "heading": "From the invoice to the financial statements",
+        "subheading": "Every document posts to your books as you work. No re-typing, no month-end surprises.",
+        "ecf": {
+          "title": "e-CF invoicing",
+          "body": "Invoices (E31/E32), credit and debit notes, quotes, and the e-CF you receive — through a DGII-authorised provider."
+        },
+        "purchases": {
+          "title": "Purchases & expenses",
+          "body": "Supplier bills with their NCF, ITBIS and ISR withholdings, and quick expenses for receipts already paid."
+        },
+        "banks": {
+          "title": "Banks & reconciliation",
+          "body": "Import your bank statement, match it to your books in a click and close the month with no differences."
+        },
+        "inventory": {
+          "title": "Inventory",
+          "body": "Stock and average cost by warehouse, purchases that receive stock, sales that post their cost."
+        },
+        "ledger": {
+          "title": "General ledger",
+          "body": "Dominican chart of accounts, journal entries, trial balance, profit & loss and balance sheet."
+        },
+        "currencies": {
+          "title": "Pesos, dollars, euros",
+          "body": "Invoice and buy in USD or EUR: books and e-CF in pesos at your rate, exchange differences booked by themselves."
+        },
+        "reports": {
+          "title": "Receivables & payables",
+          "body": "Aging and statements per customer and supplier, so you know who owes you and what you owe."
+        },
+        "team": {
+          "title": "Your team",
+          "body": "Users with roles and permissions, so each person sees and does only what they should."
+        }
+      },
+      "compliance": {
+        "eyebrow": "Made for the DGII",
+        "heading": "Outgrowing the DGII free invoicing tool?",
+        "body": "The free tool covers issuing up to 150 invoices a month. When you need your books, your purchases and your banks too, Pilloto takes over — through a DGII-authorised e-CF provider.",
+        "points": [
+          "e-CF accepted by the DGII, with its PDF and XML",
+          "Formato 606 as the TXT file the DGII asks for",
+          "ITBIS of the month, ready for the IT-1",
+          "ITBIS and ISR withholdings to your suppliers"
+        ],
+        "free": "DGII free tool",
+        "rows": {
+          "invoices": {
+            "label": "Invoices a month",
+            "free": "Up to 150",
+            "pilloto": "300 to 3,000 included, more on demand"
+          },
+          "accounting": {
+            "label": "Accounting",
+            "pilloto": "Automatic, with financial statements"
+          },
+          "purchases": {
+            "label": "Purchases & 606",
+            "pilloto": "Bills, withholdings and the 606 TXT"
+          },
+          "banks": {
+            "label": "Bank reconciliation",
+            "pilloto": "Statement import and matching"
+          },
+          "inventory": {
+            "label": "Inventory",
+            "pilloto": "By warehouse, with average cost"
+          },
+          "users": {
+            "label": "Users",
+            "free": "1",
+            "pilloto": "2 to 15, with roles"
+          }
+        }
+      },
+      "pricing": {
+        "heading": "A plan for each stage of your business",
+        "subheading": "Prices in pesos, before ITBIS. 14 days free, no card. Change or cancel from the app.",
+        "users": "{{count}} users",
+        "usersUnlimited": "Unlimited users",
+        "ecf": "{{count}} e-CF a month included",
+        "ecfIncluded": "Electronic invoicing (e-CF) included",
+        "cta": "Try it free",
+        "note": "Need more e-CF? Choose a larger electronic-invoicing plan and pay only the difference. Payroll and point of sale are not included.",
+        "invoicing_desc": "For businesses that invoice and record their expenses.",
+        "essentials_desc": "Full accounting: books, banks and inventory in one place.",
+        "pro_desc": "For growing companies that trade in dollars or several warehouses.",
+        "plus_desc": "For larger teams and high invoice volumes.",
+        "invoicing_features": [
+          "Invoices, quotes, credit & debit notes",
+          "Products & services catalog",
+          "Expenses with withholdings + Formato 606",
+          "Receivables aging & customer statements"
+        ],
+        "essentials_features": [
+          "Everything in Facturación",
+          "Chart of accounts, journal entries, financial statements",
+          "Bank accounts & reconciliation",
+          "Payables aging & supplier statements",
+          "Inventory: 1 warehouse"
+        ],
+        "pro_features": [
+          "Everything in Esencial",
+          "Invoices and purchases in USD and EUR",
+          "Inventory: 3 warehouses"
+        ],
+        "plus_features": [
+          "Everything in Pro",
+          "Unlimited warehouses",
+          "Priority support"
+        ]
+      },
+      "suite": {
+        "heading": "Run a hotel or a resort?",
+        "body": "With Pilloto PMS, folios, payments and company accounts flow into your books by themselves — and you get {{discount}}% off Pilloto Contabilidad.",
+        "cta": "Discover Pilloto PMS"
+      },
+      "faq": {
+        "heading": "Questions we hear often",
+        "items": [
+          {
+            "q": "Is electronic invoicing (e-CF) included?",
+            "a": "Yes, in every plan. Each plan includes a number of e-CF a month (300 to 3,000); if you need more you choose a larger electronic-invoicing plan and pay only the difference. We guide you through the DGII certification."
+          },
+          {
+            "q": "I use the DGII free tool. Can I switch?",
+            "a": "Yes. You keep issuing e-CF with your same sequences once the certification is done, and from then on your purchases, banks and books are in Pilloto too."
+          },
+          {
+            "q": "Does it generate the 606?",
+            "a": "Yes: the month's purchases as the TXT the DGII accepts, with checks for missing RNC or NCF before you upload it. The 607 is not needed for e-CF, which the DGII receives when issued."
+          },
+          {
+            "q": "Can I invoice in dollars?",
+            "a": "Yes, from the Pro plan. The invoice shows the dollars; your books and the e-CF are in pesos at the rate you set, and exchange differences on payment are booked by themselves."
+          },
+          {
+            "q": "Can my accountant use it?",
+            "a": "Yes. Invite your accountant as a user with the role you choose; they find the 606, the ITBIS figures and the statements ready."
+          },
+          {
+            "q": "How do I pay?",
+            "a": "Monthly, for the month that ended, online with a card or by transfer. Your electronic invoice is issued when we receive the payment."
+          }
+        ]
+      },
+      "cta": {
+        "heading": "Your books, in order from this month.",
+        "body": "We help you move from your current tool and set up your e-CF certification."
+      }
     }
   },
   "legal": {
@@ -6551,8 +6947,9 @@
         "basic": "Basic",
         "pro": "Pro",
         "enterprise": "Enterprise",
-        "starter": "Starter",
-        "plus": "Plus"
+        "plus": "Plus",
+        "invoicing": "Facturación",
+        "essentials": "Esencial"
       }
     },
     "profile": {
@@ -7105,7 +7502,11 @@
       "FISCAL_NO_DOCUMENT": "This payment has no e-CF confirmed by BillingSoft yet.",
       "FISCAL_TEST_DOCUMENT": "That document was issued in a DGII test environment and has no fiscal value.",
       "TENANT_NOT_FOUND": "Tenant not found.",
-      "generic": "Something went wrong. Try again."
+      "generic": "Something went wrong. Try again.",
+      "PAYMENT_GATEWAY_OFF": "Online payment is not configured (HandyPay keys missing on the server).",
+      "PAYMENT_GATEWAY": "HandyPay could not be reached. Try again in a few minutes.",
+      "PLAN_DOWNGRADE_BLOCKED": "The tenant's usage is above the limits of that plan.",
+      "BILLING_LAST_PRODUCT": "This is the tenant's only product."
     },
     "generate": {
       "created": "Charge {{number}} created.",
@@ -7334,7 +7735,17 @@
       "notifyHelp": "DGII rejections and low e-NCF ranges are sent here.",
       "saved": "Settings saved.",
       "tax": "Tax on subscription charges",
-      "taxHelp": "Prices are before tax. Services are taxable unless the law exempts them: confirm the treatment of software subscriptions with your accountant. It applies to charges created from now on."
+      "taxHelp": "Prices are before tax. Services are taxable unless the law exempts them: confirm the treatment of software subscriptions with your accountant. It applies to charges created from now on.",
+      "suiteDiscount": "Suite discount on Accounting (%)",
+      "suiteDiscountHelp": "Taken off the Accounting subscription of tenants that also have the PMS, in months both are charged. A discount you grant on Accounting replaces it. 0 turns it off.",
+      "handypay": {
+        "title": "Online payment (HandyPay)",
+        "sandbox": "Connected to the HandyPay sandbox (test key). Tenants can pay charges online with test cards.",
+        "live": "Connected. Tenants can pay their charges online; each payment issues its e-CF like one you record.",
+        "off": "Not configured. Set HANDYPAY_API_KEY and HANDYPAY_WEBHOOK_SECRET on the server to let tenants pay online.",
+        "webhook": "Webhook URL to register in the HandyPay merchant portal:",
+        "review": "{{count}} online payment(s) were paid but could not be recorded (the charge changed). Record or refund them."
+      }
     },
     "subtitle": "What tenants owe Pilloto, what they paid, and the e-CF each payment issues.",
     "tabs": {
@@ -7375,6 +7786,191 @@
       "saved": "Saved.",
       "subscription": "Subscription"
     },
-    "title": "Billing"
+    "title": "Billing",
+    "sources": {
+      "handypay": "Online · HandyPay"
+    }
+  },
+  "subscription": {
+    "title": "Plan & billing",
+    "perMonth": "/month",
+    "plusItbis": "plus ITBIS",
+    "planNamed": "Plan {{name}}",
+    "ecfIncluded": "{{count}} e-CF per month included",
+    "changePlan": "Change plan",
+    "cancel": "Cancel",
+    "keepPlan": "Keep current plan",
+    "keepProduct": "Keep subscription",
+    "pending": "Changes to {{plan}} on {{date}}.",
+    "status": {
+      "trial": "Free trial until {{date}}",
+      "active": "Active",
+      "cancelling": "Ends on {{date}}",
+      "ended": "Ended"
+    },
+    "discount": {
+      "suite": "Suite discount {{value}}% (you have both products): −{{amount}}",
+      "operator": "Discount: −{{amount}}"
+    },
+    "usage": {
+      "rooms": "Rooms",
+      "users": "Users",
+      "warehouses": "Warehouses",
+      "of": "{{used}} of {{max}}",
+      "ofUnlimited": "{{used}} · unlimited"
+    },
+    "limits": {
+      "rooms": "Up to {{count}} rooms",
+      "roomsUnlimited": "Unlimited rooms",
+      "users": "{{count}} users",
+      "usersUnlimited": "Unlimited users",
+      "warehouses": "{{count}} warehouses",
+      "warehousesUnlimited": "Unlimited warehouses",
+      "catalogOnly": "Products & services catalog (no stock)"
+    },
+    "violation": {
+      "rooms": "You have {{current}} active rooms; this plan allows {{max}}. Deactivate rooms first.",
+      "users": "You have {{current}} users; this plan allows {{max}}. Remove users first.",
+      "warehouses": "You have {{current}} active warehouses; this plan allows {{max}}. Archive warehouses first."
+    },
+    "features": {
+      "pms": {
+        "media": "Media library",
+        "daypass": "Day-pass sales",
+        "pasatarde": "Evening-pass sales",
+        "events": "Events",
+        "wristbands": "Wristband tracking",
+        "chargeRules": "Charge rules",
+        "commissions": "Agent commissions",
+        "corporateAccounts": "Corporate credit accounts",
+        "nightAudit": "Night audit",
+        "customRoles": "Custom roles & permissions",
+        "bookingEngine": "Online booking engine",
+        "channelManager": "Channel manager (OTAs)"
+      },
+      "accounting": {
+        "inventory": "Inventory & warehouses",
+        "generalLedger": "General ledger & financial statements",
+        "bankReconciliation": "Bank accounts & reconciliation",
+        "multiCurrency": "Multi-currency (USD, EUR)"
+      }
+    },
+    "picker": {
+      "titleAdd": "Add {{product}}",
+      "titleChange": "Change your {{product}} plan",
+      "current": "Current plan",
+      "startTrial": "Start 14-day free trial",
+      "add": "Add this plan",
+      "upgrade": "Upgrade now",
+      "switchNow": "Switch now",
+      "downgrade": "Switch on {{date}}",
+      "confirm": "Confirm",
+      "loses": "You lose: {{list}}",
+      "confirmTrial": "Nothing is charged during the 14-day trial. After it, {{price}} per month plus ITBIS.",
+      "confirmAdd": "You will be charged {{price}} per month plus ITBIS, by the day from today.",
+      "confirmUpgrade": "The new plan applies today. This month is charged by the day on each plan.",
+      "confirmTrialSwitch": "You are in your free trial: the change applies today.",
+      "confirmDowngrade": "You keep your current plan until {{date}}; the new one is charged from then."
+    },
+    "add": {
+      "accountingTitle": "Invoicing, purchases and your books, connected to your hotel",
+      "pmsTitle": "Reservations, front desk and channels",
+      "suite": "With both products you get {{value}}% off Pilloto Contabilidad. 14 days free.",
+      "trial": "14 days free, then the plan you choose.",
+      "cta": "See plans"
+    },
+    "ecf": {
+      "title": "Electronic invoicing (e-CF)",
+      "included": "Your plan includes the BillingSoft {{plan}} plan. If you choose a larger one, you pay only the difference, on your monthly charge.",
+      "none": "Your plans do not include e-CF."
+    },
+    "charges": {
+      "title": "Charges",
+      "help": "Each month is charged at the start of the next one. Your electronic invoice (e-CF) is issued when the payment is received.",
+      "none": "No charges yet.",
+      "month": "Month",
+      "number": "Number",
+      "total": "Total",
+      "balance": "Balance",
+      "due": "Due",
+      "status": "Status",
+      "overdue": "Overdue",
+      "subtotal": "Subtotal",
+      "statuses": {
+        "open": "To pay",
+        "partial": "Partly paid",
+        "paid": "Paid",
+        "void": "Void"
+      },
+      "paid": "Paid {{amount}} on {{date}}",
+      "otherWays": "You can also pay by transfer",
+      "noMatch": "No charges match.",
+      "retry": "Try again",
+      "details": "Show details",
+      "statusFilter": "Filter by status",
+      "search": "Search charges",
+      "searchPlaceholder": "Search by number or month (2026-03)",
+      "filter": {
+        "all": "All",
+        "pending": "Pending",
+        "paid": "Paid"
+      },
+      "range": "{{from}}–{{to}} of {{count}}",
+      "summaryOutstanding": "You owe {{amount}}.",
+      "summaryOverdue_one": "You owe {{amount}}, of which {{overdue}} is overdue ({{count}} charge).",
+      "summaryOverdue_other": "You owe {{amount}}, of which {{overdue}} is overdue ({{count}} charges)."
+    },
+    "pay": {
+      "cta": "Pay online",
+      "cancelled": "The payment was cancelled. Nothing was charged.",
+      "done": "Payment received. Your electronic invoice (e-CF) is on its way to your email.",
+      "review": "We received your payment and are applying it to your account. No action is needed.",
+      "pending": "Your payment is being processed. This page updates once it is confirmed."
+    },
+    "billingEmail": {
+      "title": "Billing email",
+      "help": "Charges and electronic invoices are sent here."
+    },
+    "cancelDialog": {
+      "title": "Cancel {{product}}?",
+      "trial": "You are in your free trial: it ends today and nothing is charged. Your data is kept.",
+      "body": "It stays available until the end of this month and is charged until then. Your data is kept, and you can withdraw the cancellation before it takes effect.",
+      "keep": "Keep it",
+      "confirm": "Cancel subscription"
+    },
+    "notice": {
+      "added": "{{product}} is ready. Reload the page to open it from the app switcher.",
+      "scheduled": "Your plan changes on the first day of next month.",
+      "changed": "Your plan was changed. Reload the page to see everything it includes.",
+      "kept": "You keep your current plan.",
+      "resumed": "Your subscription continues.",
+      "cancelled": "The cancellation is scheduled.",
+      "email": "Billing email saved."
+    },
+    "errors": {
+      "generic": "Something went wrong. Try again.",
+      "PLAN_DOWNGRADE_BLOCKED": "Your current usage is above the limits of that plan. Reduce it first.",
+      "BILLING_LAST_PRODUCT": "This is your only product. Contact Pilloto to close your account.",
+      "PAYMENT_GATEWAY_OFF": "Online payment is not available yet. Pay by transfer using the details below.",
+      "PAYMENT_GATEWAY": "The payment page could not be opened. Try again in a few minutes.",
+      "BILLING_INVALID": "Check the plan and try again.",
+      "BILLING_NOT_FOUND": "That charge or payment was not found.",
+      "BILLING_STATE": "That change is not possible right now. Reload the page.",
+      "BILLING_NO_PRODUCT": "You do not have that product.",
+      "FISCAL_NO_DOCUMENT": "The electronic invoice is not ready yet. Try again shortly."
+    },
+    "prompt": {
+      "title": "Available on a higher plan",
+      "feature": "{{feature}} is not included in your {{product}} plan.",
+      "limit": {
+        "users": "Your plan allows up to {{max}} users.",
+        "rooms": "Your plan allows up to {{max}} active rooms.",
+        "warehouses": "Your plan allows up to {{max}} warehouses."
+      },
+      "required": "It is included from the {{plan}} plan.",
+      "contact": "Contact Pilloto to go beyond it.",
+      "askOwner": "Ask your account owner to change the plan.",
+      "cta": "See plans"
+    }
   }
 }

@@ -19,6 +19,7 @@ import {
   AssessmentOutlined,
   GroupOutlined,
   SettingsOutlined,
+  CreditCardOutlined,
 } from '@mui/icons-material';
 import { Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
@@ -104,6 +105,7 @@ const AdminLayout: React.FC = () => {
       { section: sec.administration, text: t('admin.nav.users'), icon: <GroupOutlined />, path: '/admin/users', key: 'users', perm: 'admin.users' },
       // One entry; the settings pages have their own navigation inside (components/admin/settings/SettingsNav.tsx)
       { section: sec.administration, text: t('admin.nav.settings'), icon: <SettingsOutlined />, path: '/admin/settings', activePrefix: '/admin/settings/', key: 'settings', perm: 'admin.settings' },
+      { section: sec.administration, text: t('admin.nav.subscription', 'Plan & billing'), icon: <CreditCardOutlined />, path: '/admin/subscription', key: 'subscription', perm: 'admin.subscription' },
     ];
     const role = user?.role || 'customer';
     if (role === 'admin') {

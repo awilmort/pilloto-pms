@@ -196,9 +196,10 @@ export async function getApAging(asOf: Date) {
     const row = bySupplier.get(key)!;
     const daysPastDue = Math.floor((asOf.getTime() - new Date(bill.dueDate).getTime()) / 86400000);
     const bucket = bucketFor(daysPastDue);
-    row.buckets[bucket] = round2(row.buckets[bucket] + bill.balanceDue);
-    row.total = round2(row.total + bill.balanceDue);
-    grandTotal[bucket] = round2(grandTotal[bucket] + bill.balanceDue);
+    const due = round2(bill.balanceDue * ((bill as any).exchangeRate || 1)); // DOP at the bill's rate
+    row.buckets[bucket] = round2(row.buckets[bucket] + due);
+    row.total = round2(row.total + due);
+    grandTotal[bucket] = round2(grandTotal[bucket] + due);
   }
 
   const rows = Array.from(bySupplier.values()).sort((a, b) => b.total - a.total);
@@ -229,9 +230,10 @@ export async function getArAging(asOf: Date) {
     const dueDate = invoice.dueDate || invoice.issueDate;
     const daysPastDue = Math.floor((asOf.getTime() - new Date(dueDate).getTime()) / 86400000);
     const bucket = bucketFor(daysPastDue);
-    row.buckets[bucket] = round2(row.buckets[bucket] + invoice.balanceDue);
-    row.total = round2(row.total + invoice.balanceDue);
-    grandTotal[bucket] = round2(grandTotal[bucket] + invoice.balanceDue);
+    const due = round2(invoice.balanceDue * ((invoice as any).exchangeRate || 1)); // DOP at the invoice's rate
+    row.buckets[bucket] = round2(row.buckets[bucket] + due);
+    row.total = round2(row.total + due);
+    grandTotal[bucket] = round2(grandTotal[bucket] + due);
   }
 
   const rows = Array.from(byCustomer.values()).sort((a, b) => b.total - a.total);
@@ -283,9 +285,12 @@ export async function getSupplierStatement(supplierId: string, from?: Date, to?:
 
   const events: { date: Date; type: 'bill' | 'payment'; reference: string; debit: number; credit: number }[] = [];
   for (const bill of bills) {
-    events.push({ date: new Date(bill.issueDate), type: 'bill', reference: bill.billNumber, debit: bill.total, credit: 0 });
+    // In DOP at the bill's rate; what the supplier is owed (withholdings go to the DGII).
+    const rate = (bill as any).exchangeRate || 1;
+    const owed = (bill as any).payableTotal ?? bill.total;
+    events.push({ date: new Date(bill.issueDate), type: 'bill', reference: bill.billNumber, debit: round2(owed * rate), credit: 0 });
     for (const p of bill.payments) {
-      events.push({ date: new Date(p.date), type: 'payment', reference: `${bill.billNumber} · ${p.method}`, debit: 0, credit: p.amount });
+      events.push({ date: new Date(p.date), type: 'payment', reference: `${bill.billNumber} · ${p.method}`, debit: 0, credit: round2(p.amount * rate) });
     }
   }
 
@@ -304,11 +309,13 @@ export async function getCustomerStatement(customerId: string, from?: Date, to?:
 
   const events: { date: Date; type: 'invoice' | 'payment'; reference: string; debit: number; credit: number }[] = [];
   for (const invoice of invoices) {
-    events.push({ date: new Date(invoice.issueDate), type: 'invoice', reference: invoice.invoiceNumber, debit: invoice.total, credit: 0 });
+    // In DOP at the invoice's rate (an exchange difference on payment is a gain/loss, not the customer's).
+    const rate = (invoice as any).exchangeRate || 1;
+    events.push({ date: new Date(invoice.issueDate), type: 'invoice', reference: invoice.invoiceNumber, debit: round2(invoice.total * rate), credit: 0 });
     for (const p of invoice.payments) {
       // 'credit-note' payments (applyCreditNote, Phase 8.1) land here exactly like
       // a cash payment — both reduce what the customer owes on this invoice.
-      events.push({ date: new Date(p.date), type: 'payment', reference: `${invoice.invoiceNumber} · ${p.method}`, debit: 0, credit: p.amount });
+      events.push({ date: new Date(p.date), type: 'payment', reference: `${invoice.invoiceNumber} · ${p.method}`, debit: 0, credit: round2(p.amount * rate) });
     }
   }
 

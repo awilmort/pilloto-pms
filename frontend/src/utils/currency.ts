@@ -62,3 +62,8 @@ export function formatAccountingMoneyExact(value?: number): string {
 export function formatAccountingMoney(value?: number): string {
   return format(currencySymbol(DEFAULT_CODE), value);
 }
+
+/** An amount in a document's own currency (Accounting documents may be in USD or EUR). */
+export function formatDocumentMoney(value: number | undefined, currency?: string): string {
+  return format(currencySymbol(currency || DEFAULT_CODE), value);
+}

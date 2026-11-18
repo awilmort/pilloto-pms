@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import BankAccountSelect from '../banks/BankAccountSelect';
 import {
   Alert, Box, Button, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormControl, InputLabel, MenuItem, Select, TextField, Typography,
 } from '@mui/material';
@@ -25,6 +26,8 @@ export function useInvoiceActions(onChanged: (invoice?: Invoice, info?: { queued
 
   const [paymentTarget, setPaymentTarget] = useState<Invoice | null>(null);
   const [payment, setPayment] = useState({ amount: '', method: 'cash' as InvoicePaymentMethod, date: '', reference: '' });
+  const [bankAccount, setBankAccount] = useState('');
+  const [paymentRate, setPaymentRate] = useState('');
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
 
@@ -67,6 +70,8 @@ export function useInvoiceActions(onChanged: (invoice?: Invoice, info?: { queued
     try {
       const res = await invoicesService.recordPayment(paymentTarget._id, {
         amount, method: payment.method, date: payment.date || undefined, reference: payment.reference || undefined,
+        bankAccount: payment.method !== 'cash' && bankAccount ? bankAccount : undefined,
+        exchangeRate: Number(paymentRate) > 0 ? Number(paymentRate) : undefined,
       });
       setPaymentTarget(null);
       onChanged(res.data.data);
@@ -123,6 +128,12 @@ export function useInvoiceActions(onChanged: (invoice?: Invoice, info?: { queued
                 {PAYMENT_METHODS.map((m) => <MenuItem key={m} value={m}>{t(`accounting.invoices.paymentMethod.${m}`)}</MenuItem>)}
               </Select>
             </FormControl>
+            <BankAccountSelect method={payment.method} value={bankAccount} onChange={setBankAccount} />
+            {(paymentTarget as any)?.currency && (paymentTarget as any).currency !== 'DOP' && (
+              <TextField type="number" label={t('accounting.fx.paymentRate', 'Rate on the payment day (RD$ per {{currency}} 1)', { currency: (paymentTarget as any).currency })}
+                value={paymentRate} onChange={(e) => setPaymentRate(e.target.value)}
+                helperText={t('accounting.fx.paymentRateHelp', 'Booked at {{rate}}. A different rate records an exchange gain or loss.', { rate: (paymentTarget as any).exchangeRate })} />
+            )}
             <TextField label={t('accounting.invoices.form.paymentDate')} type="date" InputLabelProps={{ shrink: true }} value={payment.date} onChange={(e) => setPayment((f) => ({ ...f, date: e.target.value }))} helperText={t('accounting.invoices.form.paymentDateHelp')} />
             <TextField label={t('accounting.invoices.form.paymentReference')} value={payment.reference} onChange={(e) => setPayment((f) => ({ ...f, reference: e.target.value }))} />
           </Box>

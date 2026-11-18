@@ -1,26 +1,6 @@
-import { addDays, chargeTotals, discountAmount, isPeriod, periodLabelEs, proration, round2, toCents } from '../services/platformBilling/billingMath';
+import { addDays, chargeTotals, discountAmount, isPeriod, periodLabelEs, round2, toCents } from '../services/platformBilling/billingMath';
 
 describe('billing math', () => {
-  describe('proration', () => {
-    it('is the whole month for every month but the first', () => {
-      expect(proration('2026-10', new Date('2026-09-15T16:00:00Z'))).toBe(1);
-      expect(proration('2026-10', new Date('2025-01-01T16:00:00Z'))).toBe(1);
-    });
-
-    it('counts a first month from the day it started, inclusive', () => {
-      // 16 of 31 days: the 16th to the 31st.
-      expect(proration('2026-10', new Date('2026-10-16T16:00:00Z'))).toBe(0.5161);
-      expect(proration('2026-10', new Date('2026-10-01T16:00:00Z'))).toBe(1);
-      expect(proration('2026-10', new Date('2026-10-31T16:00:00Z'))).toBe(0.0323);
-    });
-
-    it('reads the start day in Dominican time (UTC−4), not UTC', () => {
-      // 01:00 UTC on 1 Nov is still 31 October at 21:00 in the Dominican Republic.
-      expect(proration('2026-10', new Date('2026-11-01T01:00:00Z'))).toBe(0.0323);
-      expect(proration('2026-11', new Date('2026-11-01T01:00:00Z'))).toBe(1);
-    });
-  });
-
   describe('chargeTotals', () => {
     it('adds ITBIS per line, rounded to the centavo, like an e-CF does', () => {
       // 0.18 × 10.03 = 1.8054 → 1.81 per line, so 3.62; rounding the sum once would give 3.61.

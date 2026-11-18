@@ -27,6 +27,10 @@ export interface BillingSettings {
   dueDays: number;
   notifyEmail: string;
   paymentInstructions: string;
+  /** Percent off Accounting for a tenant that also has the PMS (0 = off). */
+  suiteDiscountPercent: number;
+  /** Online payment gateway (read-only: keys live in the server environment). */
+  handypay?: { configured: boolean; sandbox: boolean; webhookUrl: string | null; needsReview: number };
 }
 
 export interface PriceHistoryEntry { previous: number | null; price: number; changedAt: string; changedByEmail?: string }
@@ -98,7 +102,7 @@ export interface BillingPayment {
   method: BillingPaymentMethod;
   reference?: string;
   notes?: string;
-  source: 'manual' | 'portaldom';
+  source: 'manual' | 'portaldom' | 'handypay';
   status: 'recorded' | 'reversed';
   ecf: BillingEcf | null;
   ecfError: string | null;

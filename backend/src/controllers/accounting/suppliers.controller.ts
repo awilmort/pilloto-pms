@@ -52,7 +52,7 @@ export const getSupplier = async (req: AuthRequest, res: Response) => {
 
 export const createSupplier = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, contactName, email, phone, address, notes, paymentTermsDays, taxId } = req.body as Record<string, unknown>;
+    const { name, contactName, email, phone, address, notes, paymentTermsDays, taxId, defaultExpenseType } = req.body as Record<string, unknown>;
     if (!String(name || '').trim()) return res.status(400).json({ success: false, message: 'name is required' });
     if (paymentTermsDays !== undefined && paymentTermsDays !== null && Number(paymentTermsDays) < 0) {
       return res.status(400).json({ success: false, message: 'paymentTermsDays must be >= 0' });
@@ -62,6 +62,7 @@ export const createSupplier = async (req: AuthRequest, res: Response) => {
       name: String(name).trim(), contactName, email, phone, address, notes,
       paymentTermsDays: paymentTermsDays !== undefined && paymentTermsDays !== null ? Number(paymentTermsDays) : undefined,
       taxId,
+      ...(defaultExpenseType ? { defaultExpenseType } : {}),
     });
     res.status(201).json({ success: true, message: 'Supplier created successfully', data: supplier });
   } catch (error: any) {
@@ -72,7 +73,7 @@ export const createSupplier = async (req: AuthRequest, res: Response) => {
 
 export const updateSupplier = async (req: AuthRequest, res: Response) => {
   try {
-    const { name, contactName, email, phone, address, notes, paymentTermsDays, taxId, isActive } = req.body as Record<string, unknown>;
+    const { name, contactName, email, phone, address, notes, paymentTermsDays, taxId, isActive, defaultExpenseType } = req.body as Record<string, unknown>;
     const supplier = await Supplier.findById(req.params.id);
     if (!supplier) return res.status(404).json({ success: false, message: 'Supplier not found' });
 
@@ -86,6 +87,7 @@ export const updateSupplier = async (req: AuthRequest, res: Response) => {
     if (address !== undefined) supplier.address = address as string;
     if (notes !== undefined) supplier.notes = notes as string;
     if (taxId !== undefined) supplier.taxId = taxId as string;
+    if (defaultExpenseType !== undefined) supplier.defaultExpenseType = (defaultExpenseType || undefined) as string | undefined;
     if (paymentTermsDays !== undefined) {
       if (paymentTermsDays !== null && Number(paymentTermsDays) < 0) {
         return res.status(400).json({ success: false, message: 'paymentTermsDays must be >= 0' });

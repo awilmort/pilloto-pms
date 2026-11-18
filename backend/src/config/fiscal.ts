@@ -43,21 +43,24 @@ export const fiscalPlanRank = (plan: FiscalPlan): number => PLAN_RANK[plan];
 export const isFiscalPlan = (value: unknown): value is FiscalPlan =>
   typeof value === 'string' && (FISCAL_PLANS as readonly string[]).includes(value);
 
-/** The BillingSoft plan each Pilloto PMS plan includes. Basic includes none. */
-export const PMS_INCLUDED_FISCAL_PLAN: Partial<Record<PlanSlug, FiscalPlan>> = {
+/** The BillingSoft plan each Pilloto PMS plan includes (e-CF is mandatory for every taxpayer). */
+export const PMS_INCLUDED_FISCAL_PLAN: Record<PlanSlug, FiscalPlan> = {
+  basic: 'essential',
   pro: 'essential',
   enterprise: 'pro',
 };
 
-/** The BillingSoft plan each Pilloto Accounting plan includes. Starter includes none. */
-export const ACCOUNTING_INCLUDED_FISCAL_PLAN: Partial<Record<AccountingPlanSlug, FiscalPlan>> = {
-  pro: 'essential',
-  plus: 'pro',
+/** The BillingSoft plan each Pilloto Accounting plan includes. */
+export const ACCOUNTING_INCLUDED_FISCAL_PLAN: Record<AccountingPlanSlug, FiscalPlan> = {
+  invoicing: 'essential',
+  essentials: 'essential',
+  pro: 'pro',
+  plus: 'max',
 };
 
 /**
  * The BillingSoft plan the tenant's Pilloto plans include: the larger of what its PMS and Accounting
- * plans each include, or `null` when neither includes one (the tenant then pays the full price of
+ * plans each include, or `null` when it has neither product (the tenant then pays the full price of
  * the plan it chooses).
  */
 export function includedFiscalPlan(

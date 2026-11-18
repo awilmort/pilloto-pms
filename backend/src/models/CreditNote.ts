@@ -57,6 +57,8 @@ export interface ICreditNoteApplication {
   _id?: Types.ObjectId;
   type: CreditNoteApplicationType;
   amount: number;
+  /** Pesos per unit on the payment day (foreign-currency documents; the document's rate otherwise). */
+  exchangeRate?: number;
   invoice?: Types.ObjectId; // ref 'Invoice' — required when type === 'invoice'; the invoice this allocation reduces (may differ from the originating invoice)
   method?: CreditNoteRefundMethod; // required when type === 'refund'
   reference?: string;
@@ -77,6 +79,10 @@ export interface ICreditNote extends Document {
   issueDate: Date;
   status: CreditNoteStatus;
   lineItems: ICreditNoteLineItem[];
+  /** DOP (the books' currency), USD or EUR. Amounts on the document are in this currency. */
+  currency: 'DOP' | 'USD' | 'EUR';
+  /** Pesos per unit of `currency` the document was booked at (1 for DOP). */
+  exchangeRate: number;
   subtotal: number;
   taxAmount: number;
   total: number;
@@ -124,6 +130,7 @@ const creditNoteApplicationSchema = new Schema<ICreditNoteApplication>(
   {
     type: { type: String, enum: ['invoice', 'refund'], required: true },
     amount: { type: Number, required: true, min: 0.01 },
+    exchangeRate: { type: Number, min: 0.000001 },
     invoice: { type: Schema.Types.ObjectId, ref: 'Invoice' },
     method: { type: String, enum: ['cash', 'card', 'transfer', 'check', 'other'] },
     reference: { type: String, trim: true, maxlength: 200 },
@@ -156,6 +163,8 @@ const creditNoteSchema = new Schema<ICreditNote>(
         message: 'A credit note must have at least one line item',
       },
     },
+    currency: { type: String, enum: ['DOP', 'USD', 'EUR'], default: 'DOP' },
+    exchangeRate: { type: Number, default: 1, min: 0.000001 },
     subtotal: { type: Number, required: true, min: 0, default: 0 },
     taxAmount: { type: Number, required: true, min: 0, default: 0 },
     total: { type: Number, required: true, min: 0, default: 0 },
@@ -225,6 +234,16 @@ creditNoteSchema.pre('validate', function (this: ICreditNote, next) {
   const hasReturnLine = this.lineItems.some((l) => l.lineType === 'return');
   if (hasReturnLine && !this.warehouse) {
     return next(new Error('warehouse is required when the credit note has at least one "return" line item'));
+  }
+  next();
+});
+
+
+// A DOP document is always at rate 1.
+creditNoteSchema.pre('validate', function (this: any, next) {
+  if (!this.currency || this.currency === 'DOP') {
+    this.currency = 'DOP';
+    this.exchangeRate = 1;
   }
   next();
 });

@@ -4,14 +4,15 @@ import mongoose, { Document, Schema } from 'mongoose';
  * Money Pilloto received from a tenant against a `BillingCharge`. Recording one is what issues the
  * e-CF (a credit-fiscal invoice for the amount received), so each payment carries the link to it.
  *
- * `source` is how the payment reached Pilloto: `manual` (a person recorded it in the console) now;
- * PortalDom will record its collections the same way, with `source: 'portaldom'`.
+ * `source` is how the payment reached Pilloto: `manual` (a person recorded it in the console),
+ * `handypay` (the tenant paid online; see services/platformBilling/onlinePayments.ts), or
+ * `portaldom` (its collections, recorded the same way).
  * Not tenant-scoped, with an explicit `tenantId`.
  */
 export const BILLING_PAYMENT_METHODS = ['transfer', 'deposit', 'cash', 'check', 'card', 'other'] as const;
 export type BillingPaymentMethod = (typeof BILLING_PAYMENT_METHODS)[number];
 
-export type BillingPaymentSource = 'manual' | 'portaldom';
+export type BillingPaymentSource = 'manual' | 'portaldom' | 'handypay';
 
 export interface IBillingPayment extends Document {
   tenantId: mongoose.Types.ObjectId;
@@ -57,7 +58,7 @@ const billingPaymentSchema = new Schema<IBillingPayment>(
     method: { type: String, enum: BILLING_PAYMENT_METHODS, required: true },
     reference: { type: String, trim: true, maxlength: 100 },
     notes: { type: String, trim: true, maxlength: 500 },
-    source: { type: String, enum: ['manual', 'portaldom'], default: 'manual' },
+    source: { type: String, enum: ['manual', 'portaldom', 'handypay'], default: 'manual' },
     recordedBy: {
       type: new Schema({ userId: { type: Schema.Types.ObjectId }, email: { type: String, trim: true } }, { _id: false }),
     },

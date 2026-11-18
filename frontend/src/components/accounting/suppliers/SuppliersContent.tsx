@@ -3,13 +3,14 @@ import {
   Box, Typography, Button, TextField, Table, TableBody, TableCell,
   TableContainer, TableHead, TableRow, Paper, IconButton, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress,
-  Alert, Tooltip, FormControlLabel, Switch, InputAdornment, Divider,
+  Alert, Tooltip, FormControlLabel, Switch, InputAdornment, Divider, FormControl, InputLabel, Select, MenuItem,
 } from '@mui/material';
 import { Add, Edit, Archive, Search } from '@mui/icons-material';
 import { useTranslation } from 'react-i18next';
 import { usePermission } from '../../../lib/permissions';
 import { suppliersService } from '../../../services/api';
 import { Supplier } from '../../../types';
+import { EXPENSE_TYPES, isTaxId, normalizeTaxId } from '../../../config/dgii';
 
 const emptyForm: Partial<Supplier> = {
   name: '', contactName: '', email: '', phone: '', address: '', notes: '', isActive: true, taxId: '', paymentTermsDays: undefined,
@@ -69,7 +70,7 @@ const SuppliersContent: React.FC = () => {
     setEditingId(s._id);
     setForm({
       name: s.name, contactName: s.contactName, email: s.email, phone: s.phone, address: s.address,
-      notes: s.notes, isActive: s.isActive, taxId: s.taxId || '', paymentTermsDays: s.paymentTermsDays,
+      notes: s.notes, isActive: s.isActive, taxId: s.taxId || '', paymentTermsDays: s.paymentTermsDays, defaultExpenseType: s.defaultExpenseType || '',
     });
     setFormError(null);
     setDialogOpen(true);
@@ -77,6 +78,7 @@ const SuppliersContent: React.FC = () => {
 
   const handleSave = async () => {
     if (!form.name?.trim()) { setFormError(t('accounting.suppliers.nameRequired')); return; }
+    if (form.taxId && !isTaxId(normalizeTaxId(form.taxId))) { setFormError(t('accounting.suppliers.taxIdInvalid', 'The RNC has 9 digits and a cédula 11.')); return; }
     if (form.paymentTermsDays !== undefined && form.paymentTermsDays !== null && Number(form.paymentTermsDays) < 0) {
       setFormError(t('accounting.suppliers.paymentTermsInvalid')); return;
     }
@@ -198,7 +200,14 @@ const SuppliersContent: React.FC = () => {
             <Divider />
             <Typography variant="subtitle2" color="text.secondary">{t('accounting.suppliers.form.billingInfoTitle')}</Typography>
             <Box sx={{ display: 'grid', gap: 2, gridTemplateColumns: '1fr 1fr' }}>
-              <TextField label={t('accounting.suppliers.form.taxId')} value={form.taxId || ''} onChange={e => setForm(f => ({ ...f, taxId: e.target.value }))} fullWidth />
+              <TextField
+                label={t('accounting.suppliers.form.taxIdRnc', 'RNC or cédula')}
+                value={form.taxId || ''}
+                onChange={e => setForm(f => ({ ...f, taxId: e.target.value }))}
+                fullWidth
+                error={!!form.taxId && !isTaxId(normalizeTaxId(form.taxId))}
+                helperText={t('accounting.suppliers.form.taxIdHelp', 'Reported on the 606 with every purchase')}
+              />
               <TextField
                 label={t('accounting.suppliers.form.paymentTermsDays')}
                 type="number"
@@ -209,6 +218,13 @@ const SuppliersContent: React.FC = () => {
                 helperText={t('accounting.suppliers.form.paymentTermsHelp')}
               />
             </Box>
+            <FormControl fullWidth>
+              <InputLabel>{t('accounting.suppliers.form.defaultExpenseType', 'Usual 606 expense type')}</InputLabel>
+              <Select value={form.defaultExpenseType || ''} label={t('accounting.suppliers.form.defaultExpenseType', 'Usual 606 expense type')} onChange={e => setForm(f => ({ ...f, defaultExpenseType: e.target.value }))}>
+                <MenuItem value="">{t('common.none', 'None')}</MenuItem>
+                {Object.entries(EXPENSE_TYPES).map(([code, name]) => <MenuItem key={code} value={code}>{code} — {name}</MenuItem>)}
+              </Select>
+            </FormControl>
             {editingId && (
               <FormControlLabel
                 control={<Switch checked={!!form.isActive} onChange={e => setForm(f => ({ ...f, isActive: e.target.checked }))} />}

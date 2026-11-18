@@ -55,6 +55,7 @@ export async function receiveStock(params: ReceiveStockParams): Promise<ReceiveS
 
   const product = await Product.findById(productId);
   if (!product) throw { status: 404, message: 'Product not found' };
+  if (product.tracksStock === false) throw { status: 400, message: `${product.name} does not track stock` };
 
   const newQty = product.onHandQty + quantity;
   const newCost = product.onHandQty > 0
@@ -134,6 +135,7 @@ export async function deductStockForSale(params: DeductStockParams): Promise<Ded
 
   const product = await Product.findById(productId);
   if (!product) throw { status: 404, message: 'Product not found' };
+  if (product.tracksStock === false) throw { status: 400, message: `${product.name} does not track stock` };
 
   const stock = await ProductStock.findOne({ product: product._id, warehouse: warehouseId });
   const currentWarehouseQty = stock?.onHandQty || 0;
@@ -212,6 +214,7 @@ export async function restockReturn(params: RestockReturnParams): Promise<Restoc
 
   const product = await Product.findById(productId);
   if (!product) throw { status: 404, message: 'Product not found' };
+  if (product.tracksStock === false) throw { status: 400, message: `${product.name} does not track stock` };
 
   const newQty = product.onHandQty + quantity;
   const updated = await Product.findOneAndUpdate(

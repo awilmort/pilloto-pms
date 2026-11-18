@@ -25,6 +25,8 @@ import mongoose from 'mongoose';
 import { AuthRequest } from '../middleware/auth';
 import BillingCharge, { BILLING_CHARGE_STATUSES, IBillingCharge } from '../models/BillingCharge';
 import BillingPayment, { IBillingPayment } from '../models/BillingPayment';
+import BillingOnlinePayment from '../models/BillingOnlinePayment';
+import { isHandyPayConfigured, isHandyPaySandbox } from '../services/handypay/handypayClient';
 import ElectronicInvoice, { IElectronicInvoice } from '../models/ElectronicInvoice';
 import PlatformSettings, { BILLING_TAXES, PLATFORM_KEY } from '../models/PlatformSettings';
 import Tenant, { BILLING_PRODUCTS, ITenant } from '../models/Tenant';
@@ -160,7 +162,19 @@ router.get('/overview', act(async () => {
 
 const publicSettings = async () => {
   const s = await getPlatformSettings();
-  return { tax: s.billing?.tax ?? 'itbis18', dueDays: s.billing?.dueDays ?? 10, notifyEmail: s.billing?.notifyEmail ?? '', paymentInstructions: s.billing?.paymentInstructions ?? '' };
+  return {
+    tax: s.billing?.tax ?? 'itbis18',
+    dueDays: s.billing?.dueDays ?? 10,
+    notifyEmail: s.billing?.notifyEmail ?? '',
+    paymentInstructions: s.billing?.paymentInstructions ?? '',
+    suiteDiscountPercent: s.billing?.suiteDiscountPercent ?? 20,
+    handypay: {
+      configured: isHandyPayConfigured(),
+      sandbox: isHandyPaySandbox(),
+      webhookUrl: getFiscalConfig().backendPublicUrl ? `${getFiscalConfig().backendPublicUrl}/api/webhooks/handypay` : null,
+      needsReview: await BillingOnlinePayment.countDocuments({ status: 'needs_review' }),
+    },
+  };
 };
 
 router.get('/settings', act(publicSettings));
@@ -187,6 +201,11 @@ router.put('/settings', act(async (req) => {
     const t = text(b.paymentInstructions);
     if (t.length > 2000) errors.paymentInstructions = 'Máximo 2000 caracteres';
     else set['billing.paymentInstructions'] = t;
+  }
+  if (b.suiteDiscountPercent !== undefined) {
+    const pct = Number(b.suiteDiscountPercent);
+    if (!Number.isFinite(pct) || pct < 0 || pct > 100) errors.suiteDiscountPercent = 'Entre 0 y 100';
+    else set['billing.suiteDiscountPercent'] = Math.round(pct * 100) / 100;
   }
   if (Object.keys(errors).length) throw new FiscalError(400, 'BILLING_INVALID', 'Review the highlighted fields', errors);
   if (Object.keys(set).length) {

@@ -13,6 +13,7 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { getPlanFeatures, PlanFeatures } from '../config/plans';
+import { AccountingFeature, AccountingPlanFeatures, getAccountingPlanFeatures } from '../config/accountingPlans';
 import { AppCode } from '../types';
 import { setPropertyCurrency } from '../utils/currency';
 
@@ -23,6 +24,8 @@ export interface TenantInfo {
   name: string;
   slug: string;
   plan: string;
+  /** Per-product tiers besides the PMS one (`plan`). */
+  plans?: { accounting?: string };
   isActive: boolean;
   /** Products this tenant has bought (`'pms'`, `'accounting'`) — gates the AppShell switcher. */
   products: AppCode[];
@@ -45,6 +48,8 @@ interface TenantContextValue {
   tenantNotFound: boolean;
   /** Resolved feature flags for the tenant's current plan. null on platform / no tenant. */
   planFeatures: PlanFeatures | null;
+  /** Modules of the tenant's Accounting plan. null on platform / without the product. */
+  accountingFeatures: AccountingPlanFeatures | null;
   /** true when on the login.pilloto.com portal (cross-tenant email lookup) */
   isLoginPortal: boolean;
 }
@@ -56,6 +61,7 @@ const TenantContext = createContext<TenantContextValue>({
   tenantSlug: undefined,
   tenantNotFound: false,
   planFeatures: null,
+  accountingFeatures: null,
   isLoginPortal: false,
 });
 
@@ -65,6 +71,12 @@ export const useTenant = () => useContext(TenantContext);
 export function usePlanFeature(feature: keyof PlanFeatures): boolean {
   const { planFeatures } = useContext(TenantContext);
   return planFeatures?.[feature] ?? false;
+}
+
+/** Returns true if the tenant's Accounting plan includes the given module. */
+export function useAccountingFeature(feature: AccountingFeature): boolean {
+  const { accountingFeatures } = useContext(TenantContext);
+  return accountingFeatures?.[feature] ?? false;
 }
 
 /** Extract subdomain from window.location.hostname.
@@ -162,9 +174,13 @@ export const TenantProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const planFeatures = useMemo(() => (tenant ? getPlanFeatures(tenant.plan) : null), [tenant]);
+  const accountingFeatures = useMemo(
+    () => (tenant?.products?.includes('accounting') ? getAccountingPlanFeatures(tenant.plans?.accounting) : null),
+    [tenant],
+  );
   const value = useMemo(
-    () => ({ tenant, isPlatform, loading, tenantSlug, tenantNotFound, planFeatures, isLoginPortal }),
-    [tenant, isPlatform, loading, tenantSlug, tenantNotFound, planFeatures, isLoginPortal]
+    () => ({ tenant, isPlatform, loading, tenantSlug, tenantNotFound, planFeatures, accountingFeatures, isLoginPortal }),
+    [tenant, isPlatform, loading, tenantSlug, tenantNotFound, planFeatures, accountingFeatures, isLoginPortal]
   );
 
   return (

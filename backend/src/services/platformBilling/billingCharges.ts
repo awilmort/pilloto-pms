@@ -19,7 +19,6 @@ import { dominicanDate, dominicanPeriod, FiscalError, previousPeriod } from '../
 import { closeStatement } from '../fiscal/fiscalStatements';
 import { getPlatformSettings } from '../fiscal/platformIssuer';
 import { addDays, chargeTotals, discountAmount, isPeriod, periodLabelEs, round2 } from './billingMath';
-import { proration } from './billingMath';
 import { ResolvedContract, resolveContracts } from './billingContracts';
 
 const PRODUCT_NAME = { pms: 'Pilloto PMS', accounting: 'Pilloto Accounting' } as const;
@@ -33,25 +32,42 @@ async function nextChargeNumber(): Promise<string> {
   return `COB-${String(seq).padStart(6, '0')}`;
 }
 
-/** The subscription lines of a charge: one per product, prorated in the tenant's first month. */
-export function subscriptionLines(contracts: ResolvedContract[], period: string, startedAt: Date): IBillingChargeLine[] {
-  const share = proration(period, startedAt);
-  return contracts
-    .filter((c) => c.price > 0)
-    .map((c) => {
-      const base = round2(c.price * share);
-      const off = c.discount ? discountAmount(base, c.discount, share) : 0;
-      const discountNote = c.discount && off > 0 ? `, descuento ${c.discount.type === 'percent' ? `${c.discount.value}%` : money(c.discount.value)}` : '';
-      return {
-        kind: 'subscription' as const,
+const PLAN_LABEL: Record<string, string> = {
+  basic: 'Basic', pro: 'Pro', enterprise: 'Enterprise', invoicing: 'Facturación', essentials: 'Esencial', plus: 'Plus',
+};
+const dayLabel = (day: string) => `${Number(day.slice(8))}/${Number(day.slice(5, 7))}`;
+
+/**
+ * The subscription lines of a charge: one per product and plan segment of the month. A segment that
+ * is not the whole month (trial end, a mid-month upgrade, a cancellation) is charged by the day.
+ */
+export function subscriptionLines(contracts: ResolvedContract[], period: string): IBillingChargeLine[] {
+  const lines: IBillingChargeLine[] = [];
+  for (const c of contracts) {
+    for (const seg of c.segments) {
+      if (seg.price <= 0) continue;
+      const base = round2(seg.price * seg.share);
+      const off = c.discount ? discountAmount(base, c.discount, seg.share) : 0;
+      const partial = seg.share < 1;
+      const discountNote = c.discount && off > 0
+        ? `, ${c.discountKind === 'suite' ? 'descuento suite' : 'descuento'} ${c.discount.type === 'percent' ? `${c.discount.value}%` : money(c.discount.value)}`
+        : '';
+      const amount = round2(base - off);
+      if (amount <= 0) continue;
+      lines.push({
+        kind: 'subscription',
         product: c.product,
-        description: `Suscripción ${PRODUCT_NAME[c.product]} — plan ${c.plan} (${periodLabelEs(period)})${share < 1 ? `, proporcional ${Math.round(share * 100)}%` : ''}${discountNote}`,
-        amount: round2(base - off),
-        ...(share < 1 ? { proration: share } : {}),
-        ...(c.discount && off > 0 ? { discount: { type: c.discount.type, value: c.discount.value, amount: off } } : {}),
-      };
-    })
-    .filter((l) => l.amount > 0);
+        plan: seg.plan,
+        description:
+          `Suscripción ${PRODUCT_NAME[c.product]} — plan ${PLAN_LABEL[seg.plan] ?? seg.plan} (${periodLabelEs(period)})` +
+          `${partial ? `, del ${dayLabel(seg.from)} al ${dayLabel(seg.to)} (${seg.days} días)` : ''}${discountNote}`,
+        amount,
+        ...(partial ? { proration: seg.share, days: seg.days } : {}),
+        ...(c.discount && off > 0 ? { discount: { type: c.discount.type, value: c.discount.value, amount: off, ...(c.discountKind ? { kind: c.discountKind } : {}) } } : {}),
+      });
+    }
+  }
+  return lines;
 }
 
 /** The e-invoicing lines of a charge, from the month's closed statement. */
@@ -121,7 +137,7 @@ export async function generateCharge(tenant: ITenant, period: string, options: G
   const settings = await getPlatformSettings();
   const contracts = await resolveContracts(tenant, period);
   const statement = await statementFor(tenant, period, now);
-  const lines = [...subscriptionLines(contracts, period, tenant.createdAt), ...(statement ? statementLines(statement, period) : [])];
+  const lines = [...subscriptionLines(contracts, period), ...(statement ? statementLines(statement, period) : [])];
   if (lines.length === 0) return { charge: null, created: false, reason: 'nothing_to_charge' };
 
   const tax = settings.billing?.tax ?? 'itbis18';

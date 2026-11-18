@@ -3,6 +3,7 @@ import JournalEntry, { IJournalEntry, JournalEntrySource, JournalEntrySourceMode
 import Account from '../../models/Account';
 import { nextSequence } from '../../models/Counter';
 import { SYSTEM_ACCOUNT_CODES } from '../../constants/accounting';
+import { seedDefaultChartOfAccounts } from '../../utils/seedChartOfAccounts';
 
 /**
  * The single write path onto the general ledger (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md
@@ -97,9 +98,19 @@ export async function postJournalEntry(
  */
 export async function getSystemAccountIds(codes: string[]): Promise<Record<string, Types.ObjectId>> {
   const uniqueCodes = Array.from(new Set(codes));
-  const accounts = await Account.find({ code: { $in: uniqueCodes } }).select('code').lean();
-  const map: Record<string, Types.ObjectId> = {};
-  for (const acc of accounts) map[acc.code] = acc._id as Types.ObjectId;
+  const load = async () => {
+    const accounts = await Account.find({ code: { $in: uniqueCodes } }).select('code').lean();
+    const found: Record<string, Types.ObjectId> = {};
+    for (const acc of accounts) found[acc.code] = acc._id as Types.ObjectId;
+    return found;
+  };
+  let map = await load();
+  // A system account added to the default chart after this tenant was provisioned (e.g. the 606
+  // retention accounts) is created on first use; the seed is idempotent.
+  if (uniqueCodes.some((code) => !map[code]) && (await Account.exists({}))) {
+    await seedDefaultChartOfAccounts();
+    map = await load();
+  }
 
   const missing = uniqueCodes.filter((code) => !map[code]);
   if (missing.length > 0) {
@@ -108,17 +119,6 @@ export async function getSystemAccountIds(codes: string[]): Promise<Record<strin
     );
   }
   return map;
-}
-
-/**
- * Maps an Invoice/Bill payment method to the GL cash/clearing account it settles
- * against. Per PILLOTO_ACCOUNTING_ARCHITECTURE.md §6.2: "cash vs. card vs. transfer
- * can map to distinct GL cash/clearing accounts if the tenant wants that granularity
- * — configurable, default to one account" — v1 defaults to the two seeded accounts
- * (physical cash vs. everything that clears through the bank).
- */
-export function cashAccountCodeForMethod(method: string): string {
-  return method === 'cash' ? SYSTEM_ACCOUNT_CODES.CASH : SYSTEM_ACCOUNT_CODES.BANK;
 }
 
 /**
@@ -156,4 +156,57 @@ export async function reversePostedEntries(
     await entry.save();
   }
   return reversals;
+}
+
+// ─── Foreign currency ────────────────────────────────────────────────────────
+
+/**
+ * A balanced entry in a document's currency, converted to DOP (the books' currency) at `rate`.
+ * Each amount is rounded to the centavo; the rounding difference goes to line `plug` (the
+ * receivable/payable) so the entry stays balanced. Rate 1 returns the lines unchanged.
+ */
+export function inFunctional(lines: PostJournalEntryLine[], rate: number, plug = 0): PostJournalEntryLine[] {
+  if (!rate || rate === 1) return lines;
+  const out = lines.map((l) => ({ ...l, debit: round2((l.debit || 0) * rate), credit: round2((l.credit || 0) * rate) }));
+  const diff = round2(out.reduce((s, l) => s + (l.debit || 0) - (l.credit || 0), 0));
+  if (diff !== 0) {
+    const p = out[plug];
+    if ((p.debit || 0) > 0) p.debit = round2((p.debit || 0) - diff);
+    else p.credit = round2((p.credit || 0) + diff);
+  }
+  return out;
+}
+
+export interface SettlementInput {
+  /** Document currency amount paid or received. */
+  amount: number;
+  /** The document's own rate (what the receivable/payable was booked at). */
+  documentRate: number;
+  /** The rate on the payment day. */
+  paymentRate: number;
+  /** `in`: money received (Dr cash / Cr receivable); `out`: money paid (Dr payable or receivable / Cr cash). */
+  direction: 'in' | 'out';
+  cashAccount: Types.ObjectId | string;
+  /** Receivable (in) or payable / receivable being refunded (out). */
+  controlAccount: Types.ObjectId | string;
+}
+
+/**
+ * The entry of a payment, in DOP: the cash side at the payment's rate, the receivable/payable at
+ * the document's, and the difference as a realised exchange gain (4300) or loss (6080).
+ */
+export async function settlementLines(input: SettlementInput): Promise<PostJournalEntryLine[]> {
+  const cash = round2(input.amount * (input.paymentRate || 1));
+  const control = round2(input.amount * (input.documentRate || 1));
+  const lines: PostJournalEntryLine[] =
+    input.direction === 'in'
+      ? [{ account: input.cashAccount, debit: cash }, { account: input.controlAccount, credit: control }]
+      : [{ account: input.controlAccount, debit: control }, { account: input.cashAccount, credit: cash }];
+  // Money in worth more than booked, or money out worth less, is a gain.
+  const gain = round2(input.direction === 'in' ? cash - control : control - cash);
+  if (gain !== 0) {
+    const ids = await getSystemAccountIds([SYSTEM_ACCOUNT_CODES.FX_GAIN, SYSTEM_ACCOUNT_CODES.FX_LOSS]);
+    lines.push(gain > 0 ? { account: ids[SYSTEM_ACCOUNT_CODES.FX_GAIN], credit: gain } : { account: ids[SYSTEM_ACCOUNT_CODES.FX_LOSS], debit: -gain });
+  }
+  return lines;
 }

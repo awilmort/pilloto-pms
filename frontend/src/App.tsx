@@ -63,6 +63,8 @@ const AdminProfilePage = lazy(() => import('./pages/admin/AdminProfilePage'));
 const AccountingDashboard = lazy(() => import('./pages/accounting/AccountingDashboard'));
 const AccountingProfilePage = lazy(() => import('./pages/accounting/AccountingProfilePage'));
 const AccountingSettingsPage = lazy(() => import('./pages/accounting/AccountingSettingsPage'));
+const SubscriptionPage = lazy(() => import('./pages/shared/SubscriptionPage'));
+const BanksPage = lazy(() => import('./pages/accounting/BanksPage'));
 const FiscalPage = lazy(() => import('./pages/accounting/FiscalPage'));
 const InventoryProductsPage = lazy(() => import('./pages/accounting/InventoryProductsPage'));
 const InventoryWarehousesPage = lazy(() => import('./pages/accounting/InventoryWarehousesPage'));
@@ -80,6 +82,7 @@ const BillsPage = lazy(() => import('./pages/accounting/BillsPage'));
 const SuppliersPage = lazy(() => import('./pages/accounting/SuppliersPage'));
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
 const LandingPage = lazy(() => import('./pages/marketing/LandingPage'));
+const AccountingLandingPage = lazy(() => import('./pages/marketing/AccountingLandingPage'));
 const CrossTenantLoginPage = lazy(() => import('./pages/marketing/CrossTenantLoginPage'));
 const ContactPage = lazy(() => import('./pages/marketing/ContactPage'));
 const LegalCenterPage = lazy(() => import('./pages/marketing/LegalCenterPage'));
@@ -165,6 +168,7 @@ function MarketingApp() {
       <RoutedErrorBoundary fullPage>
         <LazyBoundary fullPage>
           <Routes>
+            <Route path="/contabilidad" element={<AccountingLandingPage />} />
             <Route path="/contact" element={<ContactPage />} />
             <Route path="/legal" element={<LegalCenterPage />} />
             <Route path="/privacy" element={<PrivacyPolicyPage />} />
@@ -248,6 +252,16 @@ function TenantApp() {
                 <Route path="/accounting/profile" element={
                   <AccountingRoute>
                     <AccountingProfilePage />
+                  </AccountingRoute>
+                } />
+                <Route path="/accounting/banks" element={
+                  <AccountingRoute requiredPermission={['accounting.banks.view', 'accounting.banks.manage']}>
+                    <BanksPage />
+                  </AccountingRoute>
+                } />
+                <Route path="/accounting/subscription" element={
+                  <AccountingRoute requiredPermission="accounting.subscription">
+                    <SubscriptionPage />
                   </AccountingRoute>
                 } />
                 <Route path="/accounting/settings" element={
@@ -403,6 +417,11 @@ function TenantApp() {
                 <Route path="/admin/users" element={
                   <ProtectedRoute requiredPermission="admin.users" requiredSection="users">
                     <UsersManagement />
+                  </ProtectedRoute>
+                } />
+                <Route path="/admin/subscription" element={
+                  <ProtectedRoute requiredPermission="admin.subscription">
+                    <SubscriptionPage />
                   </ProtectedRoute>
                 } />
                 <Route path="/admin/settings" element={

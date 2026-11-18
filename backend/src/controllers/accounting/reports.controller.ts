@@ -1,6 +1,7 @@
 import { Response } from 'express';
 import { AuthRequest } from '../../middleware/auth';
 import * as reports from '../../services/accounting/reports.service';
+import * as dgii from '../../services/accounting/dgii.service';
 
 /**
  * Financial reports (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md Phase 9.2).
@@ -113,5 +114,56 @@ export const getGeneralLedgerReport = async (req: AuthRequest, res: Response) =>
     if (error.name === 'CastError') return res.status(400).json({ success: false, message: 'Invalid account ID' });
     console.error('General ledger report error:', error);
     res.status(500).json({ success: false, message: 'Server error while generating general ledger report' });
+  }
+};
+
+// ─── DGII (every plan) ───────────────────────────────────────────────────────
+
+const periodParam = (v: unknown): string | null => (typeof v === 'string' && /^\d{4}-(0[1-9]|1[0-2])$/.test(v) ? v : null);
+
+/** GET /reports/dgii-606?period=YYYY-MM — the month's purchases as the 606 reports them, with issues. */
+export const getDgii606Report = async (req: AuthRequest, res: Response) => {
+  const period = periodParam(req.query.period);
+  if (!period) return res.status(400).json({ success: false, message: 'period must be YYYY-MM' });
+  try {
+    const rnc = (req.tenant as any)?.profile?.rnc ?? null;
+    res.status(200).json({ success: true, data: await dgii.build606(period, rnc) });
+  } catch (error) {
+    console.error('606 report error:', error);
+    res.status(500).json({ success: false, message: 'Server error while building the 606' });
+  }
+};
+
+/**
+ * GET /reports/dgii-606/txt?period=YYYY-MM — the file to upload. Refused while any row has an
+ * error (missing/invalid RNC or NCF): the DGII would reject the whole file.
+ */
+export const getDgii606Txt = async (req: AuthRequest, res: Response) => {
+  const period = periodParam(req.query.period);
+  if (!period) return res.status(400).json({ success: false, message: 'period must be YYYY-MM' });
+  try {
+    const rnc = String((req.tenant as any)?.profile?.rnc ?? '').replace(/\D/g, '');
+    if (!rnc) return res.status(409).json({ success: false, code: 'DGII_NO_RNC', message: 'Set your RNC in the company profile first' });
+    const report = await dgii.build606(period, rnc);
+    const errors = report.issues.filter((i) => i.severity === 'error');
+    if (errors.length > 0) return res.status(409).json({ success: false, code: 'DGII_606_ISSUES', message: 'Some bills are missing data the 606 needs', issues: errors });
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="DGII_F_606_${rnc}_${period.replace('-', '')}.TXT"`);
+    res.send(dgii.render606Txt(rnc, period, report.rows));
+  } catch (error) {
+    console.error('606 TXT error:', error);
+    res.status(500).json({ success: false, message: 'Server error while building the 606' });
+  }
+};
+
+/** GET /reports/itbis-summary?period=YYYY-MM — the figures the IT-1 is filled from. */
+export const getItbisSummaryReport = async (req: AuthRequest, res: Response) => {
+  const period = periodParam(req.query.period);
+  if (!period) return res.status(400).json({ success: false, message: 'period must be YYYY-MM' });
+  try {
+    res.status(200).json({ success: true, data: await dgii.itbisSummary(period, req.tenantId) });
+  } catch (error) {
+    console.error('ITBIS summary error:', error);
+    res.status(500).json({ success: false, message: 'Server error while building the ITBIS summary' });
   }
 };

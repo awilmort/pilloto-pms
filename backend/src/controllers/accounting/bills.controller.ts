@@ -1,3 +1,5 @@
+import { accountingPlanOf, featureDenial, hasAccountingFeature } from '../../services/entitlements';
+import { smallestAccountingPlanWith } from '../../config/accountingPlans';
 import { Response } from 'express';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../../middleware/auth';
@@ -10,8 +12,11 @@ import Tenant from '../../models/Tenant';
 import { nextSequence } from '../../models/Counter';
 import { resolveWarehouseId, receiveStock, deductStockForSale } from '../../services/accounting/inventory.service';
 import { UNIT_OF_MEASURE_CODES } from '../../constants/unitsOfMeasure';
-import { postJournalEntry, getSystemAccountIds, cashAccountCodeForMethod, reversePostedEntries } from '../../services/accounting/ledger.service';
+import { postJournalEntry, getSystemAccountIds, reversePostedEntries, inFunctional, settlementLines } from '../../services/accounting/ledger.service';
+import { resolveDocumentCurrency, resolvePaymentRate } from '../../services/accounting/fx.service';
+import { assertBankAccount, settlementAccountId } from '../../services/accounting/bank.service';
 import { SYSTEM_ACCOUNT_CODES } from '../../constants/accounting';
+import { EXPENSE_TYPE_CODES, ExpenseType, ISR_WITHHOLDING_CODES, IsrWithholdingType, isNcf, normalizeNcf } from '../../constants/dgii';
 
 /**
  * Bill controller (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md Phase 6.1) — the AP mirror
@@ -34,6 +39,33 @@ interface RawBillLineItemInput {
   stockQuantity?: number;
   account?: string;
   lineTotal?: number; // expense lines only — the entered amount
+  isGoods?: boolean; // expense lines only — 606 goods vs services
+}
+
+/** The 606/withholding fields of a bill, from a request body. Throws { status, message } when invalid. */
+function fiscalFieldsOf(body: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (body.ncf !== undefined) {
+    const ncf = normalizeNcf(body.ncf);
+    if (ncf && !isNcf(ncf)) throw { status: 400, message: 'The NCF must be B + 10 digits (e.g. B0100000123) or an e-CF E + 12 digits (e.g. E310000000123)' };
+    out.ncf = ncf || undefined;
+  }
+  if (body.expenseType !== undefined) {
+    if (body.expenseType && !EXPENSE_TYPE_CODES.includes(body.expenseType as ExpenseType)) throw { status: 400, message: 'Invalid 606 expense type' };
+    out.expenseType = body.expenseType || undefined;
+  }
+  if (body.itbisToCost !== undefined) out.itbisToCost = body.itbisToCost === true;
+  for (const key of ['itbisWithheld', 'isrWithheld'] as const) {
+    if (body[key] === undefined || body[key] === null || body[key] === '') continue;
+    const n = Number(body[key]);
+    if (!Number.isFinite(n) || n < 0) throw { status: 400, message: `${key} must be a number >= 0` };
+    out[key] = n;
+  }
+  if (body.isrWithholdingType !== undefined) {
+    if (body.isrWithholdingType && !ISR_WITHHOLDING_CODES.includes(body.isrWithholdingType as IsrWithholdingType)) throw { status: 400, message: 'Invalid ISR withholding type' };
+    out.isrWithholdingType = body.isrWithholdingType || undefined;
+  }
+  return out;
 }
 
 async function resolveDefaultTaxRate(tenantId: unknown): Promise<number> {
@@ -46,9 +78,13 @@ async function resolveDefaultTaxRate(tenantId: unknown): Promise<number> {
 // the resulting lineTotal/unitCost/taxAmount/total placeholders are recomputed for real by
 // Bill's own pre-validate hook once assigned to the document — same split of responsibility
 // as invoices.controller.ts's buildLineItems.
-async function buildBillLineItems(rawItems: RawBillLineItemInput[], defaultTaxRate: number): Promise<IBillLineItem[]> {
+async function buildBillLineItems(rawItems: RawBillLineItemInput[], defaultTaxRate: number, tenant?: unknown): Promise<IBillLineItem[]> {
   if (!Array.isArray(rawItems) || rawItems.length === 0) {
     throw { status: 400, message: 'At least one line item is required' };
+  }
+  // Inventory lines are the inventory module; plans without it record purchases as expense lines.
+  if (rawItems.some((i) => i?.lineType === 'inventory') && !hasAccountingFeature(tenant as any, 'inventory')) {
+    throw { status: 403, body: featureDenial('accounting', 'inventory', accountingPlanOf(tenant as any), smallestAccountingPlanWith('inventory')) };
   }
 
   const productIds = rawItems.filter(i => i?.lineType === 'inventory' && i.product).map(i => i.product as string);
@@ -72,6 +108,7 @@ async function buildBillLineItems(rawItems: RawBillLineItemInput[], defaultTaxRa
     if (item.lineType === 'inventory') {
       const product = item.product ? productMap.get(String(item.product)) : undefined;
       if (!product) throw { status: 400, message: `Line ${idx + 1}: invalid product` };
+      if (product.tracksStock === false) throw { status: 400, message: `Line ${idx + 1} (${product.name}): this item does not track stock — record it as an expense line` };
 
       const purchaseQuantity = Number(item.purchaseQuantity);
       if (!item.purchaseQuantity || Number.isNaN(purchaseQuantity) || purchaseQuantity <= 0) {
@@ -125,6 +162,7 @@ async function buildBillLineItems(rawItems: RawBillLineItemInput[], defaultTaxRa
       taxRate,
       account: account._id,
       lineTotal,
+      isGoods: item.isGoods === true,
       // recomputed by Bill's pre-validate hook — placeholder values only
       taxAmount: 0,
       total: 0,
@@ -204,7 +242,7 @@ export const createBill = async (req: AuthRequest, res: Response) => {
     if (!supplier) return res.status(404).json({ success: false, message: 'Supplier not found' });
 
     const defaultTaxRate = await resolveDefaultTaxRate(req.tenantId);
-    const lineItems = await buildBillLineItems(rawLines || [], defaultTaxRate);
+    const lineItems = await buildBillLineItems(rawLines || [], defaultTaxRate, req.tenant);
     const hasInventoryLine = lineItems.some(li => li.lineType === 'inventory');
 
     let resolvedWarehouseId: string | undefined;
@@ -221,7 +259,10 @@ export const createBill = async (req: AuthRequest, res: Response) => {
 
     const billNumber = `BILL-${String(await nextSequence('billNumber')).padStart(6, '0')}`;
 
+    const fiscal = fiscalFieldsOf(req.body ?? {});
+    const fx = await resolveDocumentCurrency(req.tenant, req.body ?? {}, resolvedIssueDate);
     const bill = await Bill.create({
+      ...fx,
       billNumber,
       supplier: supplier._id,
       warehouse: resolvedWarehouseId,
@@ -232,11 +273,13 @@ export const createBill = async (req: AuthRequest, res: Response) => {
       lineItems,
       status: 'draft',
       createdBy: req.user._id,
+      ...fiscal,
+      expenseType: (fiscal.expenseType as string | undefined) ?? supplier.defaultExpenseType ?? (hasInventoryLine ? '09' : '02'),
     });
 
     res.status(201).json({ success: true, message: 'Bill created successfully', data: bill });
   } catch (error: any) {
-    if (error?.status) return res.status(error.status).json({ success: false, message: error.message });
+    if (error?.status) return res.status(error.status).json(error.body ?? { success: false, message: error.message });
     if (error.name === 'ValidationError') return res.status(400).json({ success: false, message: error.message });
     console.error('Create bill error:', error);
     res.status(500).json({ success: false, message: 'Server error while creating bill' });
@@ -266,13 +309,17 @@ export const updateBill = async (req: AuthRequest, res: Response) => {
       bill.supplier = supplier._id as any;
     }
     if (vendorInvoiceNumber !== undefined) bill.vendorInvoiceNumber = vendorInvoiceNumber;
+    bill.set(fiscalFieldsOf(req.body ?? {}));
+    if (req.body?.currency !== undefined || req.body?.exchangeRate !== undefined) {
+      bill.set(await resolveDocumentCurrency(req.tenant, req.body, issueDate ?? bill.issueDate, bill));
+    }
     if (issueDate !== undefined) bill.issueDate = new Date(issueDate);
     if (dueDate !== undefined) bill.dueDate = new Date(dueDate);
     if (notes !== undefined) bill.notes = notes;
 
     if (rawLines !== undefined) {
       const defaultTaxRate = await resolveDefaultTaxRate(req.tenantId);
-      bill.lineItems = await buildBillLineItems(rawLines, defaultTaxRate) as any;
+      bill.lineItems = await buildBillLineItems(rawLines, defaultTaxRate, req.tenant) as any;
     }
 
     const hasInventoryLine = bill.lineItems.some(li => li.lineType === 'inventory');
@@ -285,7 +332,7 @@ export const updateBill = async (req: AuthRequest, res: Response) => {
     await bill.save();
     res.status(200).json({ success: true, message: 'Bill updated successfully', data: bill });
   } catch (error: any) {
-    if (error?.status) return res.status(error.status).json({ success: false, message: error.message });
+    if (error?.status) return res.status(error.status).json(error.body ?? { success: false, message: error.message });
     if (error.name === 'CastError') return res.status(400).json({ success: false, message: 'Invalid bill ID' });
     if (error.name === 'ValidationError') return res.status(400).json({ success: false, message: error.message });
     console.error('Update bill error:', error);
@@ -334,58 +381,11 @@ export const receiveBill = async (req: AuthRequest, res: Response) => {
       if (!account.isActive) return res.status(400).json({ success: false, message: `Account "${account.name}" is not active` });
     }
 
-    for (const li of inventoryLines) {
-      await receiveStock({
-        productId: String(li.product),
-        warehouseId: String(bill.warehouse),
-        quantity: li.stockQuantity!,
-        unitCost: li.unitCost!,
-        supplierId: String(bill.supplier),
-        bill: String(bill._id),
-        notes: `Received via ${bill.billNumber}`,
-        recordedBy: req.user._id,
-      });
-    }
-
-    bill.status = 'received';
-    await bill.save();
-
-    // GL posting (Phase 7.1): Dr Inventory (inventory lines, summed) / Dr each expense
-    // line's own coded account, Cr Accounts Payable for bill.total. Each line's
-    // tax-inclusive `total` is debited (no separate AP-side input-tax account exists in
-    // the seeded chart per §5.1/§6.2 — purchase tax is capitalized into cost, a common
-    // simplification for v1) — so the debit lines sum to exactly bill.total, matching the
-    // AP credit. Posted best-effort: stock/cost has already moved above, so a GL failure
-    // (e.g. an unseeded Chart of Accounts) is logged loudly rather than unwinding a real
-    // stock receipt.
-    try {
-      const inventoryLineTotal = Math.round(
-        (inventoryLines.reduce((sum, li) => sum + li.total, 0) + Number.EPSILON) * 100
-      ) / 100;
-      const accountIds = await getSystemAccountIds([
-        SYSTEM_ACCOUNT_CODES.ACCOUNTS_PAYABLE,
-        ...(inventoryLineTotal > 0 ? [SYSTEM_ACCOUNT_CODES.INVENTORY] : []),
-      ]);
-      // Expense lines code directly to an Account _id already resolved in buildBillLineItems
-      // (not a SYSTEM_ACCOUNT_CODES lookup) — used here as-is to post their debit lines.
-      const debitLines = [
-        ...(inventoryLineTotal > 0 ? [{ account: accountIds[SYSTEM_ACCOUNT_CODES.INVENTORY], debit: inventoryLineTotal }] : []),
-        ...expenseLines.map((li) => ({ account: li.account as mongoose.Types.ObjectId, debit: li.total })),
-      ];
-      await postJournalEntry(
-        [...debitLines, { account: accountIds[SYSTEM_ACCOUNT_CODES.ACCOUNTS_PAYABLE], credit: bill.total }],
-        'bill_received',
-        { model: 'Bill', id: bill._id as any },
-        `Bill ${bill.billNumber} received`,
-        req.user._id
-      );
-    } catch (glErr: any) {
-      console.error(`[Bill.receive] GL posting failed for bill ${bill.billNumber}:`, glErr?.message || glErr);
-    }
+    await receiveBillCore(bill, req.user._id);
 
     res.status(200).json({ success: true, message: 'Bill received successfully', data: bill });
   } catch (error: any) {
-    if (error?.status) return res.status(error.status).json({ success: false, message: error.message });
+    if (error?.status) return res.status(error.status).json(error.body ?? { success: false, message: error.message });
     if (error.name === 'CastError') return res.status(400).json({ success: false, message: 'Invalid bill ID' });
     console.error('Receive bill error:', error);
     res.status(500).json({ success: false, message: 'Server error while receiving bill' });
@@ -395,6 +395,9 @@ export const receiveBill = async (req: AuthRequest, res: Response) => {
 // Records a payment (partial or full) — same primitive shape as Invoice's recordPayment.
 export const recordBillPayment = async (req: AuthRequest, res: Response) => {
   try {
+    if (req.body?.bankAccount) {
+      try { await assertBankAccount(req.body.bankAccount); } catch { return res.status(400).json({ success: false, message: 'Invalid bank account' }); }
+    }
     const { amount, method, date, reference } = req.body as {
       amount?: number; method?: BillPaymentMethod; date?: string; reference?: string;
     };
@@ -413,38 +416,13 @@ export const recordBillPayment = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ success: false, message: `Payment amount (${amount}) exceeds the remaining balance due (${bill.balanceDue})` });
     }
 
-    bill.payments.push({
-      amount,
-      method,
-      date: date ? new Date(date) : new Date(),
-      reference,
-      recordedBy: req.user._id,
-    } as any);
-
-    await bill.save();
-
-    // GL posting (Phase 7.1): Dr Accounts Payable, Cr Bank/Cash — best-effort, same
-    // logged-not-blocking rationale as receiveBill's posting.
-    try {
-      const accountIds = await getSystemAccountIds([SYSTEM_ACCOUNT_CODES.ACCOUNTS_PAYABLE, cashAccountCodeForMethod(method)]);
-      await postJournalEntry(
-        [
-          { account: accountIds[SYSTEM_ACCOUNT_CODES.ACCOUNTS_PAYABLE], debit: amount },
-          { account: accountIds[cashAccountCodeForMethod(method)], credit: amount },
-        ],
-        'bill_payment',
-        { model: 'Bill', id: bill._id as any },
-        `Payment recorded on Bill ${bill.billNumber}`,
-        req.user._id
-      );
-    } catch (glErr: any) {
-      console.error(`[Bill.recordPayment] GL posting failed for bill ${bill.billNumber}:`, glErr?.message || glErr);
-    }
+    await payBillCore(bill, { amount, method, date, reference, bankAccount: req.body?.bankAccount, exchangeRate: req.body?.exchangeRate }, req.user._id);
 
     res.status(200).json({ success: true, message: 'Payment recorded successfully', data: bill });
   } catch (error: any) {
     if (error.name === 'CastError') return res.status(400).json({ success: false, message: 'Invalid bill ID' });
     if (error.name === 'ValidationError') return res.status(400).json({ success: false, message: error.message });
+    if (error?.status) return res.status(error.status).json(error.body ?? { success: false, message: error.message });
     console.error('Record bill payment error:', error);
     res.status(500).json({ success: false, message: 'Server error while recording payment' });
   }
@@ -530,9 +508,164 @@ export const voidBill = async (req: AuthRequest, res: Response) => {
 
     res.status(200).json({ success: true, message: 'Bill voided successfully', data: bill });
   } catch (error: any) {
-    if (error?.status) return res.status(error.status).json({ success: false, message: error.message });
+    if (error?.status) return res.status(error.status).json(error.body ?? { success: false, message: error.message });
     if (error.name === 'CastError') return res.status(400).json({ success: false, message: 'Invalid bill ID' });
     console.error('Void bill error:', error);
     res.status(500).json({ success: false, message: 'Server error while voiding bill' });
+  }
+};
+
+// ─── Receipt and payment (shared by the bill actions and the quick expense) ──
+
+/**
+ * Receives a draft bill: stock for inventory lines, then the GL entry —
+ *   Dr Inventory / each expense line's account   (net of ITBIS; with it when `itbisToCost`)
+ *   Dr ITBIS pagado por adelantar                (the bill's ITBIS, unless `itbisToCost`)
+ *   Cr Cuentas por pagar                         (payableTotal: what the supplier is owed)
+ *   Cr ITBIS retenido por pagar / ISR retenido   (the withholdings, owed to the DGII)
+ * The GL entry is best-effort (stock has already moved): a failure is logged, not unwound.
+ */
+async function receiveBillCore(bill: InstanceType<typeof Bill>, userId: unknown): Promise<void> {
+  const inventoryLines = bill.lineItems.filter(li => li.lineType === 'inventory');
+  const expenseLines = bill.lineItems.filter(li => li.lineType === 'expense');
+  for (const li of inventoryLines) {
+    await receiveStock({
+      productId: String(li.product),
+      warehouseId: String(bill.warehouse),
+      quantity: li.stockQuantity!,
+      unitCost: li.unitCost! * (bill.exchangeRate || 1), // stock is valued in DOP
+      supplierId: String(bill.supplier),
+      bill: String(bill._id),
+      notes: `Received via ${bill.billNumber}`,
+      recordedBy: userId as any,
+    });
+  }
+
+  bill.status = 'received';
+  await bill.save();
+
+  try {
+    const r2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+    const cost = (li: IBillLineItem) => (bill.itbisToCost ? li.total : li.lineTotal);
+    const inventoryCost = r2(inventoryLines.reduce((sum, li) => sum + cost(li), 0));
+    const advance = bill.itbisToCost ? 0 : bill.taxAmount;
+    const codes = [
+      SYSTEM_ACCOUNT_CODES.ACCOUNTS_PAYABLE,
+      ...(inventoryCost > 0 ? [SYSTEM_ACCOUNT_CODES.INVENTORY] : []),
+      ...(advance > 0 ? [SYSTEM_ACCOUNT_CODES.ITBIS_ADVANCE] : []),
+      ...(bill.itbisWithheld > 0 ? [SYSTEM_ACCOUNT_CODES.ITBIS_WITHHELD] : []),
+      ...(bill.isrWithheld > 0 ? [SYSTEM_ACCOUNT_CODES.ISR_WITHHELD] : []),
+    ];
+    const ids = await getSystemAccountIds(codes);
+    const lines = [
+      ...(inventoryCost > 0 ? [{ account: ids[SYSTEM_ACCOUNT_CODES.INVENTORY], debit: inventoryCost }] : []),
+      ...expenseLines.filter((li) => cost(li) > 0).map((li) => ({ account: li.account as mongoose.Types.ObjectId, debit: cost(li) })),
+      ...(advance > 0 ? [{ account: ids[SYSTEM_ACCOUNT_CODES.ITBIS_ADVANCE], debit: advance }] : []),
+      ...(bill.payableTotal > 0 ? [{ account: ids[SYSTEM_ACCOUNT_CODES.ACCOUNTS_PAYABLE], credit: bill.payableTotal }] : []),
+      ...(bill.itbisWithheld > 0 ? [{ account: ids[SYSTEM_ACCOUNT_CODES.ITBIS_WITHHELD], credit: bill.itbisWithheld }] : []),
+      ...(bill.isrWithheld > 0 ? [{ account: ids[SYSTEM_ACCOUNT_CODES.ISR_WITHHELD], credit: bill.isrWithheld }] : []),
+    ];
+    if (lines.length >= 2) {
+      // In the bill's currency, converted to DOP at its rate (rounding on the payable).
+      const plug = Math.max(0, lines.findIndex((l) => String(l.account) === String(ids[SYSTEM_ACCOUNT_CODES.ACCOUNTS_PAYABLE])));
+      await postJournalEntry(inFunctional(lines, bill.exchangeRate || 1, plug), 'bill_received', { model: 'Bill', id: bill._id as any }, `Bill ${bill.billNumber} received`, userId as any, bill.issueDate);
+    }
+  } catch (glErr: any) {
+    console.error(`[Bill.receive] GL posting failed for bill ${bill.billNumber}:`, glErr?.message || glErr);
+  }
+}
+
+export interface BillPaymentInput {
+  amount: number;
+  method: BillPaymentMethod;
+  date?: string | Date;
+  reference?: string;
+  /** Where a non-cash payment leaves from (default bank account when absent). */
+  bankAccount?: string;
+  /** Rate on the payment day, for a foreign-currency bill (the day's latest recorded otherwise). */
+  exchangeRate?: unknown;
+}
+
+/** Records a payment on a received bill and posts Dr Cuentas por pagar / Cr Caja o Banco (best-effort). */
+async function payBillCore(bill: InstanceType<typeof Bill>, input: BillPaymentInput, userId: unknown): Promise<void> {
+  const { amount, method, date, reference } = input;
+  const paymentRate = await resolvePaymentRate(bill, input.exchangeRate, date);
+  bill.payments.push({
+    amount,
+    method,
+    date: date ? new Date(date) : new Date(),
+    reference,
+    exchangeRate: paymentRate,
+    recordedBy: userId,
+  } as any);
+  await bill.save();
+  try {
+    const accountIds = await getSystemAccountIds([SYSTEM_ACCOUNT_CODES.ACCOUNTS_PAYABLE]);
+    const settlement = await settlementAccountId(method, input.bankAccount);
+    await postJournalEntry(
+      await settlementLines({
+        amount, documentRate: bill.exchangeRate || 1, paymentRate, direction: 'out',
+        cashAccount: settlement, controlAccount: accountIds[SYSTEM_ACCOUNT_CODES.ACCOUNTS_PAYABLE],
+      }),
+      'bill_payment',
+      { model: 'Bill', id: bill._id as any },
+      `Payment recorded on Bill ${bill.billNumber}`,
+      userId as any,
+      date ? new Date(date) : new Date(),
+    );
+  } catch (glErr: any) {
+    console.error(`[Bill.recordPayment] GL posting failed for bill ${bill.billNumber}:`, glErr?.message || glErr);
+  }
+}
+
+/**
+ * Quick expense: a purchase already paid (a receipt, a utility bill) recorded in one step — the
+ * bill is created with expense lines, received and paid in full. Expense lines only; stocked
+ * purchases go through a regular bill.
+ */
+export const createQuickExpense = async (req: AuthRequest, res: Response) => {
+  try {
+    if (req.body?.payment?.bankAccount) {
+      try { await assertBankAccount(req.body.payment.bankAccount); } catch { return res.status(400).json({ success: false, message: 'Invalid bank account' }); }
+    }
+    const body = (req.body ?? {}) as Record<string, any>;
+    if (!body.supplier || !mongoose.Types.ObjectId.isValid(body.supplier)) {
+      return res.status(400).json({ success: false, message: 'supplier is required' });
+    }
+    const supplier = await Supplier.findById(body.supplier);
+    if (!supplier) return res.status(404).json({ success: false, message: 'Supplier not found' });
+    const rawLines: RawBillLineItemInput[] = (Array.isArray(body.lineItems) ? body.lineItems : []).map((l: RawBillLineItemInput) => ({ ...l, lineType: 'expense' }));
+    const lineItems = await buildBillLineItems(rawLines, await resolveDefaultTaxRate(req.tenantId), req.tenant);
+    const method = body.payment?.method as BillPaymentMethod;
+    if (!['cash', 'card', 'transfer', 'check', 'other'].includes(method)) {
+      return res.status(400).json({ success: false, message: 'payment.method is required' });
+    }
+    const issueDate = body.issueDate ? new Date(body.issueDate) : new Date();
+    const fiscal = fiscalFieldsOf(body);
+    const fx = await resolveDocumentCurrency(req.tenant, body, issueDate);
+    const bill = await Bill.create({
+      ...fx,
+      billNumber: `BILL-${String(await nextSequence('billNumber')).padStart(6, '0')}`,
+      supplier: supplier._id,
+      vendorInvoiceNumber: body.vendorInvoiceNumber,
+      issueDate,
+      dueDate: issueDate,
+      notes: body.notes,
+      lineItems,
+      status: 'draft',
+      createdBy: req.user._id,
+      ...fiscal,
+      expenseType: (fiscal.expenseType as string | undefined) ?? supplier.defaultExpenseType ?? '02',
+    });
+    await receiveBillCore(bill, req.user._id);
+    if (bill.balanceDue > 0) {
+      await payBillCore(bill, { amount: bill.balanceDue, method, date: body.payment?.date ?? issueDate, reference: body.payment?.reference, bankAccount: body.payment?.bankAccount }, req.user._id);
+    }
+    res.status(201).json({ success: true, message: 'Expense recorded', data: bill });
+  } catch (error: any) {
+    if (error?.status) return res.status(error.status).json(error.body ?? { success: false, message: error.message });
+    if (error.name === 'ValidationError') return res.status(400).json({ success: false, message: error.message });
+    console.error('Quick expense error:', error);
+    res.status(500).json({ success: false, message: 'Server error while recording the expense' });
   }
 };

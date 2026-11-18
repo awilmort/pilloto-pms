@@ -9,7 +9,9 @@ import { nextSequence } from '../../models/Counter';
 import { issueFiscalDocument } from '../../services/fiscal/fiscalIssuer';
 import { assertCanIssue, FiscalError } from '../../services/fiscal/fiscalCore';
 import { accountingNoteLines, noteRequest } from '../../services/fiscal/mappers';
-import { postJournalEntry, getSystemAccountIds, cashAccountCodeForMethod, reversePostedEntries } from '../../services/accounting/ledger.service';
+import { postJournalEntry, getSystemAccountIds, reversePostedEntries, inFunctional, settlementLines } from '../../services/accounting/ledger.service';
+import { resolvePaymentRate } from '../../services/accounting/fx.service';
+import { assertBankAccount, settlementAccountId } from '../../services/accounting/bank.service';
 import { SYSTEM_ACCOUNT_CODES } from '../../constants/accounting';
 
 /**
@@ -163,6 +165,9 @@ export const createDebitNote = async (req: AuthRequest, res: Response) => {
     const debitNote = await DebitNote.create({
       debitNoteNumber,
       invoice: invoiceId,
+      // A note is in its invoice's currency, at the invoice's rate.
+      currency: (invoiceDoc as any).currency ?? 'DOP',
+      exchangeRate: (invoiceDoc as any).exchangeRate ?? 1,
       customer: invoiceDoc.isIndividual ? undefined : invoiceDoc.customer,
       isIndividual: invoiceDoc.isIndividual,
       individualCustomer: invoiceDoc.isIndividual ? invoiceDoc.individualCustomer : undefined,
@@ -265,7 +270,7 @@ export const issueDebitNote = async (req: AuthRequest, res: Response) => {
       modificationCode: debitNote.fiscalModificationCode,
       reason: razonModificacion,
       lines: accountingNoteLines(
-        debitNote.lineItems.map((l) => ({ description: l.description, quantity: 1, taxRate: l.taxRate, lineTotal: l.lineTotal })),
+        debitNote.lineItems.map((l) => ({ description: l.description, quantity: 1, taxRate: l.taxRate, lineTotal: Math.round(l.lineTotal * (debitNote.exchangeRate || 1) * 100) / 100 })),
       ),
     });
 
@@ -298,13 +303,13 @@ export const issueDebitNote = async (req: AuthRequest, res: Response) => {
         SYSTEM_ACCOUNT_CODES.OTHER_REVENUE,
         ...(debitNote.taxAmount > 0 ? [SYSTEM_ACCOUNT_CODES.SALES_TAX_PAYABLE] : []),
       ]);
-      const lines = [
+      const lines = inFunctional([
         { account: accountIds[SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE], debit: debitNote.total },
         { account: accountIds[SYSTEM_ACCOUNT_CODES.OTHER_REVENUE], credit: debitNote.subtotal },
         ...(debitNote.taxAmount > 0
           ? [{ account: accountIds[SYSTEM_ACCOUNT_CODES.SALES_TAX_PAYABLE], credit: debitNote.taxAmount }]
           : []),
-      ];
+      ], debitNote.exchangeRate || 1);
       await postJournalEntry(lines, 'debit_note_issue', { model: 'DebitNote', id: debitNote._id as any }, `Debit note ${debitNote.debitNoteNumber} issued`, req.user._id);
     } catch (glErr: any) {
       console.error(`[DebitNote.issue] GL posting failed for debit note ${debitNote.debitNoteNumber}:`, glErr?.message || glErr);
@@ -325,6 +330,9 @@ export const issueDebitNote = async (req: AuthRequest, res: Response) => {
 // Mirrors Invoice.recordPayment exactly — Dr Bank/Cash, Cr Accounts Receivable.
 export const recordPayment = async (req: AuthRequest, res: Response) => {
   try {
+    if (req.body?.bankAccount) {
+      try { await assertBankAccount(req.body.bankAccount); } catch { return res.status(400).json({ success: false, message: 'Invalid bank account' }); }
+    }
     const { amount, method, date, reference } = req.body as {
       amount?: number; method?: DebitNotePaymentMethod; date?: string; reference?: string;
     };
@@ -343,22 +351,25 @@ export const recordPayment = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ success: false, message: `Payment amount (${amount}) exceeds the remaining balance due (${debitNote.balanceDue})` });
     }
 
+    const paymentRate = await resolvePaymentRate(debitNote, req.body?.exchangeRate, date);
     debitNote.payments.push({
       amount,
       method,
       date: date ? new Date(date) : new Date(),
       reference,
+      exchangeRate: paymentRate,
       recordedBy: req.user._id,
     } as any);
     await debitNote.save();
 
     try {
-      const accountIds = await getSystemAccountIds([cashAccountCodeForMethod(method), SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE]);
+      const accountIds = await getSystemAccountIds([SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE]);
+      const settlement = await settlementAccountId(method, req.body?.bankAccount);
       await postJournalEntry(
-        [
-          { account: accountIds[cashAccountCodeForMethod(method)], debit: amount },
-          { account: accountIds[SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE], credit: amount },
-        ],
+        await settlementLines({
+          amount, documentRate: debitNote.exchangeRate || 1, paymentRate, direction: 'in',
+          cashAccount: settlement, controlAccount: accountIds[SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE],
+        }),
         'debit_note_payment',
         { model: 'DebitNote', id: debitNote._id as any },
         `Payment recorded on debit note ${debitNote.debitNoteNumber}`,

@@ -13,6 +13,7 @@ import cron, { ScheduledTask } from 'node-cron';
 import { isFiscalConfigured } from '../config/fiscal';
 import { runMonthlyBilling } from '../services/platformBilling/billingCharges';
 import { sendDueReceipts } from '../services/platformBilling/billingPayments';
+import { applyAllDueChanges } from '../services/platformBilling/subscriptions';
 import { guarded } from './fiscalCron';
 
 const tasks: ScheduledTask[] = [];
@@ -27,6 +28,9 @@ export function startBillingWorkers(): void {
       cron.schedule(
         '10 * * * *',
         guarded('monthly billing', async () => {
+          // Downgrades and cancellations due today take effect first (idempotent).
+          const applied = await applyAllDueChanges();
+          if (applied > 0) console.log(`[Billing] Applied ${applied} due subscription change(s)`);
           const summary = await runMonthlyBilling();
           if (summary.created > 0 || summary.failed > 0) console.log(`[Billing] ${summary.period}: ${summary.created} charged, ${summary.existing} already charged, ${summary.skipped} skipped, ${summary.failed} failed`);
         }),

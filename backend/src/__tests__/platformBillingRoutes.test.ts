@@ -94,7 +94,7 @@ describe('/api/platform/billing (local Mongo)', () => {
 
   itDb('the price list is read and edited, validating the price', async () => {
     const list = await api('get', '/plans');
-    expect(list.body.data).toHaveLength(6);
+    expect(list.body.data).toHaveLength(7); // PMS ×3 + Accounting ×4
     expect(list.body.data.find((p: any) => p.product === 'pms' && p.plan === 'basic').monthlyPrice).toBe(2450);
 
     const edited = await api('put', '/plans/pms/basic').send({ price: 2600 });
@@ -108,7 +108,7 @@ describe('/api/platform/billing (local Mongo)', () => {
   itDb('settings: tax, due days and instructions are validated', async () => {
     expect((await api('get', '/settings')).body.data).toMatchObject({ tax: 'itbis18', dueDays: 10 });
     const ok = await api('put', '/settings').send({ tax: 'exempt', dueDays: 15, notifyEmail: 'Ops@Pilloto.com', paymentInstructions: 'Banco X' });
-    expect(ok.body.data).toEqual({ tax: 'exempt', dueDays: 15, notifyEmail: 'ops@pilloto.com', paymentInstructions: 'Banco X' });
+    expect(ok.body.data).toMatchObject({ tax: 'exempt', dueDays: 15, notifyEmail: 'ops@pilloto.com', paymentInstructions: 'Banco X', suiteDiscountPercent: 20 });
     const bad = await api('put', '/settings').send({ tax: 'iva', dueDays: 400, notifyEmail: 'nope' });
     expect(bad.status).toBe(400);
     expect(Object.keys(bad.body.fields)).toEqual(expect.arrayContaining(['tax', 'dueDays', 'notifyEmail']));
@@ -118,7 +118,7 @@ describe('/api/platform/billing (local Mongo)', () => {
     const detail = await api('get', `/tenants/${tenantId}`);
     expect(detail.body.data.products).toEqual([
       expect.objectContaining({ product: 'pms', plan: 'pro', listPrice: 5540, contractPrice: 5540 }),
-      expect.objectContaining({ product: 'accounting', plan: 'plus', listPrice: 9370, contractPrice: 9370 }),
+      expect.objectContaining({ product: 'accounting', plan: 'plus', listPrice: 10690, contractPrice: 10690 }),
     ]);
 
     const nextMonth = (() => { const d = new Date(); d.setUTCMonth(d.getUTCMonth() + 1); return d.toISOString().slice(0, 7); })();
@@ -146,7 +146,8 @@ describe('/api/platform/billing (local Mongo)', () => {
 
   itDb('generates a charge, lists it, shows it, and voids it', async () => {
     const charge = await generate();
-    expect(charge).toMatchObject({ period: lastPeriod, status: 'open', total: 17593.8, overdue: false });
+    // PMS Pro 5,540 + Accounting Plus 10,690 less the 20% suite discount (8,552) = 14,092 + ITBIS 2,536.56
+    expect(charge).toMatchObject({ period: lastPeriod, status: 'open', total: 16628.56, overdue: false });
     expect(charge.tenant).toMatchObject({ name: 'Hotel Prueba' });
 
     expect((await api('post', '/charges/generate').send({ tenantId: String(tenantId), period: lastPeriod })).body.data.created).toBe(false);
@@ -169,7 +170,7 @@ describe('/api/platform/billing (local Mongo)', () => {
     expect(overdue.body.data).toHaveLength(1);
     expect(overdue.body.data[0].overdue).toBe(true);
     const overview = await api('get', '/overview');
-    expect(overview.body.data.overdue).toMatchObject({ count: 1, balance: 17593.8 });
+    expect(overview.body.data.overdue).toMatchObject({ count: 1, balance: 16628.56 });
   });
 
   itDb('recording a payment issues the e-CF and returns both; the files and the email follow', async () => {

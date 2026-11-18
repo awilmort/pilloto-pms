@@ -10,20 +10,22 @@ const tenant = (over: any = {}) => ({ products: ['pms'], plan: 'basic', plans: {
 
 describe('includedFiscalPlan', () => {
   it.each([
-    [{ products: ['pms'], plan: 'basic' }, null],
+    [{ products: ['pms'], plan: 'basic' }, 'essential'], // e-CF is mandatory: every plan includes it
     [{ products: ['pms'], plan: 'pro' }, 'essential'],
     [{ products: ['pms'], plan: 'enterprise' }, 'pro'],
-    [{ products: ['accounting'], plan: 'enterprise', plans: { accounting: 'starter' } }, null], // the PMS plan does not count without PMS
-    [{ products: ['accounting'], plans: { accounting: 'pro' } }, 'essential'],
-    [{ products: ['accounting'], plans: { accounting: 'plus' } }, 'pro'],
+    [{ products: ['accounting'], plan: 'enterprise', plans: { accounting: 'invoicing' } }, 'essential'], // the PMS plan does not count without PMS
+    [{ products: ['accounting'], plans: { accounting: 'essentials' } }, 'essential'],
+    [{ products: ['accounting'], plans: { accounting: 'pro' } }, 'pro'],
+    [{ products: ['accounting'], plans: { accounting: 'plus' } }, 'max'],
+    [{ products: [], plan: 'enterprise' }, null],
   ])('%j → %s', (t, expected) => {
     expect(includedFiscalPlan(tenant(t) as any)).toBe(expected);
   });
 
   it('gives a tenant with both products the larger of the two', () => {
-    expect(includedFiscalPlan(tenant({ products: ['pms', 'accounting'], plan: 'pro', plans: { accounting: 'plus' } }) as any)).toBe('pro');
-    expect(includedFiscalPlan(tenant({ products: ['pms', 'accounting'], plan: 'enterprise', plans: { accounting: 'pro' } }) as any)).toBe('pro');
-    expect(includedFiscalPlan(tenant({ products: ['pms', 'accounting'], plan: 'basic', plans: { accounting: 'starter' } }) as any)).toBeNull();
+    expect(includedFiscalPlan(tenant({ products: ['pms', 'accounting'], plan: 'pro', plans: { accounting: 'plus' } }) as any)).toBe('max');
+    expect(includedFiscalPlan(tenant({ products: ['pms', 'accounting'], plan: 'enterprise', plans: { accounting: 'essentials' } }) as any)).toBe('pro');
+    expect(includedFiscalPlan(tenant({ products: ['pms', 'accounting'], plan: 'basic', plans: { accounting: 'invoicing' } }) as any)).toBe('essential');
   });
 });
 

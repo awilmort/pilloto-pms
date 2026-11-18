@@ -47,9 +47,11 @@ export type JournalEntrySource =
   | 'pms_payment_reversed'
   | 'pms_cashier_closure'
   | 'pms_folio_credit_note'
-  | 'pms_folio_debit_note';
+  | 'pms_folio_debit_note'
+  // A movement only the bank statement showed (fee, interest), posted from a statement line.
+  | 'bank_entry';
 
-export type JournalEntrySourceModel = 'JournalEntry' | 'Invoice' | 'Bill' | 'CreditNote' | 'DebitNote' | 'Charge' | 'Payment' | 'CashierClosure' | 'ElectronicInvoice';
+export type JournalEntrySourceModel = 'JournalEntry' | 'Invoice' | 'Bill' | 'CreditNote' | 'DebitNote' | 'Charge' | 'Payment' | 'CashierClosure' | 'ElectronicInvoice' | 'BankStatementLine';
 
 export interface IJournalEntryLine {
   _id?: Types.ObjectId;
@@ -110,10 +112,11 @@ const journalEntrySchema = new Schema<IJournalEntry>(
         'debit_note_issue', 'debit_note_payment', 'debit_note_void',
         'pms_charge_added', 'pms_payment_recorded', 'pms_payment_reversed',
         'pms_cashier_closure', 'pms_folio_credit_note', 'pms_folio_debit_note',
+        'bank_entry',
       ],
       required: true,
     },
-    sourceModel: { type: String, enum: ['JournalEntry', 'Invoice', 'Bill', 'CreditNote', 'DebitNote', 'Charge', 'Payment', 'CashierClosure', 'ElectronicInvoice'] },
+    sourceModel: { type: String, enum: ['JournalEntry', 'Invoice', 'Bill', 'CreditNote', 'DebitNote', 'Charge', 'Payment', 'CashierClosure', 'ElectronicInvoice', 'BankStatementLine'] },
     sourceId: { type: Schema.Types.ObjectId, refPath: 'sourceModel' },
     lines: {
       type: [lineSchema],

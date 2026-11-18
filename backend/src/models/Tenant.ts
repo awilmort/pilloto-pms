@@ -1,6 +1,6 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import { APP_CODES, AppCode } from '../constants/apps';
-import { AccountingPlanSlug } from '../config/accountingPlans';
+import { ACCOUNTING_PLAN_SLUGS, AccountingPlanSlug } from '../config/accountingPlans';
 
 export type TenantPlan = 'basic' | 'pro' | 'enterprise';
 
@@ -140,9 +140,38 @@ export interface ITenantDiscount {
   createdAt: Date;
 }
 
+/** One stretch of a product subscription on one plan at one price. */
+export interface ISubscriptionSegment {
+  plan: string;
+  /** DOP per month, before ITBIS. */
+  price: number;
+  source: ITenantContract['source'];
+  /** First day on this plan/price, `YYYY-MM-DD` Dominican time. */
+  from: string;
+}
+
+/**
+ * A product subscription's timeline. Days are Dominican calendar dates (`YYYY-MM-DD`). A month's
+ * charge covers the days between `billableFrom` and `endsOn` (exclusive) split by `segments`, so a
+ * mid-month upgrade is charged by the day on each plan.
+ */
+export interface ITenantSubscription {
+  /** First day the product was available. */
+  startedOn: string;
+  /** First day charged: the day after the free trial. */
+  billableFrom: string;
+  /** First day the product is no longer available (a cancellation). Absent while it runs. */
+  endsOn?: string;
+  /** A downgrade waiting for the next month. */
+  pendingPlan?: { plan: string; effectiveOn: string };
+  /** Plan/price history, oldest first; the last one is in force. */
+  segments: ISubscriptionSegment[];
+}
+
 /** Pilloto's own subscription billing for this tenant (platform operators manage it). */
 export interface ITenantBilling {
   contracts: { pms?: ITenantContract; accounting?: ITenantContract };
+  subscriptions?: { pms?: ITenantSubscription; accounting?: ITenantSubscription };
   priceChanges: ITenantPriceChange[];
   discounts: ITenantDiscount[];
   /** Where charges and e-CF go; the owner's email when empty. */
@@ -223,8 +252,40 @@ const contractSchema = new Schema<ITenantContract>(
   { _id: false }
 );
 
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+const subscriptionSchema = new Schema<ITenantSubscription>(
+  {
+    startedOn: { type: String, required: true, match: DAY },
+    billableFrom: { type: String, required: true, match: DAY },
+    endsOn: { type: String, match: DAY },
+    pendingPlan: {
+      type: new Schema({ plan: { type: String, required: true }, effectiveOn: { type: String, required: true, match: DAY } }, { _id: false }),
+    },
+    segments: {
+      type: [
+        new Schema<ISubscriptionSegment>(
+          {
+            plan: { type: String, required: true },
+            price: { type: Number, required: true, min: 0 },
+            source: { type: String, enum: ['catalog', 'override'], default: 'catalog' },
+            from: { type: String, required: true, match: DAY },
+          },
+          { _id: false },
+        ),
+      ],
+      default: [],
+    },
+  },
+  { _id: false }
+);
+
 const billingSchema = new Schema<ITenantBilling>(
   {
+    subscriptions: {
+      type: new Schema({ pms: { type: subscriptionSchema }, accounting: { type: subscriptionSchema } }, { _id: false }),
+      default: () => ({}),
+    },
     contracts: {
       type: new Schema({ pms: { type: contractSchema }, accounting: { type: contractSchema } }, { _id: false }),
       default: () => ({}),
@@ -316,7 +377,7 @@ const tenantSchema = new Schema<ITenant>(
     plans: {
       type: new Schema<ITenantPlans>(
         {
-          accounting: { type: String, enum: ['starter', 'pro', 'plus'] },
+          accounting: { type: String, enum: ACCOUNTING_PLAN_SLUGS },
         },
         { _id: false }
       ),

@@ -1,3 +1,5 @@
+import { LockOutlined } from '@mui/icons-material';
+import UpgradePromptHost from '../subscription/UpgradePromptHost';
 import React from 'react';
 import {
   Badge,
@@ -79,6 +81,10 @@ export interface AppShellNavItem {
   activePrefix?: string;
   /** Count shown on the item (e.g. open critical alerts); hidden when 0 or unset. */
   badge?: number;
+  /** Not in the tenant's plan: shown with a lock; selecting it runs `onSelect` (the upgrade prompt). */
+  locked?: boolean;
+  /** Runs instead of navigating to `path`. */
+  onSelect?: () => void;
 }
 
 export type AppShellApp = AppCode | 'platform';
@@ -302,12 +308,18 @@ const AppShell: React.FC<AppShellProps> = ({
                     else toggleGroup(item);
                     return;
                   }
+                  if (item.onSelect) {
+                    item.onSelect();
+                    if (!isDesktop) setMobileOpen(false);
+                    return;
+                  }
                   go(item.path);
                 }}
                 sx={itemSx(active, false, open)}
               >
                 {renderIcon(item)}
                 {expanded && itemText(item.text, active)}
+                {expanded && item.locked && <LockOutlined sx={{ fontSize: 16, color: '#9AA1B5', ml: 'auto' }} />}
                 {expanded && hasChildren && (
                   <ExpandMore
                     fontSize="small"
@@ -629,6 +641,7 @@ const AppShell: React.FC<AppShellProps> = ({
           {t('auth.logout')}
         </MuiMenuItem>
       </MuiMenu>
+      {app !== 'platform' && <UpgradePromptHost />}
     </ThemeProvider>
   );
 };

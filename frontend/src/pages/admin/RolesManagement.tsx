@@ -64,6 +64,7 @@ const PMS_PERMISSION_LABEL_KEYS: Record<string, string> = {
   'admin.wristbands.view': 'admin.roles.permissionLabels.wristbandsView',
   'admin.wristbands.manage': 'admin.roles.permissionLabels.wristbandsManage',
   'admin.settings': 'admin.nav.settings',
+  'admin.subscription': 'admin.nav.subscription',
   'admin.revenue': 'admin.nav.revenue',
   'admin.commissions': 'admin.nav.commissions',
   salesman: 'admin.roles.permissionLabels.salesman',

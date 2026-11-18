@@ -13,7 +13,7 @@ import i18n from '../../../i18n';
 import { creditNotesService, debitNotesService, invoicesService } from '../../../services/api';
 import type { CreditNote, DebitNote, Invoice, InvoiceFormMeta } from '../../../types';
 import { usePermission } from '../../../lib/permissions';
-import { formatAccountingMoneyExact as formatMoney } from '../../../utils/currency';
+import { formatDocumentMoney } from '../../../utils/currency';
 import InvoiceLetterhead from './InvoiceLetterhead';
 import { useInvoiceActions } from './useInvoiceActions';
 import { customerLabel, customerOf, electronicInvoiceOf, isOverdueInvoice, STATUS_COLOR } from './invoiceUi';
@@ -87,6 +87,7 @@ const InvoiceDetail: React.FC<{ invoiceId: string }> = ({ invoiceId }) => {
   }
 
   const inv = invoice;
+  const formatMoney = (n?: number) => formatDocumentMoney(n, inv.currency);
   const ecf = electronicInvoiceOf(inv);
   const customer = customerOf(inv);
   const isDraft = inv.status === 'draft';
@@ -348,6 +349,7 @@ const MetaRow: React.FC<{ label: string; value: React.ReactNode }> = ({ label, v
 );
 
 const DocTotals: React.FC<{ invoice: Invoice }> = ({ invoice: inv }) => {
+  const formatMoney = (n?: number) => formatDocumentMoney(n, inv.currency);
   const { t } = useTranslation();
   const gross = inv.lineItems.reduce((s, l) => s + l.quantity * l.unitPrice, 0);
   const discount = Math.round((gross - inv.subtotal) * 100) / 100;

@@ -2,7 +2,7 @@ import { Response } from 'express';
 import { AuthRequest } from '../../middleware/auth';
 import Warehouse from '../../models/Warehouse';
 import ProductStock from '../../models/ProductStock';
-import { getAccountingPlanFeatures } from '../../config/accountingPlans';
+import { countLimitDenial } from '../../services/entitlements';
 
 export const listWarehouses = async (req: AuthRequest, res: Response) => {
   try {
@@ -43,14 +43,9 @@ export const createWarehouse = async (req: AuthRequest, res: Response) => {
     };
     if (!name || !code) return res.status(400).json({ success: false, message: 'name and code are required' });
 
-    const existingCount = await Warehouse.countDocuments({});
-    const { maxWarehouses } = getAccountingPlanFeatures(req.tenant?.plans?.accounting);
-    if (maxWarehouses !== null && existingCount >= maxWarehouses) {
-      return res.status(403).json({
-        success: false,
-        message: `Your Accounting plan allows up to ${maxWarehouses} warehouse(s). Upgrade your plan to add more.`,
-      });
-    }
+    const denial = await countLimitDenial(req.tenant, 'warehouses');
+    if (denial) return res.status(403).json(denial);
+    const existingCount = await Warehouse.countDocuments({ isActive: true });
     const shouldBeDefault = existingCount === 0 || !!isDefault;
     if (shouldBeDefault) {
       await Warehouse.updateMany({ isDefault: true }, { $set: { isDefault: false } });
@@ -78,6 +73,10 @@ export const updateWarehouse = async (req: AuthRequest, res: Response) => {
     if (code !== undefined) warehouse.code = code;
     if (address !== undefined) warehouse.address = address;
     if (notes !== undefined) warehouse.notes = notes;
+    if (isActive === true && !warehouse.isActive) {
+      const denial = await countLimitDenial(req.tenant, 'warehouses');
+      if (denial) return res.status(403).json(denial);
+    }
     if (isActive !== undefined) warehouse.isActive = isActive;
 
     if (isDefault === true && !warehouse.isDefault) {

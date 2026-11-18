@@ -1,10 +1,12 @@
 import express from 'express';
 import { authenticate, authorizePermission } from '../../middleware/auth';
+import { requireAccountingFeature } from '../../services/entitlements';
 import * as warehouses from '../../controllers/accounting/warehouses.controller';
 
 const router = express.Router();
 
 router.use(authenticate);
+router.use(requireAccountingFeature('inventory'));
 
 router.get('/', authorizePermission('accounting', 'accounting.inventory.view', 'accounting.inventory.manage'), warehouses.listWarehouses);
 router.get('/:id', authorizePermission('accounting', 'accounting.inventory.view', 'accounting.inventory.manage'), warehouses.getWarehouse);

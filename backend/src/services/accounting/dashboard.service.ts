@@ -1,3 +1,4 @@
+import BankAccount from '../../models/BankAccount';
 import { Types } from 'mongoose';
 import JournalEntry from '../../models/JournalEntry';
 import Account, { IAccount } from '../../models/Account';
@@ -238,7 +239,9 @@ const DUE_SOON_DAYS = 7;
 async function buildFinancial(now: Date, period: ResolvedPeriod) {
   const accounts = await Account.find({}).sort({ code: 1 }).lean<IAccount[]>();
   const byCode = new Map(accounts.map((a) => [a.code, a]));
-  const cashAccounts = [SYSTEM_ACCOUNT_CODES.CASH, SYSTEM_ACCOUNT_CODES.BANK].map((c) => byCode.get(c)).filter(Boolean) as IAccount[];
+  // Cash on hand: Caja, "Bancos" and every bank account's own GL account.
+  const bankGl = new Set((await BankAccount.find({ isActive: true }).select('glAccount').lean()).map((b) => String(b.glAccount)));
+  const cashAccounts = accounts.filter((a) => a.code === SYSTEM_ACCOUNT_CODES.CASH || a.code === SYSTEM_ACCOUNT_CODES.BANK || bankGl.has(String(a._id)));
   const cashIds = cashAccounts.map((a) => a._id as Types.ObjectId);
 
   const months = monthStarts(now, TREND_MONTHS);

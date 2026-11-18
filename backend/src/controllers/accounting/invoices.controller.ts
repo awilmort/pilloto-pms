@@ -1,3 +1,4 @@
+import Product from '../../models/Product';
 import { Response } from 'express';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../../middleware/auth';
@@ -10,10 +11,14 @@ import { issueFiscalDocument } from '../../services/fiscal/fiscalIssuer';
 import { assertCanIssue, FiscalError, fiscalState } from '../../services/fiscal/fiscalCore';
 import { getBillingSoftClient } from '../../services/fiscal/fiscalClient';
 import { accountingInvoiceRequest, normalizeRnc, type BuyerInfo } from '../../services/fiscal/mappers';
-import { postJournalEntry, getSystemAccountIds, cashAccountCodeForMethod, reversePostedEntries } from '../../services/accounting/ledger.service';
+import { postJournalEntry, getSystemAccountIds, reversePostedEntries, inFunctional, settlementLines } from '../../services/accounting/ledger.service';
+import { resolveDocumentCurrency, resolvePaymentRate } from '../../services/accounting/fx.service';
+import { assertBankAccount, settlementAccountId } from '../../services/accounting/bank.service';
 import { SYSTEM_ACCOUNT_CODES } from '../../constants/accounting';
 import path from 'path';
 import { generateInvoicePdf, loadLogo, type InvoicePdfData } from '../../services/accounting/invoicePdf.service';
+
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 /**
  * Invoice controller (PILLOTO_ACCOUNTING_IMPLEMENTATION_PLAN.md Phase 5.1).
@@ -156,9 +161,11 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
     const defaultTaxRate = await resolveDefaultTaxRate(req.tenantId);
     const lineItems = await buildLineItems(rawLines || [], defaultTaxRate);
 
+    const fx = await resolveDocumentCurrency(req.tenant, req.body ?? {}, new Date());
     const invoiceNumber = `INV-${String(await nextSequence('invoiceNumber')).padStart(6, '0')}`;
 
     const invoice = await Invoice.create({
+      ...fx,
       invoiceNumber,
       customer: isIndividual ? undefined : customer,
       isIndividual: !!isIndividual,
@@ -175,7 +182,7 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
 
     res.status(201).json({ success: true, message: 'Invoice created successfully', data: invoice });
   } catch (error: any) {
-    if (error?.status) return res.status(error.status).json({ success: false, message: error.message });
+    if (error?.status) return res.status(error.status).json(error.body ?? { success: false, message: error.message });
     if (error.name === 'ValidationError') return res.status(400).json({ success: false, message: error.message });
     console.error('Create invoice error:', error);
     res.status(500).json({ success: false, message: 'Server error while creating invoice' });
@@ -233,6 +240,9 @@ export const updateInvoice = async (req: AuthRequest, res: Response) => {
       const defaultTaxRate = await resolveDefaultTaxRate(req.tenantId);
       invoice.lineItems = await buildLineItems(rawLines, defaultTaxRate) as any;
     }
+    if (req.body?.currency !== undefined || req.body?.exchangeRate !== undefined) {
+      invoice.set(await resolveDocumentCurrency(req.tenant, req.body, invoice.issueDate, invoice));
+    }
 
     await invoice.save();
     res.status(200).json({ success: true, message: 'Invoice updated successfully', data: invoice });
@@ -285,8 +295,12 @@ export const sendInvoice = async (req: AuthRequest, res: Response) => {
     // line, defaulting to the tenant's default warehouse when none is specified. ──
     const rawLines = req.body?.lineItemWarehouses as Record<string, string> | undefined; // optional { lineItemId: warehouseId } override
     const stockPlan: { lineId: string; productId: string; warehouseId: string; quantity: number }[] = [];
+    const lineProductIds = invoice.lineItems.filter((l) => l.product).map((l) => l.product);
+    const stocked = new Set(
+      (await Product.find({ _id: { $in: lineProductIds }, tracksStock: { $ne: false } }).select('_id').lean()).map((p) => String(p._id)),
+    );
     for (const line of invoice.lineItems) {
-      if (!line.product) continue;
+      if (!line.product || !stocked.has(String(line.product))) continue; // services / non-stock items move no stock
       const lineId = String(line._id);
       const warehouseId = await resolveWarehouseId(rawLines?.[lineId]);
       const available = await getAvailableQty(line.product, warehouseId);
@@ -302,7 +316,8 @@ export const sendInvoice = async (req: AuthRequest, res: Response) => {
     const buyer = resolveBuyer(invoice as any);
     const request = accountingInvoiceRequest({
       type: normalizeRnc(buyer.rnc) ? '31' : '32',
-      lines: invoice.lineItems.map(l => ({ description: l.description, quantity: l.quantity, taxRate: l.taxRate, lineTotal: l.lineTotal })),
+      // The e-CF is in pesos: a USD/EUR invoice is issued at its own rate.
+      lines: invoice.lineItems.map(l => ({ description: l.description, quantity: l.quantity, taxRate: l.taxRate, lineTotal: round2(l.lineTotal * (invoice.exchangeRate || 1)) })),
       buyer,
       dueDate: invoice.dueDate,
     });
@@ -362,11 +377,15 @@ export const sendInvoice = async (req: AuthRequest, res: Response) => {
         ...(cogsTotal > 0 ? [SYSTEM_ACCOUNT_CODES.COST_OF_GOODS_SOLD, SYSTEM_ACCOUNT_CODES.INVENTORY] : []),
       ]);
       const lines = [
-        { account: accountIds[SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE], debit: invoice.total },
-        { account: accountIds[SYSTEM_ACCOUNT_CODES.SALES_REVENUE], credit: invoice.subtotal },
-        ...(invoice.taxAmount > 0
-          ? [{ account: accountIds[SYSTEM_ACCOUNT_CODES.SALES_TAX_PAYABLE], credit: invoice.taxAmount }]
-          : []),
+        // In the invoice's currency, converted to DOP at its rate (rounding on the receivable).
+        ...inFunctional([
+          { account: accountIds[SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE], debit: invoice.total },
+          { account: accountIds[SYSTEM_ACCOUNT_CODES.SALES_REVENUE], credit: invoice.subtotal },
+          ...(invoice.taxAmount > 0
+            ? [{ account: accountIds[SYSTEM_ACCOUNT_CODES.SALES_TAX_PAYABLE], credit: invoice.taxAmount }]
+            : []),
+        ], invoice.exchangeRate || 1),
+        // Cost of sales comes from stock, already in DOP.
         ...(cogsTotal > 0
           ? [
               { account: accountIds[SYSTEM_ACCOUNT_CODES.COST_OF_GOODS_SOLD], debit: cogsTotal },
@@ -393,6 +412,9 @@ export const sendInvoice = async (req: AuthRequest, res: Response) => {
 
 export const recordPayment = async (req: AuthRequest, res: Response) => {
   try {
+    if (req.body?.bankAccount) {
+      try { await assertBankAccount(req.body.bankAccount); } catch { return res.status(400).json({ success: false, message: 'Invalid bank account' }); }
+    }
     const { amount, method, date, reference } = req.body as {
       amount?: number; method?: InvoicePaymentMethod; date?: string; reference?: string;
     };
@@ -411,11 +433,13 @@ export const recordPayment = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ success: false, message: `Payment amount (${amount}) exceeds the remaining balance due (${invoice.balanceDue})` });
     }
 
+    const paymentRate = await resolvePaymentRate(invoice, req.body?.exchangeRate, date);
     invoice.payments.push({
       amount,
       method,
       date: date ? new Date(date) : new Date(),
       reference,
+      exchangeRate: paymentRate,
       recordedBy: req.user._id,
     } as any);
 
@@ -425,12 +449,13 @@ export const recordPayment = async (req: AuthRequest, res: Response) => {
     // logged-not-blocking rationale as sendInvoice's posting (the payment itself is already
     // recorded on the invoice by the time this runs).
     try {
-      const accountIds = await getSystemAccountIds([cashAccountCodeForMethod(method), SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE]);
+      const accountIds = await getSystemAccountIds([SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE]);
+      const settlement = await settlementAccountId(method, req.body?.bankAccount);
       await postJournalEntry(
-        [
-          { account: accountIds[cashAccountCodeForMethod(method)], debit: amount },
-          { account: accountIds[SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE], credit: amount },
-        ],
+        await settlementLines({
+          amount, documentRate: invoice.exchangeRate || 1, paymentRate, direction: 'in',
+          cashAccount: settlement, controlAccount: accountIds[SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE],
+        }),
         'invoice_payment',
         { model: 'Invoice', id: invoice._id as any },
         `Payment recorded on Invoice ${invoice.invoiceNumber}`,
@@ -444,6 +469,7 @@ export const recordPayment = async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     if (error.name === 'CastError') return res.status(400).json({ success: false, message: 'Invalid invoice ID' });
     if (error.name === 'ValidationError') return res.status(400).json({ success: false, message: error.message });
+    if (error?.status) return res.status(error.status).json(error.body ?? { success: false, message: error.message });
     console.error('Record invoice payment error:', error);
     res.status(500).json({ success: false, message: 'Server error while recording payment' });
   }
@@ -563,6 +589,8 @@ export const getInvoicePdf = async (req: AuthRequest, res: Response) => {
     const customer = invoice.customer as any;
     const ecf = invoice.electronicInvoiceId as any;
     const data: InvoicePdfData = {
+      currency: (invoice as any).currency ?? 'DOP',
+      exchangeRate: (invoice as any).exchangeRate ?? 1,
       invoiceNumber: invoice.invoiceNumber,
       status: invoice.status,
       timezone: tenant?.settings?.timezone,

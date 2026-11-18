@@ -53,6 +53,12 @@ const SettingsTab: React.FC<{ onSaved: () => void }> = ({ onSaved }) => {
           inputProps={{ min: 0, max: 90 }} error={Boolean(fields.dueDays)} helperText={fields.dueDays}
         />
         <TextField
+          type="number" label={t('platformBilling.settings.suiteDiscount', 'Suite discount on Accounting (%)')} value={form.suiteDiscountPercent}
+          onChange={(e) => setForm({ ...form, suiteDiscountPercent: Number(e.target.value) })}
+          inputProps={{ min: 0, max: 100 }} error={Boolean(fields.suiteDiscountPercent)}
+          helperText={fields.suiteDiscountPercent ?? t('platformBilling.settings.suiteDiscountHelp', 'Taken off the Accounting subscription of tenants that also have the PMS, in months both are charged. A discount you grant on Accounting replaces it. 0 turns it off.')}
+        />
+        <TextField
           type="email" label={t('platformBilling.settings.notifyEmail', 'Email for Pilloto’s own e-CF notices')} value={form.notifyEmail} onChange={(e) => setForm({ ...form, notifyEmail: e.target.value })}
           error={Boolean(fields.notifyEmail)} helperText={fields.notifyEmail ?? t('platformBilling.settings.notifyHelp', 'DGII rejections and low e-NCF ranges are sent here.')}
         />
@@ -60,6 +66,28 @@ const SettingsTab: React.FC<{ onSaved: () => void }> = ({ onSaved }) => {
           multiline minRows={4} label={t('platformBilling.settings.instructions', 'How to pay (included in the charge email)')} value={form.paymentInstructions} onChange={(e) => setForm({ ...form, paymentInstructions: e.target.value })}
           inputProps={{ maxLength: 2000 }} error={Boolean(fields.paymentInstructions)} helperText={fields.paymentInstructions ?? t('platformBilling.settings.instructionsHelp', 'Bank, account number, the reference to quote…')}
         />
+        {form.handypay && (
+          <Alert severity={form.handypay.configured ? (form.handypay.needsReview > 0 ? 'warning' : 'success') : 'info'} variant="outlined">
+            <Typography variant="subtitle2">{t('platformBilling.settings.handypay.title', 'Online payment (HandyPay)')}</Typography>
+            <Typography variant="body2">
+              {form.handypay.configured
+                ? (form.handypay.sandbox
+                  ? t('platformBilling.settings.handypay.sandbox', 'Connected to the HandyPay sandbox (test key). Tenants can pay charges online with test cards.')
+                  : t('platformBilling.settings.handypay.live', 'Connected. Tenants can pay their charges online; each payment issues its e-CF like one you record.'))
+                : t('platformBilling.settings.handypay.off', 'Not configured. Set HANDYPAY_API_KEY and HANDYPAY_WEBHOOK_SECRET on the server to let tenants pay online.')}
+            </Typography>
+            {form.handypay.webhookUrl && (
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                {t('platformBilling.settings.handypay.webhook', 'Webhook URL to register in the HandyPay merchant portal:')} <code>{form.handypay.webhookUrl}</code>
+              </Typography>
+            )}
+            {form.handypay.needsReview > 0 && (
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                {t('platformBilling.settings.handypay.review', '{{count}} online payment(s) were paid but could not be recorded (the charge changed). Record or refund them.', { count: form.handypay.needsReview })}
+              </Typography>
+            )}
+          </Alert>
+        )}
         <Typography variant="caption" color="text.secondary">{t('platformBilling.settings.ecfNote', 'The e-CF is issued when you record a payment, never on a schedule.')}</Typography>
         <Box><Button variant="contained" onClick={save} disabled={busy}>{t('platformBilling.common.save', 'Save')}</Button></Box>
       </Box>

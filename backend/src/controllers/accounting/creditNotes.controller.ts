@@ -14,7 +14,9 @@ import { deductStockForSale, restockReturn } from '../../services/accounting/inv
 import { issueFiscalDocument } from '../../services/fiscal/fiscalIssuer';
 import { assertCanIssue, FiscalError } from '../../services/fiscal/fiscalCore';
 import { accountingNoteLines, noteRequest } from '../../services/fiscal/mappers';
-import { postJournalEntry, getSystemAccountIds, cashAccountCodeForMethod, reversePostedEntries } from '../../services/accounting/ledger.service';
+import { postJournalEntry, getSystemAccountIds, reversePostedEntries, inFunctional, settlementLines } from '../../services/accounting/ledger.service';
+import { resolvePaymentRate } from '../../services/accounting/fx.service';
+import { assertBankAccount, settlementAccountId } from '../../services/accounting/bank.service';
 import { SYSTEM_ACCOUNT_CODES } from '../../constants/accounting';
 
 /**
@@ -224,6 +226,9 @@ export const createCreditNote = async (req: AuthRequest, res: Response) => {
     const creditNote = await CreditNote.create({
       creditNoteNumber,
       invoice: invoiceId,
+      // A note is in its invoice's currency, at the invoice's rate.
+      currency: (invoiceDoc as any).currency ?? 'DOP',
+      exchangeRate: (invoiceDoc as any).exchangeRate ?? 1,
       customer: invoiceDoc.isIndividual ? undefined : invoiceDoc.customer,
       isIndividual: invoiceDoc.isIndividual,
       individualCustomer: invoiceDoc.isIndividual ? invoiceDoc.individualCustomer : undefined,
@@ -364,7 +369,7 @@ export const issueCreditNote = async (req: AuthRequest, res: Response) => {
       modificationCode: creditNote.fiscalModificationCode,
       reason: razonModificacion,
       lines: accountingNoteLines(
-        creditNote.lineItems.map((l) => ({ description: l.description, quantity: l.quantity || 1, taxRate: l.taxRate, lineTotal: l.lineTotal })),
+        creditNote.lineItems.map((l) => ({ description: l.description, quantity: l.quantity || 1, taxRate: l.taxRate, lineTotal: Math.round(l.lineTotal * (creditNote.exchangeRate || 1) * 100) / 100 })),
       ),
     });
 
@@ -421,12 +426,15 @@ export const issueCreditNote = async (req: AuthRequest, res: Response) => {
         ...(creditNote.taxAmount > 0 ? [SYSTEM_ACCOUNT_CODES.SALES_TAX_PAYABLE] : []),
         ...(cogsTotal > 0 ? [SYSTEM_ACCOUNT_CODES.INVENTORY, SYSTEM_ACCOUNT_CODES.COST_OF_GOODS_SOLD] : []),
       ]);
-      const lines = [
+      const docLines = [
         { account: accountIds[SYSTEM_ACCOUNT_CODES.SALES_RETURNS_AND_ALLOWANCES], debit: creditNote.subtotal },
         ...(creditNote.taxAmount > 0
           ? [{ account: accountIds[SYSTEM_ACCOUNT_CODES.SALES_TAX_PAYABLE], debit: creditNote.taxAmount }]
           : []),
         { account: accountIds[SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE], credit: creditNote.total },
+      ];
+      const lines = [
+        ...inFunctional(docLines, creditNote.exchangeRate || 1, docLines.length - 1),
         ...(cogsTotal > 0
           ? [
               { account: accountIds[SYSTEM_ACCOUNT_CODES.INVENTORY], debit: cogsTotal },
@@ -479,6 +487,14 @@ export const applyCreditNote = async (req: AuthRequest, res: Response) => {
     if (amount > targetInvoice.balanceDue + 0.01) {
       return res.status(400).json({ success: false, message: `Amount (${amount}) exceeds the target invoice's balance due (${targetInvoice.balanceDue})` });
     }
+    // Applying credit posts nothing, so it must not move value between rates: same currency, and a
+    // foreign-currency note only against its own invoice (booked at the same rate).
+    if ((targetInvoice.currency ?? 'DOP') !== (creditNote.currency ?? 'DOP')) {
+      return res.status(400).json({ success: false, message: 'The credit note and the invoice are in different currencies' });
+    }
+    if ((creditNote.currency ?? 'DOP') !== 'DOP' && String(targetInvoice._id) !== String(creditNote.invoice)) {
+      return res.status(400).json({ success: false, message: 'A foreign-currency credit note can only be applied to its own invoice' });
+    }
 
     targetInvoice.payments.push({
       amount,
@@ -513,6 +529,9 @@ export const applyCreditNote = async (req: AuthRequest, res: Response) => {
 // Cr Accounts Receivable, since actual cash leaves the business at this point.
 export const refundCreditNote = async (req: AuthRequest, res: Response) => {
   try {
+    if (req.body?.bankAccount) {
+      try { await assertBankAccount(req.body.bankAccount); } catch { return res.status(400).json({ success: false, message: 'Invalid bank account' }); }
+    }
     const { amount, method, reference, note } = req.body as {
       amount?: number; method?: CreditNoteRefundMethod; reference?: string; note?: string;
     };
@@ -531,11 +550,13 @@ export const refundCreditNote = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ success: false, message: `Amount (${amount}) exceeds the remaining credit (${creditNote.remainingCredit})` });
     }
 
+    const refundRate = await resolvePaymentRate(creditNote, req.body?.exchangeRate);
     creditNote.applications.push({
       type: 'refund',
       amount,
       method,
       reference,
+      exchangeRate: refundRate,
       note,
       createdAt: new Date(),
       createdBy: req.user._id,
@@ -543,12 +564,13 @@ export const refundCreditNote = async (req: AuthRequest, res: Response) => {
     await creditNote.save();
 
     try {
-      const accountIds = await getSystemAccountIds([SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE, cashAccountCodeForMethod(method)]);
+      const accountIds = await getSystemAccountIds([SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE]);
+      const settlement = await settlementAccountId(method, req.body?.bankAccount);
       await postJournalEntry(
-        [
-          { account: accountIds[SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE], debit: amount },
-          { account: accountIds[cashAccountCodeForMethod(method)], credit: amount },
-        ],
+        await settlementLines({
+          amount, documentRate: creditNote.exchangeRate || 1, paymentRate: refundRate, direction: 'out',
+          cashAccount: settlement, controlAccount: accountIds[SYSTEM_ACCOUNT_CODES.ACCOUNTS_RECEIVABLE],
+        }),
         'credit_note_refund',
         { model: 'CreditNote', id: creditNote._id as any },
         `Refund issued on credit note ${creditNote.creditNoteNumber}`,

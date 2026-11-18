@@ -1,14 +1,19 @@
 import React from 'react';
-import { DashboardOutlined, SettingsOutlined, Inventory2Outlined, WarehouseOutlined, ReceiptLongOutlined, PeopleAltOutlined, RequestQuoteOutlined, RequestPageOutlined, StorefrontOutlined, AssignmentReturnOutlined, PostAddOutlined, MenuBookOutlined, AssessmentOutlined, LocationCityOutlined, VerifiedOutlined } from '@mui/icons-material';
+import { AccountBalanceOutlined, CreditCardOutlined, DashboardOutlined, SettingsOutlined, Inventory2Outlined, WarehouseOutlined, ReceiptLongOutlined, PeopleAltOutlined, RequestQuoteOutlined, RequestPageOutlined, StorefrontOutlined, AssignmentReturnOutlined, PostAddOutlined, MenuBookOutlined, AssessmentOutlined, LocationCityOutlined, VerifiedOutlined } from '@mui/icons-material';
 import { Outlet } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslation } from 'react-i18next';
 import { hasPermission } from '../../lib/permissions';
 import AppShell, { AppShellNavItem } from '../shared/AppShell';
+import { useTenant } from '../../contexts/TenantContext';
+import { AccountingFeature, smallestAccountingPlanWith } from '../../config/accountingPlans';
+import { showPlanPrompt } from '../../lib/planPrompt';
 
 interface AccountingNavItem extends AppShellNavItem {
   /** Permission(s) required for a leaf item — any one grants it, mirroring the backend route guard's OR semantics. */
   perm?: string | string[];
+  /** Plan module the item needs; without it the item is locked and opens the upgrade prompt. */
+  feature?: AccountingFeature;
   children?: AccountingNavItem[];
 }
 
@@ -20,6 +25,7 @@ interface AccountingNavItem extends AppShellNavItem {
  */
 const AccountingLayout: React.FC = () => {
   const { user, resolvedAppRoles } = useAuth();
+  const { accountingFeatures } = useTenant();
   const { t } = useTranslation();
 
   const menuItems: AccountingNavItem[] = React.useMemo(() => {
@@ -39,10 +45,12 @@ const AccountingLayout: React.FC = () => {
       { section: purchases, text: t('accounting.nav.bills', 'Bills'), icon: <RequestPageOutlined />, path: '/accounting/bills', key: 'purchasing-bills', perm: ['accounting.bills.view', 'accounting.bills.manage'] },
       { section: purchases, text: t('accounting.nav.suppliers', 'Suppliers'), icon: <StorefrontOutlined />, path: '/accounting/suppliers', key: 'purchasing-suppliers', perm: 'accounting.suppliers.manage' },
       { section: inventory, text: t('accounting.nav.products', 'Products'), icon: <Inventory2Outlined />, path: '/accounting/products', key: 'inventory-products', perm: ['accounting.inventory.view', 'accounting.inventory.manage'] },
-      { section: inventory, text: t('accounting.nav.warehouses', 'Warehouses'), icon: <WarehouseOutlined />, path: '/accounting/warehouses', key: 'inventory-warehouses', perm: ['accounting.inventory.view', 'accounting.inventory.manage'] },
-      { section: ledger, text: t('accounting.nav.journalEntries', 'Journal Entries'), icon: <MenuBookOutlined />, path: '/accounting/journal-entries', key: 'accounting-journal-entries', perm: ['accounting.journal.view', 'accounting.journal.manage'] },
+      { section: inventory, text: t('accounting.nav.warehouses', 'Warehouses'), icon: <WarehouseOutlined />, path: '/accounting/warehouses', key: 'inventory-warehouses', perm: ['accounting.inventory.view', 'accounting.inventory.manage'], feature: 'inventory' },
+      { section: ledger, text: t('accounting.nav.banks', 'Banks'), icon: <AccountBalanceOutlined />, path: '/accounting/banks', key: 'accounting-banks', perm: ['accounting.banks.view', 'accounting.banks.manage'], feature: 'bankReconciliation' },
+      { section: ledger, text: t('accounting.nav.journalEntries', 'Journal Entries'), icon: <MenuBookOutlined />, path: '/accounting/journal-entries', key: 'accounting-journal-entries', perm: ['accounting.journal.view', 'accounting.journal.manage'], feature: 'generalLedger' },
       { section: ledger, text: t('accounting.nav.reports', 'Reports'), icon: <AssessmentOutlined />, path: '/accounting/reports', key: 'accounting-reports', perm: 'accounting.reports.view' },
       { section: ledger, text: t('accounting.nav.settings', 'Settings'), icon: <SettingsOutlined />, path: '/accounting/settings', key: 'settings', perm: 'accounting.settings.manage' },
+      { section: ledger, text: t('accounting.nav.subscription', 'Plan & billing'), icon: <CreditCardOutlined />, path: '/accounting/subscription', key: 'subscription', perm: 'accounting.subscription' },
     ];
   }, [t]);
 
@@ -54,10 +62,19 @@ const AccountingLayout: React.FC = () => {
         if (visibleChildren.length > 0) acc.push({ ...item, children: visibleChildren });
         return acc;
       }
-      if (isAllowed(item.perm)) acc.push(item);
+      if (!isAllowed(item.perm)) return acc;
+      if (item.feature && !accountingFeatures?.[item.feature]) {
+        const feature = item.feature;
+        acc.push({
+          ...item, locked: true,
+          onSelect: () => showPlanPrompt({ code: 'PLAN_FEATURE', plan: { product: 'accounting', feature, requiredPlan: smallestAccountingPlanWith(feature) } }),
+        });
+        return acc;
+      }
+      acc.push(item);
       return acc;
     }, []);
-  }, [menuItems, user, resolvedAppRoles]);
+  }, [menuItems, user, resolvedAppRoles, accountingFeatures]);
 
   return (
     <AppShell

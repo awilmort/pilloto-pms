@@ -11,9 +11,10 @@ import PillotoLogo from '../brand/PillotoLogo';
 import LanguageSwitcher from '../common/LanguageSwitcher';
 import { BRAND, alpha } from '../../brand';
 
-const NAV_ITEMS = [
-  { key: 'product', scrollId: 'products' },
-  { key: 'features', scrollId: 'features' },
+/** Product pages first (the home page is the hotel PMS), then the sections of the current page. */
+const NAV_ITEMS: { key: string; path?: string; scrollId?: string }[] = [
+  { key: 'pms', path: '/' },
+  { key: 'accounting', path: '/contabilidad' },
   { key: 'pricing', scrollId: 'pricing' },
   { key: 'faq', scrollId: 'faq' },
   { key: 'contact', path: '/contact' },
@@ -29,7 +30,6 @@ const MarketingNavBar: React.FC = () => {
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const isLanding = location.pathname === '/';
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -42,14 +42,15 @@ const MarketingNavBar: React.FC = () => {
     setDrawerOpen(false);
     if (item.path) {
       navigate(item.path);
+      if (item.path === location.pathname) window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    if (isLanding) {
-      document.getElementById(item.scrollId!)?.scrollIntoView({ behavior: 'smooth' });
-    } else {
-      navigate(`/#${item.scrollId}`);
-    }
+    // A section of this page (home and /contabilidad both have pricing and FAQ), else the home page's.
+    const target = document.getElementById(item.scrollId!);
+    if (target) target.scrollIntoView({ behavior: 'smooth' });
+    else navigate(`/#${item.scrollId}`);
   };
+  const isCurrent = (item: typeof NAV_ITEMS[0]) => !!item.path && item.path !== '/contact' && item.path === location.pathname;
 
   return (
     <AppBar
@@ -104,7 +105,7 @@ const MarketingNavBar: React.FC = () => {
           <Stack direction="row" spacing={3.5} alignItems="center">
             {NAV_ITEMS.map(item => (
               <Link key={item.key} component="button" underline="none" variant="body2"
-                fontWeight={500} sx={{ color: BRAND.slate, '&:hover': { color: BRAND.ink } }}
+                fontWeight={isCurrent(item) ? 700 : 500} sx={{ color: isCurrent(item) ? BRAND.ink : BRAND.slate, '&:hover': { color: BRAND.ink } }}
                 onClick={() => handleNavClick(item)}>
                 {t(`marketing.nav.${item.key}`)}
               </Link>

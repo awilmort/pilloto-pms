@@ -35,17 +35,32 @@ export const SYSTEM_ACCOUNT_CODES = {
   BANK: '1010',
   ACCOUNTS_RECEIVABLE: '1100',
   INVENTORY: '1200',
+  /** ITBIS paid on purchases, deductible on the IT-1 (606: "ITBIS por adelantar"). */
+  ITBIS_ADVANCE: '1300',
   ACCOUNTS_PAYABLE: '2000',
   SALES_TAX_PAYABLE: '2100',
+  /** ITBIS withheld from suppliers, owed to the DGII (IT-1). */
+  ITBIS_WITHHELD: '2110',
+  /** ISR withheld from suppliers, owed to the DGII (IR-17). */
+  ISR_WITHHELD: '2120',
   RETAINED_EARNINGS: '3900',
   SALES_REVENUE: '4000',
   SALES_RETURNS_AND_ALLOWANCES: '4100',
   OTHER_REVENUE: '4200',
+  /** Realised exchange gains (a foreign-currency document settled at a better rate). */
+  FX_GAIN: '4300',
   COST_OF_GOODS_SOLD: '5000',
   /** Nets both cash overages (credited) and shortages (debited) found at
    *  CashierClosure time; a single account is the standard bookkeeping convention for this. */
   CASH_OVER_SHORT: '6070',
+  /** Realised exchange losses. */
+  FX_LOSS: '6080',
 } as const;
+
+/** Currencies a document can be in. DOP is the functional currency: the books are kept in it. */
+export const CURRENCIES = ['DOP', 'USD', 'EUR'] as const;
+export type Currency = (typeof CURRENCIES)[number];
+export const FUNCTIONAL_CURRENCY: Currency = 'DOP';
 
 // Names are Spanish/Dominican-market terms (e.g. "ITBIS" — DR's VAT — not a generic
 // "sales tax"), matching how the tenant-facing product and DGII e-CF flow are already
@@ -55,8 +70,11 @@ export const DEFAULT_CHART_OF_ACCOUNTS: DefaultAccountDefinition[] = [
   { code: '1010', name: 'Bancos', type: 'asset' },
   { code: '1100', name: 'Cuentas por Cobrar', type: 'asset' },
   { code: '1200', name: 'Inventario', type: 'asset' },
+  { code: '1300', name: 'ITBIS Pagado por Adelantar', type: 'asset' },
   { code: '2000', name: 'Cuentas por Pagar', type: 'liability' },
   { code: '2100', name: 'ITBIS por Pagar', type: 'liability' },
+  { code: '2110', name: 'ITBIS Retenido por Pagar', type: 'liability' },
+  { code: '2120', name: 'ISR Retenido por Pagar', type: 'liability' },
   { code: '3000', name: 'Capital del Propietario', type: 'equity' },
   { code: '3900', name: 'Utilidades Retenidas', type: 'equity' },
   { code: '4000', name: 'Ingresos por Ventas', type: 'revenue' },
@@ -67,6 +85,7 @@ export const DEFAULT_CHART_OF_ACCOUNTS: DefaultAccountDefinition[] = [
   // costs/interest/corrections — kept distinct from 4000 so ad hoc
   // recoveries never inflate reported sales revenue.
   { code: '4200', name: 'Otros Ingresos', type: 'revenue' },
+  { code: '4300', name: 'Ganancia por Diferencia Cambiaria', type: 'revenue' },
   { code: '5000', name: 'Costo de Ventas', type: 'expense' },
   { code: '6000', name: 'Gastos Operativos', type: 'expense' },
   { code: '6010', name: 'Alquiler', type: 'expense', parentCode: '6000' },
@@ -76,5 +95,6 @@ export const DEFAULT_CHART_OF_ACCOUNTS: DefaultAccountDefinition[] = [
   // CashierClosure hook: debited for a shortage, credited for an overage —
   // see SYSTEM_ACCOUNT_CODES.CASH_OVER_SHORT.
   { code: '6070', name: 'Sobrante/Faltante de Caja', type: 'expense', parentCode: '6000' },
+  { code: '6080', name: 'Pérdida por Diferencia Cambiaria', type: 'expense', parentCode: '6000' },
   { code: '6090', name: 'Otros Gastos', type: 'expense', parentCode: '6000' },
 ];

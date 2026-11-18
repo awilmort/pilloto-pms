@@ -90,8 +90,9 @@ describe('fiscal translations', () => {
     if (!fs.existsSync(dir)) return; // the frontend can be built on its own
     const codes = new Set<string>();
     for (const file of walk(dir)) {
-      // Pilloto's own billing answers in the platform console, in its own namespace (see billingI18n.test.ts).
-      if (/platformBilling/.test(file)) continue;
+      // Pilloto's own billing answers in the platform console, in its own namespace (see billingI18n.test.ts),
+      // and the tenant's subscription page in `subscription.errors` (see SubscriptionPage).
+      if (/platformBilling|routes[\\/]subscription\.ts$/.test(file)) continue;
       for (const m of fs.readFileSync(file, 'utf8').matchAll(/new FiscalError\(\s*\d+\s*,\s*'([A-Z_]+)'/g)) codes.add(m[1]);
     }
     // codes whose message is the specific, already-translated-by-the-server explanation

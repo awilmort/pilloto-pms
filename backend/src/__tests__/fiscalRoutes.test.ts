@@ -118,7 +118,7 @@ describe('/api/fiscal (local Mongo)', () => {
       as(userWith(['accounting', 'acct-viewer']), ['accounting']);
       const r = await request(app).get('/api/fiscal/status');
       expect(r.status).toBe(200);
-      expect(r.body.data).toMatchObject({ state: 'ready', canIssue: true, includedPlan: 'essential' });
+      expect(r.body.data).toMatchObject({ state: 'ready', canIssue: true, includedPlan: 'pro' }); // Accounting Pro includes BillingSoft Pro
     });
 
     itDb('a user with no relevant role in any app is refused', async () => {

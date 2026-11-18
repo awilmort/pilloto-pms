@@ -12,10 +12,10 @@ import { BillingProduct } from '../../models/Tenant';
 import { FiscalError } from '../fiscal/fiscalCore';
 import { round2 } from './billingMath';
 
-/** Monthly prices (DOP, before ITBIS) the list starts with. */
+/** Monthly prices (DOP, before ITBIS) the list starts with — each plan's `listPriceDop`. */
 export const DEFAULT_PLAN_PRICES: Record<BillingProduct, Record<string, number>> = {
-  pms: { basic: 2450, pro: 5540, enterprise: 9370 },
-  accounting: { starter: 2450, pro: 5540, plus: 9370 },
+  pms: Object.fromEntries(Object.values(PLANS).map((p) => [p.slug, p.listPriceDop])),
+  accounting: Object.fromEntries(Object.values(ACCOUNTING_PLANS).map((p) => [p.slug, p.listPriceDop])),
 };
 
 const MAX_PRICE = 10_000_000;

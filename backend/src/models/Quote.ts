@@ -38,6 +38,10 @@ export interface IQuote extends Document {
   issueDate: Date;
   expiryDate?: Date;
   lineItems: IQuoteLineItem[];
+  /** DOP (the books' currency), USD or EUR. Amounts on the document are in this currency. */
+  currency: 'DOP' | 'USD' | 'EUR';
+  /** Pesos per unit of `currency` the document was booked at (1 for DOP). */
+  exchangeRate: number;
   subtotal: number;
   taxAmount: number;
   total: number;
@@ -90,6 +94,8 @@ const quoteSchema = new Schema<IQuote>(
         message: 'A quote must have at least one line item',
       },
     },
+    currency: { type: String, enum: ['DOP', 'USD', 'EUR'], default: 'DOP' },
+    exchangeRate: { type: Number, default: 1, min: 0.000001 },
     subtotal: { type: Number, required: true, min: 0, default: 0 },
     taxAmount: { type: Number, required: true, min: 0, default: 0 },
     total: { type: Number, required: true, min: 0, default: 0 },
@@ -135,6 +141,16 @@ quoteSchema.pre('validate', function (this: IQuote, next) {
   this.taxAmount = round2(taxAmount);
   this.total = round2(this.subtotal + this.taxAmount);
 
+  next();
+});
+
+
+// A DOP document is always at rate 1.
+quoteSchema.pre('validate', function (this: any, next) {
+  if (!this.currency || this.currency === 'DOP') {
+    this.currency = 'DOP';
+    this.exchangeRate = 1;
+  }
   next();
 });
 

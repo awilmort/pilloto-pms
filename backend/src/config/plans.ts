@@ -38,22 +38,28 @@ export interface PlanFeatures {
   channelManager: boolean;
 }
 
+export interface PlanLimits {
+  /** Max active rooms. `null` = unlimited. */
+  maxRooms: number | null;
+  /** Max distinct users holding a `pms` appRoles entry. `null` = unlimited. */
+  maxUsers: number | null;
+}
+
 export interface PlanConfig {
   slug: PlanSlug;
   name: string;
-  /** Monthly price in USD cents (e.g. 4900 = $49.00). Used for billing. */
-  priceUsd: number;
-  /** Human-readable price string for display purposes. */
-  displayPrice: string;
+  /** Starting monthly list price, DOP before ITBIS. The console price list (`PlanPrice`) is authoritative. */
+  listPriceDop: number;
   features: PlanFeatures;
+  limits: PlanLimits;
 }
 
 export const PLANS: Record<PlanSlug, PlanConfig> = {
   basic: {
     slug: 'basic',
     name: 'Basic',
-    priceUsd: 3900,
-    displayPrice: '$39',
+    listPriceDop: 2450,
+    limits: { maxRooms: 15, maxUsers: 2 },
     features: {
       media: true,
       daypass: false,
@@ -73,8 +79,8 @@ export const PLANS: Record<PlanSlug, PlanConfig> = {
   pro: {
     slug: 'pro',
     name: 'Pro',
-    priceUsd: 8900,
-    displayPrice: '$89',
+    listPriceDop: 5540,
+    limits: { maxRooms: 50, maxUsers: null },
     features: {
       media: true,
       daypass: true,
@@ -94,8 +100,8 @@ export const PLANS: Record<PlanSlug, PlanConfig> = {
   enterprise: {
     slug: 'enterprise',
     name: 'Enterprise',
-    priceUsd: 14900,
-    displayPrice: '$149',
+    listPriceDop: 9370,
+    limits: { maxRooms: 100, maxUsers: null },
     features: {
       media: true,
       daypass: true,
@@ -112,6 +118,24 @@ export const PLANS: Record<PlanSlug, PlanConfig> = {
     },
   },
 };
+
+export const PLAN_SLUGS: PlanSlug[] = ['basic', 'pro', 'enterprise'];
+
+export const isPmsPlan = (value: unknown): value is PlanSlug =>
+  typeof value === 'string' && (PLAN_SLUGS as string[]).includes(value);
+
+/** Plans from smallest to largest. */
+export const pmsPlanRank = (slug: PlanSlug): number => PLAN_SLUGS.indexOf(slug);
+
+/** Returns the limits for a given plan slug (falls back to `basic`). */
+export function getPlanLimits(slug: string): PlanLimits {
+  return PLANS[slug as PlanSlug]?.limits ?? PLANS.basic.limits;
+}
+
+/** The smallest PMS plan that includes `feature` (what an upgrade prompt offers). */
+export function smallestPlanWith(feature: keyof PlanFeatures): PlanSlug {
+  return PLAN_SLUGS.find((s) => PLANS[s].features[feature]) ?? 'enterprise';
+}
 
 /** Returns the feature set for a given plan slug.
  *  Falls back to `basic` features if the slug is unknown. */

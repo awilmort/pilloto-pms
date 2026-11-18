@@ -12,17 +12,23 @@ import Tenant, { BILLING_PRODUCTS, BillingProduct, ITenant, ITenantContract, ITe
 import { dominicanPeriod, FiscalError, previousPeriod } from '../fiscal/fiscalCore';
 import { isPeriod, round2 } from './billingMath';
 import { getPlatformSettings } from '../fiscal/platformIssuer';
-import { listPrice, validatePrice } from './billingPlans';
+import { validatePrice } from './billingPlans';
+import { applyPriceOverride, ensureSubscription, PeriodSegment, segmentsInPeriod, subscriptionOf } from './subscriptions';
 import { sendEmail } from '../../utils/email';
 import { periodLabelEs } from './billingMath';
 
 export interface ResolvedContract {
   product: BillingProduct;
+  /** Plan and price in force at the end of the period's billable days. */
   plan: string;
   price: number;
   source: ITenantContract['source'];
   /** The discount in force for the period, when there is one. */
   discount?: { type: 'percent' | 'amount'; value: number };
+  /** `suite`: the automatic bundle discount; `operator`: one granted in the console. */
+  discountKind?: 'operator' | 'suite';
+  /** The plan segments charged in the period (one for a whole month on one plan). */
+  segments: PeriodSegment[];
 }
 
 /** True when `discount` covers `period` (`YYYY-MM`, compared as text). */
@@ -40,46 +46,54 @@ export function planOf(tenant: Pick<ITenant, 'products' | 'plan' | 'plans'>, pro
 }
 
 /**
- * The contract of each product the tenant has, for charging `period`: snapshots the list price
- * where there is none (or the plan changed) and applies scheduled price changes that are due.
- * Persists what it changes.
+ * What the tenant is charged for each product in `period`: the plan segments of its subscription's
+ * billable days (after the trial, before a cancellation), with operator price changes that are due
+ * applied first, and the discount in force — an operator's, or else the suite discount on
+ * Accounting when the PMS is also charged that month. Persists what it changes.
  */
 export async function resolveContracts(tenant: ITenant, period: string): Promise<ResolvedContract[]> {
-  const resolved: ResolvedContract[] = [];
-  const set: Record<string, unknown> = {};
-  const appliedIds: Types.ObjectId[] = [];
-
+  // Subscriptions for products the tenant has but that predate subscriptions.
   for (const product of BILLING_PRODUCTS) {
-    const plan = planOf(tenant, product);
-    if (!plan) continue;
-
-    const stored = tenant.billing?.contracts?.[product];
-    let contract: ITenantContract | undefined = stored ? { plan: stored.plan, price: stored.price, since: stored.since, source: stored.source } : undefined;
-    if (!contract || contract.plan !== plan) {
-      contract = { plan, price: await listPrice(product, plan), since: period, source: 'catalog' };
-      set[`billing.contracts.${product}`] = contract;
-    }
-
-    const due = (tenant.billing?.priceChanges ?? [])
-      .filter((c) => c.product === product && !c.appliedAt && c.effectiveFrom <= period)
-      .sort((a, b) => (a.effectiveFrom === b.effectiveFrom ? a.createdAt.getTime() - b.createdAt.getTime() : a.effectiveFrom < b.effectiveFrom ? -1 : 1));
-    if (due.length > 0) {
-      const latest = due[due.length - 1];
-      contract = { plan, price: latest.price, since: latest.effectiveFrom, source: 'override' };
-      set[`billing.contracts.${product}`] = contract;
-      appliedIds.push(...due.map((c) => c._id));
-    }
-    const discount = discountFor(tenant, product, period);
-    resolved.push({ product, plan, price: contract.price, source: contract.source, ...(discount ? { discount: { type: discount.type, value: discount.value } } : {}) });
+    if (tenant.products?.includes(product)) await ensureSubscription(tenant, product);
   }
 
-  if (Object.keys(set).length > 0) await Tenant.updateOne({ _id: tenant._id }, { $set: set });
-  if (appliedIds.length > 0) {
+  // Operator price changes due by this period become a segment from their month.
+  const due = (tenant.billing?.priceChanges ?? [])
+    .filter((c) => !c.appliedAt && c.effectiveFrom <= period)
+    .sort((a, b) => (a.effectiveFrom === b.effectiveFrom ? a.createdAt.getTime() - b.createdAt.getTime() : a.effectiveFrom < b.effectiveFrom ? -1 : 1));
+  for (const change of due) await applyPriceOverride(tenant, change.product, change.price, change.effectiveFrom);
+  if (due.length > 0) {
     await Tenant.updateOne(
       { _id: tenant._id },
       { $set: { 'billing.priceChanges.$[c].appliedAt': new Date() } },
-      { arrayFilters: [{ 'c._id': { $in: appliedIds } }] },
+      { arrayFilters: [{ 'c._id': { $in: due.map((c) => c._id) } }] },
     );
+  }
+
+  const segmentsOf = (product: BillingProduct) => {
+    const sub = subscriptionOf(tenant, product);
+    return sub ? segmentsInPeriod(sub, period) : [];
+  };
+  const settings = await getPlatformSettings();
+  const suitePercent = settings.billing?.suiteDiscountPercent ?? 20;
+  const pmsCharged = segmentsOf('pms').length > 0;
+
+  const resolved: ResolvedContract[] = [];
+  for (const product of BILLING_PRODUCTS) {
+    const segments = segmentsOf(product);
+    if (segments.length === 0) continue;
+    const last = segments[segments.length - 1];
+    const operator = discountFor(tenant, product, period);
+    let discount: ResolvedContract['discount'];
+    let discountKind: ResolvedContract['discountKind'];
+    if (operator) {
+      discount = { type: operator.type, value: operator.value };
+      discountKind = 'operator';
+    } else if (product === 'accounting' && pmsCharged && suitePercent > 0) {
+      discount = { type: 'percent', value: suitePercent };
+      discountKind = 'suite';
+    }
+    resolved.push({ product, plan: last.plan, price: last.price, source: last.source, segments, ...(discount ? { discount, discountKind } : {}) });
   }
   return resolved;
 }

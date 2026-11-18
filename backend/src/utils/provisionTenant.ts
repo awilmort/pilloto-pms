@@ -17,6 +17,8 @@ import path from 'path';
 import fs from 'fs';
 import bcrypt from 'bcryptjs';
 import Tenant, { ITenantSettings, ITenantPlans } from '../models/Tenant';
+import { DEFAULT_ACCOUNTING_PLAN } from '../config/accountingPlans';
+import { syncSubscriptions } from '../services/platformBilling/subscriptions';
 import Role from '../models/Role';
 import AppSettings from '../models/AppSettings';
 import User from '../models/User';
@@ -39,6 +41,8 @@ export interface ProvisionTenantInput {
   settings?: ITenantSettings;
   /** Products this tenant is provisioned with. Defaults to `['pms']` (the schema default) if omitted. */
   products?: AppCode[];
+  /** Days of free trial for each product (default 14; 0 for none). */
+  trialDays?: number;
   /** Per-product plan tiers (currently only `accounting` has its own ladder — see `config/accountingPlans.ts`). */
   plans?: ITenantPlans;
 }
@@ -70,12 +74,12 @@ const DEFAULT_ACCOUNTING_ROLES = [
 export async function provisionTenant(input: ProvisionTenantInput): Promise<ProvisionTenantResult> {
   const { name, slug, plan = 'basic', ownerEmail, adminFirstName, adminLastName, adminPassword, settings, products, plans } = input;
 
-  // Default plans.accounting to 'starter' when the tenant is being provisioned with
+  // Default plans.accounting to the entry plan when the tenant is being provisioned with
   // the accounting product but no explicit tier was chosen — mirrors `plan`'s own
-  // `= 'basic'` default above, per Phase 10.2.
+  // `= 'basic'` default above.
   const resolvedPlans: ITenantPlans = { ...plans };
   if (products?.includes('accounting') && !resolvedPlans.accounting) {
-    resolvedPlans.accounting = 'starter';
+    resolvedPlans.accounting = DEFAULT_ACCOUNTING_PLAN;
   }
 
   // ── 1. Create the Tenant document (unscoped — Tenant is not tenant-scoped) ─
@@ -86,6 +90,8 @@ export async function provisionTenant(input: ProvisionTenantInput): Promise<Prov
     plans: resolvedPlans,
   });
   const tenantId = (tenant._id as any).toString();
+  // Each product's subscription starts today, with its free trial (charges start after it).
+  await syncSubscriptions(tenant, { trialDays: input.trialDays });
 
   // ── 2. Run all subsequent operations inside the tenant's async context ──────
   return tenantLocalStorage.run({ tenantId }, async () => {

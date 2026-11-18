@@ -28,7 +28,8 @@ import crypto from 'crypto';
 import mongoose from 'mongoose';
 import { handleValidationErrors } from '../middleware/validation';
 import { TenantRequest } from '../middleware/tenantContext';
-import { getPlanFeatures } from '../config/plans';
+import { getPlanFeatures, smallestPlanWith } from '../config/plans';
+import { featureDenial } from '../services/entitlements';
 import AppSettings from '../models/AppSettings';
 import RoomType from '../models/RoomType';
 import Room from '../models/Room';
@@ -88,7 +89,7 @@ function requireBookingEngine(req: TenantRequest, res: Response, next: express.N
   }
   const features = getPlanFeatures(plan);
   if (!features.bookingEngine) {
-    res.status(403).json({ success: false, message: 'Booking engine is not available on your current plan.' });
+    res.status(403).json({ ...featureDenial('pms', 'bookingEngine', plan, smallestPlanWith('bookingEngine')), message: 'Booking engine is not available on your current plan.' });
     return;
   }
   next();

@@ -39,6 +39,8 @@ export interface IInvoiceLineItem {
 export interface IInvoicePayment {
   _id?: Types.ObjectId;
   amount: number;
+  /** Pesos per unit on the payment day (foreign-currency documents; the document's rate otherwise). */
+  exchangeRate?: number;
   method: InvoicePaymentMethod;
   date: Date;
   reference?: string;
@@ -69,6 +71,10 @@ export interface IInvoice extends Document {
   dueDate?: Date;
   reference?: string; // the customer's own reference (purchase order no., contract, …) — printed on the invoice
   lineItems: IInvoiceLineItem[];
+  /** DOP (the books' currency), USD or EUR. Amounts on the document are in this currency. */
+  currency: 'DOP' | 'USD' | 'EUR';
+  /** Pesos per unit of `currency` the document was booked at (1 for DOP). */
+  exchangeRate: number;
   subtotal: number;
   taxAmount: number;
   total: number;
@@ -114,6 +120,7 @@ const invoiceLineItemSchema = new Schema<IInvoiceLineItem>(
 const invoicePaymentSchema = new Schema<IInvoicePayment>(
   {
     amount: { type: Number, required: true, min: 0.01 },
+    exchangeRate: { type: Number, min: 0.000001 },
     method: { type: String, enum: ['cash', 'card', 'transfer', 'check', 'credit', 'credit-note'], required: true },
     date: { type: Date, required: true, default: () => new Date() },
     reference: { type: String, trim: true, maxlength: 200 },
@@ -151,6 +158,8 @@ const invoiceSchema = new Schema<IInvoice>(
         message: 'An invoice must have at least one line item',
       },
     },
+    currency: { type: String, enum: ['DOP', 'USD', 'EUR'], default: 'DOP' },
+    exchangeRate: { type: Number, default: 1, min: 0.000001 },
     subtotal: { type: Number, required: true, min: 0, default: 0 },
     taxAmount: { type: Number, required: true, min: 0, default: 0 },
     total: { type: Number, required: true, min: 0, default: 0 },
@@ -225,6 +234,16 @@ invoiceSchema.virtual('isOverdue').get(function (this: IInvoice) {
 });
 invoiceSchema.set('toJSON', { virtuals: true });
 invoiceSchema.set('toObject', { virtuals: true });
+
+
+// A DOP document is always at rate 1.
+invoiceSchema.pre('validate', function (this: any, next) {
+  if (!this.currency || this.currency === 'DOP') {
+    this.currency = 'DOP';
+    this.exchangeRate = 1;
+  }
+  next();
+});
 
 // ── Multi-tenancy ────────────────────────────────────────────
 invoiceSchema.plugin(tenantPlugin);

@@ -4,7 +4,7 @@ import {
   TableContainer, TableHead, TableRow, Paper, IconButton, Chip,
   Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress,
   Alert, Tooltip, FormControl, InputLabel, Select, MenuItem,
-  ToggleButtonGroup, ToggleButton, Divider, Menu, ListItemIcon, ListItemText,
+  ToggleButtonGroup, ToggleButton, Divider, Menu, ListItemIcon, ListItemText, Checkbox, FormControlLabel,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -21,6 +21,13 @@ import { Bill, BillStatus, BillPaymentMethod, Supplier, Product, Account } from 
 import { UNIT_OF_MEASURE_CODES } from '../../../lib/unitsOfMeasure';
 import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
 import i18n from '../../../i18n';
+import { useAccountingFeature } from '../../../contexts/TenantContext';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
+import BillFiscalFields, { emptyFiscal, fiscalError, fiscalPayload } from './BillFiscalFields';
+import QuickExpenseDialog from './QuickExpenseDialog';
+import BankAccountSelect from '../banks/BankAccountSelect';
+import CurrencyFields, { currencyPayload, DocCurrency } from '../fx/CurrencyFields';
+import { formatDocumentMoney } from '../../../utils/currency';
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
@@ -39,6 +46,7 @@ interface LineItemForm {
   // expense lines only
   accountId: string;
   lineTotal: string;
+  isGoods: boolean;
 }
 
 let lineKeySeq = 0;
@@ -55,6 +63,7 @@ const newLine = (overrides?: Partial<LineItemForm>): LineItemForm => ({
   stockQuantity: '',
   accountId: '',
   lineTotal: '',
+  isGoods: false,
   ...overrides,
 });
 
@@ -66,6 +75,9 @@ const emptyCreateState = () => ({
   dueDate: '',
   notes: '',
   lines: [newLine()],
+  fiscal: emptyFiscal(),
+  currency: 'DOP' as DocCurrency,
+  exchangeRate: '',
 });
 
 const STATUS_COLOR: Record<BillStatus, 'default' | 'info' | 'warning' | 'success' | 'error'> = {
@@ -109,6 +121,9 @@ const BillsContent: React.FC = () => {
   const navigate = useNavigate();
   const canManage = usePermission('accounting.bills.manage');
   const canVoid = usePermission('accounting.bills.void');
+  // Plans without inventory record purchases as expense lines only.
+  const hasInventory = useAccountingFeature('inventory');
+  const [expenseOpen, setExpenseOpen] = useState(false);
 
   const [bills, setBills] = useState<Bill[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
@@ -135,7 +150,7 @@ const BillsContent: React.FC = () => {
   const [receiveError, setReceiveError] = useState<string | null>(null);
 
   const [paymentTarget, setPaymentTarget] = useState<Bill | null>(null);
-  const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'cash' as BillPaymentMethod, date: '', reference: '' });
+  const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'cash' as BillPaymentMethod, date: '', reference: '', bankAccount: '', exchangeRate: '' });
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [recordingPayment, setRecordingPayment] = useState(false);
 
@@ -186,7 +201,7 @@ const BillsContent: React.FC = () => {
 
   const openCreate = () => {
     setEditingBill(null);
-    setCreateState(emptyCreateState());
+    setCreateState({ ...emptyCreateState(), lines: [newLine({ lineType: hasInventory ? 'inventory' : 'expense' })] });
     setCreateError(null);
     setCreateOpen(true);
   };
@@ -200,6 +215,16 @@ const BillsContent: React.FC = () => {
       issueDate: bill.issueDate ? bill.issueDate.slice(0, 10) : '',
       dueDate: bill.dueDate ? bill.dueDate.slice(0, 10) : '',
       notes: bill.notes || '',
+      currency: (bill.currency || 'DOP') as DocCurrency,
+      exchangeRate: bill.currency && bill.currency !== 'DOP' ? String(bill.exchangeRate) : '',
+      fiscal: {
+        ncf: bill.ncf || '',
+        expenseType: bill.expenseType || '',
+        itbisToCost: !!bill.itbisToCost,
+        itbisWithheld: bill.itbisWithheld ? String(bill.itbisWithheld) : '',
+        isrWithheld: bill.isrWithheld ? String(bill.isrWithheld) : '',
+        isrWithholdingType: bill.isrWithholdingType || '',
+      },
       lines: bill.lineItems.map(l => newLine({
         lineType: l.lineType,
         description: l.description,
@@ -212,6 +237,7 @@ const BillsContent: React.FC = () => {
         stockQuantity: l.stockQuantity !== undefined ? String(l.stockQuantity) : '',
         accountId: l.account && typeof l.account === 'object' ? l.account._id : (l.account as string) || '',
         lineTotal: l.lineType === 'expense' ? String(l.lineTotal) : '',
+        isGoods: !!l.isGoods,
       })),
     });
     setCreateError(null);
@@ -244,12 +270,16 @@ const BillsContent: React.FC = () => {
       subtotal += c.lineTotal;
       taxAmount += c.taxAmount;
     }
-    return { subtotal: round2(subtotal), taxAmount: round2(taxAmount), total: round2(subtotal + taxAmount) };
-  }, [createState.lines]);
+    const total = round2(subtotal + taxAmount);
+    const withheld = round2((Number(createState.fiscal.itbisWithheld) || 0) + (Number(createState.fiscal.isrWithheld) || 0));
+    return { subtotal: round2(subtotal), taxAmount: round2(taxAmount), total, withheld, payable: round2(total - withheld) };
+  }, [createState.lines, createState.fiscal]);
 
   const handleSave = async () => {
     setCreateError(null);
     if (!createState.supplierId) { setCreateError(t('accounting.bills.form.supplierRequired')); return; }
+    const fe = fiscalError(createState.fiscal, t);
+    if (fe) { setCreateError(fe); return; }
 
     const lineItems: BillLineItemInput[] = [];
     for (const l of createState.lines) {
@@ -285,6 +315,7 @@ const BillsContent: React.FC = () => {
           taxRate,
           account: l.accountId,
           lineTotal,
+          isGoods: l.isGoods,
         });
       }
     }
@@ -298,6 +329,8 @@ const BillsContent: React.FC = () => {
         dueDate: createState.dueDate || undefined,
         notes: createState.notes || undefined,
         lineItems,
+        ...fiscalPayload(createState.fiscal),
+        ...currencyPayload(createState),
       };
       if (editingBill) {
         await billsService.updateBill(editingBill._id, payload);
@@ -339,7 +372,7 @@ const BillsContent: React.FC = () => {
 
   const openPayment = (bill: Bill) => {
     setPaymentTarget(bill);
-    setPaymentForm({ amount: '', method: 'cash', date: '', reference: '' });
+    setPaymentForm({ amount: '', method: 'cash', date: '', reference: '', bankAccount: '', exchangeRate: '' });
     setPaymentError(null);
   };
 
@@ -355,6 +388,8 @@ const BillsContent: React.FC = () => {
         method: paymentForm.method,
         date: paymentForm.date || undefined,
         reference: paymentForm.reference || undefined,
+        bankAccount: paymentForm.method !== 'cash' && paymentForm.bankAccount ? paymentForm.bankAccount : undefined,
+        exchangeRate: Number(paymentForm.exchangeRate) > 0 ? Number(paymentForm.exchangeRate) : undefined,
       });
       setPaymentTarget(null);
       load();
@@ -418,9 +453,14 @@ const BillsContent: React.FC = () => {
             </Select>
           </FormControl>
           {canManage && (
-            <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ ml: 'auto' }}>
-              {t('accounting.bills.actions.create')}
-            </Button>
+            <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
+              <Button variant="outlined" startIcon={<ReceiptLongIcon />} onClick={() => setExpenseOpen(true)}>
+                {t('accounting.bills.expense.open', 'Record expense')}
+              </Button>
+              <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate}>
+                {t('accounting.bills.actions.create')}
+              </Button>
+            </Box>
           )}
         </Box>
       </Paper>
@@ -453,8 +493,8 @@ const BillsContent: React.FC = () => {
                   <TableCell>{supplierLabel(bill)}</TableCell>
                   <TableCell>{new Date(bill.issueDate).toLocaleDateString(i18n.language)}</TableCell>
                   <TableCell>{new Date(bill.dueDate).toLocaleDateString(i18n.language)}</TableCell>
-                  <TableCell align="right">{formatMoney(bill.total)}</TableCell>
-                  <TableCell align="right">{formatMoney(bill.balanceDue)}</TableCell>
+                  <TableCell align="right">{formatDocumentMoney(bill.total, bill.currency)}</TableCell>
+                  <TableCell align="right">{formatDocumentMoney(bill.balanceDue, bill.currency)}</TableCell>
                   <TableCell>
                     <Chip size="small" label={t(`accounting.bills.status.${bill.status}`)} color={STATUS_COLOR[bill.status]} />
                     {bill.isOverdue && <Chip size="small" label={t('accounting.bills.status.overdue')} color="error" variant="outlined" sx={{ ml: 0.5 }} />}
@@ -502,6 +542,14 @@ const BillsContent: React.FC = () => {
         )}
       </Menu>
 
+      <QuickExpenseDialog
+        open={expenseOpen}
+        suppliers={suppliers}
+        accounts={accounts}
+        onClose={() => setExpenseOpen(false)}
+        onSaved={() => { setExpenseOpen(false); load(); }}
+      />
+
       {/* Create / Edit draft dialog */}
       <Dialog open={createOpen} onClose={() => setCreateOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>{editingBill ? t('accounting.bills.dialog.editTitle', { number: editingBill.billNumber }) : t('accounting.bills.dialog.createTitle')}</DialogTitle>
@@ -510,7 +558,10 @@ const BillsContent: React.FC = () => {
           <Box sx={{ display: 'grid', gap: 2, mt: 1 }}>
             <FormControl fullWidth required>
               <InputLabel>{t('accounting.bills.form.supplier')}</InputLabel>
-              <Select value={createState.supplierId} label={t('accounting.bills.form.supplier')} onChange={(e) => setCreateState(s => ({ ...s, supplierId: e.target.value }))}>
+              <Select value={createState.supplierId} label={t('accounting.bills.form.supplier')} onChange={(e) => {
+                const sup = suppliers.find(x => x._id === e.target.value);
+                setCreateState(s => ({ ...s, supplierId: e.target.value, fiscal: { ...s.fiscal, expenseType: s.fiscal.expenseType || sup?.defaultExpenseType || '' } }));
+              }}>
                 {suppliers.map(s => <MenuItem key={s._id} value={s._id}>{s.name}{s.taxId ? ` (${s.taxId})` : ''}</MenuItem>)}
               </Select>
             </FormControl>
@@ -520,6 +571,7 @@ const BillsContent: React.FC = () => {
               <TextField label={t('accounting.bills.table.issueDate')} type="date" InputLabelProps={{ shrink: true }} value={createState.issueDate} onChange={(e) => setCreateState(s => ({ ...s, issueDate: e.target.value }))} />
               <TextField label={t('accounting.bills.table.dueDate')} type="date" InputLabelProps={{ shrink: true }} value={createState.dueDate} onChange={(e) => setCreateState(s => ({ ...s, dueDate: e.target.value }))} helperText={t('accounting.bills.form.dueDateHelp')} />
             </Box>
+            <CurrencyFields size="medium" currency={createState.currency} exchangeRate={createState.exchangeRate} date={createState.issueDate || undefined} onChange={(c) => setCreateState(s => ({ ...s, ...c }))} />
 
             <Divider />
             <Typography variant="subtitle2">{t('accounting.bills.form.lineItems')}</Typography>
@@ -529,10 +581,17 @@ const BillsContent: React.FC = () => {
               return (
                 <Paper key={l.key} variant="outlined" sx={{ p: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
-                    <ToggleButtonGroup exclusive size="small" value={l.lineType} onChange={(_, v) => { if (v) updateLine(l.key, { lineType: v }); }}>
-                      <ToggleButton value="inventory">{t('accounting.bills.form.lineTypeInventory')}</ToggleButton>
-                      <ToggleButton value="expense">{t('accounting.bills.form.lineTypeExpense')}</ToggleButton>
-                    </ToggleButtonGroup>
+                    {hasInventory ? (
+                      <ToggleButtonGroup exclusive size="small" value={l.lineType} onChange={(_, v) => { if (v) updateLine(l.key, { lineType: v }); }}>
+                        <ToggleButton value="inventory">{t('accounting.bills.form.lineTypeInventory')}</ToggleButton>
+                        <ToggleButton value="expense">{t('accounting.bills.form.lineTypeExpense')}</ToggleButton>
+                      </ToggleButtonGroup>
+                    ) : (
+                      <FormControlLabel
+                        control={<Checkbox size="small" checked={l.isGoods} onChange={(e) => updateLine(l.key, { isGoods: e.target.checked })} />}
+                        label={<Typography variant="body2">{t('accounting.bills.fiscal.isGoods', 'Goods (not a service)')}</Typography>}
+                      />
+                    )}
                     <IconButton size="small" onClick={() => removeLine(l.key)} disabled={createState.lines.length === 1}><DeleteIcon fontSize="small" /></IconButton>
                   </Box>
 
@@ -571,6 +630,12 @@ const BillsContent: React.FC = () => {
                       </FormControl>
                       <TextField size="small" type="number" label={t('accounting.bills.form.lineTotal')} value={l.lineTotal} onChange={(e) => updateLine(l.key, { lineTotal: e.target.value })} inputProps={{ min: 0 }} required />
                       <TextField size="small" type="number" label={t('accounting.invoices.form.taxRate')} value={l.taxRate} onChange={(e) => updateLine(l.key, { taxRate: e.target.value })} inputProps={{ min: 0, max: 100 }} />
+                      {hasInventory && (
+                        <FormControlLabel
+                          control={<Checkbox size="small" checked={l.isGoods} onChange={(e) => updateLine(l.key, { isGoods: e.target.checked })} />}
+                          label={<Typography variant="body2">{t('accounting.bills.fiscal.isGoods', 'Goods (not a service)')}</Typography>}
+                        />
+                      )}
                     </Box>
                   )}
 
@@ -581,9 +646,18 @@ const BillsContent: React.FC = () => {
               );
             })}
             <Box sx={{ display: 'flex', gap: 1 }}>
-              <Button size="small" startIcon={<AddIcon />} onClick={() => addLine('inventory')}>{t('accounting.bills.form.addInventoryLine')}</Button>
+              {hasInventory && <Button size="small" startIcon={<AddIcon />} onClick={() => addLine('inventory')}>{t('accounting.bills.form.addInventoryLine')}</Button>}
               <Button size="small" startIcon={<AddIcon />} onClick={() => addLine('expense')}>{t('accounting.bills.form.addExpenseLine')}</Button>
             </Box>
+
+            <Divider />
+            <BillFiscalFields
+              value={createState.fiscal}
+              onChange={(fiscal) => setCreateState(s => ({ ...s, fiscal }))}
+              supplierTaxId={suppliers.find(x => x._id === createState.supplierId)?.taxId}
+              subtotal={totals.subtotal}
+              itbis={totals.taxAmount}
+            />
 
             <TextField label={t('common.notes', 'Notes')} value={createState.notes} onChange={(e) => setCreateState(s => ({ ...s, notes: e.target.value }))} multiline minRows={2} />
 
@@ -592,6 +666,12 @@ const BillsContent: React.FC = () => {
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="body2">{t('accounting.invoices.table.tax')}</Typography><Typography variant="body2">{formatMoney(totals.taxAmount)}</Typography></Box>
               <Divider sx={{ my: 0.5 }} />
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography fontWeight={700}>{t('accounting.invoices.table.total')}</Typography><Typography fontWeight={700}>{formatMoney(totals.total)}</Typography></Box>
+              {totals.withheld > 0 && (
+                <>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography variant="body2">{t('accounting.bills.fiscal.withheldTotal', 'Withheld')}</Typography><Typography variant="body2">−{formatMoney(totals.withheld)}</Typography></Box>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between' }}><Typography fontWeight={700}>{t('accounting.bills.fiscal.payable', 'Owed to the supplier')}</Typography><Typography fontWeight={700}>{formatMoney(totals.payable)}</Typography></Box>
+                </>
+              )}
             </Paper>
           </Box>
         </DialogContent>
@@ -617,6 +697,7 @@ const BillsContent: React.FC = () => {
                 {t('accounting.bills.table.issueDate')}: {new Date(viewBill.issueDate).toLocaleDateString(i18n.language)}
                 {' · '}{t('accounting.bills.table.dueDate')}: {new Date(viewBill.dueDate).toLocaleDateString(i18n.language)}
                 {viewBill.vendorInvoiceNumber ? ` · ${t('accounting.bills.form.vendorInvoiceNumber')}: ${viewBill.vendorInvoiceNumber}` : ''}
+                {viewBill.ncf ? ` · NCF ${viewBill.ncf}` : ''}
               </Typography>
 
               <TableContainer component={Paper} variant="outlined">
@@ -709,6 +790,12 @@ const BillsContent: React.FC = () => {
                 <MenuItem value="other">{t('accounting.bills.paymentMethod.other')}</MenuItem>
               </Select>
             </FormControl>
+            <BankAccountSelect method={paymentForm.method} value={paymentForm.bankAccount} onChange={(bankAccount) => setPaymentForm(f => ({ ...f, bankAccount }))} />
+            {paymentTarget?.currency && paymentTarget.currency !== 'DOP' && (
+              <TextField type="number" label={t('accounting.fx.paymentRate', 'Rate on the payment day (RD$ per {{currency}} 1)', { currency: paymentTarget.currency })}
+                value={paymentForm.exchangeRate} onChange={(e) => setPaymentForm(f => ({ ...f, exchangeRate: e.target.value }))}
+                helperText={t('accounting.fx.paymentRateHelp', 'Booked at {{rate}}. A different rate records an exchange gain or loss.', { rate: paymentTarget.exchangeRate })} />
+            )}
             <TextField label={t('accounting.invoices.form.paymentReference')} value={paymentForm.reference} onChange={(e) => setPaymentForm(f => ({ ...f, reference: e.target.value }))} />
           </Box>
         </DialogContent>

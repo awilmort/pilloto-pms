@@ -17,6 +17,8 @@ import {
 } from '../../../types';
 import { formatAccountingMoney as formatMoney } from '../../../utils/currency';
 import i18n from '../../../i18n';
+import { useAccountingFeature } from '../../../contexts/TenantContext';
+import DgiiTab from './DgiiTab';
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const yearStartStr = () => `${new Date().getFullYear()}-01-01`;
@@ -24,7 +26,10 @@ const fmtDate = (d?: string) => (d ? new Date(d).toLocaleDateString(i18n.languag
 
 const AGING_BUCKETS: AgingBucketKey[] = ['current', 'd1_30', 'd31_60', 'd61_90', 'd90_plus'];
 
-type ReportTab = 'trialBalance' | 'profitAndLoss' | 'balanceSheet' | 'apAging' | 'arAging' | 'generalLedger' | 'supplierStatement' | 'customerStatement';
+type ReportTab = 'trialBalance' | 'profitAndLoss' | 'balanceSheet' | 'apAging' | 'arAging' | 'generalLedger' | 'supplierStatement' | 'customerStatement' | 'dgii';
+
+/** Tabs that read the general ledger (the Esencial plan and up). */
+const LEDGER_TABS: ReportTab[] = ['trialBalance', 'profitAndLoss', 'balanceSheet', 'apAging', 'generalLedger', 'supplierStatement'];
 
 /**
  * `/accounting/reports` — every report from PILLOTO_ACCOUNTING_ARCHITECTURE.md §5.6,
@@ -39,20 +44,25 @@ const ReportsContent: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   // The dashboard links straight to a report tab ({ tab: 'arAging' }, ...).
-  const [tab, setTab] = useState<ReportTab>(() => (location.state as { tab?: ReportTab } | null)?.tab ?? 'trialBalance');
+  const hasLedger = useAccountingFeature('generalLedger');
+  const [requestedTab, setTab] = useState<ReportTab>(() => (location.state as { tab?: ReportTab } | null)?.tab ?? (hasLedger ? 'trialBalance' : 'arAging'));
+  // Without the ledger module the ledger reports are not offered (the API refuses them too).
+  const tab: ReportTab = !hasLedger && LEDGER_TABS.includes(requestedTab) ? 'arAging' : requestedTab;
+  const showLedger = (v: ReportTab) => hasLedger || !LEDGER_TABS.includes(v);
 
   return (
     <Box>
       <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', mb: 3 }}>
         <Tabs value={tab} onChange={(_e, v) => setTab(v)} variant="scrollable" scrollButtons="auto">
-          <Tab value="trialBalance" label={t('accounting.reports.tabs.trialBalance', 'Trial Balance')} />
-          <Tab value="profitAndLoss" label={t('accounting.reports.tabs.profitAndLoss', 'Profit & Loss')} />
-          <Tab value="balanceSheet" label={t('accounting.reports.tabs.balanceSheet', 'Balance Sheet')} />
-          <Tab value="apAging" label={t('accounting.reports.tabs.apAging', 'AP Aging')} />
+          {showLedger('trialBalance') && <Tab value="trialBalance" label={t('accounting.reports.tabs.trialBalance', 'Trial Balance')} />}
+          {showLedger('profitAndLoss') && <Tab value="profitAndLoss" label={t('accounting.reports.tabs.profitAndLoss', 'Profit & Loss')} />}
+          {showLedger('balanceSheet') && <Tab value="balanceSheet" label={t('accounting.reports.tabs.balanceSheet', 'Balance Sheet')} />}
+          {showLedger('apAging') && <Tab value="apAging" label={t('accounting.reports.tabs.apAging', 'AP Aging')} />}
           <Tab value="arAging" label={t('accounting.reports.tabs.arAging', 'AR Aging')} />
-          <Tab value="generalLedger" label={t('accounting.reports.tabs.generalLedger', 'General Ledger')} />
-          <Tab value="supplierStatement" label={t('accounting.reports.tabs.supplierStatement', 'Supplier Statement')} />
+          {showLedger('generalLedger') && <Tab value="generalLedger" label={t('accounting.reports.tabs.generalLedger', 'General Ledger')} />}
+          {showLedger('supplierStatement') && <Tab value="supplierStatement" label={t('accounting.reports.tabs.supplierStatement', 'Supplier Statement')} />}
           <Tab value="customerStatement" label={t('accounting.reports.tabs.customerStatement', 'Customer Statement')} />
+          <Tab value="dgii" label={t('accounting.reports.tabs.dgii', 'DGII (606 · ITBIS)')} />
         </Tabs>
       </Paper>
 
@@ -64,6 +74,7 @@ const ReportsContent: React.FC = () => {
       {tab === 'generalLedger' && <GeneralLedgerTab />}
       {tab === 'supplierStatement' && <SupplierStatementTab />}
       {tab === 'customerStatement' && <CustomerStatementTab />}
+      {tab === 'dgii' && <DgiiTab />}
     </Box>
   );
 };

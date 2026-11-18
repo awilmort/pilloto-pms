@@ -280,7 +280,8 @@ describe('fiscal lifecycle and statements (local Mongo)', () => {
     });
 
     itDb('a tenant with nothing included pays the plan\'s full price', async () => {
-      await withOrg({ plan: 'basic' }, { plan: 'pro' });
+      // Every product plan includes e-CF now; a tenant without products has nothing included.
+      await withOrg({ plan: 'basic', products: [] }, { plan: 'pro' });
       fake.usage.used = 10;
       const s = await snapshotUsage(await loadTenant(), NOV_10);
       expect(s).toMatchObject({ includedPlan: undefined, includedPlanPrice: 0, planCharge: 800, total: 800 });

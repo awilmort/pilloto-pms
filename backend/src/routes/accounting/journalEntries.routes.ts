@@ -1,10 +1,12 @@
 import express from 'express';
 import { authenticate, authorizePermission } from '../../middleware/auth';
+import { requireAccountingFeature } from '../../services/entitlements';
 import * as journalEntries from '../../controllers/accounting/journalEntries.controller';
 
 const router = express.Router();
 
 router.use(authenticate);
+router.use(requireAccountingFeature('generalLedger'));
 
 router.get('/', authorizePermission('accounting', 'accounting.journal.view', 'accounting.journal.manage'), journalEntries.listJournalEntries);
 router.get('/:id', authorizePermission('accounting', 'accounting.journal.view', 'accounting.journal.manage'), journalEntries.getJournalEntry);

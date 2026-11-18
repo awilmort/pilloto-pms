@@ -21,22 +21,26 @@ export interface PlanFeatures {
   channelManager: boolean;
 }
 
+export interface PlanLimits {
+  maxRooms: number | null;
+  maxUsers: number | null;
+}
+
 export interface PlanConfig {
   slug: PlanSlug;
   name: string;
-  /** Monthly price in USD cents (e.g. 4900 = $49.00). Used for billing. */
-  priceUsd: number;
-  /** Human-readable price string for display purposes. */
-  displayPrice: string;
+  /** Starting monthly list price, DOP before ITBIS (the live price comes from GET /api/public/plans). */
+  listPriceDop: number;
   features: PlanFeatures;
+  limits: PlanLimits;
 }
 
 export const PLANS: Record<PlanSlug, PlanConfig> = {
   basic: {
     slug: 'basic',
     name: 'Basic',
-    priceUsd: 3900,
-    displayPrice: '$39',
+    listPriceDop: 2450,
+    limits: { maxRooms: 15, maxUsers: 2 },
     features: {
       media: true,
       daypass: false,
@@ -56,8 +60,8 @@ export const PLANS: Record<PlanSlug, PlanConfig> = {
   pro: {
     slug: 'pro',
     name: 'Pro',
-    priceUsd: 8900,
-    displayPrice: '$89',
+    listPriceDop: 5540,
+    limits: { maxRooms: 50, maxUsers: null },
     features: {
       media: true,
       daypass: true,
@@ -77,8 +81,8 @@ export const PLANS: Record<PlanSlug, PlanConfig> = {
   enterprise: {
     slug: 'enterprise',
     name: 'Enterprise',
-    priceUsd: 14900,
-    displayPrice: '$149',
+    listPriceDop: 9370,
+    limits: { maxRooms: 100, maxUsers: null },
     features: {
       media: true,
       daypass: true,
@@ -95,6 +99,8 @@ export const PLANS: Record<PlanSlug, PlanConfig> = {
     },
   },
 };
+
+export const PLAN_SLUGS: PlanSlug[] = ['basic', 'pro', 'enterprise'];
 
 export function getPlanFeatures(slug: string): PlanFeatures {
   return PLANS[slug as PlanSlug]?.features ?? PLANS.basic.features;

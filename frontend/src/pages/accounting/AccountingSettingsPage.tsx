@@ -7,6 +7,8 @@ import { FISCAL_PATHS } from '../../components/fiscal/useFiscalAccess';
 import { usePageTitle } from '../../components/shared/PageTitle';
 import { RolesContent } from '../admin/RolesManagement';
 import { UsersContent } from '../admin/UsersManagement';
+import ExchangeRatesPanel from '../../components/accounting/fx/ExchangeRatesPanel';
+import { useAccountingFeature } from '../../contexts/TenantContext';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -31,7 +33,8 @@ const AccountingSettingsPage: React.FC = () => {
   usePageTitle(t('accounting.settings.title', 'Settings'));
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const tabs = ['roles', 'users', 'fiscal'] as const;
+  const tabs = ['roles', 'users', 'fiscal', 'currencies'] as const;
+  const hasFx = useAccountingFeature('multiCurrency');
   const requested = tabs.indexOf((params.get('tab') ?? '') as (typeof tabs)[number]);
   const [activeTab, setActiveTabState] = React.useState(requested >= 0 ? requested : 0);
   const setActiveTab = (index: number) => {
@@ -51,6 +54,7 @@ const AccountingSettingsPage: React.FC = () => {
             <Tab label={t('accounting.settings.tabs.roles', 'Roles')} id="accounting-settings-tab-0" />
             <Tab label={t('accounting.settings.tabs.users', 'Users')} id="accounting-settings-tab-1" />
             <Tab label={t('fiscal.settingsTab', 'Electronic invoicing')} id="accounting-settings-tab-2" />
+            {hasFx && <Tab label={t('accounting.fx.tab', 'Currencies')} id="accounting-settings-tab-3" />}
           </Tabs>
         </Box>
 
@@ -63,6 +67,11 @@ const AccountingSettingsPage: React.FC = () => {
         <TabPanel value={activeTab} index={2}>
           <FiscalSettingsPanel sequencesPath={`${FISCAL_PATHS.accounting.center}?tab=sequences`} documentsPath={FISCAL_PATHS.accounting.center} onNavigate={navigate} />
         </TabPanel>
+        {hasFx && (
+          <TabPanel value={activeTab} index={3}>
+            <ExchangeRatesPanel />
+          </TabPanel>
+        )}
       </Paper>
     </Box>
   );

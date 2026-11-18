@@ -1,3 +1,4 @@
+import { latestRate, resolveDocumentCurrency } from '../../services/accounting/fx.service';
 import { Response } from 'express';
 import mongoose from 'mongoose';
 import { AuthRequest } from '../../middleware/auth';
@@ -140,7 +141,9 @@ export const createQuote = async (req: AuthRequest, res: Response) => {
 
     const quoteNumber = `QUO-${String(await nextSequence('quoteNumber')).padStart(6, '0')}`;
 
+    const fx = await resolveDocumentCurrency(req.tenant, req.body ?? {}, new Date());
     const quote = await Quote.create({
+      ...fx,
       quoteNumber,
       customer: isIndividual ? undefined : customer,
       isIndividual: !!isIndividual,
@@ -156,7 +159,7 @@ export const createQuote = async (req: AuthRequest, res: Response) => {
 
     res.status(201).json({ success: true, message: 'Quote created successfully', data: quote });
   } catch (error: any) {
-    if (error?.status) return res.status(error.status).json({ success: false, message: error.message });
+    if (error?.status) return res.status(error.status).json(error.body ?? { success: false, message: error.message });
     if (error.name === 'ValidationError') return res.status(400).json({ success: false, message: error.message });
     console.error('Create quote error:', error);
     res.status(500).json({ success: false, message: 'Server error while creating quote' });
@@ -212,11 +215,14 @@ export const updateQuote = async (req: AuthRequest, res: Response) => {
       const defaultTaxRate = await resolveDefaultTaxRate(req.tenantId);
       quote.lineItems = await buildLineItems(rawLines, defaultTaxRate) as any;
     }
+    if (req.body?.currency !== undefined || req.body?.exchangeRate !== undefined) {
+      quote.set(await resolveDocumentCurrency(req.tenant, req.body, new Date(), quote));
+    }
 
     await quote.save();
     res.status(200).json({ success: true, message: 'Quote updated successfully', data: quote });
   } catch (error: any) {
-    if (error?.status) return res.status(error.status).json({ success: false, message: error.message });
+    if (error?.status) return res.status(error.status).json(error.body ?? { success: false, message: error.message });
     if (error.name === 'CastError') return res.status(400).json({ success: false, message: 'Invalid quote ID' });
     if (error.name === 'ValidationError') return res.status(400).json({ success: false, message: error.message });
     console.error('Update quote error:', error);
@@ -295,6 +301,9 @@ export const convertQuote = async (req: AuthRequest, res: Response) => {
 
     const invoice = await Invoice.create({
       invoiceNumber,
+      // Same currency; a foreign quote is invoiced at today's recorded rate (or the quote's).
+      currency: quote.currency ?? 'DOP',
+      exchangeRate: quote.currency && quote.currency !== 'DOP' ? (await latestRate(quote.currency)) ?? quote.exchangeRate : 1,
       customer: quote.isIndividual ? undefined : quote.customer,
       isIndividual: quote.isIndividual,
       individualCustomer: quote.isIndividual ? quote.individualCustomer : undefined,

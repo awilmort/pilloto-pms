@@ -92,6 +92,9 @@ export const PMS_PERMISSIONS = [
   'admin.amenities',
   'admin.eventTypes',
   'admin.media',
+
+  // Pilloto subscription: plan, products, charges and online payment (also `accounting.subscription`)
+  'admin.subscription',
 ] as const;
 
 /**
@@ -132,6 +135,9 @@ export const ACCOUNTING_PERMISSIONS = [
 
   'accounting.accounts.manage',
 
+  'accounting.banks.view',
+  'accounting.banks.manage',
+
   'accounting.journal.view',
   'accounting.journal.manage',
 
@@ -140,6 +146,9 @@ export const ACCOUNTING_PERMISSIONS = [
   'accounting.settings.manage',
   'accounting.users',
   'accounting.roles',
+
+  // Pilloto subscription: plan, products, charges and online payment (also `admin.subscription`)
+  'accounting.subscription',
 ] as const;
 
 export type PmsPermission = (typeof PMS_PERMISSIONS)[number];
